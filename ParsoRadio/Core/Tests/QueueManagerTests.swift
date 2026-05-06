@@ -5,8 +5,8 @@ final class QueueManagerTests: XCTestCase {
     private var db: DatabaseService!
     private var queue: QueueManager!
 
-    override func setUp() throws {
-        super.setUp()
+    override func setUpWithError() throws {
+        try super.setUpWithError()
         db = try DatabaseService(path: ":memory:")
         queue = QueueManager(db: db)
     }

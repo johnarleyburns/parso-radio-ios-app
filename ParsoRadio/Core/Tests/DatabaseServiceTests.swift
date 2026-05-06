@@ -4,8 +4,8 @@ import XCTest
 final class DatabaseServiceTests: XCTestCase {
     private var db: DatabaseService!
 
-    override func setUp() throws {
-        super.setUp()
+    override func setUpWithError() throws {
+        try super.setUpWithError()
         db = try DatabaseService(path: ":memory:")
     }
 
