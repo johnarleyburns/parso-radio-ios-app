@@ -71,7 +71,7 @@ final class InternetArchiveServiceTests: XCTestCase {
                "creator":"Johann Sebastian Bach",
                "subject":["strings"],
                "licenseurl":"https://creativecommons.org/licenses/by-nc/4.0/",
-               "year":1920,"collection":["audio"]}
+               "year":1980,"collection":["audio"]}
             ]}}
             """
             let data = json.data(using: .utf8)!
