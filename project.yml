@@ -1,0 +1,121 @@
+name: ParsoRadio
+options:
+  bundleIdPrefix: com.parso
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.4"
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1"
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+    INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+    INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+  configs:
+    Debug:
+      CODE_SIGNING_ALLOWED: NO
+    Release:
+      CODE_SIGNING_REQUIRED: YES
+      CODE_SIGNING_ALLOWED: YES
+
+packages:
+  SQLite:
+    url: https://github.com/stephencelis/SQLite.swift
+    from: "0.15.0"
+    settings:
+      base:
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+        TARGETED_DEVICE_FAMILY: "1"
+
+targets:
+  ParsoRadio:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ParsoRadio
+        excludes:
+          - "**/.DS_Store"
+          - "**/Tests/**"
+          - "**/*Tests.swift"
+          - "**/*Mock*.swift"
+          - "**/LinuxStubs/**"
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleShortVersionString: "1.0.0"
+        INFOPLIST_KEY_CFBundleVersion: "1"
+        PRODUCT_BUNDLE_IDENTIFIER: guru.parso.ios-radio-app
+        INFOPLIST_KEY_CFBundleDisplayName: Parso Radio
+        INFOPLIST_KEY_CFBundleIconName: AppIcon
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+        ENABLE_TESTABILITY: YES
+        INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers: "com.parso.radio.refresh"
+        INFOPLIST_KEY_UIBackgroundModes: "audio fetch"
+      configs:
+        Debug:
+          CODE_SIGN_STYLE: Automatic
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "$(CI_CERT)"
+          DEVELOPMENT_TEAM: "$(CI_TEAM)"
+          PROVISIONING_PROFILE_SPECIFIER: "$(CI_PROFILE)"
+          INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+    dependencies:
+      - package: SQLite
+
+  ParsoRadioTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ParsoRadio/Core/Tests
+        excludes:
+          - "**/LinuxStubs/**"
+    dependencies:
+      - target: ParsoRadio
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleShortVersionString: "1.0.0"
+        INFOPLIST_KEY_CFBundleVersion: "1"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/ParsoRadio.app/ParsoRadio"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+schemes:
+  ParsoRadio:
+    build:
+      targets:
+        ParsoRadio: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - ParsoRadioTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
+  ParsoRadioTests:
+    build:
+      targets:
+        ParsoRadioTests: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    archive:
+      config: Release
