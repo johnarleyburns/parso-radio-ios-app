@@ -5,8 +5,8 @@ struct LicenseValidator {
         if collection == "musopen" { return .cc0 }
         if let year, year < 1923 { return .publicDomain }
         guard let url = licenseURL?.lowercased() else { return .rejected }
-        if url.contains("publicdomain") { return .publicDomain }
         if url.contains("zero") { return .cc0 }
+        if url.contains("publicdomain") { return .publicDomain }
         if url.contains("licenses/by/")
             && !url.contains("by-nc")
             && !url.contains("by-sa")
