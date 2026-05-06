@@ -24,22 +24,8 @@ jobs:
       - name: Accept Xcode License
         run: sudo xcodebuild -license accept
 
-      - name: Cache XcodeGen
-        id: cache-xcodegen
-        uses: actions/cache@v4
-        with:
-          path: xcodegen
-          key: xcodegen-2.45.3
-
       - name: Install XcodeGen
-        if: steps.cache-xcodegen.outputs.cache-hit != 'true'
-        run: |
-          curl -sL https://github.com/yonaskolb/XcodeGen/releases/download/2.45.3/xcodegen.zip \
-            -o xcodegen.zip
-          unzip -o xcodegen.zip
-
-      - name: Add XcodeGen to PATH
-        run: echo "${GITHUB_WORKSPACE}/xcodegen/bin" >> $GITHUB_PATH
+        run: brew install xcodegen
 
       - name: Generate Xcode Project
         run: xcodegen generate
@@ -143,22 +129,8 @@ jobs:
       - name: Accept Xcode License
         run: sudo xcodebuild -license accept
 
-      - name: Cache XcodeGen
-        id: cache-xcodegen
-        uses: actions/cache@v4
-        with:
-          path: xcodegen
-          key: xcodegen-2.45.3
-
       - name: Install XcodeGen
-        if: steps.cache-xcodegen.outputs.cache-hit != 'true'
-        run: |
-          curl -sL https://github.com/yonaskolb/XcodeGen/releases/download/2.45.3/xcodegen.zip \
-            -o xcodegen.zip
-          unzip -o xcodegen.zip
-
-      - name: Add XcodeGen to PATH
-        run: echo "${GITHUB_WORKSPACE}/xcodegen/bin" >> $GITHUB_PATH
+        run: brew install xcodegen
 
       - name: Import Certificate
         env:
