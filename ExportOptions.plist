@@ -9,7 +9,7 @@
     <key>signingStyle</key>
     <string>manual</string>
     <key>signingCertificate</key>
-    <string>iPhone Distribution</string>
+    <string>Apple Distribution</string>
     <key>provisioningProfiles</key>
     <dict>
         <key>guru.parso.ios-radio-app</key>

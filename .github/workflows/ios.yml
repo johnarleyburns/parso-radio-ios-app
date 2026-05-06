@@ -190,7 +190,7 @@ jobs:
             ARCHS=arm64 \
             IPHONEOS_DEPLOYMENT_TARGET=17.0 \
             CI_TEAM="$TEAM_ID" \
-            CI_CERT="iPhone Distribution" \
+            CI_CERT="Apple Distribution" \
             CI_PROFILE="Parso Radio App Store" \
             2>&1 | tee build.log
           if [ ! -d "./build/ParsoRadio.xcarchive" ]; then
