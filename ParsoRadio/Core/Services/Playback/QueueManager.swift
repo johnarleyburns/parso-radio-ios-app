@@ -9,13 +9,11 @@ final class QueueManager {
         self.db = db
     }
 
-    func nextTrack(channel: Channel) -> Track? {
-        var pool = db.fetchTracks(forChannel: channel)
+    func nextTrack(channel: Channel) async -> Track? {
+        var pool = await db.fetchTracks(forChannel: channel)
+            .filter { !recentIDs.contains($0.id) }
 
-        // Remove recently played
-        pool = pool.filter { !recentIDs.contains($0.id) }
-
-        // Expand to similar composers if pool is thin
+        // Expand to similar composers when pool is thin
         if pool.count < 20, !channel.composers.isEmpty {
             let expanded = channel.composers
                 .flatMap { ComposerMap.similarity[$0] ?? [] }
@@ -27,7 +25,7 @@ final class QueueManager {
                 tags: channel.tags,
                 isDownloaded: false
             )
-            let extra = db.fetchTracks(forChannel: expandedChannel)
+            let extra = await db.fetchTracks(forChannel: expandedChannel)
                 .filter { !recentIDs.contains($0.id) }
             pool.append(contentsOf: extra)
         }
@@ -42,7 +40,7 @@ final class QueueManager {
                 tags: channel.tags,
                 isDownloaded: false
             )
-            pool = db.fetchTracks(forChannel: tagChannel)
+            pool = await db.fetchTracks(forChannel: tagChannel)
                 .filter { !recentIDs.contains($0.id) }
         }
 

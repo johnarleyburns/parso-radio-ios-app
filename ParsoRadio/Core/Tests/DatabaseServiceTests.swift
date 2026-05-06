@@ -9,75 +9,67 @@ final class DatabaseServiceTests: XCTestCase {
         db = try DatabaseService(path: ":memory:")
     }
 
-    func testSaveAndFetchTracks() throws {
+    func testSaveAndFetchTracks() async throws {
         let track = makeTrack(id: "t1", composer: "bach", instruments: ["strings"])
-        db.saveTracks([track])
-        // Allow serial queue to flush
-        Thread.sleep(forTimeInterval: 0.05)
+        await db.saveTracks([track])
 
         let channel = Channel.defaults.first { $0.id == "bach-vivaldi-strings" }!
-        let fetched = db.fetchTracks(forChannel: channel)
+        let fetched = await db.fetchTracks(forChannel: channel)
         XCTAssertEqual(fetched.count, 1)
         XCTAssertEqual(fetched[0].id, "t1")
     }
 
-    func testChannelFilterExcludesNonMatchingComposer() throws {
-        db.saveTracks([
+    func testChannelFilterExcludesNonMatchingComposer() async throws {
+        await db.saveTracks([
             makeTrack(id: "bach-1",   composer: "bach",   instruments: ["strings"]),
             makeTrack(id: "chopin-1", composer: "chopin", instruments: ["piano"]),
         ])
-        Thread.sleep(forTimeInterval: 0.05)
 
         let bachChannel = Channel.defaults.first { $0.id == "bach-vivaldi-strings" }!
-        let results = db.fetchTracks(forChannel: bachChannel)
+        let results = await db.fetchTracks(forChannel: bachChannel)
         XCTAssertTrue(results.allSatisfy { $0.composer == "bach" || $0.composer == "vivaldi" })
         XCTAssertFalse(results.contains { $0.id == "chopin-1" })
     }
 
-    func testMarkDownloaded() throws {
+    func testMarkDownloaded() async throws {
         let track = makeTrack(id: "dl-1", composer: "chopin", instruments: ["piano"])
-        db.saveTracks([track])
-        Thread.sleep(forTimeInterval: 0.05)
-
-        db.markDownloaded(trackID: "dl-1", localPath: "/tmp/dl-1.mp3")
-        Thread.sleep(forTimeInterval: 0.05)
+        await db.saveTracks([track])
+        await db.markDownloaded(trackID: "dl-1", localPath: "/tmp/dl-1.mp3")
 
         let channel = Channel.defaults.first { $0.id == "chopin-rachmaninoff-piano" }!
-        let downloaded = db.fetchDownloadedTracks(forChannel: channel)
+        let downloaded = await db.fetchDownloadedTracks(forChannel: channel)
         XCTAssertEqual(downloaded.count, 1)
         XCTAssertEqual(downloaded[0].localFilePath, "/tmp/dl-1.mp3")
     }
 
-    func testLowConfidenceTracksExcludedFromComposerChannel() throws {
-        let lowConf = makeTrack(id: "low-1", composer: "bach", instruments: [], confidence: 1.0)
+    func testLowConfidenceTracksExcludedFromComposerChannel() async throws {
+        let lowConf  = makeTrack(id: "low-1",  composer: "bach", instruments: [],         confidence: 1.0)
         let highConf = makeTrack(id: "high-1", composer: "bach", instruments: ["strings"], confidence: 3.0)
-        db.saveTracks([lowConf, highConf])
-        Thread.sleep(forTimeInterval: 0.05)
+        await db.saveTracks([lowConf, highConf])
 
         let channel = Channel.defaults.first { $0.id == "bach-vivaldi-strings" }!
-        let results = db.fetchTracks(forChannel: channel)
+        let results = await db.fetchTracks(forChannel: channel)
         XCTAssertFalse(results.contains { $0.id == "low-1" })
-        XCTAssertTrue(results.contains { $0.id == "high-1" })
+        XCTAssertTrue(results.contains  { $0.id == "high-1" })
     }
 
-    func testTrackCount() throws {
-        db.saveTracks([
+    func testTrackCount() async throws {
+        await db.saveTracks([
             makeTrack(id: "c1", composer: "bach",   instruments: ["strings"]),
             makeTrack(id: "c2", composer: "chopin", instruments: ["piano"]),
         ])
-        Thread.sleep(forTimeInterval: 0.05)
-        XCTAssertEqual(db.trackCount(), 2)
+        let count = await db.trackCount()
+        XCTAssertEqual(count, 2)
     }
 
-    func testReplaceOnConflict() throws {
-        let original = makeTrack(id: "dup", composer: "bach", instruments: ["strings"])
+    func testReplaceOnConflict() async throws {
+        let original = makeTrack(id: "dup", composer: "bach",    instruments: ["strings"])
         let updated  = makeTrack(id: "dup", composer: "vivaldi", instruments: ["strings"])
-        db.saveTracks([original])
-        Thread.sleep(forTimeInterval: 0.05)
-        db.saveTracks([updated])
-        Thread.sleep(forTimeInterval: 0.05)
+        await db.saveTracks([original])
+        await db.saveTracks([updated])
 
-        XCTAssertEqual(db.trackCount(), 1)
+        let count = await db.trackCount()
+        XCTAssertEqual(count, 1)
     }
 
     // MARK: - Helpers

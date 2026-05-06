@@ -1,6 +1,6 @@
 import Foundation
 
-struct Channel: Codable, Identifiable {
+struct Channel: Codable, Identifiable, Hashable {
     let id: String
     let name: String
     let composers: [String]

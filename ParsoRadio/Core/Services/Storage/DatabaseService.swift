@@ -5,7 +5,6 @@ final class DatabaseService {
     private let db: Connection
     private let queue = DispatchQueue(label: "guru.parso.db", qos: .utility)
 
-    // Tracks table
     private let tracks        = Table("tracks")
     private let colId         = Expression<String>("id")
     private let colSource     = Expression<String>("source")
@@ -60,73 +59,88 @@ final class DatabaseService {
 
     // MARK: - Write
 
-    func saveTracks(_ newTracks: [Track]) {
-        queue.async { [weak self] in
-            guard let self else { return }
-            for t in newTracks {
-                let insert = self.tracks.insert(or: .replace,
-                    self.colId          <- t.id,
-                    self.colSource      <- t.source,
-                    self.colTitle       <- t.title,
-                    self.colArtist      <- t.artist,
-                    self.colDuration    <- t.duration,
-                    self.colStreamURL   <- t.streamURL.absoluteString,
-                    self.colDownURL     <- t.downloadURL?.absoluteString,
-                    self.colLocalPath   <- t.localFilePath,
-                    self.colLicense     <- t.license.rawValue,
-                    self.colTags        <- Self.encode(t.tags),
-                    self.colQuality     <- t.qualityScore,
-                    self.colRawCreator  <- t.rawCreator,
-                    self.colComposer    <- t.composer,
-                    self.colInstruments <- Self.encode(t.instruments),
-                    self.colConfidence  <- t.metadataConfidence,
-                    self.colFetchedAt   <- Int64(Date().timeIntervalSince1970)
-                )
-                try? self.db.run(insert)
+    func saveTracks(_ newTracks: [Track]) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                for t in newTracks {
+                    let insert = self.tracks.insert(or: .replace,
+                        self.colId          <- t.id,
+                        self.colSource      <- t.source,
+                        self.colTitle       <- t.title,
+                        self.colArtist      <- t.artist,
+                        self.colDuration    <- t.duration,
+                        self.colStreamURL   <- t.streamURL.absoluteString,
+                        self.colDownURL     <- t.downloadURL?.absoluteString,
+                        self.colLocalPath   <- t.localFilePath,
+                        self.colLicense     <- t.license.rawValue,
+                        self.colTags        <- Self.encode(t.tags),
+                        self.colQuality     <- t.qualityScore,
+                        self.colRawCreator  <- t.rawCreator,
+                        self.colComposer    <- t.composer,
+                        self.colInstruments <- Self.encode(t.instruments),
+                        self.colConfidence  <- t.metadataConfidence,
+                        self.colFetchedAt   <- Int64(Date().timeIntervalSince1970)
+                    )
+                    try? self.db.run(insert)
+                }
+                continuation.resume()
             }
         }
     }
 
-    func markDownloaded(trackID: String, localPath: String) {
-        queue.async { [weak self] in
-            guard let self else { return }
-            let row = self.tracks.filter(self.colId == trackID)
-            try? self.db.run(row.update(self.colLocalPath <- localPath))
+    func markDownloaded(trackID: String, localPath: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let row = self.tracks.filter(self.colId == trackID)
+                try? self.db.run(row.update(self.colLocalPath <- localPath))
+                continuation.resume()
+            }
         }
     }
 
     // MARK: - Read
 
-    func fetchTracks(forChannel channel: Channel) -> [Track] {
-        queue.sync {
-            var query = tracks.filter(colConfidence >= 1.5)
-            if let firstComposer = channel.composers.first, !channel.composers.isEmpty {
-                query = query.filter(channel.composers.contains(colComposer ?? ""))
+    func fetchTracks(forChannel channel: Channel) async -> [Track] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                var query = self.tracks.filter(self.colConfidence >= 1.5)
+                if !channel.composers.isEmpty {
+                    query = query.filter(channel.composers.contains(self.colComposer ?? ""))
+                }
+                query = query.order(self.colConfidence.desc, self.colQuality.desc)
+                let rows = (try? self.db.prepare(query)) ?? AnySequence([])
+                let result = rows.compactMap(self.rowToTrack).filter { channel.matches($0) }
+                continuation.resume(returning: result)
             }
-            query = query.order(colConfidence.desc, colQuality.desc)
-            let rows = (try? db.prepare(query)) ?? AnySequence([])
-            return rows.compactMap(rowToTrack).filter { channel.matches($0) }
         }
     }
 
-    func fetchDownloadedTracks(forChannel channel: Channel) -> [Track] {
-        queue.sync {
-            var query = tracks
-                .filter(colLocalPath != nil)
-                .filter(colConfidence >= 1.5)
-            if !channel.composers.isEmpty {
-                query = query.filter(channel.composers.contains(colComposer ?? ""))
+    func fetchDownloadedTracks(forChannel channel: Channel) async -> [Track] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                var query = self.tracks
+                    .filter(self.colLocalPath != nil)
+                    .filter(self.colConfidence >= 1.5)
+                if !channel.composers.isEmpty {
+                    query = query.filter(channel.composers.contains(self.colComposer ?? ""))
+                }
+                let rows = (try? self.db.prepare(query)) ?? AnySequence([])
+                let result = rows.compactMap(self.rowToTrack).filter { channel.matches($0) }
+                continuation.resume(returning: result)
             }
-            let rows = (try? db.prepare(query)) ?? AnySequence([])
-            return rows.compactMap(rowToTrack).filter { channel.matches($0) }
         }
     }
 
-    func trackCount() -> Int {
-        (try? db.scalar(tracks.count)) ?? 0
+    func trackCount() async -> Int {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let count = (try? self.db.scalar(self.tracks.count)) ?? 0
+                continuation.resume(returning: count)
+            }
+        }
     }
 
-    // MARK: - Helpers
+    // MARK: - Private
 
     private func rowToTrack(_ row: Row) -> Track? {
         guard let streamURL = URL(string: row[colStreamURL]) else { return nil }

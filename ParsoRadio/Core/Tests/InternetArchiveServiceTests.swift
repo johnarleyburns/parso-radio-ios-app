@@ -106,6 +106,42 @@ final class InternetArchiveServiceTests: XCTestCase {
         XCTAssertEqual(tracks[0].composer, "vivaldi")
     }
 
+    func testResolveAudioURLFindsFirstMP3() async throws {
+        MockURLProtocol.requestHandler = { _ in
+            let json = """
+            {"files":[
+              {"name":"cover.jpg","format":"JPEG"},
+              {"name":"track.mp3","format":"VBR MP3"},
+              {"name":"track_64.mp3","format":"64Kbps MP3"}
+            ]}
+            """
+            let data = json.data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+
+        let service = InternetArchiveService(session: session)
+        let url = try await service.resolveAudioURL(for: "test-item")
+        XCTAssertEqual(url.absoluteString, "https://archive.org/download/test-item/track.mp3")
+    }
+
+    func testResolveAudioURLThrowsWhenNoAudioFile() async {
+        MockURLProtocol.requestHandler = { _ in
+            let json = """{"files":[{"name":"cover.jpg","format":"JPEG"}]}"""
+            let data = json.data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+
+        let service = InternetArchiveService(session: session)
+        do {
+            _ = try await service.resolveAudioURL(for: "test-item")
+            XCTFail("Expected throw")
+        } catch {
+            XCTAssertTrue(error is URLError)
+        }
+    }
+
     func testNetworkErrorThrows() async {
         MockURLProtocol.requestHandler = { _ in throw URLError(.notConnectedToInternet) }
         let service = InternetArchiveService(session: session)

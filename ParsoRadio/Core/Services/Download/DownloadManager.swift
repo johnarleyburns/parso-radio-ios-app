@@ -1,12 +1,8 @@
 import Foundation
 
-final class DownloadManager: NSObject {
+final class DownloadManager {
     private let db: DatabaseService
     private let fileStorage = FileStorageService()
-    private var activeTasks: [String: URLSessionDownloadTask] = [:]
-    private let lock = NSLock()
-
-    @Published var progress: [String: Double] = [:]
 
     init(db: DatabaseService) {
         self.db = db
@@ -15,7 +11,7 @@ final class DownloadManager: NSObject {
     func download(track: Track) async {
         let dest = fileStorage.localURL(for: track.id)
         if FileManager.default.fileExists(atPath: dest.path) {
-            db.markDownloaded(trackID: track.id, localPath: dest.path)
+            await db.markDownloaded(trackID: track.id, localPath: dest.path)
             return
         }
 
@@ -26,7 +22,7 @@ final class DownloadManager: NSObject {
             let dir = dest.deletingLastPathComponent()
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             try? FileManager.default.moveItem(at: tmpURL, to: dest)
-            db.markDownloaded(trackID: track.id, localPath: dest.path)
+            await db.markDownloaded(trackID: track.id, localPath: dest.path)
         } catch {
             // Download failed — track remains stream-only
         }

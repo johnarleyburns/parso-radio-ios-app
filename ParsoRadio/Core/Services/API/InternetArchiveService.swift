@@ -83,9 +83,32 @@ struct InternetArchiveService {
         }
     }
 
+    func resolveAudioURL(for identifier: String) async throws -> URL {
+        guard let encodedId = identifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let metaURL = URL(string: "https://archive.org/metadata/\(encodedId)") else {
+            throw URLError(.badURL)
+        }
+        let (data, _) = try await session.data(from: metaURL)
+
+        struct IAMeta: Decodable {
+            struct IAFile: Decodable { let name: String; let format: String? }
+            let files: [IAFile]
+        }
+
+        let meta = try JSONDecoder().decode(IAMeta.self, from: data)
+        let preferredFormats = ["VBR MP3", "128Kbps MP3", "64Kbps MP3", "MP3", "Ogg Vorbis"]
+        for format in preferredFormats {
+            if let file = meta.files.first(where: { $0.format == format }) {
+                let encoded = file.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? file.name
+                return URL(string: "https://archive.org/download/\(encodedId)/\(encoded)")!
+            }
+        }
+        throw URLError(.unsupportedURL)
+    }
+
     private func mapDoc(_ doc: IADoc, musopenCollection: Bool) -> Track? {
-        let collectionFirst = doc.collection.first
-        let isMuso = musopenCollection || collectionFirst == "musopen"
+        // Use .contains rather than .first == to catch musopen at any position
+        let isMuso = musopenCollection || doc.collection.contains("musopen")
 
         let (composer, instruments, confidence) = normalizer.normalize(
             creator: doc.creator,
@@ -100,7 +123,7 @@ struct InternetArchiveService {
         let license = validator.validate(
             licenseURL: doc.licenseurl,
             year: doc.year,
-            collection: isMuso ? "musopen" : collectionFirst
+            collection: isMuso ? "musopen" : doc.collection.first
         )
         guard license != .rejected else { return nil }
 
