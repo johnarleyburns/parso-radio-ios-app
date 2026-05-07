@@ -37,7 +37,12 @@ struct ChannelListView: View {
 
                         VStack(spacing: 8) {
                             ForEach(Channel.defaults.filter { $0.category == category }) { channel in
-                                ChannelRow(channel: channel, isActive: playerVM.currentChannel?.id == channel.id) {
+                                let isActive = playerVM.currentChannel?.id == channel.id
+                                ChannelRow(
+                                    channel: channel,
+                                    isActive: isActive,
+                                    isLoading: isActive && playerVM.isLoading
+                                ) {
                                     selectedChannel = channel
                                 }
                             }
@@ -79,13 +84,18 @@ struct ChannelListView: View {
 
                 Spacer()
 
-                Button {
-                    playerVM.togglePlayPause()
-                } label: {
-                    Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.primary)
+                if playerVM.isLoading {
+                    ProgressView()
                         .frame(width: 44, height: 44)
+                } else {
+                    Button {
+                        playerVM.togglePlayPause()
+                    } label: {
+                        Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.primary)
+                            .frame(width: 44, height: 44)
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -103,6 +113,7 @@ struct ChannelListView: View {
 private struct ChannelRow: View {
     let channel: Channel
     let isActive: Bool
+    let isLoading: Bool
     let action: () -> Void
 
     var body: some View {
@@ -125,10 +136,15 @@ private struct ChannelRow: View {
                 Spacer()
 
                 if isActive {
-                    Image(systemName: "waveform")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .symbolEffect(.variableColor.iterative)
+                    if isLoading {
+                        ProgressView()
+                            .scaleEffect(0.75)
+                    } else {
+                        Image(systemName: "waveform")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .symbolEffect(.variableColor.iterative)
+                    }
                 }
 
                 Image(systemName: "chevron.right")

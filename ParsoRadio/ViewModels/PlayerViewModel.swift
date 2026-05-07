@@ -5,6 +5,7 @@ final class PlayerViewModel: ObservableObject {
     @Published var currentTrack: Track?
     @Published var isPlaying: Bool = false
     @Published var isLoading: Bool = false
+    @Published var loadingMessage: String?
     @Published var errorMessage: String?
 
     let audioPlayer: AudioPlayerService
@@ -15,6 +16,9 @@ final class PlayerViewModel: ObservableObject {
     private let queueManager: QueueManager
     private let downloadManager: DownloadManager
     private(set) var currentChannel: Channel?
+
+    // Look-ahead cache: pre-resolved IA audio URLs so track transitions are gap-free.
+    private var prefetchedURLs: [String: URL] = [:]
 
     init(
         db: DatabaseService,
@@ -41,6 +45,7 @@ final class PlayerViewModel: ObservableObject {
     func load(channel: Channel) async {
         currentChannel = channel
         isLoading = true
+        loadingMessage = "Finding tracks…"
         errorMessage = nil
 
         do {
@@ -83,8 +88,10 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
+        loadingMessage = "Starting playback…"
         await advanceToNext()
         isLoading = false
+        loadingMessage = nil
     }
 
     func togglePlayPause() {
@@ -122,7 +129,11 @@ final class PlayerViewModel: ObservableObject {
     private func playTrack(_ track: Track) async {
         currentTrack = track
         isLoading = true
-        defer { isLoading = false }
+        loadingMessage = track.source == "internet_archive" ? "Buffering…" : "Loading…"
+        defer {
+            isLoading = false
+            loadingMessage = nil
+        }
 
         do {
             let url: URL
@@ -130,7 +141,12 @@ final class PlayerViewModel: ObservableObject {
                FileManager.default.fileExists(atPath: localPath) {
                 url = URL(fileURLWithPath: localPath)
             } else if track.source == "internet_archive" {
-                url = try await archiveService.resolveAudioURL(for: track.id)
+                // Use pre-resolved URL from look-ahead cache when available.
+                if let cached = prefetchedURLs.removeValue(forKey: track.id) {
+                    url = cached
+                } else {
+                    url = try await archiveService.resolveAudioURL(for: track.id)
+                }
             } else {
                 // FMA and other sources store a directly playable stream URL.
                 url = track.streamURL
@@ -138,9 +154,23 @@ final class PlayerViewModel: ObservableObject {
             audioPlayer.play(url: url, track: track)
             isPlaying = true
             errorMessage = nil
+
+            // Fire-and-forget: pre-resolve the next IA track's URL while this one plays.
+            if let channel = currentChannel {
+                Task { await prefetchNextURL(channel: channel) }
+            }
         } catch {
             errorMessage = "Could not load \"\(track.title)\"."
             isPlaying = false
+        }
+    }
+
+    private func prefetchNextURL(channel: Channel) async {
+        guard let next = await queueManager.peekNextTrack(channel: channel),
+              next.source == "internet_archive",
+              prefetchedURLs[next.id] == nil else { return }
+        if let url = try? await archiveService.resolveAudioURL(for: next.id) {
+            prefetchedURLs[next.id] = url
         }
     }
 }

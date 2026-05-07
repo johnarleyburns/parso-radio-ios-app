@@ -34,12 +34,20 @@ final class ChannelTests: XCTestCase {
         XCTAssertFalse(channel.matches(noComposer))
     }
 
-    func testGenreChannelMatchesAnyComposer() {
+    func testTagChannelMatchesByTag() {
         let classical = Channel.defaults.first { $0.id == "classical" }!
-        let anyComposer = makeTrack(composer: "bach", instruments: [])
-        let noComposer = makeTrack(composer: nil, instruments: [])
-        XCTAssertTrue(classical.matches(anyComposer))
-        XCTAssertTrue(classical.matches(noComposer))
+        let classicalTrack = makeTrack(composer: "bach", instruments: [], tags: ["classical"])
+        let rockTrack     = makeTrack(composer: nil,   instruments: [], tags: ["rock"])
+        let noTagTrack    = makeTrack(composer: nil,   instruments: [], tags: [])
+        XCTAssertTrue(classical.matches(classicalTrack), "Classical track should match classical channel")
+        XCTAssertFalse(classical.matches(rockTrack),    "Rock track should not match classical channel")
+        XCTAssertFalse(classical.matches(noTagTrack),   "Untagged track should not match classical channel")
+    }
+
+    func testTagChannelDoesNotMatchWrongGenre() {
+        let country = Channel.defaults.first { $0.id == "country" }!
+        let rachTrack = makeTrack(composer: "rachmaninoff", instruments: ["piano"], tags: ["classical"])
+        XCTAssertFalse(country.matches(rachTrack), "Rachmaninoff track must not appear in Country channel")
     }
 
     func testChannelCodableRoundtrip() throws {
@@ -54,7 +62,7 @@ final class ChannelTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeTrack(composer: String?, instruments: [String]) -> Track {
+    private func makeTrack(composer: String?, instruments: [String], tags: [String] = []) -> Track {
         Track(
             id: UUID().uuidString,
             source: "internet_archive",
@@ -65,7 +73,7 @@ final class ChannelTests: XCTestCase {
             downloadURL: nil,
             localFilePath: nil,
             license: .publicDomain,
-            tags: [],
+            tags: tags,
             qualityScore: 1.0,
             rawCreator: composer ?? "",
             composer: composer,

@@ -11,6 +11,12 @@ struct Channel: Codable, Identifiable, Hashable {
     var isDownloaded: Bool
 
     func matches(_ track: Track) -> Bool {
+        // Tag-only channels (no composer/instrument constraints) must match by tag —
+        // otherwise every track in the DB satisfies the empty-array conditions and
+        // e.g. Country Road ends up playing Rachmaninoff.
+        if composers.isEmpty && instruments.isEmpty {
+            return tags.isEmpty || tags.contains(where: { track.tags.contains($0) })
+        }
         let composerMatch = composers.isEmpty || composers.contains(track.composer ?? "")
         let instrumentMatch = instruments.isEmpty
             || instruments.contains(where: { track.instruments.contains($0) })

@@ -9,6 +9,15 @@ final class QueueManager {
         self.db = db
     }
 
+    // Returns the next track that would be picked without advancing the queue.
+    // Used for look-ahead URL pre-resolution while the current track is playing.
+    func peekNextTrack(channel: Channel) async -> Track? {
+        var pool = await db.fetchTracks(forChannel: channel)
+            .filter { !recentIDs.contains($0.id) }
+        if pool.isEmpty { return nil }
+        return weightedRandom(from: pool, seed: dailySeed(for: channel) &+ 1)
+    }
+
     func nextTrack(channel: Channel) async -> Track? {
         var pool = await db.fetchTracks(forChannel: channel)
             .filter { !recentIDs.contains($0.id) }

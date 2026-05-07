@@ -46,9 +46,16 @@ struct PlayerView: View {
                 .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
 
             if playerVM.isLoading && playerVM.currentTrack == nil {
-                ProgressView()
-                    .tint(.white)
-                    .scaleEffect(1.5)
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.5)
+                    if let msg = playerVM.loadingMessage {
+                        Text(msg)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                }
             } else {
                 Image(systemName: channel.icon)
                     .font(.system(size: 80, weight: .light))
@@ -81,11 +88,22 @@ struct PlayerView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                HStack(spacing: 8) {
-                    licenseTag(track.license)
-                    sourceTag(track.source)
+                if playerVM.isLoading, let msg = playerVM.loadingMessage {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                        Text(msg)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 2)
+                } else {
+                    HStack(spacing: 8) {
+                        licenseTag(track.license)
+                        sourceTag(track.source)
+                    }
+                    .padding(.top, 4)
                 }
-                .padding(.top, 4)
             }
         } else if !playerVM.isLoading {
             Text("No tracks available")
