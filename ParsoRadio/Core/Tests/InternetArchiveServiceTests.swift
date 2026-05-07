@@ -127,7 +127,9 @@ final class InternetArchiveServiceTests: XCTestCase {
 
     func testResolveAudioURLThrowsWhenNoAudioFile() async {
         MockURLProtocol.requestHandler = { _ in
-            let json = """{"files":[{"name":"cover.jpg","format":"JPEG"}]}"""
+            let json = """
+            {"files":[{"name":"cover.jpg","format":"JPEG"}]}
+            """
             let data = json.data(using: .utf8)!
             let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, data)
