@@ -23,13 +23,15 @@ struct InternetArchiveService {
         return try await search(query: query, musopenCollection: true, confidenceThreshold: 1.5)
     }
 
-    // Tag-only channels (Classical, Ambient) use threshold 0.0 — the license
-    // filter in the query already gates quality; we must not also require a
-    // recognised composer (Beethoven/Mozart are not in ComposerMap).
+    // Tag-only channels (Classical, Ambient): threshold 0.0 because these channels
+    // intentionally include composers not in ComposerMap (Beethoven, Mozart, etc.).
+    // License filtering happens entirely in mapDoc via LicenseValidator — do NOT
+    // put licenseurl wildcards in the Solr query; leading wildcards (*word*) are
+    // disabled in Solr by default and cause the whole query to return an error
+    // response with no "response" key, making the JSON decode fail.
     func fetchTracks(tags: [String]) async throws -> [Track] {
         let tagClause = tags.map { "subject:\"\($0)\"" }.joined(separator: " OR ")
-        let licenseClause = "(licenseurl:*publicdomain* OR licenseurl:*zero* OR licenseurl:*licenses/by/*)"
-        let query = "mediatype:audio AND (\(tagClause)) AND \(licenseClause)"
+        let query = "mediatype:audio AND (\(tagClause))"
         return try await search(query: query, confidenceThreshold: 0.0)
     }
 
@@ -67,7 +69,7 @@ struct InternetArchiveService {
             .filter { composers.contains($0.value) }
             .keys.sorted()
         let creatorClause = aliases.map { "creator:\"\($0)\"" }.joined(separator: " OR ")
-        return "mediatype:audio AND (\(creatorClause)) AND (licenseurl:*publicdomain* OR licenseurl:*zero* OR licenseurl:*licenses/by/*)"
+        return "mediatype:audio AND (\(creatorClause))"
     }
 
     private func search(
