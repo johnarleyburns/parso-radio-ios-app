@@ -20,6 +20,8 @@ final class QueueManager {
             let expandedChannel = Channel(
                 id: channel.id + "-expanded",
                 name: channel.name,
+                category: channel.category,
+                icon: channel.icon,
                 composers: expanded,
                 instruments: channel.instruments,
                 tags: channel.tags,
@@ -35,6 +37,8 @@ final class QueueManager {
             let tagChannel = Channel(
                 id: channel.id + "-tag-fallback",
                 name: channel.name,
+                category: channel.category,
+                icon: channel.icon,
                 composers: [],
                 instruments: [],
                 tags: channel.tags,
