@@ -152,6 +152,21 @@ final class PlayerViewModel: ObservableObject {
         }
     }
 
+    func back() {
+        guard let channel = currentChannel else { return }
+        if channel.contentType == .spokenWord {
+            let target = max(0, currentPosition - 15)
+            audioPlayer.seek(to: target)
+            currentPosition = target
+        } else {
+            // Restart current track; no previous-track navigation for radio.
+            if currentPosition > 3 {
+                audioPlayer.seek(to: 0)
+                currentPosition = 0
+            }
+        }
+    }
+
     // MARK: - Private
 
     private func advanceToNext() async {

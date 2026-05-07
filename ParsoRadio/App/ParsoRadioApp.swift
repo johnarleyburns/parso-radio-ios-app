@@ -19,10 +19,30 @@ struct ParsoRadioApp: App {
         )
     }()
 
+    @AppStorage("tosAccepted") private var tosAccepted: Bool = false
+    @State private var showSplash: Bool = true
+    @State private var showTerms: Bool = false
+
     var body: some Scene {
         WindowGroup {
-            DialHomeView()
-                .environmentObject(playerVM)
+            ZStack {
+                iPodView()
+                    .environmentObject(playerVM)
+                    .opacity(showSplash || showTerms ? 0 : 1)
+
+                if showSplash {
+                    SplashView(isPresented: $showSplash)
+                        .zIndex(10)
+                        .onChange(of: showSplash) { _, isShowing in
+                            if !isShowing && !tosAccepted {
+                                showTerms = true
+                            }
+                        }
+                }
+            }
+            .fullScreenCover(isPresented: $showTerms) {
+                TermsView(isPresented: $showTerms)
+            }
         }
     }
 }
