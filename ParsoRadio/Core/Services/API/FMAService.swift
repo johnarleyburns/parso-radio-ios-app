@@ -10,12 +10,19 @@ struct FMAService {
     private let session: URLSession
     private let normalizer = MetadataNormalizer()
 
-    // Maps app tag names to FMA genre path segments.
+    // Maps app tag names to FMA genre path segments (curl-verified).
     static let genreMap: [String: String] = [
         "classical": "Classical",
         "ambient":   "Ambient",
         "baroque":   "Classical",
         "romantic":  "Classical",
+        "jazz":      "Jazz",
+        "blues":     "Blues",
+        "rock":      "Rock",
+        "country":   "Country",
+        "folk":      "Folk",
+        "acoustic":  "Folk",
+        "lo-fi":     "Ambient",
     ]
 
     init(session: URLSession = .shared) {
@@ -23,7 +30,7 @@ struct FMAService {
     }
 
     func fetchTracks(forChannel channel: Channel, page: Int = 1) async throws -> [Track] {
-        // Composer channels: fetch Classical genre and let channel.matches() filter later.
+        // Composer channels: fetch Classical genre; channel.matches() filters by composer later.
         // Tag channels: map the first recognised tag to an FMA genre.
         let genre: String
         if !channel.composers.isEmpty {
@@ -47,7 +54,8 @@ struct FMAService {
             throw URLError(.badURL)
         }
         let html = try await fetchHTML(url: url)
-        return parseTrackInfo(from: html, genre: genre)
+        let license: LicenseType = licenseFilter.contains("public-domain") ? .publicDomain : .ccBy
+        return parseTrackInfo(from: html, genre: genre, license: license)
     }
 
     private func fetchHTML(url: URL) async throws -> String {
@@ -65,29 +73,26 @@ struct FMAService {
         return html
     }
 
-    private func parseTrackInfo(from html: String, genre: String) -> [Track] {
+    private func parseTrackInfo(from html: String, genre: String, license: LicenseType) -> [Track] {
         // FMA embeds track metadata as data-track-info='{"id":...}' in the genre listing.
         // Each page contains up to 20 tracks.
         guard let regex = try? NSRegularExpression(pattern: #"data-track-info='([^']+)'"#) else {
             return []
         }
-        let range = NSRange(html.startIndex..., in: html)
-        let matches = regex.matches(in: html, range: range)
-
-        return matches.compactMap { match -> Track? in
+        let nsRange = NSRange(html.startIndex..., in: html)
+        return regex.matches(in: html, range: nsRange).compactMap { match -> Track? in
             guard let captureRange = Range(match.range(at: 1), in: html),
                   let data = html[captureRange].data(using: .utf8),
-                  let json = try? JSONDecoder().decode(FMATrackInfo.self, from: data)
+                  let info = try? JSONDecoder().decode(FMATrackInfo.self, from: data)
             else { return nil }
-            return mapTrack(json, genre: genre)
+            return mapTrack(info, genre: genre, license: license)
         }
     }
 
-    private func mapTrack(_ info: FMATrackInfo, genre: String) -> Track? {
+    private func mapTrack(_ info: FMATrackInfo, genre: String, license: LicenseType) -> Track? {
         guard let streamURL = URL(string: info.playbackUrl) else { return nil }
 
-        // Attempt composer extraction: FMA title often follows "ComposerName - WorkTitle".
-        // artistName is the performer, so we try the title first.
+        // FMA title often follows "ComposerName - WorkTitle"; artistName is the performer.
         let composer = extractComposer(from: info.title)
             ?? ComposerMap.normalize(info.artistName)
 
@@ -100,11 +105,6 @@ struct FMAService {
             year: nil,
             duration: nil
         )
-
-        // License is derived from the filter used at fetch time and set in the caller.
-        // We default to .publicDomain here since we only fetch PD and CC-BY pages.
-        // CC-BY content is accepted for this non-commercial app.
-        let license: LicenseType = .publicDomain
 
         return Track(
             id: "fma-\(info.id)",
@@ -126,21 +126,13 @@ struct FMAService {
     }
 
     // Tries to extract a known composer from a title like "Mozart - Symphony 40" or
-    // "F. Chopin Waltz No. 10". Checks prefixes of up to 4 words before the " - " divider
-    // and also prefixes of the full title.
+    // "F. Chopin Waltz No. 10". Checks up to 4-word prefixes before " - " then full title.
     private func extractComposer(from title: String) -> String? {
         var candidates: [String] = []
-
         let parts = title.components(separatedBy: " - ")
-        if let head = parts.first {
-            candidates += prefixes(of: head, maxWords: 4)
-        }
+        if let head = parts.first { candidates += prefixes(of: head, maxWords: 4) }
         candidates += prefixes(of: title, maxWords: 4)
-
-        for candidate in candidates {
-            if let c = ComposerMap.normalize(candidate) { return c }
-        }
-        return nil
+        return candidates.lazy.compactMap { ComposerMap.normalize($0) }.first
     }
 
     private func prefixes(of text: String, maxWords: Int) -> [String] {
@@ -152,9 +144,8 @@ struct FMAService {
 
 // MARK: - JSON model
 
+// id is serialised as a quoted string on genre listing pages (Int on individual track pages).
 private struct FMATrackInfo: Decodable {
-    // Genre listing pages serialise id as a quoted string; individual track pages use Int.
-    // We only parse genre listing pages, so String is correct here.
     let id: String
     let handle: String
     let title: String

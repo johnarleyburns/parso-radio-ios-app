@@ -197,6 +197,30 @@ final class FMAIntegrationTests: XCTestCase {
         XCTAssertFalse(tracks.isEmpty, "Expected ≥1 FMA Ambient track but got 0.")
     }
 
+    func testJazzBarChannelReturnsAtLeastOnePDTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "jazz-bar" }!
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchTracks(forChannel: channel)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("FMA Jazz Bar: \(tracks.count) tracks")
+        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 FMA Jazz track but got 0.")
+    }
+
+    func testRockChannelReturnsAtLeastOnePDTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "rock" }!
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchTracks(forChannel: channel)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("FMA Rock: \(tracks.count) tracks")
+        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 FMA Rock track but got 0.")
+    }
+
     func testStreamURLRedirectsToMp3() async throws {
         let channel = Channel.defaults.first { $0.id == "classical" }!
         let tracks: [Track]

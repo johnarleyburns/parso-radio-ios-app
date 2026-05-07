@@ -5,23 +5,29 @@ struct PlayerView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
 
     var body: some View {
-        VStack(spacing: 32) {
-            Spacer()
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: 32) {
+                    artwork
+                        .padding(.top, 32)
 
-            trackInfo
+                    trackInfo
 
-            controls
-                .disabled(playerVM.isLoading)
+                    controls
+                        .disabled(playerVM.isLoading)
 
-            if let msg = playerVM.errorMessage {
-                Text(msg)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+                    if let msg = playerVM.errorMessage {
+                        Text(msg)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+
+                    Spacer(minLength: 32)
+                }
+                .padding(.horizontal)
             }
-
-            Spacer()
         }
         .navigationTitle(channel.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -30,77 +36,144 @@ struct PlayerView: View {
         }
     }
 
+    // MARK: - Artwork
+
+    private var artwork: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 28)
+                .fill(categoryGradient(for: channel.category))
+                .frame(width: 260, height: 260)
+                .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
+
+            if playerVM.isLoading && playerVM.currentTrack == nil {
+                ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.5)
+            } else {
+                Image(systemName: channel.icon)
+                    .font(.system(size: 80, weight: .light))
+                    .foregroundStyle(.white.opacity(0.9))
+            }
+        }
+        .opacity(playerVM.isLoading && playerVM.currentTrack != nil ? 0.75 : 1)
+        .animation(.easeInOut(duration: 0.3), value: playerVM.isLoading)
+    }
+
+    // MARK: - Track info
+
     @ViewBuilder
     private var trackInfo: some View {
-        if playerVM.isLoading && playerVM.currentTrack == nil {
-            ProgressView()
-                .scaleEffect(1.5)
-        } else if let track = playerVM.currentTrack {
-            VStack(spacing: 8) {
+        if let track = playerVM.currentTrack {
+            VStack(spacing: 6) {
                 Text(track.title)
                     .font(.title3)
                     .fontWeight(.semibold)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+
                 Text(track.artist)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                licenseLabel(track.license)
+                    .multilineTextAlignment(.center)
+
+                if let composer = track.composer, composer != track.artist.lowercased() {
+                    Text("Composed by \(composer.capitalized)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 8) {
+                    licenseTag(track.license)
+                    sourceTag(track.source)
+                }
+                .padding(.top, 4)
             }
-        } else {
+        } else if !playerVM.isLoading {
             Text("No tracks available")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
     }
 
+    // MARK: - Controls
+
     private var controls: some View {
-        HStack(spacing: 48) {
+        HStack(spacing: 56) {
             Button {
                 playerVM.skip()
             } label: {
                 Image(systemName: "forward.fill")
-                    .resizable()
-                    .frame(width: 36, height: 36)
+                    .font(.system(size: 28))
                     .foregroundStyle(.primary)
             }
 
             Button {
                 playerVM.togglePlayPause()
             } label: {
-                Image(systemName: playerVM.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                    .resizable()
-                    .frame(width: 80, height: 80)
-                    .foregroundStyle(.primary)
+                ZStack {
+                    Circle()
+                        .fill(categoryGradient(for: channel.category))
+                        .frame(width: 80, height: 80)
+                        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+                    Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .offset(x: playerVM.isPlaying ? 0 : 2)
+                }
             }
         }
+        .padding(.vertical, 8)
     }
 
+    // MARK: - Labels
+
     @ViewBuilder
-    private func licenseLabel(_ license: LicenseType) -> some View {
+    private func licenseTag(_ license: LicenseType) -> some View {
         switch license {
         case .cc0:
-            Text("CC0 — No Rights Reserved")
-                .font(.caption).foregroundStyle(.secondary)
+            badge("CC0", color: .blue)
         case .ccBy:
-            Text("CC BY — Attribution Required")
-                .font(.caption).foregroundStyle(.secondary)
+            badge("CC BY", color: .orange)
         case .publicDomain:
-            Text("Public Domain")
-                .font(.caption).foregroundStyle(.secondary)
+            badge("Public Domain", color: .green)
         case .rejected:
             EmptyView()
         }
     }
+
+    @ViewBuilder
+    private func sourceTag(_ source: String) -> some View {
+        switch source {
+        case "fma":
+            badge("Free Music Archive", color: .gray)
+        case "musopen":
+            badge("Musopen", color: .purple)
+        default:
+            badge("Internet Archive", color: .gray)
+        }
+    }
+
+    private func badge(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption2)
+            .fontWeight(.medium)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.12))
+            .foregroundStyle(color)
+            .clipShape(Capsule())
+    }
 }
 
 #Preview {
-    PlayerView(channel: Channel.defaults[0])
-        .environmentObject(PlayerViewModel(
-            db: try! DatabaseService(path: ":memory:"),
-            archiveService: InternetArchiveService(),
-            queueManager: QueueManager(db: try! DatabaseService(path: ":memory:")),
-            audioPlayer: AudioPlayerService(),
-            downloadManager: DownloadManager(db: try! DatabaseService(path: ":memory:"))
-        ))
+    NavigationStack {
+        PlayerView(channel: Channel.defaults[0])
+            .environmentObject(PlayerViewModel(
+                db: try! DatabaseService(path: ":memory:"),
+                archiveService: InternetArchiveService(),
+                fmaService: FMAService(),
+                queueManager: QueueManager(db: try! DatabaseService(path: ":memory:")),
+                audioPlayer: AudioPlayerService(),
+                downloadManager: DownloadManager(db: try! DatabaseService(path: ":memory:"))
+            ))
+    }
 }
