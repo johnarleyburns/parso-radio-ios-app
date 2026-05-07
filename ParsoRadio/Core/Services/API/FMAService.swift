@@ -29,6 +29,8 @@ struct FMAService {
         "pop":          "Pop",
         "experimental": "Experimental",
         "instrumental": "Instrumental",
+        "flamenco":     "International",
+        "spanish":      "International",
     ]
 
     init(session: URLSession = .shared) {

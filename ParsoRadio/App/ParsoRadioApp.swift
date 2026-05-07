@@ -21,7 +21,7 @@ struct ParsoRadioApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ChannelListView()
+            DialHomeView()
                 .environmentObject(playerVM)
         }
     }

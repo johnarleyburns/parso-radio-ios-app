@@ -236,6 +236,80 @@ extension Channel {
             contentType: .spokenWord,
             spokenWordCollections: ["librivoxaudio"]
         ),
+
+        // MARK: World Classics — spoken word in various languages
+        Channel(
+            id: "chinese-philosophy",
+            name: "Chinese Philosophy",
+            category: "Talk & Stories",
+            icon: "yin.yang",
+            tags: ["confucius", "tao", "chinese philosophy"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
+        ),
+        Channel(
+            id: "chinese-history",
+            name: "Chinese History",
+            category: "Talk & Stories",
+            icon: "building.2",
+            tags: ["china", "chinese history"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
+        ),
+        Channel(
+            id: "greek-history",
+            name: "Greek History",
+            category: "Talk & Stories",
+            icon: "building.columns.fill",
+            tags: ["herodotus", "greek history", "ancient greece"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
+        ),
+        Channel(
+            id: "french-lit",
+            name: "French Literature",
+            category: "Talk & Stories",
+            icon: "books.vertical.fill",
+            tags: ["french literature", "hugo", "dumas"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
+        ),
+        Channel(
+            id: "spanish-lit",
+            name: "Spanish Literature",
+            category: "Talk & Stories",
+            icon: "scroll",
+            tags: ["spanish fiction", "cervantes"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
+        ),
+        Channel(
+            id: "french-kids",
+            name: "French Children's Books",
+            category: "Talk & Stories",
+            icon: "star.circle.fill",
+            tags: ["children", "french"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
+        ),
+        Channel(
+            id: "spanish-kids",
+            name: "Spanish Children's Books",
+            category: "Talk & Stories",
+            icon: "star.bubble",
+            tags: ["children", "spanish"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
+        ),
+
+        // MARK: Pop & World — music
+        Channel(
+            id: "spanish-guitar",
+            name: "Spanish Guitar & Flamenco",
+            category: "Pop & World",
+            icon: "guitars.fill",
+            tags: ["flamenco", "spanish", "world music"]
+        ),
     ]
 
     // Ordered, deduplicated category names for section display.
