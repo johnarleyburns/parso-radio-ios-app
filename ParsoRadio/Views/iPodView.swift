@@ -2,7 +2,11 @@ import SwiftUI
 
 struct iPodView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
-    @State private var pendingChannel: Channel = Channel.defaults.first { $0.id == "bach-vivaldi-strings" } ?? Channel.defaults[0]
+    @State private var pendingChannel: Channel = {
+        // UC2: restore the last-used channel between app launches.
+        let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "bach-vivaldi-strings"
+        return Channel.defaults.first { $0.id == lastId } ?? Channel.defaults[0]
+    }()
     @State private var showChannelSelector = false
     @State private var showAbout = false
     @State private var wheelTapTrigger = 0
@@ -182,6 +186,13 @@ struct iPodView: View {
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(.white)
         }
+        .scaleEffect(playerVM.isPlaying ? 1.05 : 1.0)
+        .animation(
+            playerVM.isPlaying
+                ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true)
+                : .default,
+            value: playerVM.isPlaying
+        )
     }
 
     @ViewBuilder

@@ -8,6 +8,7 @@ final class AudioPlayerService: ObservableObject {
     @Published var currentTrack: Track?
 
     var onTrackFinished: (() -> Void)?
+    var onPreviousTrack: (() -> Void)?
     // Fired every ~5 s while playing. PlayerViewModel uses this to persist position
     // for spoken-word channels and to update the UI progress display.
     var onTimeUpdate: ((Double) -> Void)?
@@ -147,8 +148,11 @@ final class AudioPlayerService: ObservableObject {
             return .success
         }
 
-        // No previous track in a radio-style app.
-        center.previousTrackCommand.isEnabled = false
+        center.previousTrackCommand.isEnabled = true
+        center.previousTrackCommand.addTarget { [weak self] _ in
+            self?.onPreviousTrack?()
+            return .success
+        }
     }
 
     // MARK: - Teardown

@@ -17,10 +17,14 @@ final class PlayerViewModel: ObservableObject {
     private let fmaService: FMAService
     private let queueManager: QueueManager
     private let downloadManager: DownloadManager
-    private(set) var currentChannel: Channel?
+    var currentChannel: Channel?
 
     // Look-ahead cache: pre-resolved IA audio URLs so track transitions are gap-free.
     private var prefetchedURLs: [String: URL] = [:]
+
+    // UC3: track history for backward navigation (most-recent last, cap historyLimit).
+    var playHistory: [Track] = []
+    let historyLimit = 50
 
     init(
         db: DatabaseService,
@@ -36,6 +40,13 @@ final class PlayerViewModel: ObservableObject {
         self.queueManager = queueManager
         self.audioPlayer = audioPlayer
         self.downloadManager = downloadManager
+
+        audioPlayer.onPreviousTrack = { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.playPreviousTrack()
+            }
+        }
 
         audioPlayer.onTrackFinished = { [weak self] in
             Task { @MainActor [weak self] in
@@ -68,6 +79,13 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func load(channel: Channel) async {
+        // UC5: stop any currently playing audio immediately so old track doesn't bleed into new channel.
+        audioPlayer.skip()
+        currentTrack = nil
+        isPlaying = false
+        // UC2: persist last-used channel so the app restores it after restart.
+        UserDefaults.standard.set(channel.id, forKey: "lastChannelId")
+
         currentChannel = channel
         isLoading = true
         loadingMessage = "Finding tracks…"
@@ -156,14 +174,21 @@ final class PlayerViewModel: ObservableObject {
     func back() {
         guard let channel = currentChannel else { return }
         if channel.contentType == .spokenWord {
-            let target = max(0, currentPosition - 15)
-            audioPlayer.seek(to: target)
-            currentPosition = target
+            // Rewind 15 s within the chapter; go to previous track if already at start.
+            if currentPosition > 3 {
+                let target = max(0, currentPosition - 15)
+                audioPlayer.seek(to: target)
+                currentPosition = target
+            } else {
+                Task { await playPreviousTrack() }
+            }
         } else {
-            // Restart current track; no previous-track navigation for radio.
+            // UC3: restart the current track if well into it; go to previous if near the start.
             if currentPosition > 3 {
                 audioPlayer.seek(to: 0)
                 currentPosition = 0
+            } else {
+                Task { await playPreviousTrack() }
             }
         }
     }
@@ -184,7 +209,23 @@ final class PlayerViewModel: ObservableObject {
         await playTrack(track, seekTo: nil)
     }
 
-    private func playTrack(_ track: Track, seekTo: Double?) async {
+    private func playPreviousTrack() async {
+        guard !playHistory.isEmpty else {
+            // No history: restart the current track from the beginning.
+            audioPlayer.seek(to: 0)
+            currentPosition = 0
+            return
+        }
+        let previous = playHistory.removeLast()
+        await playTrack(previous, seekTo: nil, recordHistory: false)
+    }
+
+    private func playTrack(_ track: Track, seekTo: Double?, recordHistory: Bool = true) async {
+        // UC3: push current track onto history before replacing it.
+        if recordHistory, let existing = currentTrack {
+            playHistory.append(existing)
+            if playHistory.count > historyLimit { playHistory.removeFirst() }
+        }
         currentTrack = track
         isLoading = true
         loadingMessage = track.source == "internet_archive" ? "Buffering…" : "Loading…"
