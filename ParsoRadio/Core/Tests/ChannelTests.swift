@@ -4,7 +4,7 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        XCTAssertEqual(Channel.defaults.count, 4)
+        XCTAssertEqual(Channel.defaults.count, 11)
     }
 
     func testBachVivaldiChannelDefinition() {
