@@ -16,10 +16,14 @@ struct InternetArchiveService {
         return try await search(query: query, confidenceThreshold: 1.5)
     }
 
+    // Musopen items on IA list the performer as creator, not the composer.
+    // Composer name typically appears in title or subject, so we search all three.
     func fetchMusopenTracks(composer: String) async throws -> [Track] {
         let rawNames = ComposerMap.aliases.filter { $0.value == composer }.keys.sorted()
-        let creatorClause = rawNames.map { "creator:\"\($0)\"" }.joined(separator: " OR ")
-        let query = "collection:musopen AND (\(creatorClause))"
+        let terms = rawNames.flatMap { name in
+            ["creator:\"\(name)\"", "title:\"\(name)\"", "subject:\"\(name)\""]
+        }.joined(separator: " OR ")
+        let query = "collection:musopen AND (\(terms))"
         return try await search(query: query, musopenCollection: true, confidenceThreshold: 1.5)
     }
 

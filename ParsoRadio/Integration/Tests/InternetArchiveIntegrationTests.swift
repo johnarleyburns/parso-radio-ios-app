@@ -96,21 +96,23 @@ final class InternetArchiveIntegrationTests: XCTestCase {
         )
     }
 
-    func testMusopenBachReturnsAtLeastOneTrack() async throws {
+    // Tests Chopin because IA's musopen collection has only 34 items and Bach/Vivaldi/Rachmaninoff
+    // are not among them. Chopin is present as musopen-chopin with 208 audio files.
+    func testMusopenChopinReturnsAtLeastOneTrack() async throws {
         let tracks: [Track]
         do {
-            tracks = try await service.fetchMusopenTracks(composer: "bach")
+            tracks = try await service.fetchMusopenTracks(composer: "chopin")
         } catch let e as URLError {
             throw XCTSkip("Network unavailable: \(e.localizedDescription)")
         }
-        print("Musopen Bach: \(tracks.count) tracks")
+        print("Musopen Chopin: \(tracks.count) tracks")
         for t in tracks.prefix(3) {
             print("  [\(t.composer ?? "nil")] \(t.title)")
         }
         XCTAssertFalse(
             tracks.isEmpty,
-            "Expected ≥1 Musopen Bach track but got 0. " +
-            "Check fetchMusopenTracks query and ComposerMap aliases."
+            "Expected ≥1 Musopen Chopin track but got 0. " +
+            "Check fetchMusopenTracks title/subject query and IA musopen collection."
         )
         XCTAssertTrue(
             tracks.allSatisfy { $0.license != .rejected },
