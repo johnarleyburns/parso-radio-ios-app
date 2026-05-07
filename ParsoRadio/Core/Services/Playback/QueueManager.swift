@@ -15,7 +15,7 @@ final class QueueManager {
         var pool = await db.fetchTracks(forChannel: channel)
             .filter { !recentIDs.contains($0.id) }
         if pool.isEmpty { return nil }
-        return weightedRandom(from: pool, seed: dailySeed(for: channel) &+ 1)
+        return weightedRandom(from: pool, seed: dailySeed(for: channel))
     }
 
     func nextTrack(channel: Channel) async -> Track? {

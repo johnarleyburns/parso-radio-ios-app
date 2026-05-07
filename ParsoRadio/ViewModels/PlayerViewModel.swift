@@ -115,12 +115,13 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
-        // For spoken-word channels, resume exactly where the user left off.
-        if channel.contentType == .spokenWord,
-           let saved = await db.loadPosition(channelId: channel.id),
+        // Resume the last-played track for all channel types.
+        // Spoken-word resumes at exact position; music restarts the same track from the beginning.
+        if let saved = await db.loadPosition(channelId: channel.id),
            let track = await db.fetchTrack(id: saved.trackId) {
             loadingMessage = "Resuming…"
-            await playTrack(track, seekTo: saved.seconds)
+            let seekTo: Double? = channel.contentType == .spokenWord ? saved.seconds : nil
+            await playTrack(track, seekTo: seekTo)
         } else {
             loadingMessage = "Starting playback…"
             await advanceToNext()
@@ -215,6 +216,11 @@ final class PlayerViewModel: ObservableObject {
             errorMessage = nil
 
             if let channel = currentChannel {
+                // Save current track for music channels so it can be resumed after restart.
+                // Spoken-word position is kept current by the onTimeUpdate callback.
+                if channel.contentType != .spokenWord {
+                    await db.savePosition(channelId: channel.id, trackId: track.id, seconds: 0)
+                }
                 Task { await prefetchNextURL(channel: channel) }
             }
         } catch {

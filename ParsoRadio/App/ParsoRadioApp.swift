@@ -3,7 +3,12 @@ import SwiftUI
 @main
 struct ParsoRadioApp: App {
     @StateObject private var playerVM: PlayerViewModel = {
-        let db = try! DatabaseService()
+        let db: DatabaseService
+        do {
+            db = try DatabaseService()
+        } catch {
+            db = try! DatabaseService(path: ":memory:")
+        }
         let archiveService = InternetArchiveService()
         let fmaService = FMAService()
         let queueManager = QueueManager(db: db)

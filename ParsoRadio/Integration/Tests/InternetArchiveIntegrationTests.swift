@@ -288,6 +288,36 @@ final class FMAIntegrationTests: XCTestCase {
         XCTAssertFalse(tracks.isEmpty, "Expected ≥1 FMA Rock track but got 0.")
     }
 
+    func testSoulRnbChannelReturnsAtLeastOnePDTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "soul-rnb" }!
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchTracks(forChannel: channel)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("FMA Soul & R&B: \(tracks.count) tracks")
+        for t in tracks.prefix(3) {
+            print("  [\(t.composer ?? "nil")] \(t.title) | \(t.license)")
+        }
+        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 FMA Soul-RB public-domain track but got 0.")
+    }
+
+    func testOldTimeRootsChannelReturnsAtLeastOnePDTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "old-time-roots" }!
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchTracks(forChannel: channel)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("FMA Old-Time & Roots: \(tracks.count) tracks")
+        for t in tracks.prefix(3) {
+            print("  [\(t.composer ?? "nil")] \(t.title) | \(t.license)")
+        }
+        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 FMA Old-Time public-domain track but got 0.")
+    }
+
     func testStreamURLRedirectsToMp3() async throws {
         let channel = Channel.defaults.first { $0.id == "classical" }!
         let tracks: [Track]

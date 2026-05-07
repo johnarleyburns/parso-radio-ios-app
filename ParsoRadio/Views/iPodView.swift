@@ -306,6 +306,12 @@ struct ClickWheel: View {
                         }
                     }
             )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Playback Controls")
+            .accessibilityAction(.default) { onPlayPause() }
+            .accessibilityAction(named: "MENU — Select Channel") { onMenu() }
+            .accessibilityAction(named: "Back") { onBack() }
+            .accessibilityAction(named: "Forward") { onForward() }
         }
     }
 }
