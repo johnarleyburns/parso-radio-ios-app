@@ -153,7 +153,7 @@ struct PlayerView: View {
         VStack(spacing: 4) {
             if let duration = playerVM.trackDuration, duration > 0 {
                 ProgressView(value: playerVM.currentPosition, total: duration)
-                    .tint(categoryGradient(for: channel.category).stops.first?.color ?? .accentColor)
+                    .tint(progressTint(for: channel.category))
             } else {
                 ProgressView()
                     .progressViewStyle(.linear)
@@ -170,6 +170,17 @@ struct PlayerView: View {
             .monospacedDigit()
         }
         .padding(.horizontal, 4)
+    }
+
+    private func progressTint(for category: String) -> Color {
+        switch category {
+        case "Classical":      return Color(red: 0.42, green: 0.20, blue: 0.80)
+        case "Jazz & Blues":   return Color(red: 0.10, green: 0.22, blue: 0.65)
+        case "Rock & Country": return Color(red: 0.72, green: 0.10, blue: 0.10)
+        case "Vibes":          return Color(red: 0.08, green: 0.50, blue: 0.40)
+        case "Talk & Stories": return Color(red: 0.55, green: 0.35, blue: 0.10)
+        default:               return .accentColor
+        }
     }
 
     private func formatTime(_ seconds: Double) -> String {
