@@ -7,9 +7,12 @@ import XCTest
 // failures — that's the bug class we want to catch.
 final class InternetArchiveIntegrationTests: XCTestCase {
 
-    override var executionTimeAllowance: TimeInterval { 60 }
-
     private let service = InternetArchiveService()
+
+    override func setUp() {
+        super.setUp()
+        executionTimeAllowance = 60
+    }
 
     func testBachVivaldiStringsChannelReturnsAtLeastOnTrack() async throws {
         let channel = Channel.defaults.first { $0.id == "bach-vivaldi-strings" }!
