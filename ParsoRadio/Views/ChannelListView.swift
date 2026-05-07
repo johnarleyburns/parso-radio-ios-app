@@ -189,6 +189,14 @@ func categoryGradient(for category: String) -> LinearGradient {
         return LinearGradient(colors: [Color(red: 0.55, green: 0.35, blue: 0.10),
                                        Color(red: 0.80, green: 0.55, blue: 0.20)],
                               startPoint: .topLeading, endPoint: .bottomTrailing)
+    case "Electronic & Beats":
+        return LinearGradient(colors: [Color(red: 0.05, green: 0.10, blue: 0.45),
+                                       Color(red: 0.10, green: 0.70, blue: 0.90)],
+                              startPoint: .topLeading, endPoint: .bottomTrailing)
+    case "Pop & World":
+        return LinearGradient(colors: [Color(red: 0.85, green: 0.20, blue: 0.55),
+                                       Color(red: 0.95, green: 0.55, blue: 0.20)],
+                              startPoint: .topLeading, endPoint: .bottomTrailing)
     default:
         return LinearGradient(colors: [Color.gray, Color.gray.opacity(0.6)],
                               startPoint: .topLeading, endPoint: .bottomTrailing)

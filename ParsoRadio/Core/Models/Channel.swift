@@ -135,6 +135,52 @@ extension Channel {
             tags: ["lo-fi", "ambient"]
         ),
 
+        // MARK: Electronic & Beats
+        Channel(
+            id: "electronic",
+            name: "Electronic",
+            category: "Electronic & Beats",
+            icon: "dot.radiowaves.left.and.right",
+            tags: ["electronic"]
+        ),
+        Channel(
+            id: "hip-hop",
+            name: "Hip-Hop",
+            category: "Electronic & Beats",
+            icon: "mic.fill",
+            tags: ["hip-hop"]
+        ),
+        Channel(
+            id: "experimental",
+            name: "Experimental",
+            category: "Electronic & Beats",
+            icon: "wand.and.stars",
+            tags: ["experimental"]
+        ),
+        Channel(
+            id: "instrumental",
+            name: "Instrumental",
+            category: "Electronic & Beats",
+            icon: "tuningfork",
+            tags: ["instrumental"]
+        ),
+
+        // MARK: Pop & World
+        Channel(
+            id: "pop",
+            name: "Pop",
+            category: "Pop & World",
+            icon: "star.fill",
+            tags: ["pop"]
+        ),
+        Channel(
+            id: "world-music",
+            name: "World Music",
+            category: "Pop & World",
+            icon: "globe",
+            tags: ["world music"]
+        ),
+
         // MARK: Talk & Stories (spoken word — position is persisted across sessions)
         Channel(
             id: "greek-philosophy",

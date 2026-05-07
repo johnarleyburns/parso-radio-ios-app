@@ -12,17 +12,23 @@ struct FMAService {
 
     // Maps app tag names to FMA genre path segments (curl-verified).
     static let genreMap: [String: String] = [
-        "classical": "Classical",
-        "ambient":   "Ambient",
-        "baroque":   "Classical",
-        "romantic":  "Classical",
-        "jazz":      "Jazz",
-        "blues":     "Blues",
-        "rock":      "Rock",
-        "country":   "Country",
-        "folk":      "Folk",
-        "acoustic":  "Folk",
-        "lo-fi":     "Ambient",
+        "classical":    "Classical",
+        "ambient":      "Ambient",
+        "baroque":      "Classical",
+        "romantic":     "Classical",
+        "jazz":         "Jazz",
+        "blues":        "Blues",
+        "rock":         "Rock",
+        "country":      "Country",
+        "folk":         "Folk",
+        "acoustic":     "Folk",
+        "lo-fi":        "Ambient",
+        "electronic":   "Electronic",
+        "hip-hop":      "Hip-Hop",
+        "world music":  "International",
+        "pop":          "Pop",
+        "experimental": "Experimental",
+        "instrumental": "Instrumental",
     ]
 
     init(session: URLSession = .shared) {
