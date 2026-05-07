@@ -96,6 +96,28 @@ final class InternetArchiveIntegrationTests: XCTestCase {
         )
     }
 
+    func testMusopenBachReturnsAtLeastOneTrack() async throws {
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchMusopenTracks(composer: "bach")
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("Musopen Bach: \(tracks.count) tracks")
+        for t in tracks.prefix(3) {
+            print("  [\(t.composer ?? "nil")] \(t.title)")
+        }
+        XCTAssertFalse(
+            tracks.isEmpty,
+            "Expected ≥1 Musopen Bach track but got 0. " +
+            "Check fetchMusopenTracks query and ComposerMap aliases."
+        )
+        XCTAssertTrue(
+            tracks.allSatisfy { $0.license != .rejected },
+            "All Musopen tracks should have a valid license"
+        )
+    }
+
     func testResolveAudioURLReturnsPlayableFileURL() async throws {
         let tracks: [Track]
         do {

@@ -45,10 +45,27 @@ final class PlayerViewModel: ObservableObject {
             if channel.composers.isEmpty {
                 fetched = try await archiveService.fetchTracks(tags: channel.tags)
             } else {
-                fetched = try await archiveService.fetchTracks(
+                // Fetch general IA and Musopen in parallel.
+                // Musopen errors are non-fatal (try?) so IA results still land if Musopen is down.
+                let svc = archiveService
+                async let iaTracks = svc.fetchTracks(
                     composers: channel.composers,
                     instruments: channel.instruments
                 )
+                var musopenResults: [Track] = []
+                await withTaskGroup(of: [Track].self) { group in
+                    for composer in channel.composers {
+                        group.addTask {
+                            (try? await svc.fetchMusopenTracks(composer: composer)) ?? []
+                        }
+                    }
+                    for await tracks in group {
+                        musopenResults.append(contentsOf: tracks)
+                    }
+                }
+                let iaResults = try await iaTracks
+                var seen = Set<String>()
+                fetched = (iaResults + musopenResults).filter { seen.insert($0.id).inserted }
             }
             await db.saveTracks(fetched)
             downloadManager.prefetchNext(fetched)
