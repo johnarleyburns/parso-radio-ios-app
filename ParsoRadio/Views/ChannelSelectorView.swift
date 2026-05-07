@@ -22,33 +22,8 @@ struct ChannelSelectorView: View {
                 ForEach(sortedCategories, id: \.self) { category in
                     Section(category) {
                         ForEach(channels(for: category)) { channel in
-                            Button {
-                                onSelect(channel)
-                            } label: {
-                                HStack(spacing: 14) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(categoryGradient(for: channel.category))
-                                            .frame(width: 36, height: 36)
-                                        Image(systemName: channel.icon)
-                                            .font(.system(size: 15, weight: .medium))
-                                            .foregroundStyle(.white)
-                                    }
-
-                                    Text(channel.name)
-                                        .font(.body)
-                                        .foregroundStyle(.primary)
-
-                                    Spacer()
-
-                                    if channel.id == currentChannelId {
-                                        Image(systemName: "checkmark")
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .foregroundStyle(.accentColor)
-                                    }
-                                }
-                            }
-                            .buttonStyle(.plain)
+                            Button { onSelect(channel) } label: { channelRow(channel) }
+                                .buttonStyle(.plain)
                         }
                     }
                 }
@@ -60,6 +35,29 @@ struct ChannelSelectorView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func channelRow(_ channel: Channel) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(categoryGradient(for: channel.category))
+                    .frame(width: 36, height: 36)
+                Image(systemName: channel.icon)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white)
+            }
+            Text(channel.name)
+                .font(.body)
+                .foregroundStyle(.primary)
+            Spacer()
+            if channel.id == currentChannelId {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.accentColor)
             }
         }
     }

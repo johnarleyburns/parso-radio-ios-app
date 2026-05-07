@@ -130,7 +130,7 @@ extension Channel {
             id: "old-time-roots",
             name: "Old-Time & Roots",
             category: "Rock & Country",
-            icon: "banknote",
+            icon: "banjo",
             tags: ["old-time", "folk"]
         ),
 

@@ -82,6 +82,29 @@ final class ChannelTests: XCTestCase {
         XCTAssertFalse(country.matches(rachTrack), "Rachmaninoff track must not appear in Country channel")
     }
 
+    func testSoftCafeTagsUpdated() {
+        let ch = Channel.defaults.first { $0.id == "soft-cafe" }!
+        XCTAssertTrue(ch.tags.contains("jazz"),        "Soft Café must have jazz tag")
+        XCTAssertTrue(ch.tags.contains("bossa nova"),  "Soft Café must have bossa nova tag")
+        XCTAssertFalse(ch.tags.contains("lo-fi"),      "Soft Café must not have lo-fi tag")
+        XCTAssertFalse(ch.tags.contains("acoustic"),   "Soft Café must not have acoustic tag")
+    }
+
+    func testStudyFocusTagsUpdated() {
+        let ch = Channel.defaults.first { $0.id == "study-focus" }!
+        XCTAssertTrue(ch.tags.contains("instrumental"), "Study Focus must have instrumental tag")
+        XCTAssertTrue(ch.tags.contains("ambient"),      "Study Focus must have ambient tag")
+        XCTAssertFalse(ch.tags.contains("lo-fi"),       "Study Focus must not have lo-fi tag")
+    }
+
+    func testSoftCafeMatchesByUpdatedTags() {
+        let ch = Channel.defaults.first { $0.id == "soft-cafe" }!
+        let jazzTrack = makeTrack(composer: nil, instruments: [], tags: ["jazz"])
+        let lofiTrack = makeTrack(composer: nil, instruments: [], tags: ["lo-fi"])
+        XCTAssertTrue(ch.matches(jazzTrack),  "Jazz track should match Soft Café after tag fix")
+        XCTAssertFalse(ch.matches(lofiTrack), "Lo-fi track should NOT match Soft Café after tag fix")
+    }
+
     func testChannelCodableRoundtrip() throws {
         let original = Channel.defaults[0]
         let data = try JSONEncoder().encode(original)
