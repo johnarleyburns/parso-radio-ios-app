@@ -11,6 +11,7 @@ final class PlayerViewModel: ObservableObject {
 
     private let db: DatabaseService
     private let archiveService: InternetArchiveService
+    private let fmaService: FMAService
     private let queueManager: QueueManager
     private let downloadManager: DownloadManager
     private(set) var currentChannel: Channel?
@@ -18,12 +19,14 @@ final class PlayerViewModel: ObservableObject {
     init(
         db: DatabaseService,
         archiveService: InternetArchiveService,
+        fmaService: FMAService,
         queueManager: QueueManager,
         audioPlayer: AudioPlayerService,
         downloadManager: DownloadManager
     ) {
         self.db = db
         self.archiveService = archiveService
+        self.fmaService = fmaService
         self.queueManager = queueManager
         self.audioPlayer = audioPlayer
         self.downloadManager = downloadManager
@@ -42,30 +45,34 @@ final class PlayerViewModel: ObservableObject {
 
         do {
             let fetched: [Track]
+            let iaSvc = archiveService
+            let fmaSvc = fmaService
+
             if channel.composers.isEmpty {
-                fetched = try await archiveService.fetchTracks(tags: channel.tags)
+                // Tag channels: IA + FMA in parallel; FMA errors are non-fatal.
+                async let iaTracks = iaSvc.fetchTracks(tags: channel.tags)
+                let fmaTracks = (try? await fmaSvc.fetchTracks(forChannel: channel)) ?? []
+                let iaResults = try await iaTracks
+                var seen = Set<String>()
+                fetched = (iaResults + fmaTracks).filter { seen.insert($0.id).inserted }
             } else {
-                // Fetch general IA and Musopen in parallel.
-                // Musopen errors are non-fatal (try?) so IA results still land if Musopen is down.
-                let svc = archiveService
-                async let iaTracks = svc.fetchTracks(
+                // Composer channels: IA + Musopen(IA) + FMA all in parallel.
+                // Musopen and FMA errors are non-fatal.
+                async let iaTracks = iaSvc.fetchTracks(
                     composers: channel.composers,
                     instruments: channel.instruments
                 )
-                var musopenResults: [Track] = []
+                var supplemental: [Track] = []
                 await withTaskGroup(of: [Track].self) { group in
                     for composer in channel.composers {
-                        group.addTask {
-                            (try? await svc.fetchMusopenTracks(composer: composer)) ?? []
-                        }
+                        group.addTask { (try? await iaSvc.fetchMusopenTracks(composer: composer)) ?? [] }
                     }
-                    for await tracks in group {
-                        musopenResults.append(contentsOf: tracks)
-                    }
+                    group.addTask { (try? await fmaSvc.fetchTracks(forChannel: channel)) ?? [] }
+                    for await tracks in group { supplemental.append(contentsOf: tracks) }
                 }
                 let iaResults = try await iaTracks
                 var seen = Set<String>()
-                fetched = (iaResults + musopenResults).filter { seen.insert($0.id).inserted }
+                fetched = (iaResults + supplemental).filter { seen.insert($0.id).inserted }
             }
             await db.saveTracks(fetched)
             downloadManager.prefetchNext(fetched)
@@ -122,8 +129,11 @@ final class PlayerViewModel: ObservableObject {
             if let localPath = track.localFilePath,
                FileManager.default.fileExists(atPath: localPath) {
                 url = URL(fileURLWithPath: localPath)
-            } else {
+            } else if track.source == "internet_archive" {
                 url = try await archiveService.resolveAudioURL(for: track.id)
+            } else {
+                // FMA and other sources store a directly playable stream URL.
+                url = track.streamURL
             }
             audioPlayer.play(url: url, track: track)
             isPlaying = true
