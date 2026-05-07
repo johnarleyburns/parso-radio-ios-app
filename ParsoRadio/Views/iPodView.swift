@@ -29,7 +29,7 @@ struct iPodView: View {
                     onPlayPause: { wheelTapTrigger += 1; playerVM.togglePlayPause() }
                 )
                 .frame(width: 280, height: 280)
-                .sensoryFeedback(.impact(.light), trigger: wheelTapTrigger)
+                .sensoryFeedback(.impact(weight: .light), trigger: wheelTapTrigger)
 
                 Spacer(minLength: 20)
 

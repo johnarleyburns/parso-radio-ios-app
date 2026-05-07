@@ -4,7 +4,7 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        XCTAssertEqual(Channel.defaults.count, 31)
+        XCTAssertEqual(Channel.defaults.count, 34)
     }
 
     func testBachVivaldiChannelDefinition() {
@@ -42,6 +42,38 @@ final class ChannelTests: XCTestCase {
         XCTAssertTrue(classical.matches(classicalTrack), "Classical track should match classical channel")
         XCTAssertFalse(classical.matches(rockTrack),    "Rock track should not match classical channel")
         XCTAssertFalse(classical.matches(noTagTrack),   "Untagged track should not match classical channel")
+    }
+
+    func testJazzPianoChannelDefinition() {
+        let ch = Channel.defaults.first { $0.id == "jazz-piano" }
+        XCTAssertNotNil(ch)
+        XCTAssertEqual(ch?.category, "Jazz & Blues")
+        XCTAssertEqual(ch?.instruments, ["piano"])
+        XCTAssertEqual(ch?.tags, ["jazz"])
+    }
+
+    func testJazzPianoMatchesOnlyPianoJazz() {
+        let ch = Channel.defaults.first { $0.id == "jazz-piano" }!
+        let pianoJazz = makeTrack(composer: nil, instruments: ["piano"], tags: ["jazz"])
+        let violinJazz = makeTrack(composer: nil, instruments: ["violin"], tags: ["jazz"])
+        XCTAssertTrue(ch.matches(pianoJazz), "Piano jazz track should match Jazz Piano channel")
+        XCTAssertFalse(ch.matches(violinJazz), "Violin jazz track should not match Jazz Piano channel")
+    }
+
+    func testSoulRnbChannelDefinition() {
+        let ch = Channel.defaults.first { $0.id == "soul-rnb" }
+        XCTAssertNotNil(ch)
+        XCTAssertEqual(ch?.category, "Pop & World")
+        XCTAssertTrue(ch?.tags.contains("soul") == true)
+        XCTAssertTrue(ch?.tags.contains("r&b") == true)
+    }
+
+    func testOldTimeRootsChannelDefinition() {
+        let ch = Channel.defaults.first { $0.id == "old-time-roots" }
+        XCTAssertNotNil(ch)
+        XCTAssertEqual(ch?.category, "Rock & Country")
+        XCTAssertTrue(ch?.tags.contains("old-time") == true)
+        XCTAssertTrue(ch?.tags.contains("folk") == true)
     }
 
     func testTagChannelDoesNotMatchWrongGenre() {

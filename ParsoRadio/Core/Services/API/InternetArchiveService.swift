@@ -33,10 +33,20 @@ struct InternetArchiveService {
     // put licenseurl wildcards in the Solr query; leading wildcards (*word*) are
     // disabled in Solr by default and cause the whole query to return an error
     // response with no "response" key, making the JSON decode fail.
+    // netlabels results are prepended — higher curation quality for electronic/ambient.
     func fetchTracks(tags: [String]) async throws -> [Track] {
         let tagClause = tags.map { "subject:\"\($0)\"" }.joined(separator: " OR ")
-        let query = "mediatype:audio AND (\(tagClause))"
-        return try await search(query: query, confidenceThreshold: 0.0)
+        async let generalTask = search(
+            query: "mediatype:audio AND (\(tagClause))",
+            confidenceThreshold: 0.0
+        )
+        let netlabelTracks = (try? await search(
+            query: "mediatype:audio AND collection:netlabels AND (\(tagClause))",
+            confidenceThreshold: 0.0
+        )) ?? []
+        let generalTracks = try await generalTask
+        var seen = Set<String>()
+        return (netlabelTracks + generalTracks).filter { seen.insert($0.id).inserted }
     }
 
     // Spoken-word fetch (LibriVox, podcast collections). Skips MetadataNormalizer —

@@ -21,8 +21,7 @@ struct FMAService {
         "rock":         "Rock",
         "country":      "Country",
         "folk":         "Folk",
-        "acoustic":     "Folk",
-        "lo-fi":        "Ambient",
+        "old-time":     "Old-Time__Historic",
         "electronic":   "Electronic",
         "hip-hop":      "Hip-Hop",
         "world music":  "International",
@@ -31,6 +30,9 @@ struct FMAService {
         "instrumental": "Instrumental",
         "flamenco":     "International",
         "spanish":      "International",
+        "soul":         "Soul-RB",
+        "r&b":          "Soul-RB",
+        "bossa nova":   "Jazz",
     ]
 
     init(session: URLSession = .shared) {

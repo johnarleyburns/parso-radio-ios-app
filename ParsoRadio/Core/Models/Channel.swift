@@ -95,6 +95,14 @@ extension Channel {
             icon: "guitars",
             tags: ["blues"]
         ),
+        Channel(
+            id: "jazz-piano",
+            name: "Jazz Piano",
+            category: "Jazz & Blues",
+            icon: "pianokeys",
+            instruments: ["piano"],
+            tags: ["jazz"]
+        ),
 
         // MARK: Rock & Country
         Channel(
@@ -118,6 +126,13 @@ extension Channel {
             icon: "music.note",
             tags: ["folk"]
         ),
+        Channel(
+            id: "old-time-roots",
+            name: "Old-Time & Roots",
+            category: "Rock & Country",
+            icon: "banknote",
+            tags: ["old-time", "folk"]
+        ),
 
         // MARK: Vibes
         Channel(
@@ -125,14 +140,14 @@ extension Channel {
             name: "Soft Café",
             category: "Vibes",
             icon: "cup.and.saucer",
-            tags: ["acoustic", "lo-fi"]
+            tags: ["jazz", "bossa nova"]
         ),
         Channel(
             id: "study-focus",
             name: "Study Focus",
             category: "Vibes",
             icon: "book",
-            tags: ["lo-fi", "ambient"]
+            tags: ["instrumental", "ambient"]
         ),
 
         // MARK: Electronic & Beats
@@ -300,6 +315,14 @@ extension Channel {
             tags: ["children", "spanish"],
             contentType: .spokenWord,
             spokenWordCollections: ["librivoxaudio"]
+        ),
+
+        Channel(
+            id: "soul-rnb",
+            name: "Soul & R&B",
+            category: "Pop & World",
+            icon: "heart.fill",
+            tags: ["soul", "r&b"]
         ),
 
         // MARK: Pop & World — music
