@@ -12,75 +12,25 @@ struct InternetArchiveService {
     }
 
     func fetchTracks(composers: [String], instruments: [String]) async throws -> [Track] {
-        let query = composerQuery(composers: composers, instruments: instruments)
-        return try await search(query: query)
+        let query = composerQuery(composers: composers)
+        return try await search(query: query, confidenceThreshold: 1.5)
     }
 
     func fetchMusopenTracks(composer: String) async throws -> [Track] {
         let rawNames = ComposerMap.aliases.filter { $0.value == composer }.keys.sorted()
         let creatorClause = rawNames.map { "creator:\"\($0)\"" }.joined(separator: " OR ")
         let query = "collection:musopen AND (\(creatorClause))"
-        return try await search(query: query, musopenCollection: true)
+        return try await search(query: query, musopenCollection: true, confidenceThreshold: 1.5)
     }
 
+    // Tag-only channels (Classical, Ambient) use threshold 0.0 — the license
+    // filter in the query already gates quality; we must not also require a
+    // recognised composer (Beethoven/Mozart are not in ComposerMap).
     func fetchTracks(tags: [String]) async throws -> [Track] {
         let tagClause = tags.map { "subject:\"\($0)\"" }.joined(separator: " OR ")
         let licenseClause = "(licenseurl:*publicdomain* OR licenseurl:*zero* OR licenseurl:*licenses/by/*)"
         let query = "mediatype:audio AND (\(tagClause)) AND \(licenseClause)"
-        return try await search(query: query)
-    }
-
-    // MARK: - Private
-
-    private func composerQuery(composers: [String], instruments: [String]) -> String {
-        let aliases = ComposerMap.aliases
-            .filter { composers.contains($0.value) }
-            .keys.sorted()
-        let creatorClause = aliases.map { "creator:\"\($0)\"" }.joined(separator: " OR ")
-
-        var q = "mediatype:audio AND (\(creatorClause))"
-
-        if !instruments.isEmpty {
-            let keywords = instruments.flatMap { instrumentKeywords(for: $0) }
-            let subjectClause = keywords.map { "subject:\"\($0)\"" }.joined(separator: " OR ")
-            q += " AND (\(subjectClause))"
-        }
-
-        q += " AND (licenseurl:*publicdomain* OR licenseurl:*zero* OR licenseurl:*licenses/by/*)"
-        return q
-    }
-
-    private func instrumentKeywords(for instrument: String) -> [String] {
-        switch instrument {
-        case "strings": return ["violin", "cello", "viola", "strings", "string quartet"]
-        case "piano":   return ["piano", "pianoforte"]
-        default:        return [instrument]
-        }
-    }
-
-    private func search(query: String, musopenCollection: Bool = false) async throws -> [Track] {
-        var components = URLComponents(string: Self.searchBase)!
-        components.queryItems = [
-            URLQueryItem(name: "q",       value: query),
-            URLQueryItem(name: "fl[]",    value: "identifier"),
-            URLQueryItem(name: "fl[]",    value: "title"),
-            URLQueryItem(name: "fl[]",    value: "creator"),
-            URLQueryItem(name: "fl[]",    value: "subject"),
-            URLQueryItem(name: "fl[]",    value: "licenseurl"),
-            URLQueryItem(name: "fl[]",    value: "description"),
-            URLQueryItem(name: "fl[]",    value: "year"),
-            URLQueryItem(name: "fl[]",    value: "collection"),
-            URLQueryItem(name: "output",  value: "json"),
-            URLQueryItem(name: "rows",    value: "100"),
-            URLQueryItem(name: "sort[]",  value: "downloads desc"),
-        ]
-
-        let (data, _) = try await session.data(from: components.url!)
-        let response = try JSONDecoder().decode(IASearchResponse.self, from: data)
-
-        return response.response.docs.compactMap { doc in
-            mapDoc(doc, musopenCollection: musopenCollection)
-        }
+        return try await search(query: query, confidenceThreshold: 0.0)
     }
 
     func resolveAudioURL(for identifier: String) async throws -> URL {
@@ -106,8 +56,54 @@ struct InternetArchiveService {
         throw URLError(.unsupportedURL)
     }
 
-    private func mapDoc(_ doc: IADoc, musopenCollection: Bool) -> Track? {
-        // Use .contains rather than .first == to catch musopen at any position
+    // MARK: - Private
+
+    // Do NOT add a subject filter here — it's inconsistent with InstrumentDetector
+    // (which also matches "Brandenburg", "Four Seasons", etc.) and would exclude
+    // many valid recordings whose IA subjects use genre tags rather than instrument
+    // names. Let InstrumentDetector + channel.matches() classify in code instead.
+    private func composerQuery(composers: [String]) -> String {
+        let aliases = ComposerMap.aliases
+            .filter { composers.contains($0.value) }
+            .keys.sorted()
+        let creatorClause = aliases.map { "creator:\"\($0)\"" }.joined(separator: " OR ")
+        return "mediatype:audio AND (\(creatorClause)) AND (licenseurl:*publicdomain* OR licenseurl:*zero* OR licenseurl:*licenses/by/*)"
+    }
+
+    private func search(
+        query: String,
+        musopenCollection: Bool = false,
+        confidenceThreshold: Double
+    ) async throws -> [Track] {
+        var components = URLComponents(string: Self.searchBase)!
+        components.queryItems = [
+            URLQueryItem(name: "q",       value: query),
+            URLQueryItem(name: "fl[]",    value: "identifier"),
+            URLQueryItem(name: "fl[]",    value: "title"),
+            URLQueryItem(name: "fl[]",    value: "creator"),
+            URLQueryItem(name: "fl[]",    value: "subject"),
+            URLQueryItem(name: "fl[]",    value: "licenseurl"),
+            URLQueryItem(name: "fl[]",    value: "description"),
+            URLQueryItem(name: "fl[]",    value: "year"),
+            URLQueryItem(name: "fl[]",    value: "collection"),
+            URLQueryItem(name: "output",  value: "json"),
+            URLQueryItem(name: "rows",    value: "100"),
+            URLQueryItem(name: "sort[]",  value: "downloads desc"),
+        ]
+
+        let (data, _) = try await session.data(from: components.url!)
+        let response = try JSONDecoder().decode(IASearchResponse.self, from: data)
+
+        return response.response.docs.compactMap { doc in
+            mapDoc(doc, musopenCollection: musopenCollection, confidenceThreshold: confidenceThreshold)
+        }
+    }
+
+    private func mapDoc(
+        _ doc: IADoc,
+        musopenCollection: Bool,
+        confidenceThreshold: Double
+    ) -> Track? {
         let isMuso = musopenCollection || doc.collection.contains("musopen")
 
         let (composer, instruments, confidence) = normalizer.normalize(
@@ -127,9 +123,7 @@ struct InternetArchiveService {
         )
         guard license != .rejected else { return nil }
 
-        // Tracks going into composer channels need confidence ≥ 1.5
-        // (Musopen tracks are pre-qualified and skip the threshold)
-        if !isMuso && confidence < 1.5 { return nil }
+        if !isMuso && confidence < confidenceThreshold { return nil }
 
         let streamURL = URL(string: "https://archive.org/download/\(doc.identifier)")!
 

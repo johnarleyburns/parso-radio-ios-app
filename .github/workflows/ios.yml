@@ -114,10 +114,106 @@ jobs:
           path: test.log
           retention-days: 7
 
-  # ─── TestFlight build — only runs if tests pass ───────────────────────────
-  testflight-build:
+  # ─── Integration tests against the real Internet Archive API ─────────────
+  integration-tests:
+    name: Integration Tests
     runs-on: macos-latest
     needs: test
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          XCODE=$(ls /Applications/ | grep "^Xcode_" | sort -V | tail -1)
+          sudo xcode-select -s /Applications/$XCODE
+          xcodebuild -version
+
+      - name: Accept Xcode License
+        run: sudo xcodebuild -license accept
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Cache SPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.swiftpm
+            ~/Library/Developer/Xcode/DerivedData/*/SourcePackages
+          key: spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-
+
+      - name: Resolve simulator UDID
+        id: simulator
+        run: |
+          UDID=$(xcrun simctl list devices available --json \
+            | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          devices = []
+          for runtime, device_list in data['devices'].items():
+              if 'iOS' not in runtime:
+                  continue
+              for d in device_list:
+                  if d['isAvailable'] and 'iPhone' in d['name']:
+                      devices.append((runtime, d['udid'], d['name']))
+          devices.sort(key=lambda x: x[0], reverse=True)
+          if devices:
+              print(devices[0][1])
+          else:
+              sys.exit(1)
+          ")
+          echo "udid=$UDID" >> $GITHUB_OUTPUT
+
+      - name: Boot simulator
+        run: |
+          UDID="${{ steps.simulator.outputs.udid }}"
+          xcrun simctl boot "$UDID" || true
+          for i in $(seq 1 12); do
+            STATE=$(xcrun simctl list devices | grep "$UDID" | grep -o 'Booted' || true)
+            [ "$STATE" = "Booted" ] && echo "Simulator booted." && break
+            echo "Waiting... ($i/12)"; sleep 5
+          done
+
+      - name: Run integration tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project ParsoRadio.xcodeproj \
+            -scheme ParsoRadio \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -only-testing:ParsoRadioIntegrationTests \
+            -resultBundlePath TestResults/integration-tests.xcresult \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee integration-test.log
+
+      - name: Upload integration test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: TestResults/
+          retention-days: 7
+
+      - name: Upload integration test log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-log
+          path: integration-test.log
+          retention-days: 7
+
+  # ─── TestFlight build — only runs if both test jobs pass ──────────────────
+  testflight-build:
+    runs-on: macos-latest
+    needs: [test, integration-tests]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

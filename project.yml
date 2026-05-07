@@ -88,6 +88,22 @@ targets:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/ParsoRadio.app/ParsoRadio"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
+  ParsoRadioIntegrationTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ParsoRadio/Integration/Tests
+    dependencies:
+      - target: ParsoRadio
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleShortVersionString: "1.0.0"
+        INFOPLIST_KEY_CFBundleVersion: "1"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/ParsoRadio.app/ParsoRadio"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
 schemes:
   ParsoRadio:
     build:
@@ -99,6 +115,7 @@ schemes:
       config: Debug
       targets:
         - ParsoRadioTests
+        - ParsoRadioIntegrationTests
     profile:
       config: Release
     analyze:
