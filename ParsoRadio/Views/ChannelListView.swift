@@ -185,6 +185,10 @@ func categoryGradient(for category: String) -> LinearGradient {
         return LinearGradient(colors: [Color(red: 0.08, green: 0.50, blue: 0.40),
                                        Color(red: 0.18, green: 0.72, blue: 0.52)],
                               startPoint: .topLeading, endPoint: .bottomTrailing)
+    case "Talk & Stories":
+        return LinearGradient(colors: [Color(red: 0.55, green: 0.35, blue: 0.10),
+                                       Color(red: 0.80, green: 0.55, blue: 0.20)],
+                              startPoint: .topLeading, endPoint: .bottomTrailing)
     default:
         return LinearGradient(colors: [Color.gray, Color.gray.opacity(0.6)],
                               startPoint: .topLeading, endPoint: .bottomTrailing)

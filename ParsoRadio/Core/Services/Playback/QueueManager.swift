@@ -34,7 +34,7 @@ final class QueueManager {
                 composers: expanded,
                 instruments: channel.instruments,
                 tags: channel.tags,
-                isDownloaded: false
+                contentType: channel.contentType
             )
             let extra = await db.fetchTracks(forChannel: expandedChannel)
                 .filter { !recentIDs.contains($0.id) }
@@ -48,10 +48,8 @@ final class QueueManager {
                 name: channel.name,
                 category: channel.category,
                 icon: channel.icon,
-                composers: [],
-                instruments: [],
                 tags: channel.tags,
-                isDownloaded: false
+                contentType: channel.contentType
             )
             pool = await db.fetchTracks(forChannel: tagChannel)
                 .filter { !recentIDs.contains($0.id) }

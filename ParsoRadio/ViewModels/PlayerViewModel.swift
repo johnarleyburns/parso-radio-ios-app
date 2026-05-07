@@ -7,6 +7,8 @@ final class PlayerViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var loadingMessage: String?
     @Published var errorMessage: String?
+    @Published var currentPosition: Double = 0
+    @Published var trackDuration: Double?
 
     let audioPlayer: AudioPlayerService
 
@@ -37,7 +39,30 @@ final class PlayerViewModel: ObservableObject {
 
         audioPlayer.onTrackFinished = { [weak self] in
             Task { @MainActor [weak self] in
-                await self?.advanceToNext()
+                guard let self else { return }
+                // Natural finish: clear saved position so the next track starts fresh.
+                if let channel = self.currentChannel, channel.contentType == .spokenWord {
+                    await self.db.clearPosition(channelId: channel.id)
+                }
+                await self.advanceToNext()
+            }
+        }
+
+        audioPlayer.onTimeUpdate = { [weak self] seconds in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.currentPosition = seconds
+                self.trackDuration = self.audioPlayer.duration
+                // Persist position for spoken-word channels so the user can resume.
+                if let channel = self.currentChannel,
+                   channel.contentType == .spokenWord,
+                   let track = self.currentTrack {
+                    await self.db.savePosition(
+                        channelId: channel.id,
+                        trackId: track.id,
+                        seconds: seconds
+                    )
+                }
             }
         }
     }
@@ -47,49 +72,60 @@ final class PlayerViewModel: ObservableObject {
         isLoading = true
         loadingMessage = "Finding tracks…"
         errorMessage = nil
+        currentPosition = 0
+        trackDuration = nil
 
         do {
             let fetched: [Track]
-            let iaSvc = archiveService
-            let fmaSvc = fmaService
 
-            if channel.composers.isEmpty {
+            if channel.contentType == .spokenWord {
+                // Spoken-word channels: LibriVox / podcast collections via IA.
+                fetched = try await archiveService.fetchSpokenWordTracks(channel: channel)
+            } else if channel.composers.isEmpty {
                 // Tag channels: IA + FMA in parallel; FMA errors are non-fatal.
-                async let iaTracks = iaSvc.fetchTracks(tags: channel.tags)
-                let fmaTracks = (try? await fmaSvc.fetchTracks(forChannel: channel)) ?? []
+                async let iaTracks = archiveService.fetchTracks(tags: channel.tags)
+                let fmaTracks = (try? await fmaService.fetchTracks(forChannel: channel)) ?? []
                 let iaResults = try await iaTracks
                 var seen = Set<String>()
                 fetched = (iaResults + fmaTracks).filter { seen.insert($0.id).inserted }
             } else {
                 // Composer channels: IA + Musopen(IA) + FMA all in parallel.
-                // Musopen and FMA errors are non-fatal.
-                async let iaTracks = iaSvc.fetchTracks(
+                async let iaTracks = archiveService.fetchTracks(
                     composers: channel.composers,
                     instruments: channel.instruments
                 )
                 var supplemental: [Track] = []
                 await withTaskGroup(of: [Track].self) { group in
                     for composer in channel.composers {
-                        group.addTask { (try? await iaSvc.fetchMusopenTracks(composer: composer)) ?? [] }
+                        group.addTask { (try? await self.archiveService.fetchMusopenTracks(composer: composer)) ?? [] }
                     }
-                    group.addTask { (try? await fmaSvc.fetchTracks(forChannel: channel)) ?? [] }
+                    group.addTask { (try? await self.fmaService.fetchTracks(forChannel: channel)) ?? [] }
                     for await tracks in group { supplemental.append(contentsOf: tracks) }
                 }
                 let iaResults = try await iaTracks
                 var seen = Set<String>()
                 fetched = (iaResults + supplemental).filter { seen.insert($0.id).inserted }
             }
+
             await db.saveTracks(fetched)
             downloadManager.prefetchNext(fetched)
         } catch {
-            // Non-fatal: play from whatever is already in the DB
             if currentTrack == nil {
                 errorMessage = "Could not refresh tracks."
             }
         }
 
-        loadingMessage = "Starting playback…"
-        await advanceToNext()
+        // For spoken-word channels, resume exactly where the user left off.
+        if channel.contentType == .spokenWord,
+           let saved = await db.loadPosition(channelId: channel.id),
+           let track = await db.fetchTrack(id: saved.trackId) {
+            loadingMessage = "Resuming…"
+            await playTrack(track, seekTo: saved.seconds)
+        } else {
+            loadingMessage = "Starting playback…"
+            await advanceToNext()
+        }
+
         isLoading = false
         loadingMessage = nil
     }
@@ -107,7 +143,13 @@ final class PlayerViewModel: ObservableObject {
     func skip() {
         audioPlayer.skip()
         isPlaying = false
-        Task { await advanceToNext() }
+        Task {
+            // Skip clears saved position — user deliberately moved on.
+            if let channel = currentChannel, channel.contentType == .spokenWord {
+                await db.clearPosition(channelId: channel.id)
+            }
+            await advanceToNext()
+        }
     }
 
     // MARK: - Private
@@ -123,10 +165,10 @@ final class PlayerViewModel: ObservableObject {
             isLoading = false
             return
         }
-        await playTrack(track)
+        await playTrack(track, seekTo: nil)
     }
 
-    private func playTrack(_ track: Track) async {
+    private func playTrack(_ track: Track, seekTo: Double?) async {
         currentTrack = track
         isLoading = true
         loadingMessage = track.source == "internet_archive" ? "Buffering…" : "Loading…"
@@ -141,21 +183,22 @@ final class PlayerViewModel: ObservableObject {
                FileManager.default.fileExists(atPath: localPath) {
                 url = URL(fileURLWithPath: localPath)
             } else if track.source == "internet_archive" {
-                // Use pre-resolved URL from look-ahead cache when available.
                 if let cached = prefetchedURLs.removeValue(forKey: track.id) {
                     url = cached
                 } else {
                     url = try await archiveService.resolveAudioURL(for: track.id)
                 }
             } else {
-                // FMA and other sources store a directly playable stream URL.
                 url = track.streamURL
             }
             audioPlayer.play(url: url, track: track)
+            if let seconds = seekTo, seconds > 0 {
+                audioPlayer.seek(to: seconds)
+                currentPosition = seconds
+            }
             isPlaying = true
             errorMessage = nil
 
-            // Fire-and-forget: pre-resolve the next IA track's URL while this one plays.
             if let channel = currentChannel {
                 Task { await prefetchNextURL(channel: channel) }
             }

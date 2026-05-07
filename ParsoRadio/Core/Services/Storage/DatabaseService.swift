@@ -5,6 +5,7 @@ final class DatabaseService {
     private let db: Connection
     private let queue = DispatchQueue(label: "guru.parso.db", qos: .utility)
 
+    // MARK: - Tracks table
     private let tracks        = Table("tracks")
     private let colId         = Expression<String>("id")
     private let colSource     = Expression<String>("source")
@@ -22,6 +23,12 @@ final class DatabaseService {
     private let colInstruments = Expression<String>("instruments")
     private let colConfidence = Expression<Double>("metadata_confidence")
     private let colFetchedAt  = Expression<Int64>("fetched_at")
+
+    // MARK: - Playback positions table
+    private let positions    = Table("playback_positions")
+    private let colChannelId = Expression<String>("channel_id")
+    private let colTrackId   = Expression<String>("track_id")
+    private let colPosSecs   = Expression<Double>("position_seconds")
 
     init(path: String? = nil) throws {
         if let path {
@@ -55,9 +62,15 @@ final class DatabaseService {
         })
         try db.run("CREATE INDEX IF NOT EXISTS idx_composer ON tracks(composer)")
         try db.run("CREATE INDEX IF NOT EXISTS idx_confidence ON tracks(metadata_confidence)")
+
+        try db.run(positions.create(ifNotExists: true) { t in
+            t.column(colChannelId, primaryKey: true)
+            t.column(colTrackId)
+            t.column(colPosSecs)
+        })
     }
 
-    // MARK: - Write
+    // MARK: - Track write
 
     func saveTracks(_ newTracks: [Track]) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
@@ -98,12 +111,15 @@ final class DatabaseService {
         }
     }
 
-    // MARK: - Read
+    // MARK: - Track read
 
     func fetchTracks(forChannel channel: Channel) async -> [Track] {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
-                var query = self.tracks.filter(self.colConfidence >= 1.5)
+                // Spoken-word tracks are stored with confidence 2.0 (trusted curated source)
+                // and need confidence >= 0 threshold; music tracks still use 1.5.
+                let threshold: Double = channel.contentType == .spokenWord ? 0.0 : 1.5
+                var query = self.tracks.filter(self.colConfidence >= threshold)
                 if !channel.composers.isEmpty {
                     query = query.filter(channel.composers.contains(self.colComposer ?? ""))
                 }
@@ -111,6 +127,15 @@ final class DatabaseService {
                 let rows = (try? self.db.prepare(query)) ?? AnySequence([])
                 let result = rows.compactMap(self.rowToTrack).filter { channel.matches($0) }
                 continuation.resume(returning: result)
+            }
+        }
+    }
+
+    func fetchTrack(id: String) async -> Track? {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let row = (try? self.db.pluck(self.tracks.filter(self.colId == id)))
+                continuation.resume(returning: row.flatMap(self.rowToTrack))
             }
         }
     }
@@ -136,6 +161,44 @@ final class DatabaseService {
             queue.async { [self] in
                 let count = (try? self.db.scalar(self.tracks.count)) ?? 0
                 continuation.resume(returning: count)
+            }
+        }
+    }
+
+    // MARK: - Playback position
+
+    func savePosition(channelId: String, trackId: String, seconds: Double) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let upsert = self.positions.insert(or: .replace,
+                    self.colChannelId <- channelId,
+                    self.colTrackId   <- trackId,
+                    self.colPosSecs   <- seconds
+                )
+                try? self.db.run(upsert)
+                continuation.resume()
+            }
+        }
+    }
+
+    func loadPosition(channelId: String) async -> (trackId: String, seconds: Double)? {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let row = try? self.db.pluck(self.positions.filter(self.colChannelId == channelId))
+                if let row {
+                    continuation.resume(returning: (row[self.colTrackId], row[self.colPosSecs]))
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+
+    func clearPosition(channelId: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                try? self.db.run(self.positions.filter(self.colChannelId == channelId).delete())
+                continuation.resume()
             }
         }
     }

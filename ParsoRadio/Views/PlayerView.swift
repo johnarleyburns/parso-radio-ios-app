@@ -115,31 +115,70 @@ struct PlayerView: View {
     // MARK: - Controls
 
     private var controls: some View {
-        HStack(spacing: 56) {
-            Button {
-                playerVM.skip()
-            } label: {
-                Image(systemName: "forward.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(.primary)
+        VStack(spacing: 16) {
+            // Progress bar + time — only for spoken-word channels with known duration.
+            if channel.contentType == .spokenWord {
+                progressBar
             }
 
-            Button {
-                playerVM.togglePlayPause()
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(categoryGradient(for: channel.category))
-                        .frame(width: 80, height: 80)
-                        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
-                    Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .offset(x: playerVM.isPlaying ? 0 : 2)
+            HStack(spacing: 56) {
+                Button {
+                    playerVM.skip()
+                } label: {
+                    Image(systemName: "forward.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.primary)
+                }
+
+                Button {
+                    playerVM.togglePlayPause()
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(categoryGradient(for: channel.category))
+                            .frame(width: 80, height: 80)
+                            .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+                        Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .offset(x: playerVM.isPlaying ? 0 : 2)
+                    }
                 }
             }
         }
         .padding(.vertical, 8)
+    }
+
+    private var progressBar: some View {
+        VStack(spacing: 4) {
+            if let duration = playerVM.trackDuration, duration > 0 {
+                ProgressView(value: playerVM.currentPosition, total: duration)
+                    .tint(categoryGradient(for: channel.category).stops.first?.color ?? .accentColor)
+            } else {
+                ProgressView()
+                    .progressViewStyle(.linear)
+            }
+            HStack {
+                Text(formatTime(playerVM.currentPosition))
+                Spacer()
+                if let duration = playerVM.trackDuration {
+                    Text(formatTime(duration))
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private func formatTime(_ seconds: Double) -> String {
+        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
+        let total = Int(seconds)
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        let s = total % 60
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
 
     // MARK: - Labels

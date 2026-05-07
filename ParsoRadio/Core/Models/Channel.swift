@@ -1,5 +1,10 @@
 import Foundation
 
+enum ContentType: String, Codable {
+    case music
+    case spokenWord
+}
+
 struct Channel: Codable, Identifiable, Hashable {
     let id: String
     let name: String
@@ -8,7 +13,22 @@ struct Channel: Codable, Identifiable, Hashable {
     let composers: [String]
     let instruments: [String]
     let tags: [String]
+    let contentType: ContentType
+    // IA collection names to restrict spoken-word searches (empty = general search).
+    let spokenWordCollections: [String]
     var isDownloaded: Bool
+
+    init(
+        id: String, name: String, category: String, icon: String,
+        composers: [String] = [], instruments: [String] = [], tags: [String] = [],
+        contentType: ContentType = .music, spokenWordCollections: [String] = [],
+        isDownloaded: Bool = false
+    ) {
+        self.id = id; self.name = name; self.category = category; self.icon = icon
+        self.composers = composers; self.instruments = instruments; self.tags = tags
+        self.contentType = contentType; self.spokenWordCollections = spokenWordCollections
+        self.isDownloaded = isDownloaded
+    }
 
     func matches(_ track: Track) -> Bool {
         // Tag-only channels (no composer/instrument constraints) must match by tag —
@@ -34,8 +54,7 @@ extension Channel {
             icon: "music.note.list",
             composers: ["bach", "vivaldi"],
             instruments: ["strings"],
-            tags: ["classical", "baroque"],
-            isDownloaded: false
+            tags: ["classical", "baroque"]
         ),
         Channel(
             id: "chopin-rachmaninoff-piano",
@@ -44,28 +63,21 @@ extension Channel {
             icon: "pianokeys",
             composers: ["chopin", "rachmaninoff"],
             instruments: ["piano"],
-            tags: ["classical", "romantic"],
-            isDownloaded: false
+            tags: ["classical", "romantic"]
         ),
         Channel(
             id: "classical",
             name: "Classical",
             category: "Classical",
             icon: "music.quarternote.3",
-            composers: [],
-            instruments: [],
-            tags: ["classical"],
-            isDownloaded: false
+            tags: ["classical"]
         ),
         Channel(
             id: "ambient",
             name: "Ambient",
             category: "Classical",
             icon: "waveform",
-            composers: [],
-            instruments: [],
-            tags: ["ambient"],
-            isDownloaded: false
+            tags: ["ambient"]
         ),
 
         // MARK: Jazz & Blues
@@ -74,20 +86,14 @@ extension Channel {
             name: "Jazz Bar",
             category: "Jazz & Blues",
             icon: "music.mic",
-            composers: [],
-            instruments: [],
-            tags: ["jazz"],
-            isDownloaded: false
+            tags: ["jazz"]
         ),
         Channel(
             id: "blues",
             name: "Blues",
             category: "Jazz & Blues",
             icon: "guitars",
-            composers: [],
-            instruments: [],
-            tags: ["blues"],
-            isDownloaded: false
+            tags: ["blues"]
         ),
 
         // MARK: Rock & Country
@@ -96,30 +102,21 @@ extension Channel {
             name: "Rock",
             category: "Rock & Country",
             icon: "bolt.fill",
-            composers: [],
-            instruments: [],
-            tags: ["rock"],
-            isDownloaded: false
+            tags: ["rock"]
         ),
         Channel(
             id: "country",
             name: "Country Road",
             category: "Rock & Country",
             icon: "leaf",
-            composers: [],
-            instruments: [],
-            tags: ["country"],
-            isDownloaded: false
+            tags: ["country"]
         ),
         Channel(
             id: "folk",
             name: "Folk",
             category: "Rock & Country",
             icon: "music.note",
-            composers: [],
-            instruments: [],
-            tags: ["folk"],
-            isDownloaded: false
+            tags: ["folk"]
         ),
 
         // MARK: Vibes
@@ -128,20 +125,70 @@ extension Channel {
             name: "Soft Café",
             category: "Vibes",
             icon: "cup.and.saucer",
-            composers: [],
-            instruments: [],
-            tags: ["acoustic", "lo-fi"],
-            isDownloaded: false
+            tags: ["acoustic", "lo-fi"]
         ),
         Channel(
             id: "study-focus",
             name: "Study Focus",
             category: "Vibes",
             icon: "book",
-            composers: [],
-            instruments: [],
-            tags: ["lo-fi", "ambient"],
-            isDownloaded: false
+            tags: ["lo-fi", "ambient"]
+        ),
+
+        // MARK: Talk & Stories (spoken word — position is persisted across sessions)
+        Channel(
+            id: "greek-philosophy",
+            name: "Greek Philosophy",
+            category: "Talk & Stories",
+            icon: "building.columns",
+            tags: ["plato", "socrates", "aristotle"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
+        ),
+        Channel(
+            id: "childrens-books",
+            name: "Children's Books",
+            category: "Talk & Stories",
+            icon: "star.circle",
+            tags: ["children"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
+        ),
+        Channel(
+            id: "science-fiction",
+            name: "Science Fiction",
+            category: "Talk & Stories",
+            icon: "sparkles",
+            tags: ["science fiction"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
+        ),
+        Channel(
+            id: "mystery",
+            name: "Mystery & Detection",
+            category: "Talk & Stories",
+            icon: "magnifyingglass",
+            tags: ["mystery"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
+        ),
+        Channel(
+            id: "classic-lit",
+            name: "Classic Literature",
+            category: "Talk & Stories",
+            icon: "books.vertical",
+            tags: ["classical fiction"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
+        ),
+        Channel(
+            id: "history-talks",
+            name: "History",
+            category: "Talk & Stories",
+            icon: "globe.europe.africa",
+            tags: ["history"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"]
         ),
     ]
 

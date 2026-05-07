@@ -39,6 +39,70 @@ struct InternetArchiveService {
         return try await search(query: query, confidenceThreshold: 0.0)
     }
 
+    // Spoken-word fetch (LibriVox, podcast collections). Skips MetadataNormalizer —
+    // these items are from curated trusted collections, no composer/instrument needed.
+    func fetchSpokenWordTracks(channel: Channel) async throws -> [Track] {
+        let collections = channel.spokenWordCollections.isEmpty
+            ? ["librivoxaudio"] : channel.spokenWordCollections
+        let collectionClause = collections.map { "collection:\"\($0)\"" }.joined(separator: " OR ")
+        let subjectClause = channel.tags.map { "subject:\"\($0)\"" }.joined(separator: " OR ")
+        let query = channel.tags.isEmpty
+            ? "mediatype:audio AND (\(collectionClause))"
+            : "mediatype:audio AND (\(collectionClause)) AND (\(subjectClause))"
+        return try await searchSpokenWord(query: query, tags: channel.tags)
+    }
+
+    private func searchSpokenWord(query: String, tags: [String]) async throws -> [Track] {
+        var components = URLComponents(string: Self.searchBase)!
+        components.queryItems = [
+            URLQueryItem(name: "q",       value: query),
+            URLQueryItem(name: "fl[]",    value: "identifier"),
+            URLQueryItem(name: "fl[]",    value: "title"),
+            URLQueryItem(name: "fl[]",    value: "creator"),
+            URLQueryItem(name: "fl[]",    value: "subject"),
+            URLQueryItem(name: "fl[]",    value: "licenseurl"),
+            URLQueryItem(name: "fl[]",    value: "year"),
+            URLQueryItem(name: "fl[]",    value: "collection"),
+            URLQueryItem(name: "output",  value: "json"),
+            URLQueryItem(name: "rows",    value: "100"),
+            URLQueryItem(name: "sort[]",  value: "downloads desc"),
+        ]
+        let (data, _) = try await session.data(from: components.url!)
+        let response = try JSONDecoder().decode(IASearchResponse.self, from: data)
+        return response.response.docs.compactMap { mapSpokenWordDoc($0, channelTags: tags) }
+    }
+
+    private func mapSpokenWordDoc(_ doc: IADoc, channelTags: [String]) -> Track? {
+        let license = validator.validate(
+            licenseURL: doc.licenseurl,
+            year: doc.year,
+            collection: doc.collection.first
+        )
+        guard license != .rejected else { return nil }
+
+        let streamURL = URL(string: "https://archive.org/download/\(doc.identifier)")!
+        // Merge channel tags with IA subject tags so Channel.matches() works correctly.
+        let trackTags = Array(Set(channelTags + doc.subjects.map { $0.lowercased() }))
+
+        return Track(
+            id: doc.identifier,
+            source: "internet_archive",
+            title: doc.title ?? doc.identifier,
+            artist: doc.creator ?? "Unknown",
+            duration: 0,
+            streamURL: streamURL,
+            downloadURL: streamURL,
+            localFilePath: nil,
+            license: license,
+            tags: trackTags,
+            qualityScore: 0.7,
+            rawCreator: doc.creator ?? "",
+            composer: nil,
+            instruments: [],
+            metadataConfidence: 2.0
+        )
+    }
+
     func resolveAudioURL(for identifier: String) async throws -> URL {
         guard let encodedId = identifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
               let metaURL = URL(string: "https://archive.org/metadata/\(encodedId)") else {

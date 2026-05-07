@@ -152,6 +152,73 @@ final class InternetArchiveIntegrationTests: XCTestCase {
     }
 }
 
+// MARK: - Spoken-word (LibriVox) integration tests
+
+final class SpokenWordIntegrationTests: XCTestCase {
+
+    private let service = InternetArchiveService()
+
+    override func setUp() {
+        super.setUp()
+        executionTimeAllowance = 60
+    }
+
+    func testGreekPhilosophyChannelReturnsAtLeastOneTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "greek-philosophy" }!
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchSpokenWordTracks(channel: channel)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("Greek Philosophy: \(tracks.count) tracks")
+        for t in tracks.prefix(3) { print("  \(t.title) | \(t.license)") }
+        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 LibriVox philosophy track but got 0.")
+        XCTAssertTrue(tracks.allSatisfy { $0.license != .rejected }, "All tracks must have valid license")
+    }
+
+    func testChildrensBooksChannelReturnsAtLeastOneTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "childrens-books" }!
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchSpokenWordTracks(channel: channel)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("Children's Books: \(tracks.count) tracks")
+        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 LibriVox children's track but got 0.")
+    }
+
+    func testScienceFictionChannelReturnsAtLeastOneTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "science-fiction" }!
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchSpokenWordTracks(channel: channel)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("Science Fiction: \(tracks.count) tracks")
+        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 LibriVox sci-fi track but got 0.")
+    }
+
+    func testSpokenWordTracksHaveChannelTagsForMatching() async throws {
+        let channel = Channel.defaults.first { $0.id == "greek-philosophy" }!
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchSpokenWordTracks(channel: channel)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        guard let first = tracks.first else {
+            throw XCTSkip("No tracks returned — cannot verify tag matching")
+        }
+        XCTAssertTrue(
+            channel.matches(first),
+            "Fetched track must pass Channel.matches() — tags: \(first.tags)"
+        )
+    }
+}
+
 // MARK: - FMA scraper integration tests
 
 final class FMAIntegrationTests: XCTestCase {
