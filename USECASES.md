@@ -124,18 +124,24 @@ Planned: persist visited channel IDs to `UserDefaults` in `PlayerViewModel.load(
 
 ## UC7 — All FMA Genres Available as Channels
 
-**Scenario:** The user opens the channel selector and sees all 16 FMA genres as
+**Scenario:** The user opens the channel selector and sees all FMA genres as
 playable channels under an "FMA" category.
 
-**Expected FMA genres:** International, Blues, Jazz, Novelty, Historic, Country, Pop,
-Instrumental, Rock, Soul-RnB, Spoken, Experimental, Folk, Classical, Electronic, Hip-Hop
+**Available FMA genres (curl-verified, 40 PD+CC-BY tracks each):**
+International, Blues, Jazz, Country, Pop, Instrumental, Rock, Soul-RnB,
+Experimental, Folk, Classical, Electronic, Hip-Hop, Old-Time & Historic
 
-**Status:** 🔲 Not yet implemented  
-Current state: some FMA genres exist as channels in other categories (Classical,
-Jazz & Blues, etc.) but the full 16-genre FMA listing as a dedicated category
-is not present.
+**Status:** ✅ Implemented (this pass)  
+14 dedicated FMA channels added under the "FMA" category. Root cause of
+"No tracks available" also fixed: `DatabaseService.fetchTracks` now uses
+confidence threshold 0.0 for tag-only channels (matching the 0.0 threshold
+used during fetch), and `FMAService` always stores `metadataConfidence: 2.0`.
 
-**Tests:** Planned: `ChannelTests.testAllFMAGenreChannelsPresent`
+**Tests:** `ChannelTests.testFMACategoryHas14Channels`,
+`ChannelTests.testFMAChannelsHaveValidTags`,
+`FMAIntegrationTests.testFMAInternationalChannelReturnsAtLeastOnePDTrack`,
+`FMAIntegrationTests.testFMAHipHopChannelReturnsAtLeastOnePDTrack`,
+`DatabaseServiceTests.testLowConfidenceTracksIncludedInTagChannel`
 
 ---
 
@@ -174,7 +180,7 @@ then present a `TrackDetailSheet`.
 **Scenario:** In the channel selector, there is a clearly labeled "FMA" (Free Music
 Archive) section containing only channels sourced from FMA.
 
-**Status:** 🔲 Not yet implemented (same scope as UC7)
+**Status:** ✅ Implemented (same pass as UC7) — 14 FMA channels under "FMA" category.
 
 ---
 
@@ -182,18 +188,20 @@ Archive) section containing only channels sourced from FMA.
 
 **Scenario:** The user sees a "LibriVox Audiobooks" category with spoken-word
 channels covering genres such as Greek Philosophy, Children's Books, Science
-Fiction, Mystery, Horror, and more.
+Fiction, Mystery, History, and more.
 
-**Status:** 🟡 Partial  
-Three spoken-word channels exist (greek-philosophy, childrens-books, science-fiction)
-grouped under "Talk & Stories". The full genre list from librivox.org is not yet mapped.
+**Status:** ✅ Implemented (this pass)  
+All 13 spoken-word channels renamed from "Talk & Stories" to "LibriVox Audiobooks".
+Category color/gradient maps updated in iPodView, PlayerView, and ChannelListView.
 
-**Existing spoken-word channels:**
-- Greek Philosophy (Talk & Stories)
-- Children's Books (Talk & Stories)
-- Science Fiction (Talk & Stories)
+**Existing spoken-word channels (LibriVox Audiobooks):**
+- Greek Philosophy, Greek History, Chinese Philosophy, Chinese History
+- Children's Books, French Children's Books, Spanish Children's Books
+- Science Fiction, Mystery & Detection, Classic Literature, History
+- French Literature, Spanish Literature
 
-**Tests:** `SpokenWordIntegrationTests.testGreekPhilosophyChannelReturnsAtLeastOneTrack`,
+**Tests:** `ChannelTests.testSpokenWordChannelsUseLibriVoxCategory`,
+`SpokenWordIntegrationTests.testGreekPhilosophyChannelReturnsAtLeastOneTrack`,
 `SpokenWordIntegrationTests.testChildrensBooksChannelReturnsAtLeastOneTrack`,
 `SpokenWordIntegrationTests.testScienceFictionChannelReturnsAtLeastOneTrack`
 
