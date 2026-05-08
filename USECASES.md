@@ -222,10 +222,47 @@ track metadata and media controls.
 2. Lock screen and Control Center show title, artist, and playback rate.
 3. Hardware play/pause, skip-forward, and skip-backward controls work.
 
-**Status:** ✅ Implemented  
-`AVAudioSession.setCategory(.playback)` in `AudioPlayerService.init()` enables
-background audio. `UIBackgroundModes: "audio fetch"` is declared in `project.yml`.
-`MPRemoteCommandCenter` and `MPNowPlayingInfoCenter` are fully wired up.
-Lock screen previous-track button was enabled in this pass.
+**Status:** ✅ Implemented (fully fixed this pass)  
+`AVAudioSession.setCategory(.playback)` + `setActive(true)` in `AudioPlayerService.init()`.  
+`UIBackgroundModes: [audio, fetch]` now correctly declared as a plist array via XcodeGen
+`info:` section (the previous `INFOPLIST_KEY_UIBackgroundModes` build setting was silently
+ignored because UIBackgroundModes is an array type — it was never in the built plist).  
+`AVAudioSession.interruptionNotification` handler resumes playback after phone calls,
+Siri, notifications, or any other interruption when iOS signals `.shouldResume`.  
+`AVAudioSession.routeChangeNotification` handler mirrors the iOS pause when headphones
+are unplugged.  
+`UIBackgroundTask` assertion in `advanceToNext()` gives iOS up to 30 s of background
+CPU time to resolve the next track URL when a track ends while backgrounded.
 
 **Tests:** `AudioPlayerServiceTests.testAudioSessionCategoryIsPlayback`
+
+---
+
+## UC13 — Oxford Lectures Category
+
+**Scenario:** The user opens the channel selector and sees an "Oxford Lectures" category
+with 22 channels covering Oxford University departments (Philosophy, History, Physics,
+Computer Science, etc.). Tapping a channel plays open-license audio lectures.
+
+**Expected behavior:**
+1. "Oxford Lectures" section appears in the channel selector below FMA.
+2. Each of the 22 channels represents one Oxford department podcast unit.
+3. Selecting a channel fetches lectures from `podcasts.ox.ac.uk` and begins playback.
+4. Position is persisted and restored (same as LibriVox audiobooks).
+5. Back = rewind 15 s; Forward = skip +30 s within the lecture.
+
+**Status:** ✅ Implemented (this pass)  
+`OxfordLecturesService.fetchTracks(unitSlug:)` performs a 3-level crawl:
+unit page → series pages (parallel) → `audio.xml` RSS feeds (parallel) → `Track` objects.  
+Series with only a `video.xml` feed (1 GB MP4s) are automatically skipped.  
+All 22 Oxford channels use `contentType: .spokenWord` so position is persisted and
+rewind/fast-forward behave like LibriVox channels.  
+Oxford tracks carry `license: .ccBy` and `source: "oxford_lectures"`.  
+TORCH unit slug corrected from LECTURES.md (`the-oxford-research-...` →
+`oxford-research-centre-humanities-torch`, verified against the Oxford podcasts directory).
+
+**Tests:** `ChannelTests.testOxfordLecturesCategoryHas22Channels`,
+`ChannelTests.testOxfordLecturesChannelsAreSpokenWord`,
+`ChannelTests.testOxfordLecturesChannelsHaveUnitSlugTag`,
+`OxfordLecturesIntegrationTests.testPhilosophyChannelReturnsAtLeastOneTrack`,
+`OxfordLecturesIntegrationTests.testPhysicsChannelReturnsAtLeastOneTrack`

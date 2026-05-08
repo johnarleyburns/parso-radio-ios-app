@@ -215,9 +215,10 @@ struct iPodView: View {
             case .rejected:     EmptyView()
             }
             switch source {
-            case "fma":     badge("FMA", color: .gray)
-            case "musopen": badge("Musopen", color: .purple)
-            default:        badge("Archive.org", color: .gray)
+            case "fma":              badge("FMA", color: .gray)
+            case "musopen":          badge("Musopen", color: .purple)
+            case "oxford_lectures":  badge("Oxford", color: Color(red: 0.00, green: 0.13, blue: 0.28))
+            default:                 badge("Archive.org", color: .gray)
             }
         }
     }
@@ -243,6 +244,7 @@ struct iPodView: View {
         case "Electronic & Beats":  return Color(red: 0.05, green: 0.10, blue: 0.45)
         case "Pop & World":         return Color(red: 0.85, green: 0.20, blue: 0.55)
         case "FMA":                 return Color(red: 0.20, green: 0.40, blue: 0.20)
+        case "Oxford Lectures":     return Color(red: 0.00, green: 0.13, blue: 0.28)
         default:                    return .accentColor
         }
     }

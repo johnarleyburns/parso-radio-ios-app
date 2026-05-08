@@ -4,7 +4,7 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        XCTAssertEqual(Channel.defaults.count, 48)
+        XCTAssertEqual(Channel.defaults.count, 70)
     }
 
     func testBachVivaldiChannelDefinition() {
@@ -120,13 +120,37 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    // UC11: spoken-word channels use "LibriVox Audiobooks" category.
+    // UC11: non-Oxford spoken-word channels use "LibriVox Audiobooks" category.
     func testSpokenWordChannelsUseLibriVoxCategory() {
-        let spokenChannels = Channel.defaults.filter { $0.contentType == .spokenWord }
-        XCTAssertFalse(spokenChannels.isEmpty, "Expected at least one spoken-word channel")
-        for channel in spokenChannels {
+        let librivoxChannels = Channel.defaults.filter {
+            $0.contentType == .spokenWord && $0.category != "Oxford Lectures"
+        }
+        XCTAssertFalse(librivoxChannels.isEmpty, "Expected at least one LibriVox spoken-word channel")
+        for channel in librivoxChannels {
             XCTAssertEqual(channel.category, "LibriVox Audiobooks",
                 "Spoken-word channel '\(channel.id)' must use 'LibriVox Audiobooks' category")
+        }
+    }
+
+    // UC13: 22 Oxford Lectures channels, all spoken-word.
+    func testOxfordLecturesCategoryHas22Channels() {
+        let oxfordChannels = Channel.defaults.filter { $0.category == "Oxford Lectures" }
+        XCTAssertEqual(oxfordChannels.count, 22, "Expected 22 Oxford Lectures channels")
+    }
+
+    func testOxfordLecturesChannelsAreSpokenWord() {
+        let oxfordChannels = Channel.defaults.filter { $0.category == "Oxford Lectures" }
+        for channel in oxfordChannels {
+            XCTAssertEqual(channel.contentType, .spokenWord,
+                "Oxford channel '\(channel.id)' must be contentType .spokenWord")
+        }
+    }
+
+    func testOxfordLecturesChannelsHaveUnitSlugTag() {
+        let oxfordChannels = Channel.defaults.filter { $0.category == "Oxford Lectures" }
+        for channel in oxfordChannels {
+            XCTAssertFalse(channel.tags.isEmpty,
+                "Oxford channel '\(channel.id)' must have a unit slug tag for track matching")
         }
     }
 

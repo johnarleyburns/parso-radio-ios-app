@@ -79,10 +79,11 @@ struct TrackDetailView: View {
     @ViewBuilder
     private func sourceView(_ source: String) -> some View {
         switch source {
-        case "fma":             badge("Free Music Archive", color: .green)
-        case "musopen":         badge("Musopen", color: .purple)
+        case "fma":              badge("Free Music Archive", color: .green)
+        case "musopen":          badge("Musopen", color: .purple)
         case "internet_archive": badge("Internet Archive", color: .gray)
-        default:                badge(source, color: .gray)
+        case "oxford_lectures":  badge("Oxford University", color: Color(red: 0.00, green: 0.13, blue: 0.28))
+        default:                 badge(source, color: .gray)
         }
     }
 

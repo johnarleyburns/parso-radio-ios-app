@@ -433,6 +433,186 @@ extension Channel {
             icon: "banjo",
             tags: ["old-time"]
         ),
+
+        // MARK: Oxford Lectures — University of Oxford open-license audio lectures
+        // Each channel's tags contain the podcasts.ox.ac.uk unit slug used for track matching.
+        // contentType: .spokenWord enables position-persist, 15s rewind, +30s skip.
+        Channel(
+            id: "oxford-philosophy",
+            name: "Philosophy",
+            category: "Oxford Lectures",
+            icon: "quote.bubble",
+            tags: ["faculty-philosophy"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-history",
+            name: "History",
+            category: "Oxford Lectures",
+            icon: "scroll",
+            tags: ["faculty-history"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-english",
+            name: "English Literature",
+            category: "Oxford Lectures",
+            icon: "books.vertical",
+            tags: ["faculty-english-language-and-literature"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-torch",
+            name: "TORCH — Humanities Research",
+            category: "Oxford Lectures",
+            icon: "lightbulb",
+            tags: ["oxford-research-centre-humanities-torch"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-classics",
+            name: "Classics",
+            category: "Oxford Lectures",
+            icon: "building.columns.fill",
+            tags: ["faculty-classics"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-music",
+            name: "Music",
+            category: "Oxford Lectures",
+            icon: "music.note.list",
+            tags: ["faculty-music"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-physics",
+            name: "Physics",
+            category: "Oxford Lectures",
+            icon: "atom",
+            tags: ["department-physics"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-computer-science",
+            name: "Computer Science",
+            category: "Oxford Lectures",
+            icon: "laptopcomputer",
+            tags: ["department-computer-science"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-maths",
+            name: "Mathematics",
+            category: "Oxford Lectures",
+            icon: "function",
+            tags: ["mathematical-institute"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-engineering",
+            name: "Engineering Science",
+            category: "Oxford Lectures",
+            icon: "gear",
+            tags: ["department-engineering-science"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-chemistry",
+            name: "Chemistry",
+            category: "Oxford Lectures",
+            icon: "drop.fill",
+            tags: ["department-chemistry"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-business",
+            name: "Saïd Business School",
+            category: "Oxford Lectures",
+            icon: "briefcase",
+            tags: ["said-business-school"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-martin",
+            name: "Oxford Martin School",
+            category: "Oxford Lectures",
+            icon: "globe",
+            tags: ["oxford-martin-school"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-education",
+            name: "Education",
+            category: "Oxford Lectures",
+            icon: "graduationcap",
+            tags: ["department-education"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-internet",
+            name: "Internet Institute (OII)",
+            category: "Oxford Lectures",
+            icon: "network",
+            tags: ["oxford-internet-institute"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-blavatnik",
+            name: "Blavatnik School of Government",
+            category: "Oxford Lectures",
+            icon: "building.2.fill",
+            tags: ["blavatnik-school-government"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-economics",
+            name: "Economics",
+            category: "Oxford Lectures",
+            icon: "chart.bar.fill",
+            tags: ["department-economics"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-clinical-medicine",
+            name: "Clinical Medicine (NDM)",
+            category: "Oxford Lectures",
+            icon: "stethoscope",
+            tags: ["nuffield-department-clinical-medicine"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-population-health",
+            name: "Population Health",
+            category: "Oxford Lectures",
+            icon: "heart.fill",
+            tags: ["nuffield-department-population-health"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-surgical",
+            name: "Surgical Sciences",
+            category: "Oxford Lectures",
+            icon: "cross.fill",
+            tags: ["nuffield-department-surgical-sciences"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-psychology",
+            name: "Psychology",
+            category: "Oxford Lectures",
+            icon: "brain.head.profile",
+            tags: ["department-experimental-psychology"],
+            contentType: .spokenWord
+        ),
+        Channel(
+            id: "oxford-anatomy",
+            name: "Physiology, Anatomy & Genetics",
+            category: "Oxford Lectures",
+            icon: "figure.stand",
+            tags: ["department-physiology-anatomy-and-genetics-dpag"],
+            contentType: .spokenWord
+        ),
     ]
 
     // Ordered, deduplicated category names for section display.
