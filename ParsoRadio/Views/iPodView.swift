@@ -9,6 +9,7 @@ struct iPodView: View {
     }()
     @State private var showChannelSelector = false
     @State private var showAbout = false
+    @State private var showTrackDetail = false
     @State private var wheelTapTrigger = 0
 
     private var displayChannel: Channel {
@@ -37,9 +38,13 @@ struct iPodView: View {
 
                 Spacer(minLength: 20)
 
+                // UC9: tap the card to see full track details.
                 nowPlayingCard
                     .padding(.horizontal, 20)
                     .padding(.bottom, 40)
+                    .onTapGesture {
+                        if playerVM.currentTrack != nil { showTrackDetail = true }
+                    }
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -61,6 +66,11 @@ struct iPodView: View {
         }
         .sheet(isPresented: $showAbout) {
             AboutView()
+        }
+        .sheet(isPresented: $showTrackDetail) {
+            if let track = playerVM.currentTrack {
+                TrackDetailView(track: track)
+            }
         }
         .task {
             await playerVM.load(channel: pendingChannel)

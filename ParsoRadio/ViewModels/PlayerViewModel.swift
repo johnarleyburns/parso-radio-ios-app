@@ -160,14 +160,31 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func skip() {
-        audioPlayer.skip()
-        isPlaying = false
-        Task {
-            // Skip clears saved position — user deliberately moved on.
-            if let channel = currentChannel, channel.contentType == .spokenWord {
-                await db.clearPosition(channelId: channel.id)
+        guard let channel = currentChannel else {
+            audioPlayer.skip()
+            isPlaying = false
+            Task { await advanceToNext() }
+            return
+        }
+        // UC8: for spoken-word, forward skips +30 s within the chapter.
+        // At the end of the chapter it advances to the next one.
+        if channel.contentType == .spokenWord {
+            let target = currentPosition + 30
+            if let dur = audioPlayer.duration, target < dur {
+                audioPlayer.seek(to: target)
+                currentPosition = target
+            } else {
+                audioPlayer.skip()
+                isPlaying = false
+                Task {
+                    await db.clearPosition(channelId: channel.id)
+                    await advanceToNext()
+                }
             }
-            await advanceToNext()
+        } else {
+            audioPlayer.skip()
+            isPlaying = false
+            Task { await advanceToNext() }
         }
     }
 
