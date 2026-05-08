@@ -31,17 +31,21 @@ struct ParsoRadioApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                iPodView()
-                    .environmentObject(playerVM)
-                    .opacity(showSplash || showTerms ? 0 : 1)
+                // iPodView is only inserted into the tree after TOS is accepted.
+                // Keeping it under opacity:0 still fires .task and starts audio; this does not.
+                if tosAccepted {
+                    iPodView()
+                        .environmentObject(playerVM)
+                        .opacity(showSplash ? 0 : 1)
+                } else {
+                    Color(.systemGroupedBackground).ignoresSafeArea()
+                }
 
                 if showSplash {
                     SplashView(isPresented: $showSplash)
                         .zIndex(10)
                 }
             }
-            // onChange must live on the persistent ZStack, not inside `if showSplash`,
-            // because SwiftUI may not fire it before SplashView is removed from the tree.
             .onChange(of: showSplash) { _, isShowing in
                 if !isShowing && !tosAccepted {
                     showTerms = true
