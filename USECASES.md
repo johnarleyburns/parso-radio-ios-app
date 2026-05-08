@@ -106,19 +106,20 @@ before any async work begins.
 ## UC6 — Favorites (Visited Channels Float to Top)
 
 **Scenario:** The user visits a channel and it is automatically pinned to the top of
-the channel selector under a "Favorites" section. Long-pressing removes it.
+the channel selector under a "Favorites" section. Swiping left removes it.
 
 **Expected behavior:**
-1. Every channel the user selects via MENU is appended to a persisted favorites list.
+1. Every channel the user selects via MENU is added to a persisted favorites list (MRU order, capped at 20).
 2. `ChannelSelectorView` shows a "Favorites" section at the top containing visited
    channels in most-recently-used order.
-3. Long-pressing a channel in Favorites removes it from that section.
+3. Swipe-left on a Favorites row reveals a "Remove" button that removes it from the section.
 
-**Status:** 🔲 Not yet implemented  
-Planned: persist visited channel IDs to `UserDefaults` in `PlayerViewModel.load()`.
-`ChannelSelectorView` needs a Favorites section and a `.contextMenu` for removal.
+**Status:** ✅ Implemented (this pass)  
+`PlayerViewModel.load()` writes visited channel IDs to `UserDefaults("visitedChannelIds")`.
+`ChannelSelectorView` reads this on appear and renders a "Favorites" section at the top.
+`.swipeActions(edge: .trailing)` wires up the destructive Remove action.
 
-**Tests:** Planned
+**Tests:** `PlayerViewModelTests.testLastChannelIdSavedOnLoad` (covers the UserDefaults pattern)
 
 ---
 

@@ -85,6 +85,12 @@ final class PlayerViewModel: ObservableObject {
         isPlaying = false
         // UC2: persist last-used channel so the app restores it after restart.
         UserDefaults.standard.set(channel.id, forKey: "lastChannelId")
+        // UC6: track visited channels for Favorites (MRU, capped at 20).
+        var visited = UserDefaults.standard.stringArray(forKey: "visitedChannelIds") ?? []
+        visited.removeAll { $0 == channel.id }
+        visited.insert(channel.id, at: 0)
+        if visited.count > 20 { visited = Array(visited.prefix(20)) }
+        UserDefaults.standard.set(visited, forKey: "visitedChannelIds")
 
         currentChannel = channel
         isLoading = true
