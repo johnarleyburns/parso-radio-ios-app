@@ -35,11 +35,13 @@ struct TrackDetailView: View {
                     }
                 }
 
-                if let url = sourceURL {
-                    Section {
+                Section {
+                    if let url = sourceURL {
                         Link("Open on \(sourceName)", destination: url)
                             .foregroundStyle(Color.accentColor)
                     }
+                    Link(audioFileLabel, destination: track.streamURL)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
             .listStyle(.insetGrouped)
@@ -109,6 +111,15 @@ struct TrackDetailView: View {
             return URL(string: streamStr.replacingOccurrences(of: "/stream/", with: "/"))
         default:
             return nil
+        }
+    }
+
+    private var audioFileLabel: String {
+        switch track.source {
+        case "internet_archive": return "Audio Files (Internet Archive)"
+        case "fma":              return "Stream on Free Music Archive"
+        case "oxford_lectures":  return "Audio File (Oxford)"
+        default:                 return "Audio File"
         }
     }
 

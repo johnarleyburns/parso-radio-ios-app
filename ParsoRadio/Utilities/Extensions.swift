@@ -11,7 +11,7 @@ extension String {
 extension URLSession {
     static let app: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest  = 20
+        config.timeoutIntervalForRequest  = 30
         config.timeoutIntervalForResource = 60
         return URLSession(configuration: config)
     }()

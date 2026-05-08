@@ -4,7 +4,7 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        XCTAssertEqual(Channel.defaults.count, 75)
+        XCTAssertEqual(Channel.defaults.count, 84)
     }
 
     func testClassicalCategoryHas26Channels() {
@@ -63,6 +63,12 @@ final class ChannelTests: XCTestCase {
             let hasKnownGenre = channel.tags.first { FMAService.genreMap[$0] != nil } != nil
             XCTAssertTrue(hasKnownGenre, "FMA channel \(channel.id) tags must map to a known FMA genre")
         }
+    }
+
+    func testLibriVoxCategoryHas22Channels() {
+        let lvChannels = Channel.defaults.filter { $0.category == "LibriVox Audiobooks" }
+        XCTAssertEqual(lvChannels.count, 22,
+            "Expected 4 named + 18 genre LibriVox channels")
     }
 
     // UC11: non-Oxford spoken-word channels use "LibriVox Audiobooks" category.

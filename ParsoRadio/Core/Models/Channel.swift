@@ -186,6 +186,7 @@ extension Channel {
         ),
 
         // MARK: LibriVox Audiobooks (spoken word — position is persisted across sessions)
+        // Named channels use specific-name tags; genre channels use IA subject strings (curl-verified).
         Channel(
             id: "greek-philosophy",
             name: "Greek Philosophy",
@@ -197,60 +198,10 @@ extension Channel {
             preferredSource: "internet_archive"
         ),
         Channel(
-            id: "childrens-books",
-            name: "Children's Books",
-            category: "LibriVox Audiobooks",
-            icon: "star.circle",
-            tags: ["children"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "science-fiction",
-            name: "Science Fiction",
-            category: "LibriVox Audiobooks",
-            icon: "sparkles",
-            tags: ["science fiction"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "mystery",
-            name: "Mystery & Detection",
-            category: "LibriVox Audiobooks",
-            icon: "magnifyingglass",
-            tags: ["mystery"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "classic-lit",
-            name: "Classic Literature",
-            category: "LibriVox Audiobooks",
-            icon: "books.vertical",
-            tags: ["classical fiction"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "history-talks",
-            name: "History",
-            category: "LibriVox Audiobooks",
-            icon: "globe.europe.africa",
-            tags: ["history"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
             id: "chinese-philosophy",
             name: "Chinese Philosophy",
             category: "LibriVox Audiobooks",
-            icon: "yin.yang",
+            icon: "circle.lefthalf.filled",
             tags: ["confucius", "tao", "chinese philosophy"],
             contentType: .spokenWord,
             spokenWordCollections: ["librivoxaudio"],
@@ -277,41 +228,145 @@ extension Channel {
             preferredSource: "internet_archive"
         ),
         Channel(
-            id: "french-lit",
-            name: "French Literature",
-            category: "LibriVox Audiobooks",
-            icon: "books.vertical.fill",
-            tags: ["french literature", "hugo", "dumas"],
+            id: "lv-poetry", name: "Poetry", category: "LibriVox Audiobooks",
+            icon: "text.quote",
+            tags: ["poetry"],
             contentType: .spokenWord,
             spokenWordCollections: ["librivoxaudio"],
             preferredSource: "internet_archive"
         ),
         Channel(
-            id: "spanish-lit",
-            name: "Spanish Literature",
-            category: "LibriVox Audiobooks",
-            icon: "scroll",
-            tags: ["spanish fiction", "cervantes"],
+            id: "lv-short-stories", name: "Short Stories", category: "LibriVox Audiobooks",
+            icon: "books.vertical",
+            tags: ["short stories"],
             contentType: .spokenWord,
             spokenWordCollections: ["librivoxaudio"],
             preferredSource: "internet_archive"
         ),
         Channel(
-            id: "french-kids",
-            name: "French Children's Books",
-            category: "LibriVox Audiobooks",
-            icon: "star.circle.fill",
-            tags: ["children", "french"],
+            id: "lv-nature", name: "Nature", category: "LibriVox Audiobooks",
+            icon: "leaf.fill",
+            tags: ["nature"],
             contentType: .spokenWord,
             spokenWordCollections: ["librivoxaudio"],
             preferredSource: "internet_archive"
         ),
         Channel(
-            id: "spanish-kids",
-            name: "Spanish Children's Books",
-            category: "LibriVox Audiobooks",
-            icon: "star.bubble",
-            tags: ["children", "spanish"],
+            id: "lv-humor", name: "Humor & Satire", category: "LibriVox Audiobooks",
+            icon: "face.smiling",
+            tags: ["humor"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-science-fiction", name: "Science Fiction", category: "LibriVox Audiobooks",
+            icon: "sparkles",
+            tags: ["science fiction"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-travel", name: "Travel & Adventure", category: "LibriVox Audiobooks",
+            icon: "map.fill",
+            tags: ["travel"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-biography", name: "Biography", category: "LibriVox Audiobooks",
+            icon: "person.text.rectangle.fill",
+            tags: ["biography"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-drama", name: "Drama & Theater", category: "LibriVox Audiobooks",
+            icon: "theatermasks.fill",
+            tags: ["drama"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-philosophy", name: "Philosophy", category: "LibriVox Audiobooks",
+            icon: "lightbulb.fill",
+            tags: ["philosophy"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-religion", name: "Religion & Spirituality", category: "LibriVox Audiobooks",
+            icon: "rays",
+            tags: ["religion"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-science", name: "Science & Technology", category: "LibriVox Audiobooks",
+            icon: "atom",
+            tags: ["science"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-essays", name: "Essays & Speeches", category: "LibriVox Audiobooks",
+            icon: "doc.text.fill",
+            tags: ["essays"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-historical-fiction", name: "Historical Fiction", category: "LibriVox Audiobooks",
+            icon: "clock.arrow.circlepath",
+            tags: ["historical fiction"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-fairy-tales", name: "Fairy Tales", category: "LibriVox Audiobooks",
+            icon: "wand.and.stars",
+            tags: ["fairy tales"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-art", name: "Art & Music", category: "LibriVox Audiobooks",
+            icon: "paintbrush.fill",
+            tags: ["art"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-ghost-stories", name: "Ghost Stories", category: "LibriVox Audiobooks",
+            icon: "moon.stars.fill",
+            tags: ["ghost stories"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-folklore", name: "Folklore & Legends", category: "LibriVox Audiobooks",
+            icon: "globe.europe.africa",
+            tags: ["folklore"],
+            contentType: .spokenWord,
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-mythology", name: "Mythology", category: "LibriVox Audiobooks",
+            icon: "building.columns",
+            tags: ["mythology"],
             contentType: .spokenWord,
             spokenWordCollections: ["librivoxaudio"],
             preferredSource: "internet_archive"
@@ -385,7 +440,7 @@ extension Channel {
         ),
         Channel(
             id: "fma-old-time", name: "FMA Old-Time & Historic", category: "FMA",
-            icon: "banjo", tags: ["old-time"],
+            icon: "guitars", tags: ["old-time"],
             preferredSource: "fma"
         ),
 

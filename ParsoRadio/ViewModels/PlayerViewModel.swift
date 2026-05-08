@@ -46,6 +46,17 @@ final class PlayerViewModel: ObservableObject {
         self.audioPlayer = audioPlayer
         self.downloadManager = downloadManager
 
+        // Issue 3: save isPlaying so cold-start can decide whether to auto-play.
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                UserDefaults.standard.set(self.isPlaying, forKey: "wasPlayingOnQuit")
+            }
+        }
+
         audioPlayer.onPreviousTrack = { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -83,7 +94,7 @@ final class PlayerViewModel: ObservableObject {
         }
     }
 
-    func load(channel: Channel) async {
+    func load(channel: Channel, autoPlay: Bool = true) async {
         // UC5: stop any currently playing audio immediately so old track doesn't bleed into new channel.
         audioPlayer.skip()
         currentTrack = nil
@@ -157,6 +168,11 @@ final class PlayerViewModel: ObservableObject {
         } else {
             loadingMessage = "Starting playback…"
             await advanceToNext()
+        }
+
+        if !autoPlay && isPlaying {
+            audioPlayer.pause()
+            isPlaying = false
         }
 
         isLoading = false

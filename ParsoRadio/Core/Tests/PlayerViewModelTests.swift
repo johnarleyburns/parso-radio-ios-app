@@ -150,6 +150,24 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertEqual(vm.currentPosition, 45, accuracy: 0.001, "Spoken-word back must rewind 15 seconds")
     }
 
+    // Issue 3: cold start should not auto-play — wasPlayingOnQuit absent means false.
+    func testColdStartDoesNotAutoPlay() {
+        UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
+        XCTAssertFalse(
+            UserDefaults.standard.bool(forKey: "wasPlayingOnQuit"),
+            "Cold start: wasPlayingOnQuit must be absent/false so autoPlay defaults off"
+        )
+        XCTAssertFalse(vm.isPlaying, "ViewModel must not be playing at init")
+    }
+
+    // Issue 3: isPlaying saved to UserDefaults when app resigns active.
+    func testWasPlayingFlagRoundtrip() {
+        UserDefaults.standard.set(true, forKey: "wasPlayingOnQuit")
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: "wasPlayingOnQuit"))
+        UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: "wasPlayingOnQuit"))
+    }
+
     // UC14: seek() updates currentPosition immediately.
     func testSeekUpdatesCurrentPosition() throws {
         let channel = Channel.defaults.first { $0.id == "fma-jazz" }!

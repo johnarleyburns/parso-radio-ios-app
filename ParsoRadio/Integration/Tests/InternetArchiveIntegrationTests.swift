@@ -140,27 +140,27 @@ final class SpokenWordIntegrationTests: XCTestCase {
         XCTAssertTrue(tracks.allSatisfy { $0.license != .rejected }, "All tracks must have valid license")
     }
 
-    func testChildrensBooksChannelReturnsAtLeastOneTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "childrens-books" }!
+    func testPoetryChannelReturnsAtLeastOneTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "lv-poetry" }!
         let tracks: [Track]
         do {
             tracks = try await service.fetchSpokenWordTracks(channel: channel)
         } catch let e as URLError {
             throw XCTSkip("Network unavailable: \(e.localizedDescription)")
         }
-        print("Children's Books: \(tracks.count) tracks")
-        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 LibriVox children's track but got 0.")
+        print("Poetry: \(tracks.count) tracks")
+        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 LibriVox poetry track but got 0.")
     }
 
-    func testScienceFictionChannelReturnsAtLeastOneTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "science-fiction" }!
+    func testScienceFictionGenreChannelReturnsAtLeastOneTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "lv-science-fiction" }!
         let tracks: [Track]
         do {
             tracks = try await service.fetchSpokenWordTracks(channel: channel)
         } catch let e as URLError {
             throw XCTSkip("Network unavailable: \(e.localizedDescription)")
         }
-        print("Science Fiction: \(tracks.count) tracks")
+        print("Science Fiction (genre): \(tracks.count) tracks")
         XCTAssertFalse(tracks.isEmpty, "Expected ≥1 LibriVox sci-fi track but got 0.")
     }
 

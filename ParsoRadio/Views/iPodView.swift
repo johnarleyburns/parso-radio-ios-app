@@ -73,7 +73,9 @@ struct iPodView: View {
             }
         }
         .task {
-            await playerVM.load(channel: pendingChannel)
+            let wasPlaying = UserDefaults.standard.bool(forKey: "wasPlayingOnQuit")
+            UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
+            await playerVM.load(channel: pendingChannel, autoPlay: wasPlaying)
         }
     }
 
