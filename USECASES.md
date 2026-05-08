@@ -151,25 +151,28 @@ used during fetch), and `FMAService` always stores `metadataConfidence: 2.0`.
 currently playing track without changing tracks.
 
 **Expected behavior:**
-- For spoken-word channels: back = −15 s, forward = +30 s within the chapter.
-- For music channels: in-track scrubbing via a ProgressView slider (to be added).
+- For spoken-word channels: back = −15 s (if > 3 s into chapter), forward = +30 s.
+- For music channels: back restarts track (> 3 s) or goes to previous track (≤ 3 s).
 
-**Status:** 🟡 Partial  
-Spoken-word back (−15 s) is implemented. Forward skip within a track and music
-scrubbing require additional UI (scrubber, or ClickWheel gesture).
+**Status:** ✅ Implemented (this pass)  
+`PlayerViewModel.skip()` now differentiates by contentType:
+- Spoken-word: forward skips +30 s within the chapter; if target > duration, advances to next chapter.
+- Music: forward goes to next track (radio behavior, unchanged).
+Back behavior was implemented in the UC3 pass (−15 s for spoken-word, restart or previous track for music).
 
-**Tests:** Planned
+**Tests:** `PlayerViewModelTests.testBackInSpokenWordRewinds15Seconds`
 
 ---
 
 ## UC9 — Tap Track Card to See Details
 
 **Scenario:** The user taps the now-playing card and a popup shows full track
-metadata: title, artist, album, license, source, and a direct link.
+metadata: title, artist, composer, instruments, duration, license, source, and a deep link.
 
-**Status:** 🔲 Not yet implemented  
-Planned: wrap `nowPlayingCard` in a `Button` that sets a `showTrackDetail` state,
-then present a `TrackDetailSheet`.
+**Status:** ✅ Implemented (this pass)  
+`TrackDetailView.swift` shows all metadata in a sheet. `iPodView.nowPlayingCard`
+has `.onTapGesture` that sets `showTrackDetail = true` when a track is loaded.
+Deep links: `archive.org/details/{id}` for IA, FMA track page derived from stream URL.
 
 **Tests:** N/A (UI-only)
 
