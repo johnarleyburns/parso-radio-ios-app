@@ -237,6 +237,7 @@ struct iPodView: View {
             case "fma":              badge("FMA", color: .gray)
             case "musopen":          badge("Musopen", color: .purple)
             case "oxford_lectures":  badge("Oxford", color: Color(red: 0.00, green: 0.13, blue: 0.28))
+            case "podcast":          badge("Podcast", color: Color(red: 0.10, green: 0.20, blue: 0.40))
             default:                 badge("Archive.org", color: .gray)
             }
         }
@@ -255,11 +256,12 @@ struct iPodView: View {
 
     private func progressTint(for category: String) -> Color {
         switch category {
-        case "Classical":           return Color(red: 0.42, green: 0.20, blue: 0.80)
-        case "LibriVox Audiobooks": return Color(red: 0.55, green: 0.35, blue: 0.10)
-        case "FMA":                 return Color(red: 0.20, green: 0.40, blue: 0.20)
-        case "Oxford Lectures":     return Color(red: 0.00, green: 0.13, blue: 0.28)
-        default:                    return .accentColor
+        case "Classical":    return Color(red: 0.42, green: 0.20, blue: 0.80)
+        case "Audiobooks":   return Color(red: 0.55, green: 0.35, blue: 0.10)
+        case "Contemporary": return Color(red: 0.20, green: 0.40, blue: 0.20)
+        case "Lectures":     return Color(red: 0.00, green: 0.13, blue: 0.28)
+        case "News":         return Color(red: 0.10, green: 0.20, blue: 0.40)
+        default:             return .accentColor
         }
     }
 

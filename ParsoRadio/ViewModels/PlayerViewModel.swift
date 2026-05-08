@@ -18,6 +18,7 @@ final class PlayerViewModel: ObservableObject {
     private let archiveService: InternetArchiveService
     private let fmaService: FMAService
     private let oxfordService: OxfordLecturesService
+    private let podcastService: PodcastRSSService
     private let queueManager: QueueManager
     private let downloadManager: DownloadManager
     var currentChannel: Channel?
@@ -36,12 +37,14 @@ final class PlayerViewModel: ObservableObject {
         queueManager: QueueManager,
         audioPlayer: AudioPlayerService,
         downloadManager: DownloadManager,
-        oxfordService: OxfordLecturesService = OxfordLecturesService()
+        oxfordService: OxfordLecturesService = OxfordLecturesService(),
+        podcastService: PodcastRSSService = PodcastRSSService()
     ) {
         self.db = db
         self.archiveService = archiveService
         self.fmaService = fmaService
         self.oxfordService = oxfordService
+        self.podcastService = podcastService
         self.queueManager = queueManager
         self.audioPlayer = audioPlayer
         self.downloadManager = downloadManager
@@ -125,8 +128,11 @@ final class PlayerViewModel: ObservableObject {
         do {
             let fetched: [Track]
 
-            if channel.category == "Oxford Lectures" {
-                // UC13: Oxford channels fetch from podcasts.ox.ac.uk via OxfordLecturesService.
+            if channel.feedURL != nil {
+                // News/podcast channels: fetch from RSS feed via PodcastRSSService.
+                fetched = try await podcastService.fetchTracks(channel: channel)
+            } else if channel.category == "Lectures" {
+                // Oxford channels fetch from podcasts.ox.ac.uk via OxfordLecturesService.
                 fetched = try await oxfordService.fetchTracks(unitSlug: channel.tags.first ?? "")
             } else if channel.contentType == .spokenWord {
                 // Spoken-word channels: LibriVox / podcast collections via IA.

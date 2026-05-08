@@ -4,13 +4,14 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        XCTAssertEqual(Channel.defaults.count, 84)
+        // 28 Classical + 22 Audiobooks + 14 Contemporary + 22 Lectures + 10 News = 96
+        XCTAssertEqual(Channel.defaults.count, 96)
     }
 
-    func testClassicalCategoryHas26Channels() {
+    func testClassicalCategoryHas28Channels() {
         let classicalChannels = Channel.defaults.filter { $0.category == "Classical" }
-        XCTAssertEqual(classicalChannels.count, 26,
-            "Classical must have 8 period/format + 18 composer channels")
+        XCTAssertEqual(classicalChannels.count, 28,
+            "Classical must have 10 period/format/instrument + 18 composer channels")
     }
 
     func testBachChannelDefinition() {
@@ -28,14 +29,28 @@ final class ChannelTests: XCTestCase {
         XCTAssertEqual(ch?.category, "Classical")
     }
 
+    func testClassicalGuitarChannelExists() {
+        let ch = Channel.defaults.first { $0.id == "classical-guitar" }
+        XCTAssertNotNil(ch)
+        XCTAssertEqual(ch?.category, "Classical")
+        XCTAssertTrue(ch?.tags.contains("classical guitar") == true)
+    }
+
+    func testCelloChannelExists() {
+        let ch = Channel.defaults.first { $0.id == "cello" }
+        XCTAssertNotNil(ch)
+        XCTAssertEqual(ch?.category, "Classical")
+        XCTAssertTrue(ch?.tags.contains("cello") == true)
+    }
+
     func testFMATagChannelMatchesByTag() {
         let fmaJazz = Channel.defaults.first { $0.id == "fma-jazz" }!
         let jazzTrack  = makeTrack(composer: nil, instruments: [], tags: ["jazz"])
         let rockTrack  = makeTrack(composer: nil, instruments: [], tags: ["rock"])
         let noTagTrack = makeTrack(composer: nil, instruments: [], tags: [])
-        XCTAssertTrue(fmaJazz.matches(jazzTrack),  "Jazz track should match FMA Jazz channel")
-        XCTAssertFalse(fmaJazz.matches(rockTrack), "Rock track should not match FMA Jazz channel")
-        XCTAssertFalse(fmaJazz.matches(noTagTrack),"Untagged track should not match FMA Jazz channel")
+        XCTAssertTrue(fmaJazz.matches(jazzTrack),  "Jazz track should match Jazz channel")
+        XCTAssertFalse(fmaJazz.matches(rockTrack), "Rock track should not match Jazz channel")
+        XCTAssertFalse(fmaJazz.matches(noTagTrack),"Untagged track should not match Jazz channel")
     }
 
     func testPreferredSourceAssignedCorrectly() {
@@ -50,58 +65,82 @@ final class ChannelTests: XCTestCase {
         XCTAssertEqual(oxford.preferredSource,     "oxford_lectures")
     }
 
-    // UC7/UC10: all 14 FMA genre channels present under "FMA" category.
-    func testFMACategoryHas14Channels() {
-        let fmaChannels = Channel.defaults.filter { $0.category == "FMA" }
-        XCTAssertEqual(fmaChannels.count, 14, "Expected 14 FMA genre channels")
+    // Contemporary category (formerly FMA): 14 genre channels.
+    func testContemporaryCategoryHas14Channels() {
+        let channels = Channel.defaults.filter { $0.category == "Contemporary" }
+        XCTAssertEqual(channels.count, 14, "Expected 14 Contemporary genre channels")
     }
 
-    func testFMAChannelsHaveValidTags() {
-        let fmaChannels = Channel.defaults.filter { $0.category == "FMA" }
-        for channel in fmaChannels {
-            XCTAssertFalse(channel.tags.isEmpty, "FMA channel \(channel.id) must have at least one tag")
+    func testContemporaryChannelsHaveValidTags() {
+        let channels = Channel.defaults.filter { $0.category == "Contemporary" }
+        for channel in channels {
+            XCTAssertFalse(channel.tags.isEmpty, "Contemporary channel \(channel.id) must have at least one tag")
             let hasKnownGenre = channel.tags.first { FMAService.genreMap[$0] != nil } != nil
-            XCTAssertTrue(hasKnownGenre, "FMA channel \(channel.id) tags must map to a known FMA genre")
+            XCTAssertTrue(hasKnownGenre, "Contemporary channel \(channel.id) tags must map to a known FMA genre")
         }
     }
 
-    func testLibriVoxCategoryHas22Channels() {
-        let lvChannels = Channel.defaults.filter { $0.category == "LibriVox Audiobooks" }
+    func testAudiobooksCategoryHas22Channels() {
+        let lvChannels = Channel.defaults.filter { $0.category == "Audiobooks" }
         XCTAssertEqual(lvChannels.count, 22,
-            "Expected 4 named + 18 genre LibriVox channels")
+            "Expected 4 named + 18 genre Audiobooks channels")
     }
 
-    // UC11: non-Oxford spoken-word channels use "LibriVox Audiobooks" category.
-    func testSpokenWordChannelsUseLibriVoxCategory() {
+    // Non-feed spoken-word channels (not Lectures or News) must use "Audiobooks" category.
+    func testNonFeedSpokenWordChannelsUseAudiobooksCategory() {
         let librivoxChannels = Channel.defaults.filter {
-            $0.contentType == .spokenWord && $0.category != "Oxford Lectures"
+            $0.contentType == .spokenWord
+                && $0.category != "Lectures"
+                && $0.category != "News"
         }
-        XCTAssertFalse(librivoxChannels.isEmpty, "Expected at least one LibriVox spoken-word channel")
+        XCTAssertFalse(librivoxChannels.isEmpty, "Expected at least one Audiobooks spoken-word channel")
         for channel in librivoxChannels {
-            XCTAssertEqual(channel.category, "LibriVox Audiobooks",
-                "Spoken-word channel '\(channel.id)' must use 'LibriVox Audiobooks' category")
+            XCTAssertEqual(channel.category, "Audiobooks",
+                "Spoken-word channel '\(channel.id)' must use 'Audiobooks' category")
         }
     }
 
-    // UC13: 22 Oxford Lectures channels, all spoken-word.
-    func testOxfordLecturesCategoryHas22Channels() {
-        let oxfordChannels = Channel.defaults.filter { $0.category == "Oxford Lectures" }
-        XCTAssertEqual(oxfordChannels.count, 22, "Expected 22 Oxford Lectures channels")
+    // Lectures category (formerly Oxford Lectures): 22 channels, all spoken-word.
+    func testLecturesCategoryHas22Channels() {
+        let channels = Channel.defaults.filter { $0.category == "Lectures" }
+        XCTAssertEqual(channels.count, 22, "Expected 22 Lectures channels")
     }
 
-    func testOxfordLecturesChannelsAreSpokenWord() {
-        let oxfordChannels = Channel.defaults.filter { $0.category == "Oxford Lectures" }
-        for channel in oxfordChannels {
+    func testLecturesChannelsAreSpokenWord() {
+        let channels = Channel.defaults.filter { $0.category == "Lectures" }
+        for channel in channels {
             XCTAssertEqual(channel.contentType, .spokenWord,
-                "Oxford channel '\(channel.id)' must be contentType .spokenWord")
+                "Lectures channel '\(channel.id)' must be contentType .spokenWord")
         }
     }
 
-    func testOxfordLecturesChannelsHaveUnitSlugTag() {
-        let oxfordChannels = Channel.defaults.filter { $0.category == "Oxford Lectures" }
-        for channel in oxfordChannels {
+    func testLecturesChannelsHaveUnitSlugTag() {
+        let channels = Channel.defaults.filter { $0.category == "Lectures" }
+        for channel in channels {
             XCTAssertFalse(channel.tags.isEmpty,
-                "Oxford channel '\(channel.id)' must have a unit slug tag for track matching")
+                "Lectures channel '\(channel.id)' must have a unit slug tag for track matching")
+        }
+    }
+
+    // News category: 10 channels with feedURL.
+    func testNewsCategoryHas10Channels() {
+        let newsChannels = Channel.defaults.filter { $0.category == "News" }
+        XCTAssertEqual(newsChannels.count, 10, "Expected 10 News channels")
+    }
+
+    func testNewsChannelsHaveFeedURL() {
+        let newsChannels = Channel.defaults.filter { $0.category == "News" }
+        for channel in newsChannels {
+            XCTAssertNotNil(channel.feedURL, "News channel '\(channel.id)' must have a feedURL")
+            XCTAssertFalse(channel.feedURL?.isEmpty == true, "News channel '\(channel.id)' feedURL must not be empty")
+        }
+    }
+
+    func testNewsChannelsAreSpokenWord() {
+        let newsChannels = Channel.defaults.filter { $0.category == "News" }
+        for channel in newsChannels {
+            XCTAssertEqual(channel.contentType, .spokenWord,
+                "News channel '\(channel.id)' must be contentType .spokenWord")
         }
     }
 
