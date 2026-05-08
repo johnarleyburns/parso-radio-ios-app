@@ -318,6 +318,31 @@ final class FMAIntegrationTests: XCTestCase {
         XCTAssertFalse(tracks.isEmpty, "Expected ≥1 FMA Old-Time public-domain track but got 0.")
     }
 
+    // UC7/UC10: FMA genre channels all return tracks.
+    func testFMAInternationalChannelReturnsAtLeastOnePDTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "fma-international" }!
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchTracks(forChannel: channel)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("FMA International: \(tracks.count) tracks")
+        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 FMA International track but got 0.")
+    }
+
+    func testFMAHipHopChannelReturnsAtLeastOnePDTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "fma-hip-hop" }!
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchTracks(forChannel: channel)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("FMA Hip-Hop: \(tracks.count) tracks")
+        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 FMA Hip-Hop track but got 0.")
+    }
+
     func testStreamURLRedirectsToMp3() async throws {
         let channel = Channel.defaults.first { $0.id == "classical" }!
         let tracks: [Track]

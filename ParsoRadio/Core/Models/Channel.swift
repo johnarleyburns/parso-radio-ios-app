@@ -196,11 +196,11 @@ extension Channel {
             tags: ["world music"]
         ),
 
-        // MARK: Talk & Stories (spoken word — position is persisted across sessions)
+        // MARK: LibriVox Audiobooks (spoken word — position is persisted across sessions)
         Channel(
             id: "greek-philosophy",
             name: "Greek Philosophy",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "building.columns",
             tags: ["plato", "socrates", "aristotle"],
             contentType: .spokenWord,
@@ -209,7 +209,7 @@ extension Channel {
         Channel(
             id: "childrens-books",
             name: "Children's Books",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "star.circle",
             tags: ["children"],
             contentType: .spokenWord,
@@ -218,7 +218,7 @@ extension Channel {
         Channel(
             id: "science-fiction",
             name: "Science Fiction",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "sparkles",
             tags: ["science fiction"],
             contentType: .spokenWord,
@@ -227,7 +227,7 @@ extension Channel {
         Channel(
             id: "mystery",
             name: "Mystery & Detection",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "magnifyingglass",
             tags: ["mystery"],
             contentType: .spokenWord,
@@ -236,7 +236,7 @@ extension Channel {
         Channel(
             id: "classic-lit",
             name: "Classic Literature",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "books.vertical",
             tags: ["classical fiction"],
             contentType: .spokenWord,
@@ -245,7 +245,7 @@ extension Channel {
         Channel(
             id: "history-talks",
             name: "History",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "globe.europe.africa",
             tags: ["history"],
             contentType: .spokenWord,
@@ -256,7 +256,7 @@ extension Channel {
         Channel(
             id: "chinese-philosophy",
             name: "Chinese Philosophy",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "yin.yang",
             tags: ["confucius", "tao", "chinese philosophy"],
             contentType: .spokenWord,
@@ -265,7 +265,7 @@ extension Channel {
         Channel(
             id: "chinese-history",
             name: "Chinese History",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "building.2",
             tags: ["china", "chinese history"],
             contentType: .spokenWord,
@@ -274,7 +274,7 @@ extension Channel {
         Channel(
             id: "greek-history",
             name: "Greek History",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "building.columns.fill",
             tags: ["herodotus", "greek history", "ancient greece"],
             contentType: .spokenWord,
@@ -283,7 +283,7 @@ extension Channel {
         Channel(
             id: "french-lit",
             name: "French Literature",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "books.vertical.fill",
             tags: ["french literature", "hugo", "dumas"],
             contentType: .spokenWord,
@@ -292,7 +292,7 @@ extension Channel {
         Channel(
             id: "spanish-lit",
             name: "Spanish Literature",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "scroll",
             tags: ["spanish fiction", "cervantes"],
             contentType: .spokenWord,
@@ -301,7 +301,7 @@ extension Channel {
         Channel(
             id: "french-kids",
             name: "French Children's Books",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "star.circle.fill",
             tags: ["children", "french"],
             contentType: .spokenWord,
@@ -310,7 +310,7 @@ extension Channel {
         Channel(
             id: "spanish-kids",
             name: "Spanish Children's Books",
-            category: "Talk & Stories",
+            category: "LibriVox Audiobooks",
             icon: "star.bubble",
             tags: ["children", "spanish"],
             contentType: .spokenWord,
@@ -332,6 +332,106 @@ extension Channel {
             category: "Pop & World",
             icon: "guitars.fill",
             tags: ["flamenco", "spanish", "world music"]
+        ),
+
+        // MARK: FMA — Free Music Archive genre channels (all curl-verified: 40 PD+CC-BY tracks each)
+        Channel(
+            id: "fma-classical",
+            name: "FMA Classical",
+            category: "FMA",
+            icon: "music.quarternote.3",
+            tags: ["classical"]
+        ),
+        Channel(
+            id: "fma-jazz",
+            name: "FMA Jazz",
+            category: "FMA",
+            icon: "music.mic",
+            tags: ["jazz"]
+        ),
+        Channel(
+            id: "fma-blues",
+            name: "FMA Blues",
+            category: "FMA",
+            icon: "guitars",
+            tags: ["blues"]
+        ),
+        Channel(
+            id: "fma-rock",
+            name: "FMA Rock",
+            category: "FMA",
+            icon: "bolt.fill",
+            tags: ["rock"]
+        ),
+        Channel(
+            id: "fma-country",
+            name: "FMA Country",
+            category: "FMA",
+            icon: "leaf",
+            tags: ["country"]
+        ),
+        Channel(
+            id: "fma-folk",
+            name: "FMA Folk",
+            category: "FMA",
+            icon: "music.note",
+            tags: ["folk"]
+        ),
+        Channel(
+            id: "fma-instrumental",
+            name: "FMA Instrumental",
+            category: "FMA",
+            icon: "tuningfork",
+            tags: ["instrumental"]
+        ),
+        Channel(
+            id: "fma-electronic",
+            name: "FMA Electronic",
+            category: "FMA",
+            icon: "dot.radiowaves.left.and.right",
+            tags: ["electronic"]
+        ),
+        Channel(
+            id: "fma-hip-hop",
+            name: "FMA Hip-Hop",
+            category: "FMA",
+            icon: "mic.fill",
+            tags: ["hip-hop"]
+        ),
+        Channel(
+            id: "fma-pop",
+            name: "FMA Pop",
+            category: "FMA",
+            icon: "star.fill",
+            tags: ["pop"]
+        ),
+        Channel(
+            id: "fma-soul-rnb",
+            name: "FMA Soul & R&B",
+            category: "FMA",
+            icon: "heart.fill",
+            tags: ["soul"]
+        ),
+        Channel(
+            id: "fma-experimental",
+            name: "FMA Experimental",
+            category: "FMA",
+            icon: "wand.and.stars",
+            tags: ["experimental"]
+        ),
+        Channel(
+            id: "fma-international",
+            name: "FMA International",
+            category: "FMA",
+            icon: "globe",
+            tags: ["world music"]
+        ),
+        Channel(
+            id: "fma-old-time",
+            name: "FMA Old-Time & Historic",
+            category: "FMA",
+            icon: "banjo",
+            tags: ["old-time"]
         ),
     ]
 

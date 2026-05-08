@@ -185,7 +185,7 @@ func categoryGradient(for category: String) -> LinearGradient {
         return LinearGradient(colors: [Color(red: 0.08, green: 0.50, blue: 0.40),
                                        Color(red: 0.18, green: 0.72, blue: 0.52)],
                               startPoint: .topLeading, endPoint: .bottomTrailing)
-    case "Talk & Stories":
+    case "LibriVox Audiobooks":
         return LinearGradient(colors: [Color(red: 0.55, green: 0.35, blue: 0.10),
                                        Color(red: 0.80, green: 0.55, blue: 0.20)],
                               startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -196,6 +196,10 @@ func categoryGradient(for category: String) -> LinearGradient {
     case "Pop & World":
         return LinearGradient(colors: [Color(red: 0.85, green: 0.20, blue: 0.55),
                                        Color(red: 0.95, green: 0.55, blue: 0.20)],
+                              startPoint: .topLeading, endPoint: .bottomTrailing)
+    case "FMA":
+        return LinearGradient(colors: [Color(red: 0.20, green: 0.40, blue: 0.20),
+                                       Color(red: 0.35, green: 0.65, blue: 0.30)],
                               startPoint: .topLeading, endPoint: .bottomTrailing)
     default:
         return LinearGradient(colors: [Color.gray, Color.gray.opacity(0.6)],

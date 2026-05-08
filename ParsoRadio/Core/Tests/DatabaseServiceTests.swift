@@ -53,6 +53,30 @@ final class DatabaseServiceTests: XCTestCase {
         XCTAssertTrue(results.contains  { $0.id == "high-1" })
     }
 
+    // Tag-only channels use confidence threshold 0.0 — low-confidence tracks must be returned.
+    // This verifies the fix for "No tracks available" on FMA/tag channels.
+    func testLowConfidenceTracksIncludedInTagChannel() async throws {
+        let lowConf = Track(
+            id: "jazz-low", source: "fma",
+            title: "Low Confidence Jazz", artist: "Unknown",
+            duration: 180,
+            streamURL: URL(string: "https://freemusicarchive.org/track/jazz-low/stream/")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .cc0, tags: ["jazz"],
+            qualityScore: 0.3 / 4.0,
+            rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 0.3
+        )
+        await db.saveTracks([lowConf])
+
+        let channel = Channel.defaults.first { $0.id == "jazz-bar" }!
+        let results = await db.fetchTracks(forChannel: channel)
+        XCTAssertTrue(
+            results.contains { $0.id == "jazz-low" },
+            "Tag-only channel must include low-confidence FMA tracks (confidence=0.3 was previously filtered)"
+        )
+    }
+
     func testTrackCount() async throws {
         await db.saveTracks([
             makeTrack(id: "c1", composer: "bach",   instruments: ["strings"]),

@@ -4,7 +4,7 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        XCTAssertEqual(Channel.defaults.count, 34)
+        XCTAssertEqual(Channel.defaults.count, 48)
     }
 
     func testBachVivaldiChannelDefinition() {
@@ -103,6 +103,31 @@ final class ChannelTests: XCTestCase {
         let lofiTrack = makeTrack(composer: nil, instruments: [], tags: ["lo-fi"])
         XCTAssertTrue(ch.matches(jazzTrack),  "Jazz track should match Soft Café after tag fix")
         XCTAssertFalse(ch.matches(lofiTrack), "Lo-fi track should NOT match Soft Café after tag fix")
+    }
+
+    // UC7/UC10: all 14 FMA genre channels present under "FMA" category.
+    func testFMACategoryHas14Channels() {
+        let fmaChannels = Channel.defaults.filter { $0.category == "FMA" }
+        XCTAssertEqual(fmaChannels.count, 14, "Expected 14 FMA genre channels")
+    }
+
+    func testFMAChannelsHaveValidTags() {
+        let fmaChannels = Channel.defaults.filter { $0.category == "FMA" }
+        for channel in fmaChannels {
+            XCTAssertFalse(channel.tags.isEmpty, "FMA channel \(channel.id) must have at least one tag")
+            let hasKnownGenre = channel.tags.first { FMAService.genreMap[$0] != nil } != nil
+            XCTAssertTrue(hasKnownGenre, "FMA channel \(channel.id) tags must map to a known FMA genre")
+        }
+    }
+
+    // UC11: spoken-word channels use "LibriVox Audiobooks" category.
+    func testSpokenWordChannelsUseLibriVoxCategory() {
+        let spokenChannels = Channel.defaults.filter { $0.contentType == .spokenWord }
+        XCTAssertFalse(spokenChannels.isEmpty, "Expected at least one spoken-word channel")
+        for channel in spokenChannels {
+            XCTAssertEqual(channel.category, "LibriVox Audiobooks",
+                "Spoken-word channel '\(channel.id)' must use 'LibriVox Audiobooks' category")
+        }
     }
 
     func testChannelCodableRoundtrip() throws {

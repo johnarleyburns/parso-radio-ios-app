@@ -229,10 +229,11 @@ struct iPodView: View {
         case "Jazz & Blues":       return Color(red: 0.10, green: 0.22, blue: 0.65)
         case "Rock & Country":     return Color(red: 0.72, green: 0.10, blue: 0.10)
         case "Vibes":              return Color(red: 0.08, green: 0.50, blue: 0.40)
-        case "Talk & Stories":     return Color(red: 0.55, green: 0.35, blue: 0.10)
-        case "Electronic & Beats": return Color(red: 0.05, green: 0.10, blue: 0.45)
-        case "Pop & World":        return Color(red: 0.85, green: 0.20, blue: 0.55)
-        default:                   return .accentColor
+        case "LibriVox Audiobooks": return Color(red: 0.55, green: 0.35, blue: 0.10)
+        case "Electronic & Beats":  return Color(red: 0.05, green: 0.10, blue: 0.45)
+        case "Pop & World":         return Color(red: 0.85, green: 0.20, blue: 0.55)
+        case "FMA":                 return Color(red: 0.20, green: 0.40, blue: 0.20)
+        default:                    return .accentColor
         }
     }
 

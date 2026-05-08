@@ -131,7 +131,7 @@ struct FMAService {
             rawCreator: info.artistName,
             composer: composer,
             instruments: instruments,
-            metadataConfidence: composer != nil ? 2.0 : 0.3
+            metadataConfidence: 2.0  // FMA is a curated, licensed source; not filtered by metadata quality
         )
     }
 

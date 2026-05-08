@@ -116,9 +116,16 @@ final class DatabaseService {
     func fetchTracks(forChannel channel: Channel) async -> [Track] {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
-                // Spoken-word tracks are stored with confidence 2.0 (trusted curated source)
-                // and need confidence >= 0 threshold; music tracks still use 1.5.
-                let threshold: Double = channel.contentType == .spokenWord ? 0.0 : 1.5
+                // Confidence threshold governs metadata quality:
+                //   - Spoken-word / tag-only channels: 0.0 — all tracks are acceptable
+                //     (fetched with confidenceThreshold 0.0; no composer to validate against)
+                //   - Composer channels: 1.5 — filters misidentified tracks
+                let threshold: Double
+                if channel.contentType == .spokenWord || channel.composers.isEmpty {
+                    threshold = 0.0
+                } else {
+                    threshold = 1.5
+                }
                 var query = self.tracks.filter(self.colConfidence >= threshold)
                 if !channel.composers.isEmpty {
                     query = query.filter(channel.composers.contains(self.colComposer ?? ""))
