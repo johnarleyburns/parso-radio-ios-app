@@ -37,13 +37,21 @@ struct ChannelSelectorView: View {
                 if !favoriteChannels.isEmpty {
                     Section("Favorites") {
                         ForEach(favoriteChannels) { channel in
-                            Button { onSelect(channel) } label: { channelRow(channel) }
-                                .buttonStyle(.plain)
+                            channelRow(channel)
+                                .contentShape(Rectangle())
+                                .onTapGesture { onSelect(channel) }
                                 .swipeActions(edge: .trailing) {
                                     Button(role: .destructive) {
                                         removeFavorite(channel)
                                     } label: {
                                         Label("Remove", systemImage: "heart.slash")
+                                    }
+                                }
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        removeFavorite(channel)
+                                    } label: {
+                                        Label("Remove from Favorites", systemImage: "heart.slash")
                                     }
                                 }
                         }
@@ -53,8 +61,9 @@ struct ChannelSelectorView: View {
                 ForEach(sortedCategories, id: \.self) { category in
                     Section(category) {
                         ForEach(channels(for: category)) { channel in
-                            Button { onSelect(channel) } label: { channelRow(channel) }
-                                .buttonStyle(.plain)
+                            channelRow(channel)
+                                .contentShape(Rectangle())
+                                .onTapGesture { onSelect(channel) }
                         }
                     }
                 }
@@ -95,5 +104,5 @@ struct ChannelSelectorView: View {
 }
 
 #Preview {
-    ChannelSelectorView(currentChannelId: "bach-vivaldi-strings") { _ in }
+    ChannelSelectorView(currentChannelId: "bach") { _ in }
 }

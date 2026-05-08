@@ -130,6 +130,9 @@ final class DatabaseService {
                 if !channel.composers.isEmpty {
                     query = query.filter(channel.composers.contains(self.colComposer ?? ""))
                 }
+                if let src = channel.preferredSource {
+                    query = query.filter(self.colSource == src)
+                }
                 query = query.order(self.colConfidence.desc, self.colQuality.desc)
                 let rows = (try? self.db.prepare(query)) ?? AnySequence([])
                 let result = rows.compactMap(self.rowToTrack).filter { channel.matches($0) }

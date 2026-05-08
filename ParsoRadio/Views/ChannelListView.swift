@@ -173,29 +173,9 @@ func categoryGradient(for category: String) -> LinearGradient {
         return LinearGradient(colors: [Color(red: 0.42, green: 0.20, blue: 0.80),
                                        Color(red: 0.62, green: 0.10, blue: 0.52)],
                               startPoint: .topLeading, endPoint: .bottomTrailing)
-    case "Jazz & Blues":
-        return LinearGradient(colors: [Color(red: 0.10, green: 0.22, blue: 0.65),
-                                       Color(red: 0.25, green: 0.50, blue: 0.80)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
-    case "Rock & Country":
-        return LinearGradient(colors: [Color(red: 0.72, green: 0.10, blue: 0.10),
-                                       Color(red: 0.92, green: 0.42, blue: 0.10)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
-    case "Vibes":
-        return LinearGradient(colors: [Color(red: 0.08, green: 0.50, blue: 0.40),
-                                       Color(red: 0.18, green: 0.72, blue: 0.52)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
     case "LibriVox Audiobooks":
         return LinearGradient(colors: [Color(red: 0.55, green: 0.35, blue: 0.10),
                                        Color(red: 0.80, green: 0.55, blue: 0.20)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
-    case "Electronic & Beats":
-        return LinearGradient(colors: [Color(red: 0.05, green: 0.10, blue: 0.45),
-                                       Color(red: 0.10, green: 0.70, blue: 0.90)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
-    case "Pop & World":
-        return LinearGradient(colors: [Color(red: 0.85, green: 0.20, blue: 0.55),
-                                       Color(red: 0.95, green: 0.55, blue: 0.20)],
                               startPoint: .topLeading, endPoint: .bottomTrailing)
     case "FMA":
         return LinearGradient(colors: [Color(red: 0.20, green: 0.40, blue: 0.20),

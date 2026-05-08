@@ -14,8 +14,8 @@ final class InternetArchiveIntegrationTests: XCTestCase {
         executionTimeAllowance = 60
     }
 
-    func testBachVivaldiStringsChannelReturnsAtLeastOnTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "bach-vivaldi-strings" }!
+    func testBachComposerChannelReturnsAtLeastOneTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "bach" }!
         let tracks: [Track]
         do {
             tracks = try await service.fetchTracks(
@@ -25,14 +25,14 @@ final class InternetArchiveIntegrationTests: XCTestCase {
         } catch let e as URLError {
             throw XCTSkip("Network unavailable: \(e.localizedDescription)")
         }
-        print("Bach/Vivaldi strings: \(tracks.count) tracks passed filtering")
+        print("Bach composer: \(tracks.count) tracks passed filtering")
         for t in tracks.prefix(3) {
             print("  [\(t.composer ?? "nil")] \(t.title) — instruments: \(t.instruments)")
         }
         XCTAssertFalse(
             tracks.isEmpty,
-            "Expected ≥1 Bach/Vivaldi strings track but got 0. " +
-            "Check composerQuery and InstrumentDetector coverage."
+            "Expected ≥1 Bach composer track but got 0. " +
+            "Check composerQuery and ComposerMap coverage."
         )
         XCTAssertTrue(
             tracks.allSatisfy { $0.license != .rejected },
@@ -40,59 +40,22 @@ final class InternetArchiveIntegrationTests: XCTestCase {
         )
     }
 
-    func testChopinRachmaninoffPianoChannelReturnsAtLeastOneTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "chopin-rachmaninoff-piano" }!
-        let tracks: [Track]
-        do {
-            tracks = try await service.fetchTracks(
-                composers: channel.composers,
-                instruments: channel.instruments
-            )
-        } catch let e as URLError {
-            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
-        }
-        print("Chopin/Rachmaninoff piano: \(tracks.count) tracks passed filtering")
-        for t in tracks.prefix(3) {
-            print("  [\(t.composer ?? "nil")] \(t.title) — instruments: \(t.instruments)")
-        }
-        XCTAssertFalse(
-            tracks.isEmpty,
-            "Expected ≥1 Chopin/Rachmaninoff piano track but got 0. " +
-            "Check composerQuery and InstrumentDetector coverage."
-        )
-    }
-
-    func testClassicalTagChannelReturnsAtLeastOneTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "classical" }!
+    func testBaroqueTagChannelReturnsAtLeastOneTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "baroque" }!
         let tracks: [Track]
         do {
             tracks = try await service.fetchTracks(tags: channel.tags)
         } catch let e as URLError {
             throw XCTSkip("Network unavailable: \(e.localizedDescription)")
         }
-        print("Classical tag: \(tracks.count) tracks passed filtering")
+        print("Baroque tag: \(tracks.count) tracks passed filtering")
         for t in tracks.prefix(3) {
             print("  [\(t.composer ?? "nil")] \(t.title)")
         }
         XCTAssertFalse(
             tracks.isEmpty,
-            "Expected ≥1 classical tag track but got 0. " +
+            "Expected ≥1 baroque tag track but got 0. " +
             "Check confidenceThreshold for tag-based channels."
-        )
-    }
-
-    func testAmbientTagChannelReturnsAtLeastOneTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "ambient" }!
-        let tracks: [Track]
-        do {
-            tracks = try await service.fetchTracks(tags: channel.tags)
-        } catch let e as URLError {
-            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
-        }
-        print("Ambient tag: \(tracks.count) tracks passed filtering")
-        XCTAssertFalse(
-            tracks.isEmpty,
-            "Expected ≥1 ambient tag track but got 0."
         )
     }
 
@@ -231,7 +194,7 @@ final class FMAIntegrationTests: XCTestCase {
     }
 
     func testClassicalChannelReturnsAtLeastOnePDTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "classical" }!
+        let channel = Channel.defaults.first { $0.id == "fma-classical" }!
         let tracks: [Track]
         do {
             tracks = try await service.fetchTracks(forChannel: channel)
@@ -252,32 +215,20 @@ final class FMAIntegrationTests: XCTestCase {
         )
     }
 
-    func testAmbientChannelReturnsAtLeastOnePDTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "ambient" }!
+    func testJazzChannelReturnsAtLeastOnePDTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
         let tracks: [Track]
         do {
             tracks = try await service.fetchTracks(forChannel: channel)
         } catch let e as URLError {
             throw XCTSkip("Network unavailable: \(e.localizedDescription)")
         }
-        print("FMA Ambient: \(tracks.count) tracks")
-        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 FMA Ambient track but got 0.")
-    }
-
-    func testJazzBarChannelReturnsAtLeastOnePDTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "jazz-bar" }!
-        let tracks: [Track]
-        do {
-            tracks = try await service.fetchTracks(forChannel: channel)
-        } catch let e as URLError {
-            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
-        }
-        print("FMA Jazz Bar: \(tracks.count) tracks")
+        print("FMA Jazz: \(tracks.count) tracks")
         XCTAssertFalse(tracks.isEmpty, "Expected ≥1 FMA Jazz track but got 0.")
     }
 
     func testRockChannelReturnsAtLeastOnePDTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "rock" }!
+        let channel = Channel.defaults.first { $0.id == "fma-rock" }!
         let tracks: [Track]
         do {
             tracks = try await service.fetchTracks(forChannel: channel)
@@ -289,7 +240,7 @@ final class FMAIntegrationTests: XCTestCase {
     }
 
     func testSoulRnbChannelReturnsAtLeastOnePDTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "soul-rnb" }!
+        let channel = Channel.defaults.first { $0.id == "fma-soul-rnb" }!
         let tracks: [Track]
         do {
             tracks = try await service.fetchTracks(forChannel: channel)
@@ -303,15 +254,15 @@ final class FMAIntegrationTests: XCTestCase {
         XCTAssertFalse(tracks.isEmpty, "Expected ≥1 FMA Soul-RB public-domain track but got 0.")
     }
 
-    func testOldTimeRootsChannelReturnsAtLeastOnePDTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "old-time-roots" }!
+    func testOldTimeChannelReturnsAtLeastOnePDTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "fma-old-time" }!
         let tracks: [Track]
         do {
             tracks = try await service.fetchTracks(forChannel: channel)
         } catch let e as URLError {
             throw XCTSkip("Network unavailable: \(e.localizedDescription)")
         }
-        print("FMA Old-Time & Roots: \(tracks.count) tracks")
+        print("FMA Old-Time & Historic: \(tracks.count) tracks")
         for t in tracks.prefix(3) {
             print("  [\(t.composer ?? "nil")] \(t.title) | \(t.license)")
         }
@@ -344,7 +295,7 @@ final class FMAIntegrationTests: XCTestCase {
     }
 
     func testStreamURLRedirectsToMp3() async throws {
-        let channel = Channel.defaults.first { $0.id == "classical" }!
+        let channel = Channel.defaults.first { $0.id == "fma-classical" }!
         let tracks: [Track]
         do {
             tracks = try await service.fetchTracks(forChannel: channel)

@@ -27,7 +27,7 @@ final class PlayerViewModelTests: XCTestCase {
     // UC2: last channel ID is written to UserDefaults as soon as load() begins,
     // before any network call, so a crash or force-quit still persists the choice.
     func testLastChannelIdSavedOnLoad() async throws {
-        let channel = Channel.defaults.first { $0.id == "jazz-bar" }!
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
         // Seed a track so advanceToNext() doesn't deadlock waiting for the DB.
         await db.saveTracks([makeFMATrack(id: "jazz-1", tags: ["jazz"])])
 
@@ -45,7 +45,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // UC3 (music): pressing back when well into a track (> 3 s) restarts from zero.
     func testBackMidMusicTrackRestartsFromBeginning() throws {
-        let channel = Channel.defaults.first { $0.id == "jazz-bar" }!
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
         let track = makeFMATrack(id: "jazz-1", tags: ["jazz"])
 
         vm.currentChannel = channel
@@ -60,7 +60,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // UC3 (music): pressing back at the very start navigates to the previous track.
     func testBackAtStartOfMusicTrackPlaysPreviousTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "jazz-bar" }!
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
         let t1 = makeFMATrack(id: "jazz-prev", tags: ["jazz"])
         let t2 = makeFMATrack(id: "jazz-curr", tags: ["jazz"])
         await db.saveTracks([t1, t2])
@@ -80,7 +80,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // UC3: pressing back with no history restarts the current track without crashing.
     func testBackWithEmptyHistoryDoesNotCrash() async throws {
-        let channel = Channel.defaults.first { $0.id == "jazz-bar" }!
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
         let track = makeFMATrack(id: "jazz-1", tags: ["jazz"])
         await db.saveTracks([track])
 
@@ -98,7 +98,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // UC3: playing a new track appends the previous one to playHistory.
     func testSkipAddsToPlayHistory() async throws {
-        let channel = Channel.defaults.first { $0.id == "jazz-bar" }!
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
         let t1 = makeFMATrack(id: "jazz-1", tags: ["jazz"])
         let t2 = makeFMATrack(id: "jazz-2", tags: ["jazz"])
         await db.saveTracks([t1, t2])
@@ -120,13 +120,13 @@ final class PlayerViewModelTests: XCTestCase {
     // UC5: switching channel immediately clears currentTrack and stops playback.
     func testChannelSwitchClearsPlaybackStateImmediately() async throws {
         // Seed two channels' tracks.
-        let jazzTrack = makeFMATrack(id: "jazz-1", tags: ["jazz"])
-        await db.saveTracks([jazzTrack])
+        let fmaTrack = makeFMATrack(id: "jazz-1", tags: ["jazz"])
+        await db.saveTracks([fmaTrack])
 
-        vm.currentTrack = jazzTrack
+        vm.currentTrack = fmaTrack
         vm.isPlaying = true
 
-        let newChannel = Channel.defaults.first { $0.id == "ambient" }!
+        let newChannel = Channel.defaults.first { $0.id == "fma-classical" }!
         let loadTask = Task { await self.vm.load(channel: newChannel) }
         // Yield so the synchronous preamble (stop + clear) executes.
         await Task.yield()
@@ -148,6 +148,36 @@ final class PlayerViewModelTests: XCTestCase {
         vm.back()
 
         XCTAssertEqual(vm.currentPosition, 45, accuracy: 0.001, "Spoken-word back must rewind 15 seconds")
+    }
+
+    // UC14: seek() updates currentPosition immediately.
+    func testSeekUpdatesCurrentPosition() throws {
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let track = makeFMATrack(id: "jazz-1", tags: ["jazz"])
+
+        vm.currentChannel = channel
+        vm.currentTrack = track
+        vm.currentPosition = 0
+
+        vm.seek(to: 45.0)
+
+        XCTAssertEqual(vm.currentPosition, 45.0, accuracy: 0.001,
+            "seek(to:) must update currentPosition immediately")
+    }
+
+    // UC14: Oxford forward always advances to the next lecture, never seeks +30 s.
+    func testOxfordForwardSkipsToNextTrack() throws {
+        let channel = Channel.defaults.first { $0.id == "oxford-philosophy" }!
+        let track = makeSpokenWordTrack(id: "oxford-1")
+
+        vm.currentChannel = channel
+        vm.currentTrack = track
+        vm.currentPosition = 0  // at start — spoken-word +30s would seek to 30
+
+        vm.skip()
+
+        XCTAssertEqual(vm.currentPosition, 0, accuracy: 0.001,
+            "Oxford forward must not add 30 s — it should trigger next-track advance")
     }
 
     // MARK: - Helpers

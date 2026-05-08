@@ -14,7 +14,7 @@ final class QueueManagerTests: XCTestCase {
     func testNextTrackReturnsMatchingTrack() async throws {
         await seedTracks(composer: "bach", instrument: "strings", count: 5)
 
-        let channel = Channel.defaults.first { $0.id == "bach-vivaldi-strings" }!
+        let channel = Channel.defaults.first { $0.id == "bach" }!
         let track = await queue.nextTrack(channel: channel)
         XCTAssertNotNil(track)
         XCTAssertEqual(track?.composer, "bach")
@@ -22,7 +22,7 @@ final class QueueManagerTests: XCTestCase {
 
     func testNoRepeatWithin50Plays() async throws {
         await seedTracks(composer: "chopin", instrument: "piano", count: 10)
-        let channel = Channel.defaults.first { $0.id == "chopin-rachmaninoff-piano" }!
+        let channel = Channel.defaults.first { $0.id == "chopin" }!
 
         var seen: Set<String> = []
         for _ in 0..<10 {
@@ -33,7 +33,7 @@ final class QueueManagerTests: XCTestCase {
     }
 
     func testReturnsNilWhenPoolEmpty() async throws {
-        let channel = Channel.defaults.first { $0.id == "bach-vivaldi-strings" }!
+        let channel = Channel.defaults.first { $0.id == "bach" }!
         let track = await queue.nextTrack(channel: channel)
         XCTAssertNil(track)
     }
@@ -44,7 +44,7 @@ final class QueueManagerTests: XCTestCase {
         // Handel is in Bach's similarity list
         await seedTracks(composer: "handel", instrument: "strings", count: 5, prefix: "handel")
 
-        let channel = Channel.defaults.first { $0.id == "bach-vivaldi-strings" }!
+        let channel = Channel.defaults.first { $0.id == "bach" }!
         var results: [Track] = []
         for _ in 0..<8 {
             if let t = await queue.nextTrack(channel: channel) { results.append(t) }
@@ -54,7 +54,7 @@ final class QueueManagerTests: XCTestCase {
 
     func testDeterministicOrderIsSameForSameDay() async throws {
         await seedTracks(composer: "bach", instrument: "strings", count: 20)
-        let channel = Channel.defaults.first { $0.id == "bach-vivaldi-strings" }!
+        let channel = Channel.defaults.first { $0.id == "bach" }!
 
         let q1 = QueueManager(db: db)
         let q2 = QueueManager(db: db)

@@ -16,24 +16,26 @@ struct Channel: Codable, Identifiable, Hashable {
     let contentType: ContentType
     // IA collection names to restrict spoken-word searches (empty = general search).
     let spokenWordCollections: [String]
+    // UC18: if set, DatabaseService.fetchTracks filters to this source string only.
+    let preferredSource: String?
     var isDownloaded: Bool
 
     init(
         id: String, name: String, category: String, icon: String,
         composers: [String] = [], instruments: [String] = [], tags: [String] = [],
         contentType: ContentType = .music, spokenWordCollections: [String] = [],
-        isDownloaded: Bool = false
+        preferredSource: String? = nil, isDownloaded: Bool = false
     ) {
         self.id = id; self.name = name; self.category = category; self.icon = icon
         self.composers = composers; self.instruments = instruments; self.tags = tags
         self.contentType = contentType; self.spokenWordCollections = spokenWordCollections
-        self.isDownloaded = isDownloaded
+        self.preferredSource = preferredSource; self.isDownloaded = isDownloaded
     }
 
     func matches(_ track: Track) -> Bool {
         // Tag-only channels (no composer/instrument constraints) must match by tag —
         // otherwise every track in the DB satisfies the empty-array conditions and
-        // e.g. Country Road ends up playing Rachmaninoff.
+        // e.g. a Country channel ends up playing Rachmaninoff.
         if composers.isEmpty && instruments.isEmpty {
             return tags.isEmpty || tags.contains(where: { track.tags.contains($0) })
         }
@@ -46,154 +48,141 @@ struct Channel: Codable, Identifiable, Hashable {
 
 extension Channel {
     static let defaults: [Channel] = [
-        // MARK: Classical
+
+        // MARK: Classical — Format/Period channels (UC16)
+        // subject: queries; curl-verified against archive.org Solr before adding.
         Channel(
-            id: "bach-vivaldi-strings",
-            name: "Bach & Vivaldi — Strings",
-            category: "Classical",
-            icon: "music.note.list",
-            composers: ["bach", "vivaldi"],
-            instruments: ["strings"],
-            tags: ["classical", "baroque"]
+            id: "baroque", name: "Baroque", category: "Classical",
+            icon: "music.quarternote.3", tags: ["baroque"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "chopin-rachmaninoff-piano",
-            name: "Chopin & Rachmaninoff — Piano",
-            category: "Classical",
-            icon: "pianokeys",
-            composers: ["chopin", "rachmaninoff"],
-            instruments: ["piano"],
-            tags: ["classical", "romantic"]
+            id: "romantic-era", name: "Romantic Era", category: "Classical",
+            icon: "pianokeys", tags: ["romantic"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "classical",
-            name: "Classical",
-            category: "Classical",
-            icon: "music.quarternote.3",
-            tags: ["classical"]
+            id: "early-music", name: "Early Music", category: "Classical",
+            icon: "music.note", tags: ["early music", "renaissance"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "ambient",
-            name: "Ambient",
-            category: "Classical",
-            icon: "waveform",
-            tags: ["ambient"]
+            id: "symphony", name: "Symphony & Orchestra", category: "Classical",
+            icon: "music.note.list", tags: ["symphony"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "opera", name: "Opera", category: "Classical",
+            icon: "theatermasks", tags: ["opera"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "chamber-music", name: "Chamber Music", category: "Classical",
+            icon: "guitars", tags: ["chamber music", "string quartet"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "piano-classics", name: "Piano Classics", category: "Classical",
+            icon: "pianokeys", tags: ["piano", "classical"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "organ-harpsichord", name: "Organ & Harpsichord", category: "Classical",
+            icon: "waveform", tags: ["organ", "harpsichord"],
+            preferredSource: "internet_archive"
         ),
 
-        // MARK: Jazz & Blues
+        // MARK: Classical — Individual composer channels (UC16)
+        // creator: queries; curl-verified. ComposerMap normalizes aliases.
         Channel(
-            id: "jazz-bar",
-            name: "Jazz Bar",
-            category: "Jazz & Blues",
-            icon: "music.mic",
-            tags: ["jazz"]
+            id: "bach", name: "Bach", category: "Classical",
+            icon: "music.note", composers: ["bach"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "blues",
-            name: "Blues",
-            category: "Jazz & Blues",
-            icon: "guitars",
-            tags: ["blues"]
+            id: "mozart", name: "Mozart", category: "Classical",
+            icon: "music.note", composers: ["mozart"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "jazz-piano",
-            name: "Jazz Piano",
-            category: "Jazz & Blues",
-            icon: "pianokeys",
-            instruments: ["piano"],
-            tags: ["jazz"]
-        ),
-
-        // MARK: Rock & Country
-        Channel(
-            id: "rock",
-            name: "Rock",
-            category: "Rock & Country",
-            icon: "bolt.fill",
-            tags: ["rock"]
+            id: "beethoven", name: "Beethoven", category: "Classical",
+            icon: "music.note", composers: ["beethoven"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "country",
-            name: "Country Road",
-            category: "Rock & Country",
-            icon: "leaf",
-            tags: ["country"]
+            id: "schubert", name: "Schubert", category: "Classical",
+            icon: "music.note", composers: ["schubert"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "folk",
-            name: "Folk",
-            category: "Rock & Country",
-            icon: "music.note",
-            tags: ["folk"]
+            id: "schumann", name: "Schumann", category: "Classical",
+            icon: "music.note", composers: ["schumann"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "old-time-roots",
-            name: "Old-Time & Roots",
-            category: "Rock & Country",
-            icon: "banjo",
-            tags: ["old-time", "folk"]
-        ),
-
-        // MARK: Vibes
-        Channel(
-            id: "soft-cafe",
-            name: "Soft Café",
-            category: "Vibes",
-            icon: "cup.and.saucer",
-            tags: ["jazz", "bossa nova"]
+            id: "brahms", name: "Brahms", category: "Classical",
+            icon: "music.note", composers: ["brahms"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "study-focus",
-            name: "Study Focus",
-            category: "Vibes",
-            icon: "book",
-            tags: ["instrumental", "ambient"]
-        ),
-
-        // MARK: Electronic & Beats
-        Channel(
-            id: "electronic",
-            name: "Electronic",
-            category: "Electronic & Beats",
-            icon: "dot.radiowaves.left.and.right",
-            tags: ["electronic"]
+            id: "haydn", name: "Haydn", category: "Classical",
+            icon: "music.note", composers: ["haydn"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "hip-hop",
-            name: "Hip-Hop",
-            category: "Electronic & Beats",
-            icon: "mic.fill",
-            tags: ["hip-hop"]
+            id: "chopin", name: "Chopin", category: "Classical",
+            icon: "pianokeys", composers: ["chopin"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "experimental",
-            name: "Experimental",
-            category: "Electronic & Beats",
-            icon: "wand.and.stars",
-            tags: ["experimental"]
+            id: "rachmaninoff", name: "Rachmaninoff", category: "Classical",
+            icon: "pianokeys", composers: ["rachmaninoff"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "instrumental",
-            name: "Instrumental",
-            category: "Electronic & Beats",
-            icon: "tuningfork",
-            tags: ["instrumental"]
-        ),
-
-        // MARK: Pop & World
-        Channel(
-            id: "pop",
-            name: "Pop",
-            category: "Pop & World",
-            icon: "star.fill",
-            tags: ["pop"]
+            id: "vivaldi", name: "Vivaldi", category: "Classical",
+            icon: "music.note", composers: ["vivaldi"],
+            preferredSource: "internet_archive"
         ),
         Channel(
-            id: "world-music",
-            name: "World Music",
-            category: "Pop & World",
-            icon: "globe",
-            tags: ["world music"]
+            id: "handel", name: "Handel", category: "Classical",
+            icon: "music.quarternote.3", composers: ["handel"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "telemann", name: "Telemann", category: "Classical",
+            icon: "music.quarternote.3", composers: ["telemann"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "liszt", name: "Liszt", category: "Classical",
+            icon: "pianokeys", composers: ["liszt"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "mendelssohn", name: "Mendelssohn", category: "Classical",
+            icon: "music.note", composers: ["mendelssohn"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "tchaikovsky", name: "Tchaikovsky", category: "Classical",
+            icon: "music.note.list", composers: ["tchaikovsky"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "dvorak", name: "Dvořák", category: "Classical",
+            icon: "music.note", composers: ["dvorak"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "debussy", name: "Debussy", category: "Classical",
+            icon: "waveform", composers: ["debussy"],
+            preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "grieg", name: "Grieg", category: "Classical",
+            icon: "music.note", composers: ["grieg"],
+            preferredSource: "internet_archive"
         ),
 
         // MARK: LibriVox Audiobooks (spoken word — position is persisted across sessions)
@@ -204,7 +193,8 @@ extension Channel {
             icon: "building.columns",
             tags: ["plato", "socrates", "aristotle"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
         Channel(
             id: "childrens-books",
@@ -213,7 +203,8 @@ extension Channel {
             icon: "star.circle",
             tags: ["children"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
         Channel(
             id: "science-fiction",
@@ -222,7 +213,8 @@ extension Channel {
             icon: "sparkles",
             tags: ["science fiction"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
         Channel(
             id: "mystery",
@@ -231,7 +223,8 @@ extension Channel {
             icon: "magnifyingglass",
             tags: ["mystery"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
         Channel(
             id: "classic-lit",
@@ -240,7 +233,8 @@ extension Channel {
             icon: "books.vertical",
             tags: ["classical fiction"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
         Channel(
             id: "history-talks",
@@ -249,10 +243,9 @@ extension Channel {
             icon: "globe.europe.africa",
             tags: ["history"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
-
-        // MARK: World Classics — spoken word in various languages
         Channel(
             id: "chinese-philosophy",
             name: "Chinese Philosophy",
@@ -260,7 +253,8 @@ extension Channel {
             icon: "yin.yang",
             tags: ["confucius", "tao", "chinese philosophy"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
         Channel(
             id: "chinese-history",
@@ -269,7 +263,8 @@ extension Channel {
             icon: "building.2",
             tags: ["china", "chinese history"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
         Channel(
             id: "greek-history",
@@ -278,7 +273,8 @@ extension Channel {
             icon: "building.columns.fill",
             tags: ["herodotus", "greek history", "ancient greece"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
         Channel(
             id: "french-lit",
@@ -287,7 +283,8 @@ extension Channel {
             icon: "books.vertical.fill",
             tags: ["french literature", "hugo", "dumas"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
         Channel(
             id: "spanish-lit",
@@ -296,7 +293,8 @@ extension Channel {
             icon: "scroll",
             tags: ["spanish fiction", "cervantes"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
         Channel(
             id: "french-kids",
@@ -305,7 +303,8 @@ extension Channel {
             icon: "star.circle.fill",
             tags: ["children", "french"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
         Channel(
             id: "spanish-kids",
@@ -314,304 +313,207 @@ extension Channel {
             icon: "star.bubble",
             tags: ["children", "spanish"],
             contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"]
-        ),
-
-        Channel(
-            id: "soul-rnb",
-            name: "Soul & R&B",
-            category: "Pop & World",
-            icon: "heart.fill",
-            tags: ["soul", "r&b"]
-        ),
-
-        // MARK: Pop & World — music
-        Channel(
-            id: "spanish-guitar",
-            name: "Spanish Guitar & Flamenco",
-            category: "Pop & World",
-            icon: "guitars.fill",
-            tags: ["flamenco", "spanish", "world music"]
+            spokenWordCollections: ["librivoxaudio"],
+            preferredSource: "internet_archive"
         ),
 
         // MARK: FMA — Free Music Archive genre channels (all curl-verified: 40 PD+CC-BY tracks each)
         Channel(
-            id: "fma-classical",
-            name: "FMA Classical",
-            category: "FMA",
-            icon: "music.quarternote.3",
-            tags: ["classical"]
+            id: "fma-classical", name: "FMA Classical", category: "FMA",
+            icon: "music.quarternote.3", tags: ["classical"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-jazz",
-            name: "FMA Jazz",
-            category: "FMA",
-            icon: "music.mic",
-            tags: ["jazz"]
+            id: "fma-jazz", name: "FMA Jazz", category: "FMA",
+            icon: "music.mic", tags: ["jazz"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-blues",
-            name: "FMA Blues",
-            category: "FMA",
-            icon: "guitars",
-            tags: ["blues"]
+            id: "fma-blues", name: "FMA Blues", category: "FMA",
+            icon: "guitars", tags: ["blues"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-rock",
-            name: "FMA Rock",
-            category: "FMA",
-            icon: "bolt.fill",
-            tags: ["rock"]
+            id: "fma-rock", name: "FMA Rock", category: "FMA",
+            icon: "bolt.fill", tags: ["rock"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-country",
-            name: "FMA Country",
-            category: "FMA",
-            icon: "leaf",
-            tags: ["country"]
+            id: "fma-country", name: "FMA Country", category: "FMA",
+            icon: "leaf", tags: ["country"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-folk",
-            name: "FMA Folk",
-            category: "FMA",
-            icon: "music.note",
-            tags: ["folk"]
+            id: "fma-folk", name: "FMA Folk", category: "FMA",
+            icon: "music.note", tags: ["folk"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-instrumental",
-            name: "FMA Instrumental",
-            category: "FMA",
-            icon: "tuningfork",
-            tags: ["instrumental"]
+            id: "fma-instrumental", name: "FMA Instrumental", category: "FMA",
+            icon: "tuningfork", tags: ["instrumental"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-electronic",
-            name: "FMA Electronic",
-            category: "FMA",
-            icon: "dot.radiowaves.left.and.right",
-            tags: ["electronic"]
+            id: "fma-electronic", name: "FMA Electronic", category: "FMA",
+            icon: "dot.radiowaves.left.and.right", tags: ["electronic"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-hip-hop",
-            name: "FMA Hip-Hop",
-            category: "FMA",
-            icon: "mic.fill",
-            tags: ["hip-hop"]
+            id: "fma-hip-hop", name: "FMA Hip-Hop", category: "FMA",
+            icon: "mic.fill", tags: ["hip-hop"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-pop",
-            name: "FMA Pop",
-            category: "FMA",
-            icon: "star.fill",
-            tags: ["pop"]
+            id: "fma-pop", name: "FMA Pop", category: "FMA",
+            icon: "star.fill", tags: ["pop"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-soul-rnb",
-            name: "FMA Soul & R&B",
-            category: "FMA",
-            icon: "heart.fill",
-            tags: ["soul"]
+            id: "fma-soul-rnb", name: "FMA Soul & R&B", category: "FMA",
+            icon: "heart.fill", tags: ["soul"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-experimental",
-            name: "FMA Experimental",
-            category: "FMA",
-            icon: "wand.and.stars",
-            tags: ["experimental"]
+            id: "fma-experimental", name: "FMA Experimental", category: "FMA",
+            icon: "wand.and.stars", tags: ["experimental"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-international",
-            name: "FMA International",
-            category: "FMA",
-            icon: "globe",
-            tags: ["world music"]
+            id: "fma-international", name: "FMA International", category: "FMA",
+            icon: "globe", tags: ["world music"],
+            preferredSource: "fma"
         ),
         Channel(
-            id: "fma-old-time",
-            name: "FMA Old-Time & Historic",
-            category: "FMA",
-            icon: "banjo",
-            tags: ["old-time"]
+            id: "fma-old-time", name: "FMA Old-Time & Historic", category: "FMA",
+            icon: "banjo", tags: ["old-time"],
+            preferredSource: "fma"
         ),
 
         // MARK: Oxford Lectures — University of Oxford open-license audio lectures
         // Each channel's tags contain the podcasts.ox.ac.uk unit slug used for track matching.
-        // contentType: .spokenWord enables position-persist, 15s rewind, +30s skip.
+        // contentType: .spokenWord enables position-persist, 15 s rewind, next-track forward.
         Channel(
-            id: "oxford-philosophy",
-            name: "Philosophy",
-            category: "Oxford Lectures",
-            icon: "quote.bubble",
-            tags: ["faculty-philosophy"],
-            contentType: .spokenWord
+            id: "oxford-philosophy", name: "Philosophy", category: "Oxford Lectures",
+            icon: "quote.bubble", tags: ["faculty-philosophy"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-history",
-            name: "History",
-            category: "Oxford Lectures",
-            icon: "scroll",
-            tags: ["faculty-history"],
-            contentType: .spokenWord
+            id: "oxford-history", name: "History", category: "Oxford Lectures",
+            icon: "scroll", tags: ["faculty-history"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-english",
-            name: "English Literature",
-            category: "Oxford Lectures",
+            id: "oxford-english", name: "English Literature", category: "Oxford Lectures",
             icon: "books.vertical",
-            tags: ["faculty-english-language-and-literature"],
-            contentType: .spokenWord
+            tags: ["faculty-english-language-and-literature"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-torch",
-            name: "TORCH — Humanities Research",
-            category: "Oxford Lectures",
-            icon: "lightbulb",
-            tags: ["oxford-research-centre-humanities-torch"],
-            contentType: .spokenWord
+            id: "oxford-torch", name: "TORCH — Humanities Research",
+            category: "Oxford Lectures", icon: "lightbulb",
+            tags: ["oxford-research-centre-humanities-torch"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-classics",
-            name: "Classics",
-            category: "Oxford Lectures",
-            icon: "building.columns.fill",
-            tags: ["faculty-classics"],
-            contentType: .spokenWord
+            id: "oxford-classics", name: "Classics", category: "Oxford Lectures",
+            icon: "building.columns.fill", tags: ["faculty-classics"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-music",
-            name: "Music",
-            category: "Oxford Lectures",
-            icon: "music.note.list",
-            tags: ["faculty-music"],
-            contentType: .spokenWord
+            id: "oxford-music", name: "Music", category: "Oxford Lectures",
+            icon: "music.note.list", tags: ["faculty-music"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-physics",
-            name: "Physics",
-            category: "Oxford Lectures",
-            icon: "atom",
-            tags: ["department-physics"],
-            contentType: .spokenWord
+            id: "oxford-physics", name: "Physics", category: "Oxford Lectures",
+            icon: "atom", tags: ["department-physics"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-computer-science",
-            name: "Computer Science",
-            category: "Oxford Lectures",
-            icon: "laptopcomputer",
-            tags: ["department-computer-science"],
-            contentType: .spokenWord
+            id: "oxford-computer-science", name: "Computer Science",
+            category: "Oxford Lectures", icon: "laptopcomputer",
+            tags: ["department-computer-science"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-maths",
-            name: "Mathematics",
-            category: "Oxford Lectures",
-            icon: "function",
-            tags: ["mathematical-institute"],
-            contentType: .spokenWord
+            id: "oxford-maths", name: "Mathematics", category: "Oxford Lectures",
+            icon: "function", tags: ["mathematical-institute"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-engineering",
-            name: "Engineering Science",
-            category: "Oxford Lectures",
-            icon: "gear",
-            tags: ["department-engineering-science"],
-            contentType: .spokenWord
+            id: "oxford-engineering", name: "Engineering Science",
+            category: "Oxford Lectures", icon: "gear",
+            tags: ["department-engineering-science"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-chemistry",
-            name: "Chemistry",
-            category: "Oxford Lectures",
-            icon: "drop.fill",
-            tags: ["department-chemistry"],
-            contentType: .spokenWord
+            id: "oxford-chemistry", name: "Chemistry", category: "Oxford Lectures",
+            icon: "drop.fill", tags: ["department-chemistry"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-business",
-            name: "Saïd Business School",
-            category: "Oxford Lectures",
-            icon: "briefcase",
-            tags: ["said-business-school"],
-            contentType: .spokenWord
+            id: "oxford-business", name: "Saïd Business School",
+            category: "Oxford Lectures", icon: "briefcase",
+            tags: ["said-business-school"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-martin",
-            name: "Oxford Martin School",
-            category: "Oxford Lectures",
-            icon: "globe",
-            tags: ["oxford-martin-school"],
-            contentType: .spokenWord
+            id: "oxford-martin", name: "Oxford Martin School",
+            category: "Oxford Lectures", icon: "globe",
+            tags: ["oxford-martin-school"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-education",
-            name: "Education",
-            category: "Oxford Lectures",
-            icon: "graduationcap",
-            tags: ["department-education"],
-            contentType: .spokenWord
+            id: "oxford-education", name: "Education", category: "Oxford Lectures",
+            icon: "graduationcap", tags: ["department-education"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-internet",
-            name: "Internet Institute (OII)",
-            category: "Oxford Lectures",
-            icon: "network",
-            tags: ["oxford-internet-institute"],
-            contentType: .spokenWord
+            id: "oxford-internet", name: "Internet Institute (OII)",
+            category: "Oxford Lectures", icon: "network",
+            tags: ["oxford-internet-institute"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-blavatnik",
-            name: "Blavatnik School of Government",
-            category: "Oxford Lectures",
-            icon: "building.2.fill",
-            tags: ["blavatnik-school-government"],
-            contentType: .spokenWord
+            id: "oxford-blavatnik", name: "Blavatnik School of Government",
+            category: "Oxford Lectures", icon: "building.2.fill",
+            tags: ["blavatnik-school-government"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-economics",
-            name: "Economics",
-            category: "Oxford Lectures",
-            icon: "chart.bar.fill",
-            tags: ["department-economics"],
-            contentType: .spokenWord
+            id: "oxford-economics", name: "Economics", category: "Oxford Lectures",
+            icon: "chart.bar.fill", tags: ["department-economics"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-clinical-medicine",
-            name: "Clinical Medicine (NDM)",
-            category: "Oxford Lectures",
-            icon: "stethoscope",
-            tags: ["nuffield-department-clinical-medicine"],
-            contentType: .spokenWord
+            id: "oxford-clinical-medicine", name: "Clinical Medicine (NDM)",
+            category: "Oxford Lectures", icon: "stethoscope",
+            tags: ["nuffield-department-clinical-medicine"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-population-health",
-            name: "Population Health",
-            category: "Oxford Lectures",
-            icon: "heart.fill",
-            tags: ["nuffield-department-population-health"],
-            contentType: .spokenWord
+            id: "oxford-population-health", name: "Population Health",
+            category: "Oxford Lectures", icon: "heart.fill",
+            tags: ["nuffield-department-population-health"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-surgical",
-            name: "Surgical Sciences",
-            category: "Oxford Lectures",
-            icon: "cross.fill",
-            tags: ["nuffield-department-surgical-sciences"],
-            contentType: .spokenWord
+            id: "oxford-surgical", name: "Surgical Sciences",
+            category: "Oxford Lectures", icon: "cross.fill",
+            tags: ["nuffield-department-surgical-sciences"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-psychology",
-            name: "Psychology",
-            category: "Oxford Lectures",
+            id: "oxford-psychology", name: "Psychology", category: "Oxford Lectures",
             icon: "brain.head.profile",
-            tags: ["department-experimental-psychology"],
-            contentType: .spokenWord
+            tags: ["department-experimental-psychology"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-anatomy",
-            name: "Physiology, Anatomy & Genetics",
-            category: "Oxford Lectures",
-            icon: "figure.stand",
-            tags: ["department-physiology-anatomy-and-genetics-dpag"],
-            contentType: .spokenWord
+            id: "oxford-anatomy", name: "Physiology, Anatomy & Genetics",
+            category: "Oxford Lectures", icon: "figure.stand",
+            tags: ["department-physiology-anatomy-and-genetics-dpag"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
         ),
     ]
 

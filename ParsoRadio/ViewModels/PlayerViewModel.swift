@@ -10,6 +10,7 @@ final class PlayerViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var currentPosition: Double = 0
     @Published var trackDuration: Double?
+    @Published var isScrubbing: Bool = false
 
     let audioPlayer: AudioPlayerService
 
@@ -65,7 +66,7 @@ final class PlayerViewModel: ObservableObject {
 
         audioPlayer.onTimeUpdate = { [weak self] seconds in
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, !self.isScrubbing else { return }
                 self.currentPosition = seconds
                 self.trackDuration = self.audioPlayer.duration
                 // Persist position for spoken-word channels so the user can resume.
@@ -179,9 +180,17 @@ final class PlayerViewModel: ObservableObject {
             Task { await advanceToNext() }
             return
         }
-        // UC8: for spoken-word, forward skips +30 s within the chapter.
-        // At the end of the chapter it advances to the next one.
-        if channel.contentType == .spokenWord {
+        if channel.category == "Oxford Lectures" {
+            // UC14: Oxford forward always advances to the next lecture, never seeks +30 s.
+            audioPlayer.skip()
+            isPlaying = false
+            Task {
+                await db.clearPosition(channelId: channel.id)
+                await advanceToNext()
+            }
+        } else if channel.contentType == .spokenWord {
+            // UC8: for spoken-word, forward skips +30 s within the chapter.
+            // At the end of the chapter it advances to the next one.
             let target = currentPosition + 30
             if let dur = audioPlayer.duration, target < dur {
                 audioPlayer.seek(to: target)
@@ -199,6 +208,11 @@ final class PlayerViewModel: ObservableObject {
             isPlaying = false
             Task { await advanceToNext() }
         }
+    }
+
+    func seek(to seconds: Double) {
+        audioPlayer.seek(to: seconds)
+        currentPosition = seconds
     }
 
     func back() {

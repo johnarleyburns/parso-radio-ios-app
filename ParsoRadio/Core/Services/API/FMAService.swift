@@ -35,7 +35,7 @@ struct FMAService {
         "bossa nova":   "Jazz",
     ]
 
-    init(session: URLSession = .shared) {
+    init(session: URLSession = .app) {
         self.session = session
     }
 

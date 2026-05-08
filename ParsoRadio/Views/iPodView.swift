@@ -4,7 +4,7 @@ struct iPodView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @State private var pendingChannel: Channel = {
         // UC2: restore the last-used channel between app launches.
-        let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "bach-vivaldi-strings"
+        let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "bach"
         return Channel.defaults.first { $0.id == lastId } ?? Channel.defaults[0]
     }()
     @State private var showChannelSelector = false
@@ -134,11 +134,20 @@ struct iPodView: View {
                     Spacer(minLength: 0)
                 }
 
-                if displayChannel.contentType == .spokenWord,
-                   let dur = playerVM.trackDuration, dur > 0 {
+                if let dur = playerVM.trackDuration, dur > 0 {
                     VStack(spacing: 3) {
-                        ProgressView(value: playerVM.currentPosition, total: dur)
-                            .tint(progressTint(for: displayChannel.category))
+                        Slider(
+                            value: Binding(
+                                get: { playerVM.currentPosition },
+                                set: { playerVM.currentPosition = $0 }
+                            ),
+                            in: 0...max(dur, 1),
+                            onEditingChanged: { editing in
+                                playerVM.isScrubbing = editing
+                                if !editing { playerVM.seek(to: playerVM.currentPosition) }
+                            }
+                        )
+                        .tint(progressTint(for: displayChannel.category))
                         HStack {
                             Text(formatTime(playerVM.currentPosition))
                             Spacer()
@@ -147,6 +156,31 @@ struct iPodView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
+                        if displayChannel.contentType == .spokenWord {
+                            HStack(spacing: 24) {
+                                Button {
+                                    playerVM.seek(to: max(0, playerVM.currentPosition - 15))
+                                } label: {
+                                    Image(systemName: "gobackward.15")
+                                        .font(.system(size: 20))
+                                }
+                                if displayChannel.category != "Oxford Lectures" {
+                                    Button {
+                                        let target = playerVM.currentPosition + 30
+                                        if let d = playerVM.trackDuration, target < d {
+                                            playerVM.seek(to: target)
+                                        } else {
+                                            playerVM.skip()
+                                        }
+                                    } label: {
+                                        Image(systemName: "goforward.30")
+                                            .font(.system(size: 20))
+                                    }
+                                }
+                            }
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 4)
+                        }
                     }
                     .padding(.top, 10)
                 }
@@ -236,13 +270,8 @@ struct iPodView: View {
 
     private func progressTint(for category: String) -> Color {
         switch category {
-        case "Classical":          return Color(red: 0.42, green: 0.20, blue: 0.80)
-        case "Jazz & Blues":       return Color(red: 0.10, green: 0.22, blue: 0.65)
-        case "Rock & Country":     return Color(red: 0.72, green: 0.10, blue: 0.10)
-        case "Vibes":              return Color(red: 0.08, green: 0.50, blue: 0.40)
+        case "Classical":           return Color(red: 0.42, green: 0.20, blue: 0.80)
         case "LibriVox Audiobooks": return Color(red: 0.55, green: 0.35, blue: 0.10)
-        case "Electronic & Beats":  return Color(red: 0.05, green: 0.10, blue: 0.45)
-        case "Pop & World":         return Color(red: 0.85, green: 0.20, blue: 0.55)
         case "FMA":                 return Color(red: 0.20, green: 0.40, blue: 0.20)
         case "Oxford Lectures":     return Color(red: 0.00, green: 0.13, blue: 0.28)
         default:                    return .accentColor
@@ -285,30 +314,35 @@ struct ClickWheel: View {
                     .fill(Color(.systemBackground))
                     .frame(width: innerR * 2, height: innerR * 2)
                     .shadow(color: .black.opacity(0.10), radius: 5, y: 2)
+                    .allowsHitTesting(false)
 
                 // MENU (top)
                 Text("MENU")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.primary)
                     .offset(y: -midRing)
+                    .allowsHitTesting(false)
 
                 // Back (left)
                 Image(systemName: "backward.fill")
                     .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(.primary)
                     .offset(x: -midRing)
+                    .allowsHitTesting(false)
 
                 // Forward (right)
                 Image(systemName: "forward.fill")
                     .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(.primary)
                     .offset(x: midRing)
+                    .allowsHitTesting(false)
 
                 // Play/Pause (bottom)
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(.primary)
                     .offset(y: midRing)
+                    .allowsHitTesting(false)
             }
             .frame(width: size, height: size)
             .contentShape(Circle())

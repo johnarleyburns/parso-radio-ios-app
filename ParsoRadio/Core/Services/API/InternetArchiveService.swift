@@ -7,7 +7,7 @@ struct InternetArchiveService {
 
     static let searchBase = "https://archive.org/advancedsearch.php"
 
-    init(session: URLSession = .shared) {
+    init(session: URLSession = .app) {
         self.session = session
     }
 
