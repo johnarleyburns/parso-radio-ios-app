@@ -29,8 +29,16 @@ final class ComposerMapTests: XCTestCase {
         XCTAssertEqual(ComposerMap.normalize("Sergei Rachmaninov"), "rachmaninoff")
     }
 
+    func testBeethovenVariants() {
+        XCTAssertEqual(ComposerMap.normalize("Beethoven"), "beethoven")
+        XCTAssertEqual(ComposerMap.normalize("Ludwig van Beethoven"), "beethoven")
+        XCTAssertEqual(ComposerMap.normalize("Beethoven, Ludwig van"), "beethoven")
+    }
+
     func testUnknownReturnsNil() {
-        XCTAssertNil(ComposerMap.normalize("Beethoven"))
+        // Use composers not in the map; "scarlatti" and "paganini" are known but unmapped.
+        XCTAssertNil(ComposerMap.normalize("Scarlatti"))
+        XCTAssertNil(ComposerMap.normalize("Paganini"))
         XCTAssertNil(ComposerMap.normalize(""))
     }
 
@@ -39,5 +47,7 @@ final class ComposerMapTests: XCTestCase {
         XCTAssertNotNil(ComposerMap.similarity["chopin"])
         XCTAssertTrue(ComposerMap.similarity["bach"]!.contains("vivaldi"))
         XCTAssertTrue(ComposerMap.similarity["chopin"]!.contains("rachmaninoff"))
+        XCTAssertNotNil(ComposerMap.similarity["beethoven"])
+        XCTAssertTrue(ComposerMap.similarity["tchaikovsky"]!.contains("rachmaninoff"))
     }
 }
