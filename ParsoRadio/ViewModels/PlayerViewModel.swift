@@ -204,6 +204,7 @@ final class PlayerViewModel: ObservableObject {
     func skip() {
         audioPlayer.skip()
         isPlaying = false
+        currentPosition = 0
         if let channel = currentChannel, channel.contentType == .spokenWord {
             Task {
                 await db.clearPosition(channelId: channel.id)

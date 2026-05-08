@@ -38,11 +38,13 @@ struct ParsoRadioApp: App {
                 if showSplash {
                     SplashView(isPresented: $showSplash)
                         .zIndex(10)
-                        .onChange(of: showSplash) { _, isShowing in
-                            if !isShowing && !tosAccepted {
-                                showTerms = true
-                            }
-                        }
+                }
+            }
+            // onChange must live on the persistent ZStack, not inside `if showSplash`,
+            // because SwiftUI may not fire it before SplashView is removed from the tree.
+            .onChange(of: showSplash) { _, isShowing in
+                if !isShowing && !tosAccepted {
+                    showTerms = true
                 }
             }
             .fullScreenCover(isPresented: $showTerms) {
