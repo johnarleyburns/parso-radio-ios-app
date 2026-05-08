@@ -38,17 +38,19 @@ final class LicenseValidatorTests: XCTestCase {
         )
     }
 
-    func testCCBySAIsRejected() {
+    func testCCBySAIsAccepted() {
+        // BY-SA is accepted: app is non-commercial so share-alike doesn't restrict us.
         XCTAssertEqual(
             validator.validate(licenseURL: "https://creativecommons.org/licenses/by-sa/4.0/", year: nil, collection: nil),
-            .rejected
+            .ccBy
         )
     }
 
-    func testCCByNCIsRejected() {
+    func testCCByNCIsAccepted() {
+        // BY-NC is accepted: the app is non-commercial so the NC clause doesn't restrict us.
         XCTAssertEqual(
             validator.validate(licenseURL: "https://creativecommons.org/licenses/by-nc/4.0/", year: nil, collection: nil),
-            .rejected
+            .ccBy
         )
     }
 

@@ -64,13 +64,13 @@ final class InternetArchiveServiceTests: XCTestCase {
     }
 
     func testRejectedLicenseFiltered() async throws {
+        // Track has no licenseurl and year 1980 (not public domain) — must be filtered out.
         MockURLProtocol.requestHandler = { _ in
             let json = """
             {"response":{"docs":[
-              {"identifier":"cc-nc-001","title":"Some Track",
+              {"identifier":"no-license-001","title":"Some Track",
                "creator":"Johann Sebastian Bach",
                "subject":["strings"],
-               "licenseurl":"https://creativecommons.org/licenses/by-nc/4.0/",
                "year":1980,"collection":["audio"]}
             ]}}
             """
