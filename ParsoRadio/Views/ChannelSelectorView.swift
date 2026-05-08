@@ -6,9 +6,9 @@ struct ChannelSelectorView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    // UC6: favorites populated automatically from UserDefaults (MRU order).
+    // Explicit favorites — only added via the heart button, never auto-populated.
     @State private var favoriteIds: [String] =
-        UserDefaults.standard.stringArray(forKey: "visitedChannelIds") ?? []
+        UserDefaults.standard.stringArray(forKey: "favoriteChannelIds") ?? []
 
     private var sortedCategories: [String] {
         Channel.categories.sorted()
@@ -18,17 +18,39 @@ struct ChannelSelectorView: View {
         favoriteIds.compactMap { id in Channel.defaults.first { $0.id == id } }
     }
 
+    // Recently played: MRU visited channels not already in explicit Favorites, capped at 10.
+    private var recentChannels: [Channel] {
+        let visited = UserDefaults.standard.stringArray(forKey: "visitedChannelIds") ?? []
+        return Array(
+            visited
+                .filter { !favoriteIds.contains($0) }
+                .compactMap { id in Channel.defaults.first { $0.id == id } }
+                .prefix(10)
+        )
+    }
+
     private func channels(for category: String) -> [Channel] {
         Channel.defaults
             .filter { $0.category == category }
             .sorted { $0.name < $1.name }
     }
 
+    private func isFavorite(_ channel: Channel) -> Bool {
+        favoriteIds.contains(channel.id)
+    }
+
+    private func toggleFavorite(_ channel: Channel) {
+        if let idx = favoriteIds.firstIndex(of: channel.id) {
+            favoriteIds.remove(at: idx)
+        } else {
+            favoriteIds.insert(channel.id, at: 0)
+        }
+        UserDefaults.standard.set(favoriteIds, forKey: "favoriteChannelIds")
+    }
+
     private func removeFavorite(_ channel: Channel) {
         favoriteIds.removeAll { $0 == channel.id }
-        var stored = UserDefaults.standard.stringArray(forKey: "visitedChannelIds") ?? []
-        stored.removeAll { $0 == channel.id }
-        UserDefaults.standard.set(stored, forKey: "visitedChannelIds")
+        UserDefaults.standard.set(favoriteIds, forKey: "favoriteChannelIds")
     }
 
     var body: some View {
@@ -38,8 +60,6 @@ struct ChannelSelectorView: View {
                     Section("Favorites") {
                         ForEach(favoriteChannels) { channel in
                             channelRow(channel)
-                                .contentShape(Rectangle())
-                                .onTapGesture { onSelect(channel) }
                                 .swipeActions(edge: .trailing) {
                                     Button(role: .destructive) {
                                         removeFavorite(channel)
@@ -47,13 +67,14 @@ struct ChannelSelectorView: View {
                                         Label("Remove", systemImage: "heart.slash")
                                     }
                                 }
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        removeFavorite(channel)
-                                    } label: {
-                                        Label("Remove from Favorites", systemImage: "heart.slash")
-                                    }
-                                }
+                        }
+                    }
+                }
+
+                if !recentChannels.isEmpty {
+                    Section("Recently Played") {
+                        ForEach(recentChannels) { channel in
+                            channelRow(channel)
                         }
                     }
                 }
@@ -62,8 +83,6 @@ struct ChannelSelectorView: View {
                     Section(category) {
                         ForEach(channels(for: category)) { channel in
                             channelRow(channel)
-                                .contentShape(Rectangle())
-                                .onTapGesture { onSelect(channel) }
                         }
                     }
                 }
@@ -82,23 +101,41 @@ struct ChannelSelectorView: View {
     @ViewBuilder
     private func channelRow(_ channel: Channel) -> some View {
         HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(categoryGradient(for: channel.category))
-                    .frame(width: 36, height: 36)
-                Image(systemName: channel.icon)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.white)
+            Button {
+                onSelect(channel)
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(categoryGradient(for: channel.category))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: channel.icon)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(.white)
+                    }
+                    Text(channel.name)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if channel.id == currentChannelId {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
+                .contentShape(Rectangle())
             }
-            Text(channel.name)
-                .font(.body)
-                .foregroundStyle(.primary)
-            Spacer()
-            if channel.id == currentChannelId {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
+            .buttonStyle(.plain)
+
+            Button {
+                toggleFavorite(channel)
+            } label: {
+                Image(systemName: isFavorite(channel) ? "heart.fill" : "heart")
+                    .font(.system(size: 16))
+                    .foregroundStyle(isFavorite(channel) ? Color.red : Color.secondary)
+                    .frame(width: 32, height: 32)
             }
+            .buttonStyle(.plain)
         }
     }
 }

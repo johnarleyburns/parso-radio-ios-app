@@ -133,6 +133,15 @@ struct InternetArchiveService {
                 return URL(string: "https://archive.org/download/\(encodedId)/\(encoded)")!
             }
         }
+        // Fallback: accept any audio file by extension for collections using non-standard format labels.
+        let audioExtensions: Set<String> = ["mp3", "ogg", "flac", "m4a", "aac", "opus", "wav"]
+        if let file = meta.files.first(where: {
+            let ext = ($0.name as NSString).pathExtension.lowercased()
+            return audioExtensions.contains(ext)
+        }) {
+            let encoded = file.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? file.name
+            return URL(string: "https://archive.org/download/\(encodedId)/\(encoded)")!
+        }
         throw URLError(.unsupportedURL)
     }
 

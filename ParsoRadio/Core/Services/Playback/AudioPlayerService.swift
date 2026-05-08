@@ -145,10 +145,15 @@ final class AudioPlayerService: ObservableObject {
                 .map { AVAudioSession.InterruptionOptions(rawValue: $0) } ?? []
             if options.contains(.shouldResume) {
                 // Re-activate the session (it was deactivated when the interruption began)
-                // then resume playback where we left off.
+                // then resume playback where we left off. Guard against player being nil
+                // if a channel switch happened during the interruption.
                 do {
                     try AVAudioSession.sharedInstance().setActive(true)
-                    player?.play()
+                    guard let player else {
+                        isPlaying = false
+                        return
+                    }
+                    player.play()
                     isPlaying = true
                     MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 1.0
                 } catch {

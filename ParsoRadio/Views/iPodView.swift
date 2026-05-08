@@ -10,8 +10,6 @@ struct iPodView: View {
     @State private var showChannelSelector = false
     @State private var showAbout = false
     @State private var showTrackDetail = false
-    @State private var wheelTapTrigger = 0
-
     private var displayChannel: Channel {
         playerVM.currentChannel ?? pendingChannel
     }
@@ -28,13 +26,12 @@ struct iPodView: View {
 
                 ClickWheel(
                     isPlaying: playerVM.isPlaying,
-                    onMenu:      { wheelTapTrigger += 1; showChannelSelector = true },
-                    onBack:      { wheelTapTrigger += 1; playerVM.back() },
-                    onForward:   { wheelTapTrigger += 1; playerVM.skip() },
-                    onPlayPause: { wheelTapTrigger += 1; playerVM.togglePlayPause() }
+                    onMenu:      { showChannelSelector = true },
+                    onBack:      { playerVM.back() },
+                    onForward:   { playerVM.skip() },
+                    onPlayPause: { playerVM.togglePlayPause() }
                 )
                 .frame(width: 280, height: 280)
-                .sensoryFeedback(.impact(weight: .light), trigger: wheelTapTrigger)
 
                 Spacer(minLength: 20)
 
@@ -158,31 +155,6 @@ struct iPodView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
-                        if displayChannel.contentType == .spokenWord {
-                            HStack(spacing: 24) {
-                                Button {
-                                    playerVM.seek(to: max(0, playerVM.currentPosition - 15))
-                                } label: {
-                                    Image(systemName: "gobackward.15")
-                                        .font(.system(size: 20))
-                                }
-                                if displayChannel.category != "Oxford Lectures" {
-                                    Button {
-                                        let target = playerVM.currentPosition + 30
-                                        if let d = playerVM.trackDuration, target < d {
-                                            playerVM.seek(to: target)
-                                        } else {
-                                            playerVM.skip()
-                                        }
-                                    } label: {
-                                        Image(systemName: "goforward.30")
-                                            .font(.system(size: 20))
-                                    }
-                                }
-                            }
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 4)
-                        }
                     }
                     .padding(.top, 10)
                 }
@@ -201,11 +173,22 @@ struct iPodView: View {
             .padding(20)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
         } else if let err = playerVM.errorMessage {
-            Text(err)
+            VStack(spacing: 10) {
+                Text(err)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                Button("Try Again") {
+                    if let ch = playerVM.currentChannel {
+                        Task { await playerVM.load(channel: ch) }
+                    }
+                }
                 .font(.caption)
-                .foregroundStyle(.red)
-                .multilineTextAlignment(.center)
-                .padding()
+                .buttonStyle(.bordered)
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
         } else {
             // Placeholder before first load
             HStack(spacing: 12) {
@@ -297,6 +280,8 @@ struct ClickWheel: View {
     let onForward:   () -> Void
     let onPlayPause: () -> Void
 
+    @State private var tapTrigger = 0
+
     var body: some View {
         GeometryReader { geo in
             let size    = min(geo.size.width, geo.size.height)
@@ -348,6 +333,7 @@ struct ClickWheel: View {
             }
             .frame(width: size, height: size)
             .contentShape(Circle())
+            .sensoryFeedback(.impact(weight: .light), trigger: tapTrigger)
             .gesture(
                 SpatialTapGesture()
                     .onEnded { value in
@@ -359,6 +345,7 @@ struct ClickWheel: View {
                         // Must be within the outer ring but outside the inner center button
                         guard dist <= outerR, dist > innerR else { return }
 
+                        tapTrigger += 1
                         if abs(dy) >= abs(dx) {
                             if dy < 0 { onMenu() } else { onPlayPause() }
                         } else {

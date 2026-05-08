@@ -7,10 +7,8 @@ struct LicenseValidator {
         guard let url = licenseURL?.lowercased() else { return .rejected }
         if url.contains("zero") { return .cc0 }
         if url.contains("publicdomain") { return .publicDomain }
-        if url.contains("licenses/by/")
-            && !url.contains("by-nc")
-            && !url.contains("by-sa")
-            && !url.contains("by-nd") { return .ccBy }
+        // Accept all CC BY variants (BY, BY-SA, BY-NC, BY-NC-SA); app is non-commercial so NC/SA are fine.
+        if url.contains("licenses/by") { return .ccBy }
         return .rejected
     }
 }

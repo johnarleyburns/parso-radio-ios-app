@@ -87,16 +87,21 @@ struct FMAService {
         // FMA embeds track metadata as data-track-info='{"id":...}' in the genre listing.
         // Each page contains up to 20 tracks.
         guard let regex = try? NSRegularExpression(pattern: #"data-track-info='([^']+)'"#) else {
+            print("FMAService: regex compilation failed for genre \(genre)")
             return []
         }
         let nsRange = NSRange(html.startIndex..., in: html)
-        return regex.matches(in: html, range: nsRange).compactMap { match -> Track? in
+        let tracks = regex.matches(in: html, range: nsRange).compactMap { match -> Track? in
             guard let captureRange = Range(match.range(at: 1), in: html),
                   let data = html[captureRange].data(using: .utf8),
                   let info = try? JSONDecoder().decode(FMATrackInfo.self, from: data)
             else { return nil }
             return mapTrack(info, genre: genre, license: license)
         }
+        if tracks.isEmpty {
+            print("FMAService: no tracks parsed for genre \(genre) (HTML length: \(html.count))")
+        }
+        return tracks
     }
 
     private func mapTrack(_ info: FMATrackInfo, genre: String, license: LicenseType) -> Track? {
@@ -135,14 +140,22 @@ struct FMAService {
         )
     }
 
-    // Tries to extract a known composer from a title like "Mozart - Symphony 40" or
-    // "F. Chopin Waltz No. 10". Checks up to 4-word prefixes before " - " then full title.
+    // Tries to extract a known composer from titles like "Mozart - Symphony 40",
+    // "Bach: Brandenburg Concerto", or "Four Seasons (Spring) - Vivaldi".
+    // Checks multiple separators and inspects both head and tail of each split.
     private func extractComposer(from title: String) -> String? {
         var candidates: [String] = []
-        let parts = title.components(separatedBy: " - ")
-        if let head = parts.first { candidates += prefixes(of: head, maxWords: 4) }
+        for sep in [" - ", ": ", " | ", " — "] {
+            let parts = title.components(separatedBy: sep)
+            if parts.count > 1 {
+                candidates += prefixes(of: parts[0], maxWords: 4)
+                candidates += prefixes(of: parts[parts.count - 1], maxWords: 4)
+            }
+        }
         candidates += prefixes(of: title, maxWords: 4)
-        return candidates.lazy.compactMap { ComposerMap.normalize($0) }.first
+        return candidates.lazy
+            .compactMap { ComposerMap.normalize($0.trimmingCharacters(in: .whitespaces)) }
+            .first
     }
 
     private func prefixes(of text: String, maxWords: Int) -> [String] {

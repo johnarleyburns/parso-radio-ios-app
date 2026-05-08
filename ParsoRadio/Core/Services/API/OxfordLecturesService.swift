@@ -42,6 +42,9 @@ struct OxfordLecturesService {
             let slug = String(html[r])
             if seen.insert(slug).inserted { slugs.append(slug) }
         }
+        if slugs.isEmpty {
+            print("OxfordLecturesService: no series slugs found for unit '\(unitSlug)'")
+        }
         return slugs
     }
 
@@ -52,7 +55,10 @@ struct OxfordLecturesService {
         // Skip series that only have a video feed — we want audio.xml only.
         guard let regex = try? NSRegularExpression(pattern: #"/feeds/([a-f0-9-]{36})/audio\.xml"#),
               let m = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
-              let r = Range(m.range(at: 1), in: html) else { return [] }
+              let r = Range(m.range(at: 1), in: html) else {
+            print("OxfordLecturesService: no audio.xml feed for series '\(seriesSlug)' (video-only or changed HTML)")
+            return []
+        }
         return try await fetchRSSFeed(uuid: String(html[r]), unitSlug: unitSlug)
     }
 

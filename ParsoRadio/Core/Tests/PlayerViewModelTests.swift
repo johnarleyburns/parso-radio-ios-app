@@ -136,8 +136,8 @@ final class PlayerViewModelTests: XCTestCase {
         loadTask.cancel()
     }
 
-    // UC3 (spoken word): back rewinds 15 s when well into a chapter.
-    func testBackInSpokenWordRewinds15Seconds() throws {
+    // Back/forward redesign: forward always advances track; back restarts or goes to previous.
+    func testBackInSpokenWordMidTrackRestartsFromBeginning() throws {
         let channel = Channel.defaults.first { $0.id == "greek-philosophy" }!
         let track = makeSpokenWordTrack(id: "plato-1")
 
@@ -147,7 +147,42 @@ final class PlayerViewModelTests: XCTestCase {
 
         vm.back()
 
-        XCTAssertEqual(vm.currentPosition, 45, accuracy: 0.001, "Spoken-word back must rewind 15 seconds")
+        XCTAssertEqual(vm.currentPosition, 0, accuracy: 0.001,
+            "Spoken-word back at >3s must restart from beginning, not rewind 15s")
+    }
+
+    func testBackInSpokenWordAtStartGoesToPreviousTrack() async throws {
+        let channel = Channel.defaults.first { $0.id == "greek-philosophy" }!
+        let t1 = makeSpokenWordTrack(id: "plato-prev")
+        let t2 = makeSpokenWordTrack(id: "plato-curr")
+        await db.saveTracks([t1, t2])
+
+        vm.currentChannel = channel
+        vm.currentTrack = t2
+        vm.playHistory = [t1]
+        vm.currentPosition = 1  // near the start
+
+        vm.back()
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+
+        XCTAssertEqual(vm.currentTrack?.id, t1.id,
+            "Spoken-word back at ≤3s must go to previous track")
+    }
+
+    func testSkipInSpokenWordAdvancesToNextTrack() throws {
+        let channel = Channel.defaults.first { $0.id == "greek-philosophy" }!
+        let track = makeSpokenWordTrack(id: "plato-1")
+
+        vm.currentChannel = channel
+        vm.currentTrack = track
+        vm.currentPosition = 60  // mid-track; old behaviour would seek to 90 s
+
+        vm.skip()
+
+        // currentPosition resets to 0 (track stopped, queue advance initiated) — NOT 90.
+        XCTAssertEqual(vm.currentPosition, 0, accuracy: 0.001,
+            "Spoken-word forward must advance to next track, not seek +30s")
+        XCTAssertFalse(vm.isPlaying, "isPlaying must be false immediately after skip()")
     }
 
     // Issue 3: cold start should not auto-play — wasPlayingOnQuit absent means false.

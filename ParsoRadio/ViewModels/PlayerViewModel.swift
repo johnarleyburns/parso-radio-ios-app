@@ -46,6 +46,13 @@ final class PlayerViewModel: ObservableObject {
         self.audioPlayer = audioPlayer
         self.downloadManager = downloadManager
 
+        // Evict stale tracks on launch if DB is large (>5 000 rows, older than 30 days).
+        Task { [weak self] in
+            guard let self else { return }
+            let count = await self.db.trackCount()
+            if count > 5000 { await self.db.evictOldTracks() }
+        }
+
         // Issue 3: save isPlaying so cold-start can decide whether to auto-play.
         NotificationCenter.default.addObserver(
             forName: UIApplication.willResignActiveNotification,
@@ -152,9 +159,14 @@ final class PlayerViewModel: ObservableObject {
 
             await db.saveTracks(fetched)
             downloadManager.prefetchNext(fetched)
+        } catch let urlError as URLError
+            where urlError.code == .notConnectedToInternet || urlError.code == .networkConnectionLost {
+            if currentTrack == nil {
+                errorMessage = "No internet connection. Check your network and try again."
+            }
         } catch {
             if currentTrack == nil {
-                errorMessage = "Could not refresh tracks."
+                errorMessage = "Could not fetch tracks. Try another channel."
             }
         }
 
@@ -162,7 +174,7 @@ final class PlayerViewModel: ObservableObject {
         // Spoken-word resumes at exact position; music restarts the same track from the beginning.
         if let saved = await db.loadPosition(channelId: channel.id),
            let track = await db.fetchTrack(id: saved.trackId) {
-            loadingMessage = "Resuming…"
+            loadingMessage = "Resuming \"\(track.title)\"…"
             let seekTo: Double? = channel.contentType == .spokenWord ? saved.seconds : nil
             await playTrack(track, seekTo: seekTo)
         } else {
@@ -190,38 +202,14 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func skip() {
-        guard let channel = currentChannel else {
-            audioPlayer.skip()
-            isPlaying = false
-            Task { await advanceToNext() }
-            return
-        }
-        if channel.category == "Oxford Lectures" {
-            // UC14: Oxford forward always advances to the next lecture, never seeks +30 s.
-            audioPlayer.skip()
-            isPlaying = false
+        audioPlayer.skip()
+        isPlaying = false
+        if let channel = currentChannel, channel.contentType == .spokenWord {
             Task {
                 await db.clearPosition(channelId: channel.id)
                 await advanceToNext()
             }
-        } else if channel.contentType == .spokenWord {
-            // UC8: for spoken-word, forward skips +30 s within the chapter.
-            // At the end of the chapter it advances to the next one.
-            let target = currentPosition + 30
-            if let dur = audioPlayer.duration, target < dur {
-                audioPlayer.seek(to: target)
-                currentPosition = target
-            } else {
-                audioPlayer.skip()
-                isPlaying = false
-                Task {
-                    await db.clearPosition(channelId: channel.id)
-                    await advanceToNext()
-                }
-            }
         } else {
-            audioPlayer.skip()
-            isPlaying = false
             Task { await advanceToNext() }
         }
     }
@@ -232,24 +220,12 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func back() {
-        guard let channel = currentChannel else { return }
-        if channel.contentType == .spokenWord {
-            // Rewind 15 s within the chapter; go to previous track if already at start.
-            if currentPosition > 3 {
-                let target = max(0, currentPosition - 15)
-                audioPlayer.seek(to: target)
-                currentPosition = target
-            } else {
-                Task { await playPreviousTrack() }
-            }
+        // Uniform for all channel types: restart current track if well into it; previous track if near start.
+        if currentPosition > 3 {
+            audioPlayer.seek(to: 0)
+            currentPosition = 0
         } else {
-            // UC3: restart the current track if well into it; go to previous if near the start.
-            if currentPosition > 3 {
-                audioPlayer.seek(to: 0)
-                currentPosition = 0
-            } else {
-                Task { await playPreviousTrack() }
-            }
+            Task { await playPreviousTrack() }
         }
     }
 
@@ -270,7 +246,7 @@ final class PlayerViewModel: ObservableObject {
             currentTrack = nil
             isPlaying = false
             if errorMessage == nil {
-                errorMessage = "No tracks available for this channel."
+                errorMessage = "No tracks found. Try refreshing or select another channel."
             }
             isLoading = false
             return

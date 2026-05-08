@@ -74,7 +74,8 @@ final class QueueManager {
             pick -= track.qualityScore * track.metadataConfidence
             if pick <= 0 { return track }
         }
-        return pool.last!
+        var fallback = SeededRNG(seed: seed &+ UInt64(recentIDs.count) &+ 1)
+        return pool[Int(fallback.next() % UInt64(pool.count))]
     }
 
     private func dailySeed(for channel: Channel) -> UInt64 {

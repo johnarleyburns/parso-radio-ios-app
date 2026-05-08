@@ -166,6 +166,16 @@ final class DatabaseService {
         }
     }
 
+    func evictOldTracks(olderThan days: Int = 30) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let cutoff = Int64(Date().timeIntervalSince1970) - Int64(days) * 86400
+                try? self.db.run(self.tracks.filter(self.colFetchedAt < cutoff).delete())
+                continuation.resume()
+            }
+        }
+    }
+
     func trackCount() async -> Int {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
