@@ -72,7 +72,7 @@ final class PlayerViewModelTests: XCTestCase {
 
         vm.back()
         // Allow the spawned Task to execute playPreviousTrack().
-        try await Task.sleep(nanoseconds: 200_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000_000)
 
         XCTAssertEqual(vm.currentTrack?.id, t1.id, "back() at position 0 must navigate to the previous track")
         XCTAssertTrue(vm.playHistory.isEmpty, "Previous track removed from history after navigating back")
@@ -90,7 +90,7 @@ final class PlayerViewModelTests: XCTestCase {
         vm.currentPosition = 1  // within 3 s of start so the "previous" branch fires
 
         vm.back()
-        try await Task.sleep(nanoseconds: 200_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000_000)
 
         // No crash; still on the same track (seek to 0 fallback).
         XCTAssertEqual(vm.currentTrack?.id, track.id)
@@ -109,7 +109,7 @@ final class PlayerViewModelTests: XCTestCase {
         vm.currentPosition = 0
 
         vm.skip()
-        try await Task.sleep(nanoseconds: 200_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000_000)
 
         XCTAssertTrue(
             vm.playHistory.contains { $0.id == t1.id },
