@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 @MainActor
 final class PlayerViewModel: ObservableObject {
@@ -15,6 +16,7 @@ final class PlayerViewModel: ObservableObject {
     private let db: DatabaseService
     private let archiveService: InternetArchiveService
     private let fmaService: FMAService
+    private let oxfordService: OxfordLecturesService
     private let queueManager: QueueManager
     private let downloadManager: DownloadManager
     var currentChannel: Channel?
@@ -32,11 +34,13 @@ final class PlayerViewModel: ObservableObject {
         fmaService: FMAService,
         queueManager: QueueManager,
         audioPlayer: AudioPlayerService,
-        downloadManager: DownloadManager
+        downloadManager: DownloadManager,
+        oxfordService: OxfordLecturesService = OxfordLecturesService()
     ) {
         self.db = db
         self.archiveService = archiveService
         self.fmaService = fmaService
+        self.oxfordService = oxfordService
         self.queueManager = queueManager
         self.audioPlayer = audioPlayer
         self.downloadManager = downloadManager
@@ -102,7 +106,10 @@ final class PlayerViewModel: ObservableObject {
         do {
             let fetched: [Track]
 
-            if channel.contentType == .spokenWord {
+            if channel.category == "Oxford Lectures" {
+                // UC13: Oxford channels fetch from podcasts.ox.ac.uk via OxfordLecturesService.
+                fetched = try await oxfordService.fetchTracks(unitSlug: channel.tags.first ?? "")
+            } else if channel.contentType == .spokenWord {
                 // Spoken-word channels: LibriVox / podcast collections via IA.
                 fetched = try await archiveService.fetchSpokenWordTracks(channel: channel)
             } else if channel.composers.isEmpty {
@@ -220,6 +227,15 @@ final class PlayerViewModel: ObservableObject {
 
     private func advanceToNext() async {
         guard let channel = currentChannel else { return }
+
+        // Assert a background task so iOS doesn't kill the network call that
+        // resolves the next track URL when the app is backgrounded.
+        var bgTask = UIBackgroundTaskIdentifier.invalid
+        bgTask = UIApplication.shared.beginBackgroundTask(withName: "advance-track") {
+            UIApplication.shared.endBackgroundTask(bgTask)
+        }
+        defer { UIApplication.shared.endBackgroundTask(bgTask) }
+
         guard let track = await queueManager.nextTrack(channel: channel) else {
             currentTrack = nil
             isPlaying = false

@@ -98,20 +98,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee test.log
 
-      - name: Dump built Info.plist (verify UIBackgroundModes)
-        if: always()
-        run: |
-          PLIST=$(find ~/Library/Developer/Xcode/DerivedData -name "Info.plist" \
-            -path "*/ParsoRadio.app/Info.plist" 2>/dev/null | head -1)
-          if [ -n "$PLIST" ]; then
-            echo "=== $PLIST ==="
-            cat "$PLIST" | grep -A 20 "UIBackgroundModes" || echo "UIBackgroundModes key NOT FOUND in Info.plist"
-            echo "--- Full plist ---"
-            cat "$PLIST"
-          else
-            echo "ERROR: ParsoRadio.app/Info.plist not found in DerivedData"
-          fi
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

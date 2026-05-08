@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import MediaPlayer
+import UIKit
 
 @MainActor
 final class AudioPlayerService: ObservableObject {
@@ -26,6 +27,8 @@ final class AudioPlayerService: ObservableObject {
     private var player: AVPlayer?
     private var endObserver: (any NSObjectProtocol)?
     private var timeObserver: Any?
+    private var interruptionObserver: (any NSObjectProtocol)?
+    private var routeChangeObserver: (any NSObjectProtocol)?
 
     init() {
         do {
@@ -35,6 +38,7 @@ final class AudioPlayerService: ObservableObject {
             Log.playback.error("AVAudioSession setup failed: \(error)")
         }
         setupRemoteCommandCenter()
+        setupAudioSessionObservers()
     }
 
     func play(url: URL, track: Track) {
@@ -82,6 +86,8 @@ final class AudioPlayerService: ObservableObject {
     }
 
     func resume() {
+        // Re-activate the audio session in case it was deactivated during an interruption.
+        try? AVAudioSession.sharedInstance().setActive(true)
         player?.play()
         isPlaying = true
         MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 1.0
@@ -92,6 +98,82 @@ final class AudioPlayerService: ObservableObject {
         currentTrack = nil
         isPlaying = false
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+    }
+
+    // MARK: - Audio session observers
+
+    private func setupAudioSessionObservers() {
+        // Interruption handling: phone calls, Siri, other apps taking audio focus.
+        // AVPlayer does NOT auto-resume after an interruption — we must do it explicitly.
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor [weak self] in
+                self?.handleInterruption(notification)
+            }
+        }
+
+        // Route change: headphones unplugged, Bluetooth device lost, etc.
+        routeChangeObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor [weak self] in
+                self?.handleRouteChange(notification)
+            }
+        }
+    }
+
+    private func handleInterruption(_ notification: Notification) {
+        guard
+            let info = notification.userInfo,
+            let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+            let type = AVAudioSession.InterruptionType(rawValue: typeValue)
+        else { return }
+
+        switch type {
+        case .began:
+            // AVPlayer has already paused itself; sync our state.
+            isPlaying = false
+            MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 0.0
+
+        case .ended:
+            let options = (info[AVAudioSessionInterruptionOptionKey] as? UInt)
+                .map { AVAudioSession.InterruptionOptions(rawValue: $0) } ?? []
+            if options.contains(.shouldResume) {
+                // Re-activate the session (it was deactivated when the interruption began)
+                // then resume playback where we left off.
+                do {
+                    try AVAudioSession.sharedInstance().setActive(true)
+                    player?.play()
+                    isPlaying = true
+                    MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 1.0
+                } catch {
+                    Log.playback.error("AVAudioSession reactivation failed after interruption: \(error)")
+                }
+            }
+
+        @unknown default:
+            break
+        }
+    }
+
+    private func handleRouteChange(_ notification: Notification) {
+        guard
+            let info = notification.userInfo,
+            let reasonValue = info[AVAudioSessionRouteChangeReasonKey] as? UInt,
+            let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue)
+        else { return }
+
+        // When the previous output device becomes unavailable (headphones unplugged,
+        // Bluetooth lost), iOS pauses audio automatically. Mirror that in our state.
+        if reason == .oldDeviceUnavailable {
+            isPlaying = false
+            MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 0.0
+        }
     }
 
     // MARK: - Now Playing Info
