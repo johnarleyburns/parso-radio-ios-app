@@ -4,14 +4,14 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 28 Classical + 22 Audiobooks + 14 Contemporary + 22 Lectures + 9 News + 5 Ambient = 100
-        XCTAssertEqual(Channel.defaults.count, 100)
+        // 27 Classical + 22 Audiobooks + 14 Contemporary + 21 Lectures + 4 News + 5 Ambient = 93
+        XCTAssertEqual(Channel.defaults.count, 93)
     }
 
     func testClassicalCategoryHas28Channels() {
         let classicalChannels = Channel.defaults.filter { $0.category == "Classical" }
-        XCTAssertEqual(classicalChannels.count, 28,
-            "Classical must have 10 period/format/instrument + 18 composer channels")
+        XCTAssertEqual(classicalChannels.count, 27,
+            "Classical: 9 period/format/instrument + 18 composer channels")
     }
 
     func testBachChannelDefinition() {
@@ -100,10 +100,10 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    // Lectures category (formerly Oxford Lectures): 22 channels, all spoken-word.
+    // Lectures category: 21 channels (Blavatnik removed — 0 series on podcasts.ox.ac.uk).
     func testLecturesCategoryHas22Channels() {
         let channels = Channel.defaults.filter { $0.category == "Lectures" }
-        XCTAssertEqual(channels.count, 22, "Expected 22 Lectures channels")
+        XCTAssertEqual(channels.count, 21, "Expected 21 Lectures channels")
     }
 
     func testLecturesChannelsAreSpokenWord() {
@@ -122,10 +122,11 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    // News category: 9 channels with feedURL (CBC Front Burner removed — had ads).
+    // News category: 4 channels (NPR Up First, PBS NewsHour, Democracy Now!, NPR 1A).
+    // BBC*, CBC*, UN, VOA removed — broken or contain ads.
     func testNewsCategoryHas10Channels() {
         let newsChannels = Channel.defaults.filter { $0.category == "News" }
-        XCTAssertEqual(newsChannels.count, 9, "Expected 9 News channels")
+        XCTAssertEqual(newsChannels.count, 4, "Expected 4 News channels")
     }
 
     func testNewsChannelsHaveFeedURL() {

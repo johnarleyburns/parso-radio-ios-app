@@ -21,7 +21,7 @@ struct FMAService {
         "rock":         "Rock",
         "country":      "Country",
         "folk":         "Folk",
-        "old-time":     "Old-Time__Historic",
+        "old-time__historic": "Old-Time__Historic",
         "electronic":   "Electronic",
         "hip-hop":      "Hip-Hop",
         "lo-fi-hip-hop": "Lo-fi-Hip-Hop",

@@ -61,16 +61,6 @@ extension Channel {
             preferredSource: "internet_archive"
         ),
         Channel(
-            id: "romantic-era", name: "Romantic Era", category: "Classical",
-            icon: "pianokeys", tags: ["romantic"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "early-music", name: "Early Music", category: "Classical",
-            icon: "music.note", tags: ["early music", "renaissance"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
             id: "symphony", name: "Symphony & Orchestra", category: "Classical",
             icon: "music.note.list", tags: ["symphony"],
             preferredSource: "internet_archive"
@@ -99,6 +89,12 @@ extension Channel {
         Channel(
             id: "classical-guitar", name: "Classical Guitar", category: "Classical",
             icon: "guitars", tags: ["classical guitar"],
+            preferredSource: "internet_archive"
+        ),
+        // Curl-verified: "spanish guitar" OR "flamenco" returns 2011 items on IA.
+        Channel(
+            id: "spanish-guitar", name: "Spanish Guitar", category: "Classical",
+            icon: "guitars", tags: ["spanish guitar", "flamenco"],
             preferredSource: "internet_archive"
         ),
         // Curl-verified: "cello" subject returns 1,631 items on IA; broad but well-populated.
@@ -456,7 +452,7 @@ extension Channel {
         ),
         Channel(
             id: "fma-old-time", name: "Old-Time & Historic", category: "Contemporary",
-            icon: "guitars", tags: ["old-time"],
+            icon: "guitars", tags: ["old-time__historic"],
             preferredSource: "fma"
         ),
 
@@ -545,12 +541,6 @@ extension Channel {
             preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-blavatnik", name: "Blavatnik School of Government",
-            category: "Lectures", icon: "building.2.fill",
-            tags: ["blavatnik-school-government"], contentType: .spokenWord,
-            preferredSource: "oxford_lectures"
-        ),
-        Channel(
             id: "oxford-economics", name: "Economics", category: "Lectures",
             icon: "chart.bar.fill", tags: ["department-economics"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
@@ -591,20 +581,6 @@ extension Channel {
         // tags: [id] must match what PodcastRSSService stores in Track.tags so channel.matches()
         // correctly isolates each channel's episodes; preferredSource: "podcast" skips IA/FMA DB rows.
         Channel(
-            id: "news-bbc-world", name: "BBC World News",
-            category: "News", icon: "globe",
-            tags: ["news-bbc-world"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://podcasts.files.bbci.co.uk/p02nq0gn.rss"
-        ),
-        Channel(
-            id: "news-bbc-newsday", name: "BBC Newsday",
-            category: "News", icon: "newspaper",
-            tags: ["news-bbc-newsday"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://podcasts.files.bbci.co.uk/p002vsnk.rss"
-        ),
-        Channel(
             id: "news-nprup-first", name: "NPR Up First",
             category: "News", icon: "sunrise.fill",
             tags: ["news-nprup-first"],
@@ -626,32 +602,11 @@ extension Channel {
             feedURL: "https://www.democracynow.org/podcast.xml"
         ),
         Channel(
-            id: "news-un", name: "UN News",
-            category: "News", icon: "building.2.fill",
-            tags: ["news-un"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://news.un.org/feed/subscribe/en/news/all/rss.xml"
-        ),
-        Channel(
-            id: "news-voa", name: "VOA Learning English",
-            category: "News", icon: "waveform",
-            tags: ["news-voa"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://learningenglish.voanews.com/podcast/?count=20"
-        ),
-        Channel(
             id: "news-npr-1a", name: "NPR 1A (Public Affairs)",
             category: "News", icon: "person.2.fill",
             tags: ["news-npr-1a"],
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feeds.npr.org/510316/podcast.xml"
-        ),
-        Channel(
-            id: "news-bbc-inourtime", name: "BBC In Our Time",
-            category: "News", icon: "clock.fill",
-            tags: ["news-bbc-inourtime"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://podcasts.files.bbci.co.uk/b006qykl.rss"
         ),
 
         // MARK: Ambient — nature sounds, lofi, and single-track loops

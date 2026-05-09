@@ -59,7 +59,7 @@ struct AboutView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Text("© 2026 Parso Consulting")
+                Link("© 2026 Parso Consulting", destination: URL(string: "https://www.parso.guru")!)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

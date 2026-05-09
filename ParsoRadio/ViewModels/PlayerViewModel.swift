@@ -320,7 +320,7 @@ final class PlayerViewModel: ObservableObject {
             } else {
                 url = track.streamURL
             }
-            audioPlayer.play(url: url, track: track)
+            audioPlayer.play(url: url, track: track, looping: currentChannel?.contentType == .ambientLoop)
             if let seconds = seekTo, seconds > 0 {
                 audioPlayer.seek(to: seconds)
                 currentPosition = seconds

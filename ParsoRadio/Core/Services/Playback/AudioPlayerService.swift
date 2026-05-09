@@ -10,7 +10,7 @@ final class AudioPlayerService: ObservableObject {
 
     var onTrackFinished: (() -> Void)?
     var onPreviousTrack: (() -> Void)?
-    // Fired every ~5 s while playing. PlayerViewModel uses this to persist position
+    // Fired every 1 s while playing. PlayerViewModel uses this to persist position
     // for spoken-word channels and to update the UI progress display.
     var onTimeUpdate: ((Double) -> Void)?
 
@@ -25,6 +25,7 @@ final class AudioPlayerService: ObservableObject {
     }
 
     private var player: AVPlayer?
+    private var playerLooper: AVPlayerLooper?
     private var endObserver: (any NSObjectProtocol)?
     private var timeObserver: Any?
     private var interruptionObserver: (any NSObjectProtocol)?
@@ -41,25 +42,33 @@ final class AudioPlayerService: ObservableObject {
         setupAudioSessionObservers()
     }
 
-    func play(url: URL, track: Track) {
+    func play(url: URL, track: Track, looping: Bool = false) {
         tearDownPlayer()
 
         let item = AVPlayerItem(url: url)
-        player = AVPlayer(playerItem: item)
 
-        endObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.isPlaying = false
-                self?.onTrackFinished?()
+        if looping {
+            // AVPlayerLooper on AVQueuePlayer gives truly gapless infinite looping
+            // at the AVFoundation level — no callback round-trip, no audible gap.
+            let queuePlayer = AVQueuePlayer()
+            player = queuePlayer
+            playerLooper = AVPlayerLooper(player: queuePlayer, templateItem: item)
+        } else {
+            player = AVPlayer(playerItem: item)
+            endObserver = NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: item,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.isPlaying = false
+                    self?.onTrackFinished?()
+                }
             }
         }
 
         timeObserver = player?.addPeriodicTimeObserver(
-            forInterval: CMTime(seconds: 5, preferredTimescale: 1),
+            forInterval: CMTime(seconds: 1, preferredTimescale: 1),
             queue: .main
         ) { [weak self] time in
             guard time.isNumeric else { return }
@@ -246,6 +255,8 @@ final class AudioPlayerService: ObservableObject {
 
     private func tearDownPlayer() {
         player?.pause()
+        playerLooper?.disableLooping()
+        playerLooper = nil
         if let obs = endObserver {
             NotificationCenter.default.removeObserver(obs)
             endObserver = nil
