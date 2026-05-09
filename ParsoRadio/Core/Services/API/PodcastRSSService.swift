@@ -19,6 +19,7 @@ final class PodcastRSSService {
         )
         request.timeoutInterval = 30
         let (data, _) = try await session.data(for: request)
+        // RSS feeds are newest-first; items come out in feed order.
         let items = RSSXMLParser().parse(data: data)
         return items.compactMap { $0.toTrack(channelId: channel.id) }
     }
@@ -90,7 +91,16 @@ private final class RSSItem {
               let url = URL(string: enclosureURL) else { return nil }
 
         let dur = parsedDuration ?? Double(enclosureLength) / 16000.0  // ~128 kbps fallback
-        let stableId = channelId + "-" + enclosureURL.hash.description
+
+        // Stable ID using deterministic FNV-1a hash of the URL — not Swift's .hash which
+        // is randomised per process and would break 30-day play-history tracking.
+        let urlHash = enclosureURL.utf8.reduce(UInt64(14695981039346656037)) {
+            ($0 ^ UInt64($1)) &* 1099511628211
+        }
+        let stableId = channelId + "-" + String(urlHash, radix: 16)
+
+        // pubDate encoded as Unix timestamp → DB sorts by quality_score DESC = newest first.
+        let pubTimestamp = Self.parseRSSDate(pubDate) ?? 0
 
         return Track(
             id: stableId,
@@ -103,12 +113,27 @@ private final class RSSItem {
             localFilePath: nil,
             license: .publicDomain,
             tags: [channelId],
-            qualityScore: 0.9,
+            qualityScore: pubTimestamp,
             rawCreator: "",
             composer: nil,
             instruments: [],
-            metadataConfidence: 0.0
+            metadataConfidence: 2.0
         )
+    }
+
+    // Parses RFC 2822 pub dates; handles both "GMT" and "+0000" timezone forms.
+    static func parseRSSDate(_ string: String) -> Double? {
+        guard !string.isEmpty else { return nil }
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        for fmt in ["EEE, dd MMM yyyy HH:mm:ss Z",
+                    "EEE, dd MMM yyyy HH:mm:ss zzz",
+                    "dd MMM yyyy HH:mm:ss Z",
+                    "dd MMM yyyy HH:mm:ss zzz"] {
+            df.dateFormat = fmt
+            if let d = df.date(from: string) { return d.timeIntervalSince1970 }
+        }
+        return nil
     }
 
     private var parsedDuration: Double? {

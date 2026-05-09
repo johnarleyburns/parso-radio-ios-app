@@ -12,13 +12,32 @@ final class QueueManager {
     // Returns the next track that would be picked without advancing the queue.
     // Used for look-ahead URL pre-resolution while the current track is playing.
     func peekNextTrack(channel: Channel) async -> Track? {
-        var pool = await db.fetchTracks(forChannel: channel)
+        if channel.feedURL != nil {
+            let heard = PodcastPlayHistory.recentlyHeardIds()
+            let pool = await db.fetchTracks(forChannel: channel)
+                .filter { !heard.contains($0.id) && !recentIDs.contains($0.id) }
+            return pool.first
+        }
+        let pool = await db.fetchTracks(forChannel: channel)
             .filter { !recentIDs.contains($0.id) }
         if pool.isEmpty { return nil }
         return weightedRandom(from: pool, seed: dailySeed(for: channel))
     }
 
     func nextTrack(channel: Channel) async -> Track? {
+        // News/podcast channels: sequential newest-first, skip 30-day recently-heard episodes.
+        // qualityScore = pubDate Unix timestamp, so DB ORDER BY quality DESC = newest first.
+        if channel.feedURL != nil {
+            PodcastPlayHistory.evictExpired()
+            let heard = PodcastPlayHistory.recentlyHeardIds()
+            let pool = await db.fetchTracks(forChannel: channel)
+                .filter { !heard.contains($0.id) && !recentIDs.contains($0.id) }
+            guard let track = pool.first else { return nil }
+            record(track.id)
+            PodcastPlayHistory.markHeard(track.id)
+            return track
+        }
+
         var pool = await db.fetchTracks(forChannel: channel)
             .filter { !recentIDs.contains($0.id) }
 

@@ -4,8 +4,8 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 28 Classical + 22 Audiobooks + 14 Contemporary + 22 Lectures + 10 News + 5 Ambient = 101
-        XCTAssertEqual(Channel.defaults.count, 101)
+        // 28 Classical + 22 Audiobooks + 14 Contemporary + 22 Lectures + 9 News + 5 Ambient = 100
+        XCTAssertEqual(Channel.defaults.count, 100)
     }
 
     func testClassicalCategoryHas28Channels() {
@@ -122,10 +122,10 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    // News category: 10 channels with feedURL.
+    // News category: 9 channels with feedURL (CBC Front Burner removed — had ads).
     func testNewsCategoryHas10Channels() {
         let newsChannels = Channel.defaults.filter { $0.category == "News" }
-        XCTAssertEqual(newsChannels.count, 10, "Expected 10 News channels")
+        XCTAssertEqual(newsChannels.count, 9, "Expected 9 News channels")
     }
 
     func testNewsChannelsHaveFeedURL() {

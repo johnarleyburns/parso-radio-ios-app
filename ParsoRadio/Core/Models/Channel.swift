@@ -633,13 +633,6 @@ extension Channel {
             feedURL: "https://news.un.org/feed/subscribe/en/news/all/rss.xml"
         ),
         Channel(
-            id: "news-cbc-frontburner", name: "CBC Front Burner",
-            category: "News", icon: "flame.fill",
-            tags: ["news-cbc-frontburner"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://www.cbc.ca/podcasting/includes/frontburner.xml"
-        ),
-        Channel(
             id: "news-voa", name: "VOA Learning English",
             category: "News", icon: "waveform",
             tags: ["news-voa"],
