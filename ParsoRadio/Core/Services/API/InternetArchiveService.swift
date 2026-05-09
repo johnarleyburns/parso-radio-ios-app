@@ -90,7 +90,8 @@ struct InternetArchiveService {
         )
         guard license != .rejected else { return nil }
 
-        let streamURL = URL(string: "https://archive.org/download/\(doc.identifier)")!
+        let encoded = doc.identifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? doc.identifier
+        guard let streamURL = URL(string: "https://archive.org/download/\(encoded)") else { return nil }
         // Merge channel tags with IA subject tags so Channel.matches() works correctly.
         let trackTags = Array(Set(channelTags + doc.subjects.map { $0.lowercased() }))
 
@@ -129,8 +130,8 @@ struct InternetArchiveService {
         let preferredFormats = ["VBR MP3", "128Kbps MP3", "64Kbps MP3", "MP3", "Ogg Vorbis"]
         for format in preferredFormats {
             if let file = meta.files.first(where: { $0.format == format }) {
-                let encoded = file.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? file.name
-                return URL(string: "https://archive.org/download/\(encodedId)/\(encoded)")!
+                let enc = file.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? file.name
+                if let url = URL(string: "https://archive.org/download/\(encodedId)/\(enc)") { return url }
             }
         }
         // Fallback: accept any audio file by extension for collections using non-standard format labels.
@@ -139,8 +140,8 @@ struct InternetArchiveService {
             let ext = ($0.name as NSString).pathExtension.lowercased()
             return audioExtensions.contains(ext)
         }) {
-            let encoded = file.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? file.name
-            return URL(string: "https://archive.org/download/\(encodedId)/\(encoded)")!
+            let enc = file.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? file.name
+            if let url = URL(string: "https://archive.org/download/\(encodedId)/\(enc)") { return url }
         }
         throw URLError(.unsupportedURL)
     }
@@ -214,7 +215,8 @@ struct InternetArchiveService {
 
         if !isMuso && confidence < confidenceThreshold { return nil }
 
-        let streamURL = URL(string: "https://archive.org/download/\(doc.identifier)")!
+        let encodedId = doc.identifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? doc.identifier
+        guard let streamURL = URL(string: "https://archive.org/download/\(encodedId)") else { return nil }
 
         return Track(
             id: doc.identifier,

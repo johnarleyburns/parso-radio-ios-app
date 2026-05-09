@@ -29,9 +29,16 @@ struct OxfordLecturesService {
 
     // MARK: - Private
 
+    // Fetches a URL and rejects responses larger than 10 MB before string conversion.
+    private func safeFetch(_ url: URL) async throws -> Data {
+        let (data, _) = try await session.data(from: url)
+        guard data.count < 10_000_000 else { throw URLError(.badServerResponse) }
+        return data
+    }
+
     private func fetchSeriesSlugs(unitSlug: String) async throws -> [String] {
         let url = URL(string: "https://podcasts.ox.ac.uk/units/\(unitSlug)")!
-        let (data, _) = try await session.data(from: url)
+        let data = try await safeFetch(url)
         guard let html = String(data: data, encoding: .utf8) else { return [] }
         guard let regex = try? NSRegularExpression(pattern: #"href="/series/([^"]+)""#) else { return [] }
         let matches = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
@@ -50,7 +57,7 @@ struct OxfordLecturesService {
 
     private func fetchTracksForSeries(_ seriesSlug: String, unitSlug: String) async throws -> [Track] {
         let url = URL(string: "https://podcasts.ox.ac.uk/series/\(seriesSlug)")!
-        let (data, _) = try await session.data(from: url)
+        let data = try await safeFetch(url)
         guard let html = String(data: data, encoding: .utf8) else { return [] }
         // Skip series that only have a video feed — we want audio.xml only.
         guard let regex = try? NSRegularExpression(pattern: #"/feeds/([a-f0-9-]{36})/audio\.xml"#),
@@ -64,7 +71,7 @@ struct OxfordLecturesService {
 
     private func fetchRSSFeed(uuid: String, unitSlug: String) async throws -> [Track] {
         let url = URL(string: "https://podcasts.ox.ac.uk/feeds/\(uuid)/audio.xml")!
-        let (data, _) = try await session.data(from: url)
+        let data = try await safeFetch(url)
         guard let xml = String(data: data, encoding: .utf8) else { return [] }
         return parseItems(xml: xml, unitSlug: unitSlug)
     }

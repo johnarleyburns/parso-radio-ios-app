@@ -10,8 +10,8 @@ final class AudioPlayerService: ObservableObject {
 
     var onTrackFinished: (() -> Void)?
     var onPreviousTrack: (() -> Void)?
-    // Fired every 1 s while playing. PlayerViewModel uses this to persist position
-    // for spoken-word channels and to update the UI progress display.
+    // Fired every 0.25 s while playing. PlayerViewModel uses this to update the UI
+    // progress display (smooth motion). DB position saves are throttled separately.
     var onTimeUpdate: ((Double) -> Void)?
 
     var currentTime: Double {
@@ -68,7 +68,7 @@ final class AudioPlayerService: ObservableObject {
         }
 
         timeObserver = player?.addPeriodicTimeObserver(
-            forInterval: CMTime(seconds: 1, preferredTimescale: 1),
+            forInterval: CMTime(value: 1, timescale: 4), // 0.25 s — smooth progress bar
             queue: .main
         ) { [weak self] time in
             guard time.isNumeric else { return }

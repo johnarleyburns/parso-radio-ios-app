@@ -26,6 +26,8 @@ final class PlayerViewModel: ObservableObject {
 
     // Look-ahead cache: pre-resolved IA audio URLs so track transitions are gap-free.
     private var prefetchedURLs: [String: URL] = [:]
+    // Throttle spoken-word position saves to once every 5 s (onTimeUpdate fires 4×/s).
+    private var lastPositionSaveTime: Double = -5
 
     // UC3: track history for backward navigation (most-recent last, cap historyLimit).
     var playHistory: [Track] = []
@@ -102,9 +104,12 @@ final class PlayerViewModel: ObservableObject {
                 self.currentPosition = seconds
                 self.trackDuration = self.audioPlayer.duration
                 // Persist position for spoken-word channels so the user can resume.
+                // Throttled: write DB at most once every 5 s (timer fires 4×/s).
                 if let channel = self.currentChannel,
                    channel.contentType == .spokenWord,
-                   let track = self.currentTrack {
+                   let track = self.currentTrack,
+                   seconds - self.lastPositionSaveTime >= 5.0 {
+                    self.lastPositionSaveTime = seconds
                     await self.db.savePosition(
                         channelId: channel.id,
                         trackId: track.id,

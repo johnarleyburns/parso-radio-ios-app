@@ -71,13 +71,15 @@ struct FMAService {
 
     private func fetchHTML(url: URL) async throws -> String {
         var request = URLRequest(url: url)
+        // FMA returns 403 without a browser-like UA; use a minimal mobile Safari string.
         request.setValue(
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
             forHTTPHeaderField: "User-Agent"
         )
         request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
         request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
         let (data, _) = try await session.data(for: request)
+        guard data.count < 10_000_000 else { throw URLError(.badServerResponse) }
         guard let html = String(data: data, encoding: .utf8) else {
             throw URLError(.cannotDecodeContentData)
         }
@@ -106,7 +108,8 @@ struct FMAService {
     }
 
     private func mapTrack(_ info: FMATrackInfo, genre: String, license: LicenseType) -> Track? {
-        guard let streamURL = URL(string: info.playbackUrl) else { return nil }
+        guard let streamURL = URL(string: info.playbackUrl),
+              streamURL.scheme == "https" || streamURL.scheme == "http" else { return nil }
 
         // FMA title often follows "ComposerName - WorkTitle"; artistName is the performer.
         let composer = extractComposer(from: info.title)

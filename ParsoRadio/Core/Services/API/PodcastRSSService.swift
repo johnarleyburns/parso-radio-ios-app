@@ -11,14 +11,12 @@ final class PodcastRSSService {
 
     func fetchTracks(channel: Channel) async throws -> [Track] {
         guard let feedURL = channel.feedURL,
-              let url = URL(string: feedURL) else { return [] }
+              let url = URL(string: feedURL),
+              url.scheme == "https" else { return [] }
         var request = URLRequest(url: url)
-        request.setValue(
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
-            forHTTPHeaderField: "User-Agent"
-        )
         request.timeoutInterval = 30
         let (data, _) = try await session.data(for: request)
+        guard data.count < 10_000_000 else { throw URLError(.badServerResponse) }
         // RSS feeds are newest-first; items come out in feed order.
         let items = RSSXMLParser().parse(data: data)
         return items.compactMap { $0.toTrack(channelId: channel.id) }
