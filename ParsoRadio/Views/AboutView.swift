@@ -70,9 +70,14 @@ struct AboutView: View {
 
     private var privacyPolicy: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Privacy Policy")
-                .font(.title3)
-                .fontWeight(.bold)
+            HStack(alignment: .firstTextBaseline) {
+                Text("Privacy Policy")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                Spacer()
+                Link("View Online", destination: URL(string: "https://parso.guru/privacy")!)
+                    .font(.subheadline)
+            }
 
             Text("Effective Date: May 1, 2026")
                 .font(.caption)

@@ -81,11 +81,9 @@ Fill these in at [App Store Connect → My Apps → Parso Radio → App Informat
 
 **Subtitle:** Free Classical, Jazz & Audiobooks *(30 chars max — customize as desired)*
 
-**Privacy Policy URL:**
-> You must host a public privacy policy URL. The full policy text is in `AboutView.swift` (privacyPolicy section). Host it at e.g. `https://parso.guru/privacy` or a GitHub Pages URL.
-> **This is REQUIRED — the app will be rejected without it.**
+**Privacy Policy URL:** `https://parso.guru/privacy` ✓ (live, returns 200)
 
-**Support URL:** `https://parso.guru` or your support contact page. Required.
+**Support URL:** `https://parso.guru`
 
 ### Version Information (per-version, 1.0.0)
 
@@ -140,7 +138,7 @@ First release of Parso Radio.
 
 ### Required Before Submission
 - [ ] **Screenshots** — at minimum 3×iPhone 6.7" (1290×2796)
-- [ ] **Privacy policy URL** — must be publicly accessible HTTPS URL
+- [x] **Privacy policy URL** — https://parso.guru/privacy ✓ (live, returns 200)
 - [ ] **Support URL** — parso.guru or similar
 - [ ] App description filled in App Store Connect
 - [ ] Keywords filled in
@@ -154,7 +152,7 @@ First release of Parso Radio.
 ### Common Rejection Reasons to Pre-empt
 | Risk | Status |
 |---|---|
-| Missing privacy policy URL | **ACTION NEEDED** — host the policy text from AboutView |
+| Missing privacy policy URL | **✓ RESOLVED** — https://parso.guru/privacy (live) |
 | EULA/ToS gate not shown | **FIXED** — onChange moved to persistent ZStack (commit 713f78a) |
 | Encryption (ITSAppUsesNonExemptEncryption) | **Declared false** in project.yml — correct for HTTP streaming |
 | Background audio entitlement | **✓** — `UIBackgroundModes: [audio]` declared |
