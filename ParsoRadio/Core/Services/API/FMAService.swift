@@ -24,6 +24,7 @@ struct FMAService {
         "old-time":     "Old-Time__Historic",
         "electronic":   "Electronic",
         "hip-hop":      "Hip-Hop",
+        "lo-fi-hip-hop": "Lo-fi-Hip-Hop",
         "world music":  "International",
         "pop":          "Pop",
         "experimental": "Experimental",

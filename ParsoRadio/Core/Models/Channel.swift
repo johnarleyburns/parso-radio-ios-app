@@ -3,6 +3,7 @@ import Foundation
 enum ContentType: String, Codable {
     case music
     case spokenWord
+    case ambientLoop  // single track repeated indefinitely
 }
 
 struct Channel: Codable, Identifiable, Hashable {
@@ -658,6 +659,42 @@ extension Channel {
             tags: ["news-bbc-inourtime"],
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://podcasts.files.bbci.co.uk/b006qykl.rss"
+        ),
+
+        // MARK: Ambient — nature sounds, lofi, and single-track loops
+        // Yellowstone: 114 NPS public-domain MP3s via AmbientStaticService (AWS CloudFront, no auth).
+        // Lofi Cafe: FMA Lo-fi-Hip-Hop genre, CC0/CC-BY tracks.
+        // Loop channels: single CC0 track from Freesound CDN; contentType .ambientLoop restarts on finish.
+        // tags:[id] + preferredSource isolate each channel in the DB (same pattern as News).
+        Channel(
+            id: "ambient-yellowstone", name: "Sounds of Yellowstone",
+            category: "Ambient", icon: "mountain.2.fill",
+            tags: ["yellowstone"],
+            preferredSource: "nps"
+        ),
+        Channel(
+            id: "ambient-lofi", name: "Lofi Cafe",
+            category: "Ambient", icon: "cup.and.saucer.fill",
+            tags: ["lo-fi-hip-hop"],
+            preferredSource: "fma"
+        ),
+        Channel(
+            id: "ambient-flowing-water", name: "Flowing Water",
+            category: "Ambient", icon: "drop.fill",
+            tags: ["ambient-flowing-water"],
+            contentType: .ambientLoop, preferredSource: "freesound"
+        ),
+        Channel(
+            id: "ambient-rain", name: "Rainy Day",
+            category: "Ambient", icon: "cloud.rain.fill",
+            tags: ["ambient-rain"],
+            contentType: .ambientLoop, preferredSource: "freesound"
+        ),
+        Channel(
+            id: "ambient-ocean", name: "Ocean Waves",
+            category: "Ambient", icon: "water.waves",
+            tags: ["ambient-ocean"],
+            contentType: .ambientLoop, preferredSource: "freesound"
         ),
     ]
 

@@ -238,6 +238,8 @@ struct iPodView: View {
             case "musopen":          badge("Musopen", color: .purple)
             case "oxford_lectures":  badge("Oxford", color: Color(red: 0.00, green: 0.13, blue: 0.28))
             case "podcast":          badge("Podcast", color: Color(red: 0.10, green: 0.20, blue: 0.40))
+            case "nps":              badge("NPS", color: Color(red: 0.08, green: 0.38, blue: 0.28))
+            case "freesound":        badge("Freesound", color: Color(red: 0.08, green: 0.38, blue: 0.28))
             default:                 badge("Archive.org", color: .gray)
             }
         }
@@ -261,6 +263,7 @@ struct iPodView: View {
         case "Contemporary": return Color(red: 0.20, green: 0.40, blue: 0.20)
         case "Lectures":     return Color(red: 0.00, green: 0.13, blue: 0.28)
         case "News":         return Color(red: 0.10, green: 0.20, blue: 0.40)
+        case "Ambient":      return Color(red: 0.08, green: 0.38, blue: 0.28)
         default:             return .accentColor
         }
     }

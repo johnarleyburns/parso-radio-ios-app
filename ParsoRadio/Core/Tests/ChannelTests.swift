@@ -4,8 +4,8 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 28 Classical + 22 Audiobooks + 14 Contemporary + 22 Lectures + 10 News = 96
-        XCTAssertEqual(Channel.defaults.count, 96)
+        // 28 Classical + 22 Audiobooks + 14 Contemporary + 22 Lectures + 10 News + 5 Ambient = 101
+        XCTAssertEqual(Channel.defaults.count, 101)
     }
 
     func testClassicalCategoryHas28Channels() {
@@ -157,6 +157,42 @@ final class ChannelTests: XCTestCase {
         XCTAssertEqual(decoded.name, original.name)
         XCTAssertEqual(decoded.composers, original.composers)
         XCTAssertEqual(decoded.instruments, original.instruments)
+    }
+
+    // Ambient category: 5 channels (Yellowstone, Lofi Cafe, Flowing Water, Rainy Day, Ocean Waves).
+    func testAmbientCategoryHas5Channels() {
+        let channels = Channel.defaults.filter { $0.category == "Ambient" }
+        XCTAssertEqual(channels.count, 5, "Expected 5 Ambient channels")
+    }
+
+    func testYellowstoneChannelDefinition() {
+        let ch = Channel.defaults.first { $0.id == "ambient-yellowstone" }
+        XCTAssertNotNil(ch)
+        XCTAssertEqual(ch?.category, "Ambient")
+        XCTAssertEqual(ch?.preferredSource, "nps")
+        XCTAssertTrue(ch?.tags.contains("yellowstone") == true)
+    }
+
+    func testLofiCafeChannelDefinition() {
+        let ch = Channel.defaults.first { $0.id == "ambient-lofi" }
+        XCTAssertNotNil(ch)
+        XCTAssertEqual(ch?.category, "Ambient")
+        XCTAssertEqual(ch?.preferredSource, "fma")
+        XCTAssertTrue(ch?.tags.contains("lo-fi-hip-hop") == true,
+            "Lofi Cafe tag must match FMAService.genreMap key 'lo-fi-hip-hop'")
+        XCTAssertNotNil(FMAService.genreMap["lo-fi-hip-hop"],
+            "FMAService.genreMap must contain 'lo-fi-hip-hop' for Lofi Cafe to fetch")
+    }
+
+    func testAmbientLoopChannelsHaveMatchingTags() {
+        let loopChannels = Channel.defaults.filter { $0.contentType == .ambientLoop }
+        XCTAssertEqual(loopChannels.count, 3, "Expected 3 ambientLoop channels")
+        for channel in loopChannels {
+            XCTAssertEqual(channel.tags, [channel.id],
+                "AmbientLoop '\(channel.id)' must have tags:[id] so matches() isolates its single track")
+            XCTAssertEqual(channel.preferredSource, "freesound",
+                "AmbientLoop '\(channel.id)' must use preferredSource 'freesound'")
+        }
     }
 
     // MARK: - Helpers

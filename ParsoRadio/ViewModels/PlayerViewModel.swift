@@ -19,6 +19,7 @@ final class PlayerViewModel: ObservableObject {
     private let fmaService: FMAService
     private let oxfordService: OxfordLecturesService
     private let podcastService: PodcastRSSService
+    private let ambientService: AmbientStaticService
     private let queueManager: QueueManager
     private let downloadManager: DownloadManager
     var currentChannel: Channel?
@@ -38,13 +39,15 @@ final class PlayerViewModel: ObservableObject {
         audioPlayer: AudioPlayerService,
         downloadManager: DownloadManager,
         oxfordService: OxfordLecturesService = OxfordLecturesService(),
-        podcastService: PodcastRSSService = PodcastRSSService()
+        podcastService: PodcastRSSService = PodcastRSSService(),
+        ambientService: AmbientStaticService = AmbientStaticService()
     ) {
         self.db = db
         self.archiveService = archiveService
         self.fmaService = fmaService
         self.oxfordService = oxfordService
         self.podcastService = podcastService
+        self.ambientService = ambientService
         self.queueManager = queueManager
         self.audioPlayer = audioPlayer
         self.downloadManager = downloadManager
@@ -77,6 +80,14 @@ final class PlayerViewModel: ObservableObject {
         audioPlayer.onTrackFinished = { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                // Ambient loop channels: seek back to the beginning instead of advancing.
+                if let channel = self.currentChannel, channel.contentType == .ambientLoop {
+                    self.audioPlayer.seek(to: 0)
+                    self.audioPlayer.resume()
+                    self.isPlaying = true
+                    self.currentPosition = 0
+                    return
+                }
                 // Natural finish: clear saved position so the next track starts fresh.
                 if let channel = self.currentChannel, channel.contentType == .spokenWord {
                     await self.db.clearPosition(channelId: channel.id)
@@ -131,6 +142,9 @@ final class PlayerViewModel: ObservableObject {
             if channel.feedURL != nil {
                 // News/podcast channels: fetch from RSS feed via PodcastRSSService.
                 fetched = try await podcastService.fetchTracks(channel: channel)
+            } else if channel.preferredSource == "nps" || channel.contentType == .ambientLoop {
+                // Ambient static channels: hardcoded tracks, no network fetch needed.
+                fetched = ambientService.fetchTracks(channel: channel)
             } else if channel.category == "Lectures" {
                 // Oxford channels fetch from podcasts.ox.ac.uk via OxfordLecturesService.
                 fetched = try await oxfordService.fetchTracks(unitSlug: channel.tags.first ?? "")
@@ -208,6 +222,12 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func skip() {
+        // Ambient loops have exactly one track; forward just restarts it.
+        if let channel = currentChannel, channel.contentType == .ambientLoop {
+            audioPlayer.seek(to: 0)
+            currentPosition = 0
+            return
+        }
         audioPlayer.skip()
         isPlaying = false
         currentPosition = 0
