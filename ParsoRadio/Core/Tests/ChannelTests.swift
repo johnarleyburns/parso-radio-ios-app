@@ -133,6 +133,11 @@ final class ChannelTests: XCTestCase {
         for channel in newsChannels {
             XCTAssertNotNil(channel.feedURL, "News channel '\(channel.id)' must have a feedURL")
             XCTAssertFalse(channel.feedURL?.isEmpty == true, "News channel '\(channel.id)' feedURL must not be empty")
+            // tags:[id] + preferredSource:"podcast" ensure channel.matches() isolates each feed's episodes.
+            XCTAssertEqual(channel.tags, [channel.id],
+                "News channel '\(channel.id)' must have tags:[id] so matches() filters correctly")
+            XCTAssertEqual(channel.preferredSource, "podcast",
+                "News channel '\(channel.id)' must have preferredSource 'podcast' to skip IA/FMA rows")
         }
     }
 

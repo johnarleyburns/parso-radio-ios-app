@@ -587,64 +587,76 @@ extension Channel {
 
         // MARK: News — Public radio & international broadcaster RSS feeds (all live-verified)
         // feedURL drives PodcastRSSService; contentType = spokenWord for track-level navigation.
+        // tags: [id] must match what PodcastRSSService stores in Track.tags so channel.matches()
+        // correctly isolates each channel's episodes; preferredSource: "podcast" skips IA/FMA DB rows.
         Channel(
             id: "news-bbc-world", name: "BBC World News",
             category: "News", icon: "globe",
-            contentType: .spokenWord,
+            tags: ["news-bbc-world"],
+            contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://podcasts.files.bbci.co.uk/p02nq0gn.rss"
         ),
         Channel(
             id: "news-bbc-newsday", name: "BBC Newsday",
             category: "News", icon: "newspaper",
-            contentType: .spokenWord,
+            tags: ["news-bbc-newsday"],
+            contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://podcasts.files.bbci.co.uk/p002vsnk.rss"
         ),
         Channel(
             id: "news-nprup-first", name: "NPR Up First",
             category: "News", icon: "sunrise.fill",
-            contentType: .spokenWord,
+            tags: ["news-nprup-first"],
+            contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feeds.npr.org/510318/podcast.xml"
         ),
         Channel(
             id: "news-pbs-newshour", name: "PBS NewsHour",
             category: "News", icon: "tv",
-            contentType: .spokenWord,
+            tags: ["news-pbs-newshour"],
+            contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feeds.npr.org/510317/podcast.xml"
         ),
         Channel(
             id: "news-democracy-now", name: "Democracy Now!",
             category: "News", icon: "megaphone.fill",
-            contentType: .spokenWord,
+            tags: ["news-democracy-now"],
+            contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://www.democracynow.org/podcast.xml"
         ),
         Channel(
             id: "news-un", name: "UN News",
             category: "News", icon: "building.2.fill",
-            contentType: .spokenWord,
+            tags: ["news-un"],
+            contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://news.un.org/feed/subscribe/en/news/all/rss.xml"
         ),
         Channel(
             id: "news-cbc-frontburner", name: "CBC Front Burner",
             category: "News", icon: "flame.fill",
-            contentType: .spokenWord,
+            tags: ["news-cbc-frontburner"],
+            contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://www.cbc.ca/podcasting/includes/frontburner.xml"
         ),
         Channel(
             id: "news-voa", name: "VOA Learning English",
             category: "News", icon: "waveform",
-            contentType: .spokenWord,
+            tags: ["news-voa"],
+            contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://learningenglish.voanews.com/podcast/?count=20"
         ),
         Channel(
             id: "news-npr-1a", name: "NPR 1A (Public Affairs)",
             category: "News", icon: "person.2.fill",
-            contentType: .spokenWord,
+            tags: ["news-npr-1a"],
+            contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feeds.npr.org/510316/podcast.xml"
         ),
         Channel(
             id: "news-bbc-inourtime", name: "BBC In Our Time",
             category: "News", icon: "clock.fill",
-            contentType: .spokenWord,
+            tags: ["news-bbc-inourtime"],
+            contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://podcasts.files.bbci.co.uk/b006qykl.rss"
         ),
     ]
