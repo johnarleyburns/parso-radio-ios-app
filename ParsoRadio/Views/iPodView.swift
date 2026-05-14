@@ -378,7 +378,7 @@ struct iPodView: View {
                             playerVM.shuffleMode ? "Shuffle: On" : "Shuffle: Off",
                             systemImage: "shuffle"
                         )
-                        .foregroundStyle(playerVM.shuffleMode ? .tint : .primary)
+                        .foregroundStyle(playerVM.shuffleMode ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                     }
 
                     Button {
@@ -388,7 +388,7 @@ struct iPodView: View {
                             playerVM.repeatMode == .off ? "Repeat: Off" : "Repeat: One",
                             systemImage: playerVM.repeatMode == .off ? "repeat" : "repeat.1"
                         )
-                        .foregroundStyle(playerVM.repeatMode == .off ? .primary : .tint)
+                        .foregroundStyle(playerVM.repeatMode == .off ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
                     }
                 }
 
