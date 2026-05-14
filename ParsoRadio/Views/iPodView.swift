@@ -59,7 +59,7 @@ struct iPodView: View {
                     } label: {
                         Image(systemName: "shuffle")
                             .font(.system(size: 17))
-                            .foregroundStyle(playerVM.shuffleMode ? .accentColor : .secondary)
+                            .foregroundStyle(playerVM.shuffleMode ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                     }
                     .accessibilityLabel(playerVM.shuffleMode ? "Shuffle On" : "Shuffle Off")
 
@@ -87,7 +87,7 @@ struct iPodView: View {
                     } label: {
                         Image(systemName: playerVM.repeatMode == .off ? "repeat" : "repeat.1")
                             .font(.system(size: 17))
-                            .foregroundStyle(playerVM.repeatMode == .off ? .secondary : .accentColor)
+                            .foregroundStyle(playerVM.repeatMode == .off ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
                     }
                     .accessibilityLabel(playerVM.repeatMode == .off ? "Repeat Off" : "Repeat One")
 
@@ -222,8 +222,8 @@ struct iPodView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .animation(.spring(duration: 0.25), value: displayChannel.category)
-            if let desc = playerVM.channelDescription, !desc.isEmpty {
-                Text(desc)
+            if !playerVM.channelDescription.isEmpty {
+                Text(playerVM.channelDescription)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
