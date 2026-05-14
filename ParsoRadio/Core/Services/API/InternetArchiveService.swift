@@ -19,10 +19,28 @@ struct InternetArchiveService {
         return f
     }()
     private static let iso8601Basic = ISO8601DateFormatter()
+    // IA Solr returns dates without timezone (e.g. "2023-08-15T14:30:00.000000") — treat as UTC.
+    private static let iaFractionalNoTZ: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
+    private static let iaBasicNoTZ: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
 
     private static func parseIADate(_ str: String?) -> Date? {
         guard let str = str else { return nil }
-        return iso8601WithFractional.date(from: str) ?? iso8601Basic.date(from: str)
+        return iso8601WithFractional.date(from: str)
+            ?? iso8601Basic.date(from: str)
+            ?? iaFractionalNoTZ.date(from: str)
+            ?? iaBasicNoTZ.date(from: str)
     }
 
     func fetchTracks(composers: [String], instruments: [String]) async throws -> [Track] {
