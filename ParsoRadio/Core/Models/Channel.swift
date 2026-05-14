@@ -48,6 +48,20 @@ struct Channel: Codable, Identifiable, Hashable {
             || instruments.contains(where: { track.instruments.contains($0) })
         return composerMatch && instrumentMatch
     }
+
+    var detailDescription: String {
+        var parts: [String] = []
+        if !composers.isEmpty {
+            parts.append(composers.map { $0.capitalized }.joined(separator: ", "))
+        }
+        if !instruments.isEmpty {
+            parts.append(instruments.map { $0.capitalized }.joined(separator: " & "))
+        }
+        if parts.isEmpty, !tags.isEmpty {
+            parts.append(tags.prefix(2).joined(separator: ", "))
+        }
+        return parts.joined(separator: " · ")
+    }
 }
 
 extension Channel {
