@@ -99,6 +99,7 @@ private final class RSSItem {
 
         // pubDate encoded as Unix timestamp → DB sorts by quality_score DESC = newest first.
         let pubTimestamp = Self.parseRSSDate(pubDate) ?? 0
+        let pubDate: Date? = pubTimestamp > 0 ? Date(timeIntervalSince1970: pubTimestamp) : nil
 
         return Track(
             id: stableId,
@@ -115,7 +116,9 @@ private final class RSSItem {
             rawCreator: "",
             composer: nil,
             instruments: [],
-            metadataConfidence: 2.0
+            metadataConfidence: 2.0,
+            addedDate: pubDate,
+            artworkURLString: nil
         )
     }
 

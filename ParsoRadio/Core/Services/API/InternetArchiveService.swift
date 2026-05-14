@@ -11,6 +11,20 @@ struct InternetArchiveService {
         self.session = session
     }
 
+    // MARK: - Date parsing
+
+    private static let iso8601WithFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    private static let iso8601Basic = ISO8601DateFormatter()
+
+    private static func parseIADate(_ str: String?) -> Date? {
+        guard let str = str else { return nil }
+        return iso8601WithFractional.date(from: str) ?? iso8601Basic.date(from: str)
+    }
+
     func fetchTracks(composers: [String], instruments: [String]) async throws -> [Track] {
         let query = composerQuery(composers: composers)
         return try await search(query: query, confidenceThreshold: 1.5)
@@ -73,9 +87,10 @@ struct InternetArchiveService {
             URLQueryItem(name: "fl[]",    value: "licenseurl"),
             URLQueryItem(name: "fl[]",    value: "year"),
             URLQueryItem(name: "fl[]",    value: "collection"),
+            URLQueryItem(name: "fl[]",    value: "addeddate"),
             URLQueryItem(name: "output",  value: "json"),
             URLQueryItem(name: "rows",    value: "100"),
-            URLQueryItem(name: "sort[]",  value: "downloads desc"),
+            URLQueryItem(name: "sort[]",  value: "addeddate desc"),
         ]
         let (data, _) = try await session.data(from: components.url!)
         let response = try JSONDecoder().decode(IASearchResponse.self, from: data)
@@ -110,7 +125,8 @@ struct InternetArchiveService {
             rawCreator: doc.creator ?? "",
             composer: nil,
             instruments: [],
-            metadataConfidence: 2.0
+            metadataConfidence: 2.0,
+            addedDate: Self.parseIADate(doc.addeddate)
         )
     }
 
@@ -157,7 +173,8 @@ struct InternetArchiveService {
             .filter { composers.contains($0.value) }
             .keys.sorted()
         let creatorClause = aliases.map { "creator:\"\($0)\"" }.joined(separator: " OR ")
-        return "mediatype:audio AND (\(creatorClause))"
+        let broadcastFilter = " NOT creator:PBS NOT creator:BBC NOT creator:CBC NOT creator:NPR"
+        return "mediatype:audio AND (\(creatorClause))\(broadcastFilter)"
     }
 
     private func search(
@@ -176,9 +193,10 @@ struct InternetArchiveService {
             URLQueryItem(name: "fl[]",    value: "description"),
             URLQueryItem(name: "fl[]",    value: "year"),
             URLQueryItem(name: "fl[]",    value: "collection"),
+            URLQueryItem(name: "fl[]",    value: "addeddate"),
             URLQueryItem(name: "output",  value: "json"),
             URLQueryItem(name: "rows",    value: "100"),
-            URLQueryItem(name: "sort[]",  value: "downloads desc"),
+            URLQueryItem(name: "sort[]",  value: "addeddate desc"),
         ]
 
         let (data, _) = try await session.data(from: components.url!)
@@ -233,7 +251,8 @@ struct InternetArchiveService {
             rawCreator: doc.creator ?? "",
             composer: composer,
             instruments: instruments,
-            metadataConfidence: confidence
+            metadataConfidence: confidence,
+            addedDate: Self.parseIADate(doc.addeddate)
         )
     }
 }
@@ -257,9 +276,10 @@ struct IADoc: Decodable {
     let description: String?
     let year: Int?
     let collection: [String]
+    let addeddate: String?
 
     enum CodingKeys: String, CodingKey {
-        case identifier, title, creator, licenseurl, description, year
+        case identifier, title, creator, licenseurl, description, year, addeddate
         case subject, collection
     }
 
@@ -303,5 +323,7 @@ struct IADoc: Decodable {
         } else {
             collection = []
         }
+
+        addeddate = try? c.decode(String.self, forKey: .addeddate)
     }
 }
