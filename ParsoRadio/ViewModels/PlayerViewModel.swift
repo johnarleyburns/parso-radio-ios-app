@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import MediaPlayer
 
 @MainActor
 final class PlayerViewModel: ObservableObject {
@@ -11,6 +12,16 @@ final class PlayerViewModel: ObservableObject {
     @Published var currentPosition: Double = 0
     @Published var trackDuration: Double?
     @Published var isScrubbing: Bool = false
+    @Published var shuffleMode: Bool = UserDefaults.standard.bool(forKey: "shuffleMode")
+    @Published var repeatMode: AudioPlayerService.RepeatMode = {
+        let raw = UserDefaults.standard.string(forKey: "repeatMode") ?? ""
+        return AudioPlayerService.RepeatMode(rawValue: raw) ?? .off
+    }()
+    @Published var channelTrackCount: Int = 0
+    @Published var channelMostRecentDate: Date? = nil
+    @Published var channelDescription: String = ""
+    @Published var currentArtwork: UIImage? = nil
+    var currentPlaylist: Playlist? = nil
 
     let audioPlayer: AudioPlayerService
 
@@ -184,6 +195,10 @@ final class PlayerViewModel: ObservableObject {
 
             await db.saveTracks(fetched)
             downloadManager.prefetchNext(fetched)
+            channelDescription = channel.detailDescription
+            channelTrackCount = fetched.count
+            channelMostRecentDate = fetched.compactMap(\.addedDate).max()
+            currentPlaylist = nil
         } catch let urlError as URLError
             where urlError.code == .notConnectedToInternet || urlError.code == .networkConnectionLost {
             if currentTrack == nil {
@@ -264,7 +279,10 @@ final class PlayerViewModel: ObservableObject {
     // MARK: - Private
 
     private func advanceToNext() async {
-        guard let channel = currentChannel else { return }
+        guard let channel = currentChannel else {
+            // Playlist mode: no channel — playlist advance handled separately
+            return
+        }
 
         // Assert a background task so iOS doesn't kill the network call that
         // resolves the next track URL when the app is backgrounded.
@@ -274,7 +292,15 @@ final class PlayerViewModel: ObservableObject {
         }
         defer { UIApplication.shared.endBackgroundTask(bgTask) }
 
-        guard let track = await queueManager.nextTrack(channel: channel) else {
+        // Librivox sequential multi-part: advance to next part before random pick
+        if let current = currentTrack, current.parentIdentifier != nil {
+            if let nextPart = await queueManager.nextPart(after: current, channel: channel) {
+                await playTrack(nextPart, seekTo: nil)
+                return
+            }
+        }
+
+        guard let track = await queueManager.nextTrack(channel: channel, shuffleMode: shuffleMode) else {
             currentTrack = nil
             isPlaying = false
             if errorMessage == nil {
@@ -304,6 +330,18 @@ final class PlayerViewModel: ObservableObject {
             if playHistory.count > historyLimit { playHistory.removeFirst() }
         }
         currentTrack = track
+        // Load artwork asynchronously so playback starts without waiting
+        Task { [weak self] in
+            guard let self else { return }
+            let art = await ArtworkService.shared.artwork(for: track)
+            self.currentArtwork = art
+            if let art = art {
+                let mpArt = MPMediaItemArtwork(boundsSize: art.size) { _ in art }
+                var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+                info[MPMediaItemPropertyArtwork] = mpArt
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+            }
+        }
         isLoading = true
         loadingMessage = track.source == "internet_archive" ? "Buffering…" : "Loading…"
         defer {
@@ -348,11 +386,54 @@ final class PlayerViewModel: ObservableObject {
     }
 
     private func prefetchNextURL(channel: Channel) async {
-        guard let next = await queueManager.peekNextTrack(channel: channel),
+        guard let next = await queueManager.peekNextTrack(channel: channel, shuffleMode: shuffleMode),
               next.source == "internet_archive",
               prefetchedURLs[next.id] == nil else { return }
         if let url = try? await archiveService.resolveAudioURL(for: next.id) {
             prefetchedURLs[next.id] = url
+        }
+    }
+
+    // MARK: - Shuffle and Repeat
+
+    func toggleShuffle() {
+        shuffleMode.toggle()
+        UserDefaults.standard.set(shuffleMode, forKey: "shuffleMode")
+    }
+
+    func toggleRepeat() {
+        repeatMode = repeatMode == .off ? .one : .off
+        audioPlayer.repeatMode = repeatMode
+        UserDefaults.standard.set(repeatMode.rawValue, forKey: "repeatMode")
+    }
+
+    // MARK: - Playlist playback
+
+    func loadPlaylist(_ playlist: Playlist, startingAt track: Track? = nil) async {
+        currentPlaylist = playlist
+        currentChannel = nil
+        let tracks = await db.fetchTracks(forPlaylist: playlist.id)
+        channelDescription = playlist.name
+        channelTrackCount = tracks.count
+        channelMostRecentDate = tracks.compactMap(\.addedDate).max()
+        guard !tracks.isEmpty else { return }
+        let startTrack = track ?? tracks.first!
+        await playTrack(startTrack, seekTo: 0, recordHistory: true)
+    }
+
+    // MARK: - Book navigation (Librivox)
+
+    func skipToNextBook() async {
+        guard let channel = currentChannel, let current = currentTrack else { return }
+        if let first = await queueManager.firstPartOfNextBook(after: current, channel: channel) {
+            await playTrack(first, seekTo: 0, recordHistory: true)
+        }
+    }
+
+    func skipToPreviousBook() async {
+        guard let channel = currentChannel, let current = currentTrack else { return }
+        if let first = await queueManager.firstPartOfPreviousBook(before: current, channel: channel) {
+            await playTrack(first, seekTo: 0, recordHistory: true)
         }
     }
 }
