@@ -2,6 +2,8 @@ import SwiftUI
 
 struct iPodView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var playlistVM: PlaylistViewModel
+    @EnvironmentObject var offlineService: OfflineDownloadService
     @State private var pendingChannel: Channel = {
         // UC2: restore the last-used channel between app launches.
         let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "bach"
@@ -10,13 +12,30 @@ struct iPodView: View {
     @State private var showChannelSelector = false
     @State private var showAbout = false
     @State private var showTrackDetail = false
+    @State private var showMainMenu = false
+    @State private var showPlaylists = false
+    @State private var showSearch = false
+    @State private var showAddToPlaylist = false
+    @State private var isFavorite = false
+
     private var displayChannel: Channel {
         playerVM.currentChannel ?? pendingChannel
     }
 
     var body: some View {
         ZStack {
-            Color(.systemGroupedBackground).ignoresSafeArea()
+            // Ambient art background
+            if let artwork = playerVM.currentArtwork {
+                Image(uiImage: artwork)
+                    .resizable()
+                    .scaledToFill()
+                    .ignoresSafeArea()
+                    .blur(radius: 40)
+                    .opacity(0.25)
+                    .animation(.easeInOut(duration: 1.0), value: playerVM.currentTrack?.id)
+            } else {
+                Color(.systemGroupedBackground).ignoresSafeArea()
+            }
 
             VStack(spacing: 0) {
                 channelLabel
@@ -26,14 +45,64 @@ struct iPodView: View {
 
                 ClickWheel(
                     isPlaying: playerVM.isPlaying,
-                    onMenu:      { showChannelSelector = true },
+                    onMenu:      { showMainMenu = true },
                     onBack:      { playerVM.back() },
                     onForward:   { playerVM.skip() },
                     onPlayPause: { playerVM.togglePlayPause() }
                 )
                 .frame(width: 280, height: 280)
 
-                Spacer(minLength: 20)
+                // Shuffle / Repeat / Favorites row
+                HStack(spacing: 24) {
+                    Button {
+                        playerVM.toggleShuffle()
+                    } label: {
+                        Image(systemName: "shuffle")
+                            .font(.system(size: 17))
+                            .foregroundStyle(playerVM.shuffleMode ? .accentColor : .secondary)
+                    }
+                    .accessibilityLabel(playerVM.shuffleMode ? "Shuffle On" : "Shuffle Off")
+
+                    // Book navigation (Librivox / audiobooks)
+                    Button {
+                        Task { await playerVM.skipToPreviousBook() }
+                    } label: {
+                        Image(systemName: "backward.end.fill")
+                            .font(.system(size: 17))
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityLabel("Previous Book")
+
+                    Button {
+                        Task { await playerVM.skipToNextBook() }
+                    } label: {
+                        Image(systemName: "forward.end.fill")
+                            .font(.system(size: 17))
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityLabel("Next Book")
+
+                    Button {
+                        playerVM.toggleRepeat()
+                    } label: {
+                        Image(systemName: playerVM.repeatMode == .off ? "repeat" : "repeat.1")
+                            .font(.system(size: 17))
+                            .foregroundStyle(playerVM.repeatMode == .off ? .secondary : .accentColor)
+                    }
+                    .accessibilityLabel(playerVM.repeatMode == .off ? "Repeat Off" : "Repeat One")
+
+                    Button {
+                        toggleFavorite()
+                    } label: {
+                        Image(systemName: isFavorite ? "heart.fill" : "heart")
+                            .font(.system(size: 17))
+                            .foregroundStyle(isFavorite ? .red : .secondary)
+                    }
+                    .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+                }
+                .padding(.top, 14)
+
+                Spacer(minLength: 14)
 
                 // UC9: tap the card to see full track details.
                 nowPlayingCard
@@ -41,6 +110,26 @@ struct iPodView: View {
                     .padding(.bottom, 40)
                     .onTapGesture {
                         if playerVM.currentTrack != nil { showTrackDetail = true }
+                    }
+                    .contextMenu {
+                        if let track = playerVM.currentTrack {
+                            Button {
+                                showAddToPlaylist = true
+                            } label: {
+                                Label("Add to Playlist", systemImage: "plus.circle")
+                            }
+                            Button {
+                                Task { await offlineService.makeOffline(channel: displayChannel) }
+                            } label: {
+                                Label("Download Channel", systemImage: "arrow.down.circle")
+                            }
+                            Button {
+                                showTrackDetail = true
+                                _ = track
+                            } label: {
+                                Label("Track Details", systemImage: "info.circle")
+                            }
+                        }
                     }
             }
         }
@@ -54,12 +143,47 @@ struct iPodView: View {
                     .padding(16)
             }
         }
+        .sheet(isPresented: $showMainMenu) {
+            MainMenuView(
+                displayChannel: displayChannel,
+                onSelectChannel: {
+                    showMainMenu = false
+                    showChannelSelector = true
+                },
+                onOpenPlaylists: {
+                    showMainMenu = false
+                    showPlaylists = true
+                },
+                onOpenSearch: {
+                    showMainMenu = false
+                    showSearch = true
+                },
+                onDownloadChannel: {
+                    showMainMenu = false
+                    Task { await offlineService.makeOffline(channel: displayChannel) }
+                },
+                onOpenAbout: {
+                    showMainMenu = false
+                    showAbout = true
+                }
+            )
+        }
         .sheet(isPresented: $showChannelSelector) {
             ChannelSelectorView(currentChannelId: displayChannel.id) { channel in
                 pendingChannel = channel
                 showChannelSelector = false
                 Task { await playerVM.load(channel: channel) }
             }
+        }
+        .sheet(isPresented: $showPlaylists) {
+            PlaylistListView()
+                .environmentObject(playlistVM)
+                .environmentObject(playerVM)
+                .environmentObject(offlineService)
+        }
+        .sheet(isPresented: $showSearch) {
+            SearchView()
+                .environmentObject(playlistVM)
         }
         .sheet(isPresented: $showAbout) {
             AboutView()
@@ -68,6 +192,15 @@ struct iPodView: View {
             if let track = playerVM.currentTrack {
                 TrackDetailView(track: track)
             }
+        }
+        .sheet(isPresented: $showAddToPlaylist) {
+            if let track = playerVM.currentTrack {
+                AddToPlaylistSheet(track: track)
+                    .environmentObject(playlistVM)
+            }
+        }
+        .onChange(of: playerVM.currentTrack?.id) { _, _ in
+            refreshFavoriteState()
         }
         .task {
             let wasPlaying = UserDefaults.standard.bool(forKey: "wasPlayingOnQuit")
@@ -89,6 +222,15 @@ struct iPodView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .animation(.spring(duration: 0.25), value: displayChannel.category)
+            if let desc = playerVM.channelDescription, !desc.isEmpty {
+                Text(desc)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .padding(.top, 1)
+                    .animation(.spring(duration: 0.25), value: playerVM.channelDescription)
+            }
         }
         .padding(.horizontal, 20)
     }
@@ -160,7 +302,10 @@ struct iPodView: View {
                 }
             }
             .padding(14)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+            .background(
+                Color(.secondarySystemGroupedBackground).opacity(playerVM.currentArtwork != nil ? 0.85 : 1.0),
+                in: RoundedRectangle(cornerRadius: 16)
+            )
             .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
         } else if playerVM.isLoading {
             HStack(spacing: 12) {
@@ -194,7 +339,16 @@ struct iPodView: View {
             HStack(spacing: 12) {
                 channelArtwork
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Tap MENU to select a channel")
+                    Text("Tap")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    +
+                    Text(" ")
+                    +
+                    Text(Image(systemName: "line.3.horizontal"))
+                        .font(.subheadline)
+                    +
+                    Text(" to select a channel")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -207,13 +361,22 @@ struct iPodView: View {
 
     private var channelArtwork: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(categoryGradient(for: displayChannel.category))
-                .frame(width: 52, height: 52)
-                .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
-            Image(systemName: displayChannel.icon)
-                .font(.system(size: 20, weight: .medium))
-                .foregroundStyle(.white)
+            if let artwork = playerVM.currentArtwork {
+                Image(uiImage: artwork)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 52, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
+            } else {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(categoryGradient(for: displayChannel.category))
+                    .frame(width: 52, height: 52)
+                    .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
+                Image(systemName: displayChannel.icon)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(.white)
+            }
         }
         .scaleEffect(playerVM.isPlaying ? 1.05 : 1.0)
         .animation(
@@ -274,6 +437,28 @@ struct iPodView: View {
         let h = t / 3600; let m = (t % 3600) / 60; let sec = t % 60
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec) : String(format: "%d:%02d", m, sec)
     }
+
+    // MARK: - Favorites helpers
+
+    private func refreshFavoriteState() {
+        guard let track = playerVM.currentTrack else {
+            isFavorite = false
+            return
+        }
+        Task {
+            let fav = await playlistVM.isInFavorites(track)
+            await MainActor.run { isFavorite = fav }
+        }
+    }
+
+    private func toggleFavorite() {
+        guard let track = playerVM.currentTrack else { return }
+        Task {
+            await playlistVM.toggleFavorite(track)
+            let fav = await playlistVM.isInFavorites(track)
+            await MainActor.run { isFavorite = fav }
+        }
+    }
 }
 
 // MARK: - Click Wheel
@@ -308,9 +493,9 @@ struct ClickWheel: View {
                     .shadow(color: .black.opacity(0.10), radius: 5, y: 2)
                     .allowsHitTesting(false)
 
-                // MENU (top)
-                Text("MENU")
-                    .font(.system(size: 13, weight: .bold))
+                // MENU icon (top)
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.primary)
                     .offset(y: -midRing)
                     .allowsHitTesting(false)
@@ -361,7 +546,7 @@ struct ClickWheel: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Playback Controls")
             .accessibilityAction(.default) { onPlayPause() }
-            .accessibilityAction(named: "MENU — Select Channel") { onMenu() }
+            .accessibilityAction(named: "Menu — Open Menu") { onMenu() }
             .accessibilityAction(named: "Back") { onBack() }
             .accessibilityAction(named: "Forward") { onForward() }
         }
@@ -369,13 +554,16 @@ struct ClickWheel: View {
 }
 
 #Preview {
-    iPodView()
+    let db = try! DatabaseService(path: ":memory:")
+    return iPodView()
         .environmentObject(PlayerViewModel(
-            db: try! DatabaseService(path: ":memory:"),
+            db: db,
             archiveService: InternetArchiveService(),
             fmaService: FMAService(),
-            queueManager: QueueManager(db: try! DatabaseService(path: ":memory:")),
+            queueManager: QueueManager(db: db),
             audioPlayer: AudioPlayerService(),
-            downloadManager: DownloadManager(db: try! DatabaseService(path: ":memory:"))
+            downloadManager: DownloadManager(db: db)
         ))
+        .environmentObject(PlaylistViewModel(db: db))
+        .environmentObject(OfflineDownloadService(db: db))
 }

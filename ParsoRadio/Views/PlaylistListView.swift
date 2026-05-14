@@ -3,6 +3,7 @@ import SwiftUI
 struct PlaylistListView: View {
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var offlineService: OfflineDownloadService
     @Environment(\.dismiss) private var dismiss
     @State private var showCreateAlert = false
     @State private var newPlaylistName = ""
@@ -17,6 +18,7 @@ struct PlaylistListView: View {
                         PlaylistDetailView(playlist: playlist)
                             .environmentObject(playlistVM)
                             .environmentObject(playerVM)
+                            .environmentObject(offlineService)
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
