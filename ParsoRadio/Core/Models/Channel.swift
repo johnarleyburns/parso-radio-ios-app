@@ -91,12 +91,6 @@ extension Channel {
             icon: "guitars", tags: ["classical guitar"],
             preferredSource: "internet_archive"
         ),
-        // Curl-verified: "spanish guitar" OR "flamenco" returns 2011 items on IA.
-        Channel(
-            id: "spanish-guitar", name: "Spanish Guitar", category: "Classical",
-            icon: "guitars", tags: ["spanish guitar", "flamenco"],
-            preferredSource: "internet_archive"
-        ),
         // Curl-verified: "cello" subject returns 1,631 items on IA; broad but well-populated.
         Channel(
             id: "cello", name: "Cello", category: "Classical",

@@ -1,5 +1,5 @@
 import XCTest
-@testable import ParsoRadio
+@testable import ParsoMusic
 
 // These tests hit the real Internet Archive API.
 // URLErrors (network down, timeout) are skipped so CI isn't blocked by IA outages.

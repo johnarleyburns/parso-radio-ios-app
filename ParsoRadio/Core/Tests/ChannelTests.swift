@@ -1,17 +1,22 @@
 import XCTest
-@testable import ParsoRadio
+@testable import ParsoMusic
 
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 27 Classical + 22 Audiobooks + 14 Contemporary + 21 Lectures + 4 News + 5 Ambient = 93
-        XCTAssertEqual(Channel.defaults.count, 93)
+        // 26 Classical + 22 Audiobooks + 14 Contemporary + 21 Lectures + 4 News + 5 Ambient = 92
+        XCTAssertEqual(Channel.defaults.count, 92)
     }
 
-    func testClassicalCategoryHas28Channels() {
+    func testClassicalCategoryHas26Channels() {
         let classicalChannels = Channel.defaults.filter { $0.category == "Classical" }
-        XCTAssertEqual(classicalChannels.count, 27,
-            "Classical: 9 period/format/instrument + 18 composer channels")
+        XCTAssertEqual(classicalChannels.count, 26,
+            "Classical: 8 period/format/instrument + 18 composer channels (Spanish Guitar removed)")
+    }
+
+    func testSpanishGuitarChannelRemoved() {
+        let ch = Channel.defaults.first { $0.id == "spanish-guitar" }
+        XCTAssertNil(ch, "Spanish Guitar channel must be removed in Phase 0")
     }
 
     func testBachChannelDefinition() {

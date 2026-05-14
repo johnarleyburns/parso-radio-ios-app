@@ -1,5 +1,5 @@
 import XCTest
-@testable import ParsoRadio
+@testable import ParsoMusic
 
 // UC19: verify the compiled asset catalog is present, which confirms AppIcon.appiconset
 // was included in the build. UIImage(named:) cannot be used for appiconsets — they are

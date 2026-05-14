@@ -1,4 +1,4 @@
-name: ParsoRadio
+name: ParsoMusic
 options:
   bundleIdPrefix: com.parso
   deploymentTarget:
@@ -26,7 +26,7 @@ packages:
         TARGETED_DEVICE_FAMILY: "1"
 
 targets:
-  ParsoRadio:
+  ParsoMusic:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
@@ -41,7 +41,7 @@ targets:
     info:
       path: ParsoRadio/Info.plist
       properties:
-        CFBundleDisplayName: Parso Radio
+        CFBundleDisplayName: Parso Music
         CFBundleIconName: AppIcon
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
@@ -60,12 +60,14 @@ targets:
           - audio
           - fetch
         BGTaskSchedulerPermittedIdentifiers:
-          - com.parso.radio.refresh
+          - com.parso.music.refresh
         ITSAppUsesNonExemptEncryption: false
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: false
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: guru.parso.ios-radio-app
-        MARKETING_VERSION: "1.0.0"
+        PRODUCT_BUNDLE_IDENTIFIER: guru.parso.ios-music-app
+        MARKETING_VERSION: "2.0.0"
         CURRENT_PROJECT_VERSION: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -82,7 +84,7 @@ targets:
     dependencies:
       - package: SQLite
 
-  ParsoRadioTests:
+  ParsoMusicTests:
     type: bundle.unit-test
     platform: iOS
     deploymentTarget: "17.0"
@@ -91,43 +93,43 @@ targets:
         excludes:
           - "**/LinuxStubs/**"
     dependencies:
-      - target: ParsoRadio
+      - target: ParsoMusic
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleShortVersionString: "1.0.0"
+        INFOPLIST_KEY_CFBundleShortVersionString: "2.0.0"
         INFOPLIST_KEY_CFBundleVersion: "1"
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/ParsoRadio.app/ParsoRadio"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/ParsoMusic.app/ParsoMusic"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
-  ParsoRadioIntegrationTests:
+  ParsoMusicIntegrationTests:
     type: bundle.unit-test
     platform: iOS
     deploymentTarget: "17.0"
     sources:
       - path: ParsoRadio/Integration/Tests
     dependencies:
-      - target: ParsoRadio
+      - target: ParsoMusic
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleShortVersionString: "1.0.0"
+        INFOPLIST_KEY_CFBundleShortVersionString: "2.0.0"
         INFOPLIST_KEY_CFBundleVersion: "1"
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/ParsoRadio.app/ParsoRadio"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/ParsoMusic.app/ParsoMusic"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
 schemes:
-  ParsoRadio:
+  ParsoMusic:
     build:
       targets:
-        ParsoRadio: all
+        ParsoMusic: all
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - ParsoRadioTests
-        - ParsoRadioIntegrationTests
+        - ParsoMusicTests
+        - ParsoMusicIntegrationTests
     profile:
       config: Release
     analyze:
@@ -135,10 +137,10 @@ schemes:
     archive:
       config: Release
 
-  ParsoRadioTests:
+  ParsoMusicTests:
     build:
       targets:
-        ParsoRadioTests: all
+        ParsoMusicTests: all
     run:
       config: Debug
     test:

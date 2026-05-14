@@ -1,5 +1,5 @@
 import XCTest
-@testable import ParsoRadio
+@testable import ParsoMusic
 
 // Integration tests for OxfordLecturesService.
 // These tests hit the live podcasts.ox.ac.uk website.

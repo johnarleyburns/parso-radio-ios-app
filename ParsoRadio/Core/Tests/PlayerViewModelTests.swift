@@ -1,6 +1,6 @@
 import XCTest
 import AVFoundation
-@testable import ParsoRadio
+@testable import ParsoMusic
 
 // Tests for PlayerViewModel use-case behaviors.
 // All tests run on the MainActor because PlayerViewModel is @MainActor.

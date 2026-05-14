@@ -1,5 +1,5 @@
 import XCTest
-@testable import ParsoRadio
+@testable import ParsoMusic
 
 final class LicenseValidatorTests: XCTestCase {
     private let validator = LicenseValidator()

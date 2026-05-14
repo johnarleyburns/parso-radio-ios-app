@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct ParsoRadioApp: App {
+struct ParsoMusicApp: App {
     @StateObject private var playerVM: PlayerViewModel = {
         let db: DatabaseService
         do {
