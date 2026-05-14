@@ -88,10 +88,10 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild test \
-            -project ParsoRadio.xcodeproj \
-            -scheme ParsoRadio \
+            -project ParsoMusic.xcodeproj \
+            -scheme ParsoMusic \
             -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
-            -only-testing:ParsoRadioTests \
+            -only-testing:ParsoMusicTests \
             -resultBundlePath TestResults/unit-tests.xcresult \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
@@ -184,10 +184,10 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild test \
-            -project ParsoRadio.xcodeproj \
-            -scheme ParsoRadio \
+            -project ParsoMusic.xcodeproj \
+            -scheme ParsoMusic \
             -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
-            -only-testing:ParsoRadioIntegrationTests \
+            -only-testing:ParsoMusicIntegrationTests \
             -resultBundlePath TestResults/integration-tests.xcresult \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
@@ -280,18 +280,18 @@ jobs:
         run: |
           set -eo pipefail
           xcodebuild archive \
-            -project ParsoRadio.xcodeproj \
-            -scheme ParsoRadio \
+            -project ParsoMusic.xcodeproj \
+            -scheme ParsoMusic \
             -configuration Release \
             -destination "generic/platform=iOS" \
-            -archivePath ./build/ParsoRadio.xcarchive \
+            -archivePath ./build/ParsoMusic.xcarchive \
             ARCHS=arm64 \
             IPHONEOS_DEPLOYMENT_TARGET=17.0 \
             CI_TEAM="$TEAM_ID" \
             CI_CERT="Apple Distribution" \
             CI_PROFILE="Parso Radio App Store" \
             2>&1 | tee build.log
-          if [ ! -d "./build/ParsoRadio.xcarchive" ]; then
+          if [ ! -d "./build/ParsoMusic.xcarchive" ]; then
             echo "Archive not found — build failed"
             grep -E 'error:' build.log | head -20
             exit 1
@@ -301,7 +301,7 @@ jobs:
         run: |
           set -eo pipefail
           xcodebuild -exportArchive \
-            -archivePath ./build/ParsoRadio.xcarchive \
+            -archivePath ./build/ParsoMusic.xcarchive \
             -exportPath ./output \
             -exportOptionsPlist ExportOptions.plist
 
@@ -324,7 +324,7 @@ jobs:
           set -eo pipefail
           xcrun altool --upload-app \
             --type ios \
-            --file output/ParsoRadio.ipa \
+            --file output/ParsoMusic.ipa \
             --apiKey "$APPSTORE_API_KEY_ID" \
             --apiIssuer "$APPSTORE_API_ISSUER_ID"
 
