@@ -58,6 +58,18 @@ struct FMAService {
         return (pdTracks + ccbyTracks).filter { seen.insert($0.id).inserted }
     }
 
+    // MARK: - Search (used by SearchViewModel)
+
+    func search(query: String, page: Int) async throws -> [SearchViewModel.ResultGroup] {
+        // Stub: returns empty results. Full implementation in a later sprint.
+        return []
+    }
+
+    func fetchTracksForAlbum(_ albumId: String) async throws -> [Track] {
+        // Stub: returns empty results. Full implementation in a later sprint.
+        return []
+    }
+
     // MARK: - Private
 
     private func fetchGenre(genre: String, licenseFilter: String, page: Int) async throws -> [Track] {

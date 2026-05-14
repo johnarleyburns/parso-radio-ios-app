@@ -162,6 +162,23 @@ struct InternetArchiveService {
         throw URLError(.unsupportedURL)
     }
 
+    // MARK: - Search (used by SearchViewModel)
+
+    func search(query: String, page: Int) async throws -> [SearchViewModel.ResultGroup] {
+        // Stub: returns empty results. Full implementation in a later sprint.
+        return []
+    }
+
+    func searchLibrivox(query: String, page: Int) async throws -> [SearchViewModel.ResultGroup] {
+        // Stub: returns empty results. Full implementation in a later sprint.
+        return []
+    }
+
+    func fetchTracksForIdentifier(_ identifier: String) async throws -> [Track] {
+        // Stub: returns empty results. Full implementation in a later sprint.
+        return []
+    }
+
     // MARK: - Private
 
     // Do NOT add a subject filter here — it's inconsistent with InstrumentDetector
