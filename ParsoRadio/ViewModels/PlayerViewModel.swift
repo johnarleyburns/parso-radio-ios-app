@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import UIKit
 import MediaPlayer
 
@@ -21,6 +22,7 @@ final class PlayerViewModel: ObservableObject {
     @Published var channelMostRecentDate: Date? = nil
     @Published var channelDescription: String = ""
     @Published var currentArtwork: UIImage? = nil
+    @Published var artworkDominantColor: Color = .accentColor
     var currentPlaylist: Playlist? = nil
 
     let audioPlayer: AudioPlayerService
@@ -330,16 +332,22 @@ final class PlayerViewModel: ObservableObject {
             if playHistory.count > historyLimit { playHistory.removeFirst() }
         }
         currentTrack = track
+        // Pre-set duration from track metadata so scrubber renders before AVPlayer buffers.
+        trackDuration = track.duration > 0 ? track.duration : nil
         // Load artwork asynchronously so playback starts without waiting
         Task { [weak self] in
             guard let self else { return }
             let art = await ArtworkService.shared.artwork(for: track)
             self.currentArtwork = art
-            if let art = art {
+            if let art {
+                let uiColor = ArtworkService.shared.dominantColor(from: art)
+                self.artworkDominantColor = Color(uiColor)
                 let mpArt = MPMediaItemArtwork(boundsSize: art.size) { _ in art }
                 var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
                 info[MPMediaItemPropertyArtwork] = mpArt
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+            } else {
+                self.artworkDominantColor = .accentColor
             }
         }
         isLoading = true

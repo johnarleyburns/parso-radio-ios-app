@@ -4,7 +4,6 @@ import Foundation
 final class SearchViewModel: ObservableObject {
     enum SearchSource: String, CaseIterable, Identifiable {
         case internetArchive = "Internet Archive"
-        case fma             = "Free Music Archive"
         case librivox        = "Librivox"
         var id: String { rawValue }
     }
@@ -29,13 +28,11 @@ final class SearchViewModel: ObservableObject {
     @Published var hasMorePages: Bool = false
 
     private let archiveService: InternetArchiveService
-    private let fmaService: FMAService
     private var searchTask: Task<Void, Never>? = nil
     private var currentPage = 0
 
-    init(archiveService: InternetArchiveService, fmaService: FMAService) {
+    init(archiveService: InternetArchiveService = InternetArchiveService()) {
         self.archiveService = archiveService
-        self.fmaService = fmaService
     }
 
     func searchChanged() {
@@ -60,13 +57,7 @@ final class SearchViewModel: ObservableObject {
             return
         }
         let group = results[index]
-        let tracks: [Track]
-        switch group.source {
-        case .internetArchive, .librivox:
-            tracks = (try? await archiveService.fetchTracksForIdentifier(group.id)) ?? []
-        case .fma:
-            tracks = (try? await fmaService.fetchTracksForAlbum(group.id)) ?? []
-        }
+        let tracks = (try? await archiveService.fetchTracksForIdentifier(group.id)) ?? []
         results[index].tracks = tracks
         results[index].trackCount = tracks.count
         results[index].isExpanded = true
@@ -82,8 +73,6 @@ final class SearchViewModel: ObservableObject {
             switch source {
             case .internetArchive:
                 groups = try await archiveService.search(query: query, page: page)
-            case .fma:
-                groups = try await fmaService.search(query: query, page: page)
             case .librivox:
                 groups = try await archiveService.searchLibrivox(query: query, page: page)
             }

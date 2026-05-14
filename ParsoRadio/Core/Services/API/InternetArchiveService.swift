@@ -183,18 +183,122 @@ struct InternetArchiveService {
     // MARK: - Search (used by SearchViewModel)
 
     func search(query: String, page: Int) async throws -> [SearchViewModel.ResultGroup] {
-        // Stub: returns empty results. Full implementation in a later sprint.
-        return []
+        let q = "(title:(\(query)) OR creator:(\(query))) AND mediatype:audio"
+        return try await searchGroups(query: q, page: page, source: .internetArchive)
     }
 
     func searchLibrivox(query: String, page: Int) async throws -> [SearchViewModel.ResultGroup] {
-        // Stub: returns empty results. Full implementation in a later sprint.
-        return []
+        let q = "(title:(\(query)) OR creator:(\(query))) AND mediatype:audio AND collection:librivoxaudio"
+        return try await searchGroups(query: q, page: page, source: .librivox)
     }
 
     func fetchTracksForIdentifier(_ identifier: String) async throws -> [Track] {
-        // Stub: returns empty results. Full implementation in a later sprint.
-        return []
+        guard let encoded = identifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let metaURL = URL(string: "https://archive.org/metadata/\(encoded)") else {
+            throw URLError(.badURL)
+        }
+        let (data, _) = try await session.data(from: metaURL)
+
+        struct IAMetaFull: Decodable {
+            struct IAMetaFile: Decodable {
+                let name: String
+                let format: String?
+                let length: String?
+                let title: String?
+                let creator: String?
+            }
+            struct IAMetaMetadata: Decodable {
+                let title: String?
+                let creator: String?
+                let licenseurl: String?
+                let year: Int?
+                enum CodingKeys: String, CodingKey { case title, creator, licenseurl, year }
+                init(from decoder: Decoder) throws {
+                    let c = try decoder.container(keyedBy: CodingKeys.self)
+                    title      = try? c.decode(String.self, forKey: .title)
+                    creator    = try? c.decode(String.self, forKey: .creator)
+                    licenseurl = try? c.decode(String.self, forKey: .licenseurl)
+                    if let y = try? c.decode(Int.self, forKey: .year) { year = y }
+                    else if let s = try? c.decode(String.self, forKey: .year) { year = Int(s) }
+                    else { year = nil }
+                }
+            }
+            let files: [IAMetaFile]
+            let metadata: IAMetaMetadata
+        }
+
+        let meta = try JSONDecoder().decode(IAMetaFull.self, from: data)
+        let preferredFormats = ["VBR MP3", "128Kbps MP3", "64Kbps MP3", "MP3", "Ogg Vorbis"]
+        let audioExtensions: Set<String> = ["mp3", "ogg", "flac", "m4a", "aac", "opus", "wav"]
+
+        let audioFiles = meta.files.filter { file in
+            if let fmt = file.format, preferredFormats.contains(fmt) { return true }
+            let ext = (file.name as NSString).pathExtension.lowercased()
+            return audioExtensions.contains(ext)
+        }
+
+        let itemTitle = meta.metadata.title ?? identifier
+        let itemCreator = meta.metadata.creator ?? "Unknown"
+        let licenseURL = meta.metadata.licenseurl
+        let license = validator.validate(licenseURL: licenseURL, year: meta.metadata.year, collection: nil)
+
+        return audioFiles.enumerated().compactMap { index, file in
+            let enc = file.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? file.name
+            guard let streamURL = URL(string: "https://archive.org/download/\(encoded)/\(enc)") else { return nil }
+            let duration = file.length.flatMap { Double($0) } ?? 0
+            return Track(
+                id: "\(identifier)/\(file.name)",
+                source: "internet_archive",
+                title: file.title ?? (audioFiles.count == 1 ? itemTitle : file.name),
+                artist: file.creator ?? itemCreator,
+                duration: duration,
+                streamURL: streamURL,
+                downloadURL: streamURL,
+                localFilePath: nil,
+                license: license,
+                tags: [],
+                qualityScore: 0.7,
+                rawCreator: file.creator ?? itemCreator,
+                composer: nil,
+                instruments: [],
+                metadataConfidence: 1.0,
+                addedDate: nil,
+                partNumber: audioFiles.count > 1 ? index + 1 : nil,
+                totalParts: audioFiles.count > 1 ? audioFiles.count : nil,
+                parentIdentifier: audioFiles.count > 1 ? identifier : nil
+            )
+        }
+    }
+
+    private func searchGroups(
+        query: String,
+        page: Int,
+        source: SearchViewModel.SearchSource
+    ) async throws -> [SearchViewModel.ResultGroup] {
+        var components = URLComponents(string: Self.searchBase)!
+        components.queryItems = [
+            URLQueryItem(name: "q",       value: query),
+            URLQueryItem(name: "fl[]",    value: "identifier"),
+            URLQueryItem(name: "fl[]",    value: "title"),
+            URLQueryItem(name: "fl[]",    value: "creator"),
+            URLQueryItem(name: "fl[]",    value: "addeddate"),
+            URLQueryItem(name: "output",  value: "json"),
+            URLQueryItem(name: "rows",    value: "20"),
+            URLQueryItem(name: "start",   value: "\(page * 20)"),
+            URLQueryItem(name: "sort[]",  value: "addeddate desc"),
+        ]
+        let (data, _) = try await session.data(from: components.url!)
+        let response = try JSONDecoder().decode(IASearchResponse.self, from: data)
+        return response.response.docs.map { doc in
+            SearchViewModel.ResultGroup(
+                id: doc.identifier,
+                title: doc.title ?? doc.identifier,
+                creator: doc.creator ?? "Unknown",
+                addedDate: Self.parseIADate(doc.addeddate),
+                trackCount: 1,
+                source: source
+            )
+        }
     }
 
     // MARK: - Private

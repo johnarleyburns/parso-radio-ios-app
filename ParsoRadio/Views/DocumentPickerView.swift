@@ -4,12 +4,13 @@ import UniformTypeIdentifiers
 struct DocumentPickerView: UIViewControllerRepresentable {
     let allowedTypes: [UTType]
     let allowsMultipleSelection: Bool
+    var asCopy: Bool = true
     let onPickedURLs: ([URL]) -> Void
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(
             forOpeningContentTypes: allowedTypes,
-            asCopy: true
+            asCopy: asCopy
         )
         picker.allowsMultipleSelection = allowsMultipleSelection
         picker.delegate = context.coordinator

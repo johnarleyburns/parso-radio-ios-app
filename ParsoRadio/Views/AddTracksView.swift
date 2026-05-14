@@ -37,7 +37,7 @@ struct AddTracksView: View {
                     Button {
                         showSearch = true
                     } label: {
-                        Label("Search (IA / FMA / Librivox)", systemImage: "magnifyingglass")
+                        Label("Search (IA / Librivox)", systemImage: "magnifyingglass")
                     }
                 }
                 if isImporting {
@@ -69,7 +69,8 @@ struct AddTracksView: View {
             .sheet(isPresented: $showFolderPicker) {
                 DocumentPickerView(
                     allowedTypes: [.folder],
-                    allowsMultipleSelection: false
+                    allowsMultipleSelection: false,
+                    asCopy: false
                 ) { urls in
                     if let folder = urls.first {
                         importFolder(folder)

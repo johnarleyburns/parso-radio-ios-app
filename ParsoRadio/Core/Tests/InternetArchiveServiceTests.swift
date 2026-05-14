@@ -206,6 +206,121 @@ final class InternetArchiveServiceTests: XCTestCase {
         XCTAssertEqual(tracks.count, 1)
         XCTAssertNil(tracks[0].addedDate, "Track without addeddate must have addedDate == nil")
     }
+
+    // MARK: - Search
+
+    func testSearchReturnsResultGroups() async throws {
+        MockURLProtocol.requestHandler = { _ in
+            let json = """
+            {"response":{"docs":[
+              {"identifier":"beethoven-sym3","title":"Symphony No. 3",
+               "creator":"Ludwig van Beethoven","addeddate":"2023-01-10T12:00:00.000000"},
+              {"identifier":"beethoven-sym5","title":"Symphony No. 5",
+               "creator":"Ludwig van Beethoven","addeddate":"2022-06-01T08:00:00.000000"}
+            ]}}
+            """
+            let data = json.data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+        let service = InternetArchiveService(session: session)
+        let groups = try await service.search(query: "beethoven", page: 0)
+        XCTAssertEqual(groups.count, 2)
+        XCTAssertEqual(groups[0].id, "beethoven-sym3")
+        XCTAssertEqual(groups[0].title, "Symphony No. 3")
+        XCTAssertEqual(groups[0].creator, "Ludwig van Beethoven")
+        XCTAssertEqual(groups[0].source, .internetArchive)
+        XCTAssertNotNil(groups[0].addedDate)
+    }
+
+    func testSearchLibrivoxHasLibrivoxSource() async throws {
+        MockURLProtocol.requestHandler = { _ in
+            let json = """
+            {"response":{"docs":[
+              {"identifier":"sherlock-holmes-librivox","title":"Adventures of Sherlock Holmes",
+               "creator":"Arthur Conan Doyle","addeddate":"2021-03-15T00:00:00.000000"}
+            ]}}
+            """
+            let data = json.data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+        let service = InternetArchiveService(session: session)
+        let groups = try await service.searchLibrivox(query: "sherlock", page: 0)
+        XCTAssertEqual(groups.count, 1)
+        XCTAssertEqual(groups[0].source, .librivox)
+        XCTAssertEqual(groups[0].id, "sherlock-holmes-librivox")
+    }
+
+    func testSearchPaginationSetsStartParam() async throws {
+        var capturedURL: URL?
+        MockURLProtocol.requestHandler = { request in
+            capturedURL = request.url
+            let json = """{"response":{"docs":[]}}"""
+            let data = json.data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+        let service = InternetArchiveService(session: session)
+        _ = try await service.search(query: "bach", page: 2)
+        let urlString = capturedURL?.absoluteString ?? ""
+        XCTAssertTrue(urlString.contains("start=40"), "page 2 should use start=40, got: \(urlString)")
+    }
+
+    func testFetchTracksForIdentifierReturnsAudioFiles() async throws {
+        MockURLProtocol.requestHandler = { _ in
+            let json = """
+            {
+              "files":[
+                {"name":"track01.mp3","format":"VBR MP3","length":"240.5",
+                 "title":"Aria da Capo","creator":"J.S. Bach"},
+                {"name":"track02.mp3","format":"128Kbps MP3","length":"180.0",
+                 "title":"Allemande","creator":"J.S. Bach"},
+                {"name":"cover.jpg","format":"JPEG"}
+              ],
+              "metadata":{"title":"Goldberg Variations","creator":"J.S. Bach",
+                          "licenseurl":"https://creativecommons.org/publicdomain/mark/1.0/"}
+            }
+            """
+            let data = json.data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+        let service = InternetArchiveService(session: session)
+        let tracks = try await service.fetchTracksForIdentifier("goldberg-vars-001")
+        XCTAssertEqual(tracks.count, 2)
+        XCTAssertEqual(tracks[0].title, "Aria da Capo")
+        XCTAssertEqual(tracks[0].duration, 240.5)
+        XCTAssertEqual(tracks[0].partNumber, 1)
+        XCTAssertEqual(tracks[0].totalParts, 2)
+        XCTAssertEqual(tracks[0].parentIdentifier, "goldberg-vars-001")
+        XCTAssertTrue(tracks[0].streamURL.absoluteString.contains("archive.org/download/goldberg-vars-001/track01.mp3"))
+        XCTAssertEqual(tracks[0].license, .publicDomain)
+    }
+
+    func testFetchTracksForIdentifierSingleFileHasNoPartInfo() async throws {
+        MockURLProtocol.requestHandler = { _ in
+            let json = """
+            {
+              "files":[
+                {"name":"symphony.mp3","format":"VBR MP3","length":"1800.0",
+                 "title":"Symphony No. 5","creator":"Beethoven"}
+              ],
+              "metadata":{"title":"Symphony No. 5","creator":"Beethoven",
+                          "licenseurl":"https://creativecommons.org/publicdomain/mark/1.0/"}
+            }
+            """
+            let data = json.data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+        let service = InternetArchiveService(session: session)
+        let tracks = try await service.fetchTracksForIdentifier("beethoven-sym5")
+        XCTAssertEqual(tracks.count, 1)
+        XCTAssertNil(tracks[0].partNumber)
+        XCTAssertNil(tracks[0].totalParts)
+        XCTAssertNil(tracks[0].parentIdentifier)
+    }
 }
 
 // MARK: - Mock URLProtocol

@@ -6,11 +6,9 @@ struct SearchView: View {
     @State private var showAddToPlaylist: Track? = nil
     @Environment(\.dismiss) private var dismiss
 
-    init(archiveService: InternetArchiveService = InternetArchiveService(),
-         fmaService: FMAService = FMAService()) {
+    init(archiveService: InternetArchiveService = InternetArchiveService()) {
         _searchVM = StateObject(wrappedValue: SearchViewModel(
-            archiveService: archiveService,
-            fmaService: fmaService
+            archiveService: archiveService
         ))
     }
 

@@ -182,6 +182,73 @@ final class SpokenWordIntegrationTests: XCTestCase {
     }
 }
 
+// MARK: - Search integration tests
+
+final class SearchIntegrationTests: XCTestCase {
+
+    private let service = InternetArchiveService()
+
+    override func setUp() {
+        super.setUp()
+        executionTimeAllowance = 60
+    }
+
+    func testSearchBeethovenReturnsResults() async throws {
+        let groups: [SearchViewModel.ResultGroup]
+        do {
+            groups = try await service.search(query: "beethoven", page: 0)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("Search 'beethoven': \(groups.count) groups")
+        for g in groups.prefix(3) { print("  \(g.id) — \(g.title)") }
+        XCTAssertFalse(groups.isEmpty, "Expected ≥1 result for 'beethoven' on Internet Archive")
+        XCTAssertTrue(groups.allSatisfy { !$0.id.isEmpty }, "All groups must have a non-empty identifier")
+        XCTAssertTrue(groups.allSatisfy { $0.source == .internetArchive })
+    }
+
+    func testSearchLibrivoxSherlockReturnsResults() async throws {
+        let groups: [SearchViewModel.ResultGroup]
+        do {
+            groups = try await service.searchLibrivox(query: "sherlock", page: 0)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("LibriVox 'sherlock': \(groups.count) groups")
+        for g in groups.prefix(3) { print("  \(g.id) — \(g.title)") }
+        XCTAssertFalse(groups.isEmpty, "Expected ≥1 LibriVox result for 'sherlock'")
+        XCTAssertTrue(groups.allSatisfy { $0.source == .librivox })
+    }
+
+    func testFetchTracksForIdentifierReturnsPlayableFiles() async throws {
+        let groups: [SearchViewModel.ResultGroup]
+        do {
+            groups = try await service.search(query: "beethoven symphony", page: 0)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        guard let first = groups.first else {
+            throw XCTSkip("No search results — cannot test fetchTracksForIdentifier")
+        }
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchTracksForIdentifier(first.id)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable fetching identifier \(first.id): \(e.localizedDescription)")
+        }
+        print("Tracks for '\(first.id)': \(tracks.count)")
+        for t in tracks.prefix(3) { print("  \(t.title) — \(t.streamURL.lastPathComponent)") }
+        XCTAssertFalse(tracks.isEmpty, "Expected ≥1 audio file for identifier \(first.id)")
+        XCTAssertTrue(
+            tracks.allSatisfy { t in
+                let ext = (t.streamURL.lastPathComponent as NSString).pathExtension.lowercased()
+                return ["mp3", "ogg", "flac", "m4a", "aac", "opus", "wav"].contains(ext)
+            },
+            "All tracks must have audio file URLs"
+        )
+    }
+}
+
 // MARK: - FMA scraper integration tests
 
 final class FMAIntegrationTests: XCTestCase {
