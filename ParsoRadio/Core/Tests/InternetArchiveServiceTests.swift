@@ -154,6 +154,58 @@ final class InternetArchiveServiceTests: XCTestCase {
             XCTAssertTrue(error is URLError)
         }
     }
+
+    func testAddedDateParsedFromISOString() async throws {
+        MockURLProtocol.requestHandler = { _ in
+            let json = """
+            {"response":{"docs":[
+              {"identifier":"dated-001","title":"Goldberg Variations",
+               "creator":"Johann Sebastian Bach",
+               "subject":["piano","baroque"],
+               "licenseurl":"https://creativecommons.org/publicdomain/mark/1.0/",
+               "year":1925,"collection":["audio"],
+               "addeddate":"2023-08-15T14:30:00.000000"}
+            ]}}
+            """
+            let data = json.data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+
+        let service = InternetArchiveService(session: session)
+        let tracks = try await service.fetchTracks(composers: ["bach"], instruments: ["piano"])
+        XCTAssertEqual(tracks.count, 1)
+        XCTAssertNotNil(tracks[0].addedDate, "addeddate field must be parsed into Track.addedDate")
+        if let date = tracks[0].addedDate {
+            let cal = Calendar(identifier: .gregorian)
+            let comps = cal.dateComponents(in: TimeZone(identifier: "UTC")!, from: date)
+            XCTAssertEqual(comps.year, 2023)
+            XCTAssertEqual(comps.month, 8)
+            XCTAssertEqual(comps.day, 15)
+        }
+    }
+
+    func testMissingAddedDateResultsInNil() async throws {
+        MockURLProtocol.requestHandler = { _ in
+            let json = """
+            {"response":{"docs":[
+              {"identifier":"nodated-001","title":"Cello Suite",
+               "creator":"Johann Sebastian Bach",
+               "subject":["cello"],
+               "licenseurl":"https://creativecommons.org/publicdomain/mark/1.0/",
+               "year":1920,"collection":["audio"]}
+            ]}}
+            """
+            let data = json.data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+
+        let service = InternetArchiveService(session: session)
+        let tracks = try await service.fetchTracks(composers: ["bach"], instruments: ["cello"])
+        XCTAssertEqual(tracks.count, 1)
+        XCTAssertNil(tracks[0].addedDate, "Track without addeddate must have addedDate == nil")
+    }
 }
 
 // MARK: - Mock URLProtocol
