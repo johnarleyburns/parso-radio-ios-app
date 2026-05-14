@@ -15,7 +15,7 @@ final class QueueManagerTests: XCTestCase {
         await seedTracks(composer: "bach", instrument: "strings", count: 5)
 
         let channel = Channel.defaults.first { $0.id == "bach" }!
-        let track = await queue.nextTrack(channel: channel)
+        let track = await queue.nextTrack(channel: channel, shuffleMode: true)
         XCTAssertNotNil(track)
         XCTAssertEqual(track?.composer, "bach")
     }
@@ -26,7 +26,7 @@ final class QueueManagerTests: XCTestCase {
 
         var seen: Set<String> = []
         for _ in 0..<10 {
-            guard let t = await queue.nextTrack(channel: channel) else { break }
+            guard let t = await queue.nextTrack(channel: channel, shuffleMode: true) else { break }
             XCTAssertFalse(seen.contains(t.id), "Track \(t.id) repeated")
             seen.insert(t.id)
         }
@@ -34,7 +34,7 @@ final class QueueManagerTests: XCTestCase {
 
     func testReturnsNilWhenPoolEmpty() async throws {
         let channel = Channel.defaults.first { $0.id == "bach" }!
-        let track = await queue.nextTrack(channel: channel)
+        let track = await queue.nextTrack(channel: channel, shuffleMode: true)
         XCTAssertNil(track)
     }
 
@@ -47,7 +47,7 @@ final class QueueManagerTests: XCTestCase {
         let channel = Channel.defaults.first { $0.id == "bach" }!
         var results: [Track] = []
         for _ in 0..<8 {
-            if let t = await queue.nextTrack(channel: channel) { results.append(t) }
+            if let t = await queue.nextTrack(channel: channel, shuffleMode: true) { results.append(t) }
         }
         XCTAssertGreaterThan(results.count, 3)
     }

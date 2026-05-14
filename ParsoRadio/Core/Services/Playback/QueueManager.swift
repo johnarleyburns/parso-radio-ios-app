@@ -5,92 +5,155 @@ final class QueueManager {
     private var recentIDs: [String] = []
     private let historyLimit = 50
 
-    init(db: DatabaseService) {
-        self.db = db
+    init(db: DatabaseService) { self.db = db }
+
+    // MARK: - Public
+
+    func nextTrack(channel: Channel, shuffleMode: Bool) async -> Track? {
+        await _next(channel: channel, shuffleMode: shuffleMode, record: true)
     }
 
-    // Returns the next track that would be picked without advancing the queue.
-    // Used for look-ahead URL pre-resolution while the current track is playing.
-    func peekNextTrack(channel: Channel) async -> Track? {
-        if channel.feedURL != nil {
-            let heard = PodcastPlayHistory.recentlyHeardIds()
-            let pool = await db.fetchTracks(forChannel: channel)
-                .filter { !heard.contains($0.id) && !recentIDs.contains($0.id) }
-            return pool.first
+    func peekNextTrack(channel: Channel, shuffleMode: Bool) async -> Track? {
+        await _next(channel: channel, shuffleMode: shuffleMode, record: false)
+    }
+
+    // MARK: - Librivox sequential advance
+
+    func nextPart(after track: Track, channel: Channel) async -> Track? {
+        guard let parent = track.parentIdentifier,
+              let currentPart = track.partNumber else { return nil }
+        let allTracks = await db.fetchTracks(forChannel: channel)
+        let parts = allTracks
+            .filter { $0.parentIdentifier == parent }
+            .sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+        guard let nextPart = parts.first(where: { ($0.partNumber ?? 0) == currentPart + 1 }) else {
+            // Last part — advance to first part of the next book
+            return await nextBook(after: parent, channel: channel)
         }
-        let pool = await db.fetchTracks(forChannel: channel)
-            .filter { !recentIDs.contains($0.id) }
-        if pool.isEmpty { return nil }
-        return weightedRandom(from: pool, seed: dailySeed(for: channel))
+        return nextPart
     }
 
-    func nextTrack(channel: Channel) async -> Track? {
-        // News/podcast channels: sequential newest-first, skip 30-day recently-heard episodes.
-        // qualityScore = pubDate Unix timestamp, so DB ORDER BY quality DESC = newest first.
+    func previousPart(before track: Track, channel: Channel) async -> Track? {
+        guard let parent = track.parentIdentifier,
+              let currentPart = track.partNumber else { return nil }
+        let allTracks = await db.fetchTracks(forChannel: channel)
+        let parts = allTracks
+            .filter { $0.parentIdentifier == parent }
+            .sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+        return parts.first(where: { ($0.partNumber ?? 0) == currentPart - 1 })
+    }
+
+    func firstPartOfNextBook(after track: Track, channel: Channel) async -> Track? {
+        guard let parent = track.parentIdentifier else { return nil }
+        return await nextBook(after: parent, channel: channel)
+    }
+
+    func firstPartOfPreviousBook(before track: Track, channel: Channel) async -> Track? {
+        guard let parent = track.parentIdentifier else { return nil }
+        return await previousBook(before: parent, channel: channel)
+    }
+
+    // MARK: - Private
+
+    private func _next(channel: Channel, shuffleMode: Bool, record: Bool) async -> Track? {
+        // Podcast/news channels: always sequential newest-first, 30-day dedup via DB
         if channel.feedURL != nil {
-            PodcastPlayHistory.evictExpired()
-            let heard = PodcastPlayHistory.recentlyHeardIds()
-            let pool = await db.fetchTracks(forChannel: channel)
-                .filter { !heard.contains($0.id) && !recentIDs.contains($0.id) }
-            guard let track = pool.first else { return nil }
-            record(track.id)
-            PodcastPlayHistory.markHeard(track.id)
-            return track
+            return await nextPodcastTrack(channel: channel, record: record)
         }
 
         var pool = await db.fetchTracks(forChannel: channel)
             .filter { !recentIDs.contains($0.id) }
 
-        // Expand to similar composers when pool is thin
+        // Expand pool if thin
         if pool.count < 20, !channel.composers.isEmpty {
-            let expanded = channel.composers
-                .flatMap { ComposerMap.similarity[$0] ?? [] }
-            let expandedChannel = Channel(
-                id: channel.id + "-expanded",
-                name: channel.name,
-                category: channel.category,
-                icon: channel.icon,
-                composers: expanded,
-                instruments: channel.instruments,
-                tags: channel.tags,
-                contentType: channel.contentType
+            let similar = channel.composers.flatMap { ComposerMap.similarity[$0] ?? [] }
+            let expanded = Channel(
+                id: channel.id + "-expanded", name: channel.name,
+                category: channel.category, icon: channel.icon,
+                composers: similar, instruments: channel.instruments,
+                tags: channel.tags, contentType: channel.contentType
             )
-            let extra = await db.fetchTracks(forChannel: expandedChannel)
+            let extra = await db.fetchTracks(forChannel: expanded)
                 .filter { !recentIDs.contains($0.id) }
             pool.append(contentsOf: extra)
         }
-
-        // Fallback to tag-only if still empty
         if pool.isEmpty {
             let tagChannel = Channel(
-                id: channel.id + "-tag-fallback",
-                name: channel.name,
-                category: channel.category,
-                icon: channel.icon,
-                tags: channel.tags,
-                contentType: channel.contentType
+                id: channel.id + "-tag-fallback", name: channel.name,
+                category: channel.category, icon: channel.icon,
+                tags: channel.tags, contentType: channel.contentType
             )
             pool = await db.fetchTracks(forChannel: tagChannel)
                 .filter { !recentIDs.contains($0.id) }
         }
-
         guard !pool.isEmpty else { return nil }
 
-        let track = weightedRandom(from: pool, seed: dailySeed(for: channel))
-        record(track.id)
+        let track: Track
+        if shuffleMode {
+            track = weightedRandom(from: pool, seed: dailySeed(for: channel))
+        } else {
+            // Recent-first: sort by addedDate DESC, fall back to qualityScore
+            let sorted = pool.sorted {
+                let d0 = $0.addedDate ?? Date(timeIntervalSince1970: $0.qualityScore)
+                let d1 = $1.addedDate ?? Date(timeIntervalSince1970: $1.qualityScore)
+                return d0 > d1
+            }
+            track = sorted.first!
+        }
+        if record { recordID(track.id) }
         return track
     }
 
-    // MARK: - Private
+    private func nextPodcastTrack(channel: Channel, record: Bool) async -> Track? {
+        let heard = await db.recentlyHeardIds(forChannel: channel.id)
+        let pool = await db.fetchTracks(forChannel: channel)
+            .filter { !heard.contains($0.id) && !recentIDs.contains($0.id) }
+        guard let track = pool.first else { return nil }
+        if record {
+            recordID(track.id)
+            await db.recordPlayed(channelId: channel.id, trackId: track.id)
+        }
+        return track
+    }
+
+    // Returns the first track of the next distinct parentIdentifier group
+    private func nextBook(after parentId: String, channel: Channel) async -> Track? {
+        let all = await db.fetchTracks(forChannel: channel)
+        let parents = orderedParents(from: all)
+        guard let idx = parents.firstIndex(of: parentId),
+              idx + 1 < parents.count else {
+            // Wrap to first book
+            return firstPart(of: parents.first ?? "", in: all)
+        }
+        return firstPart(of: parents[idx + 1], in: all)
+    }
+
+    private func previousBook(before parentId: String, channel: Channel) async -> Track? {
+        let all = await db.fetchTracks(forChannel: channel)
+        let parents = orderedParents(from: all)
+        guard let idx = parents.firstIndex(of: parentId), idx > 0 else {
+            return firstPart(of: parents.last ?? "", in: all)
+        }
+        return firstPart(of: parents[idx - 1], in: all)
+    }
+
+    private func orderedParents(from tracks: [Track]) -> [String] {
+        var seen = Set<String>()
+        return tracks.compactMap { $0.parentIdentifier }.filter { seen.insert($0).inserted }
+    }
+
+    private func firstPart(of parentId: String, in tracks: [Track]) -> Track? {
+        tracks.filter { $0.parentIdentifier == parentId }
+              .min(by: { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) })
+    }
 
     private func weightedRandom(from pool: [Track], seed: UInt64) -> Track {
         var rng = SeededRNG(seed: seed &+ UInt64(recentIDs.count))
-        let totalWeight = pool.reduce(0.0) { $0 + ($1.qualityScore * $1.metadataConfidence) }
+        let totalWeight = pool.reduce(0.0) { $0 + ($1.qualityScore * max($1.metadataConfidence, 0.01)) }
         guard totalWeight > 0 else { return pool[Int(rng.next() % UInt64(pool.count))] }
-
         var pick = Double(rng.next()) / Double(UInt64.max) * totalWeight
         for track in pool {
-            pick -= track.qualityScore * track.metadataConfidence
+            pick -= track.qualityScore * max(track.metadataConfidence, 0.01)
             if pick <= 0 { return track }
         }
         var fallback = SeededRNG(seed: seed &+ UInt64(recentIDs.count) &+ 1)
@@ -99,15 +162,12 @@ final class QueueManager {
 
     private func dailySeed(for channel: Channel) -> UInt64 {
         let dateStr = ISO8601DateFormatter().string(from: Calendar.current.startOfDay(for: Date()))
-        let raw = (dateStr + channel.id).utf8.reduce(UInt64(5381)) { ($0 &<< 5) &+ $0 &+ UInt64($1) }
-        return raw
+        return (dateStr + channel.id).utf8.reduce(UInt64(5381)) { ($0 &<< 5) &+ $0 &+ UInt64($1) }
     }
 
-    private func record(_ id: String) {
+    private func recordID(_ id: String) {
         recentIDs.append(id)
-        if recentIDs.count > historyLimit {
-            recentIDs.removeFirst()
-        }
+        if recentIDs.count > historyLimit { recentIDs.removeFirst() }
     }
 }
 
@@ -115,13 +175,8 @@ final class QueueManager {
 
 private struct SeededRNG {
     private var state: UInt64
-
     init(seed: UInt64) { state = seed == 0 ? 1 : seed }
-
     mutating func next() -> UInt64 {
-        state ^= state << 13
-        state ^= state >> 7
-        state ^= state << 17
-        return state
+        state ^= state << 13; state ^= state >> 7; state ^= state << 17; return state
     }
 }
