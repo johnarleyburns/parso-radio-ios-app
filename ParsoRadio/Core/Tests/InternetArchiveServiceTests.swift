@@ -256,7 +256,7 @@ final class InternetArchiveServiceTests: XCTestCase {
         var capturedURL: URL?
         MockURLProtocol.requestHandler = { request in
             capturedURL = request.url
-            let json = """{"response":{"docs":[]}}"""
+            let json = "{\"response\":{\"docs\":[]}}"
             let data = json.data(using: .utf8)!
             let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, data)
