@@ -59,8 +59,8 @@ final class QueueManagerTests: XCTestCase {
         let q1 = QueueManager(db: db)
         let q2 = QueueManager(db: db)
 
-        let t1 = await q1.nextTrack(channel: channel)
-        let t2 = await q2.nextTrack(channel: channel)
+        let t1 = await q1.nextTrack(channel: channel, shuffleMode: true)
+        let t2 = await q2.nextTrack(channel: channel, shuffleMode: true)
         XCTAssertEqual(t1?.id, t2?.id)
     }
 
