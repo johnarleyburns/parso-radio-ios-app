@@ -5,6 +5,9 @@ import UIKit
 
 @MainActor
 final class AudioPlayerService: ObservableObject {
+    enum RepeatMode: String { case off, one }
+    var repeatMode: RepeatMode = .off
+
     @Published var isPlaying = false
     @Published var currentTrack: Track?
 
@@ -62,7 +65,7 @@ final class AudioPlayerService: ObservableObject {
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
                     self?.isPlaying = false
-                    self?.onTrackFinished?()
+                    self?.handleTrackFinished()
                 }
             }
         }
@@ -240,7 +243,7 @@ final class AudioPlayerService: ObservableObject {
         center.nextTrackCommand.isEnabled = true
         center.nextTrackCommand.addTarget { [weak self] _ in
             self?.skip()
-            self?.onTrackFinished?()
+            self?.onTrackFinished?()  // Skip always advances regardless of repeat mode
             return .success
         }
 
@@ -248,6 +251,18 @@ final class AudioPlayerService: ObservableObject {
         center.previousTrackCommand.addTarget { [weak self] _ in
             self?.onPreviousTrack?()
             return .success
+        }
+    }
+
+    // MARK: - Repeat mode
+
+    private func handleTrackFinished() {
+        switch repeatMode {
+        case .one:
+            seek(to: 0)
+            resume()
+        case .off:
+            onTrackFinished?()
         }
     }
 
