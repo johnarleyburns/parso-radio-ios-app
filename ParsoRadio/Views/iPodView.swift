@@ -555,15 +555,16 @@ struct ClickWheel: View {
 
 #Preview {
     let db = try! DatabaseService(path: ":memory:")
-    return iPodView()
+    let dm = DownloadManager(db: db)
+    iPodView()
         .environmentObject(PlayerViewModel(
             db: db,
             archiveService: InternetArchiveService(),
             fmaService: FMAService(),
             queueManager: QueueManager(db: db),
             audioPlayer: AudioPlayerService(),
-            downloadManager: DownloadManager(db: db)
+            downloadManager: dm
         ))
         .environmentObject(PlaylistViewModel(db: db))
-        .environmentObject(OfflineDownloadService(db: db))
+        .environmentObject(OfflineDownloadService(db: db, downloadManager: dm))
 }

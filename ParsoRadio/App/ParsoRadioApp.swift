@@ -12,21 +12,17 @@ private func makeSharedDB() -> DatabaseService {
 struct ParsoMusicApp: App {
     // All ViewModels share one DatabaseService instance so they operate on the same connection.
     private static let sharedDB = makeSharedDB()
+    private static let sharedDownloadManager = DownloadManager(db: sharedDB)
 
     @StateObject private var playerVM: PlayerViewModel = {
         let db = ParsoMusicApp.sharedDB
-        let archiveService = InternetArchiveService()
-        let fmaService = FMAService()
-        let queueManager = QueueManager(db: db)
-        let audioPlayer = AudioPlayerService()
-        let downloadManager = DownloadManager(db: db)
         return PlayerViewModel(
             db: db,
-            archiveService: archiveService,
-            fmaService: fmaService,
-            queueManager: queueManager,
-            audioPlayer: audioPlayer,
-            downloadManager: downloadManager
+            archiveService: InternetArchiveService(),
+            fmaService: FMAService(),
+            queueManager: QueueManager(db: db),
+            audioPlayer: AudioPlayerService(),
+            downloadManager: ParsoMusicApp.sharedDownloadManager
         )
     }()
 
@@ -35,7 +31,7 @@ struct ParsoMusicApp: App {
     }()
 
     @StateObject private var offlineService: OfflineDownloadService = {
-        OfflineDownloadService(db: ParsoMusicApp.sharedDB)
+        OfflineDownloadService(db: ParsoMusicApp.sharedDB, downloadManager: ParsoMusicApp.sharedDownloadManager)
     }()
 
     @AppStorage("tosAccepted") private var tosAccepted: Bool = false
