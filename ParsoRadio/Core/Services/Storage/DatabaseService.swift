@@ -24,11 +24,41 @@ final class DatabaseService {
     private let colConfidence = Expression<Double>("metadata_confidence")
     private let colFetchedAt  = Expression<Int64>("fetched_at")
 
+    // Tracks — new columns
+    private let colAddedDate  = Expression<Double?>("added_date")
+    private let colIsLocal    = Expression<Bool>("is_local")
+    private let colPartNumber = Expression<Int?>("part_number")
+    private let colTotalParts = Expression<Int?>("total_parts")
+    private let colParentId   = Expression<String?>("parent_identifier")
+    private let colArtworkURL = Expression<String?>("artwork_url")
+
     // MARK: - Playback positions table
     private let positions    = Table("playback_positions")
     private let colChannelId = Expression<String>("channel_id")
     private let colTrackId   = Expression<String>("track_id")
     private let colPosSecs   = Expression<Double>("position_seconds")
+
+    // MARK: - Playlists table
+    private let playlists        = Table("playlists")
+    private let colPlaylistId    = Expression<String>("id")
+    private let colPlaylistName  = Expression<String>("name")
+    private let colCreatedAt     = Expression<Double>("created_at")
+    private let colUpdatedAt     = Expression<Double>("updated_at")
+    private let colIsFavorites   = Expression<Bool>("is_favorites")
+
+    // MARK: - Playlist tracks table
+    private let playlistTracks   = Table("playlist_tracks")
+    private let colPTId          = Expression<String>("id")
+    private let colPTPlaylistId  = Expression<String>("playlist_id")
+    private let colPTTrackId     = Expression<String>("track_id")
+    private let colPTSortOrder   = Expression<Int>("sort_order")
+    private let colPTAddedAt     = Expression<Double>("added_at")
+
+    // MARK: - Track play history table
+    private let playHistory      = Table("track_play_history")
+    private let colPHChannelId   = Expression<String>("channel_id")
+    private let colPHTrackId     = Expression<String>("track_id")
+    private let colPHPlayedAt    = Expression<Double>("played_at")
 
     init(path: String? = nil) throws {
         if let path {
@@ -68,6 +98,59 @@ final class DatabaseService {
             t.column(colTrackId)
             t.column(colPosSecs)
         })
+
+        // Playlists table
+        try db.run(playlists.create(ifNotExists: true) { t in
+            t.column(colPlaylistId,   primaryKey: true)
+            t.column(colPlaylistName)
+            t.column(colCreatedAt)
+            t.column(colUpdatedAt)
+            t.column(colIsFavorites, defaultValue: false)
+        })
+
+        // Playlist tracks join table
+        try db.run(playlistTracks.create(ifNotExists: true) { t in
+            t.column(colPTId, primaryKey: true)
+            t.column(colPTPlaylistId)
+            t.column(colPTTrackId)
+            t.column(colPTSortOrder)
+            t.column(colPTAddedAt)
+            t.unique(colPTPlaylistId, colPTTrackId)
+        })
+        try db.run("CREATE INDEX IF NOT EXISTS idx_pt_playlist ON playlist_tracks(playlist_id, sort_order DESC)")
+
+        // Track play history table
+        try db.run(playHistory.create(ifNotExists: true) { t in
+            t.column(colPHChannelId)
+            t.column(colPHTrackId)
+            t.column(colPHPlayedAt)
+            t.primaryKey(colPHChannelId, colPHTrackId)
+        })
+        try db.run("CREATE INDEX IF NOT EXISTS idx_ph_channel ON track_play_history(channel_id, played_at DESC)")
+
+        // Idempotent column migrations — try? silently ignores duplicate-column errors
+        try? db.run("ALTER TABLE tracks ADD COLUMN added_date   REAL")
+        try? db.run("ALTER TABLE tracks ADD COLUMN is_local     INTEGER NOT NULL DEFAULT 0")
+        try? db.run("ALTER TABLE tracks ADD COLUMN part_number  INTEGER")
+        try? db.run("ALTER TABLE tracks ADD COLUMN total_parts  INTEGER")
+        try? db.run("ALTER TABLE tracks ADD COLUMN parent_identifier TEXT")
+        try? db.run("ALTER TABLE tracks ADD COLUMN artwork_url  TEXT")
+        try? db.run("CREATE INDEX IF NOT EXISTS idx_added_date ON tracks(added_date DESC)")
+
+        // Enable FK enforcement
+        try? db.run("PRAGMA foreign_keys = ON")
+
+        // Seed Favorites playlist if playlists table is empty
+        if (try? db.scalar(playlists.count)) == 0 {
+            let fav = Playlist.new(name: "Favorites", isFavorites: true)
+            try? db.run(playlists.insert(
+                colPlaylistId   <- fav.id,
+                colPlaylistName <- fav.name,
+                colCreatedAt    <- fav.createdAt.timeIntervalSince1970,
+                colUpdatedAt    <- fav.updatedAt.timeIntervalSince1970,
+                colIsFavorites  <- true
+            ))
+        }
     }
 
     // MARK: - Track write
@@ -92,7 +175,13 @@ final class DatabaseService {
                         self.colComposer    <- t.composer,
                         self.colInstruments <- Self.encode(t.instruments),
                         self.colConfidence  <- t.metadataConfidence,
-                        self.colFetchedAt   <- Int64(Date().timeIntervalSince1970)
+                        self.colFetchedAt   <- Int64(Date().timeIntervalSince1970),
+                        self.colAddedDate   <- t.addedDate?.timeIntervalSince1970,
+                        self.colIsLocal     <- t.isLocal,
+                        self.colPartNumber  <- t.partNumber,
+                        self.colTotalParts  <- t.totalParts,
+                        self.colParentId    <- t.parentIdentifier,
+                        self.colArtworkURL  <- t.artworkURLString
                     )
                     try? self.db.run(insert)
                 }
@@ -118,7 +207,6 @@ final class DatabaseService {
             queue.async { [self] in
                 // Confidence threshold governs metadata quality:
                 //   - Spoken-word / tag-only channels: 0.0 — all tracks are acceptable
-                //     (fetched with confidenceThreshold 0.0; no composer to validate against)
                 //   - Composer channels: 1.5 — filters misidentified tracks
                 let threshold: Double
                 if channel.contentType == .spokenWord || channel.composers.isEmpty {
@@ -135,7 +223,8 @@ final class DatabaseService {
                 }
                 query = query.order(self.colConfidence.desc, self.colQuality.desc)
                 let rows = (try? self.db.prepare(query)) ?? AnySequence([])
-                let result = rows.compactMap(self.rowToTrack).filter { channel.matches($0) }
+                let result = rows.compactMap(self.rowToTrack)
+                    .filter { channel.matches($0) && SourceValidator.isValid($0, for: channel) }
                 continuation.resume(returning: result)
             }
         }
@@ -170,7 +259,15 @@ final class DatabaseService {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
                 let cutoff = Int64(Date().timeIntervalSince1970) - Int64(days) * 86400
-                try? self.db.run(self.tracks.filter(self.colFetchedAt < cutoff).delete())
+                // Only evict non-local, non-downloaded tracks
+                let safeToDelete = self.tracks
+                    .filter(self.colFetchedAt < cutoff)
+                    .filter(self.colIsLocal == false)
+                    .filter(self.colLocalPath == nil)
+                try? self.db.run(safeToDelete.delete())
+                // Also clean up old play history
+                let historyCutoff = Date().timeIntervalSince1970 - Double(days) * 86400
+                try? self.db.run(self.playHistory.filter(self.colPHPlayedAt < historyCutoff).delete())
                 continuation.resume()
             }
         }
@@ -223,10 +320,255 @@ final class DatabaseService {
         }
     }
 
+    // MARK: - Playlists
+
+    func createPlaylist(name: String, isFavorites: Bool = false) async throws -> Playlist {
+        let p = Playlist.new(name: name, isFavorites: isFavorites)
+        return try await withCheckedThrowingContinuation { continuation in
+            queue.async { [self] in
+                do {
+                    try self.db.run(self.playlists.insert(
+                        self.colPlaylistId   <- p.id,
+                        self.colPlaylistName <- p.name,
+                        self.colCreatedAt    <- p.createdAt.timeIntervalSince1970,
+                        self.colUpdatedAt    <- p.updatedAt.timeIntervalSince1970,
+                        self.colIsFavorites  <- p.isFavorites
+                    ))
+                    continuation.resume(returning: p)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    func fetchPlaylists() async -> [Playlist] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let rows = (try? self.db.prepare(
+                    self.playlists.order(self.colIsFavorites.desc, self.colCreatedAt.asc)
+                )) ?? AnySequence([])
+                let result = rows.compactMap { row -> Playlist? in
+                    Playlist(
+                        id:          row[self.colPlaylistId],
+                        name:        row[self.colPlaylistName],
+                        createdAt:   Date(timeIntervalSince1970: row[self.colCreatedAt]),
+                        updatedAt:   Date(timeIntervalSince1970: row[self.colUpdatedAt]),
+                        isFavorites: row[self.colIsFavorites]
+                    )
+                }
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    func renamePlaylist(id: String, name: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let row = self.playlists.filter(self.colPlaylistId == id)
+                try? self.db.run(row.update(
+                    self.colPlaylistName <- name,
+                    self.colUpdatedAt    <- Date().timeIntervalSince1970
+                ))
+                continuation.resume()
+            }
+        }
+    }
+
+    func deletePlaylist(id: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                // Remove playlist_tracks first (FK cascade not guaranteed in all SQLite builds)
+                try? self.db.run(self.playlistTracks.filter(self.colPTPlaylistId == id).delete())
+                try? self.db.run(self.playlists.filter(self.colPlaylistId == id).delete())
+                continuation.resume()
+            }
+        }
+    }
+
+    // MARK: - Playlist tracks
+
+    func addTrack(_ track: Track, toPlaylist playlistId: String) async {
+        // Save track first (insert or replace — idempotent)
+        await saveTracks([track])
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let maxOrder = (try? self.db.scalar(
+                    self.playlistTracks
+                        .filter(self.colPTPlaylistId == playlistId)
+                        .select(self.colPTSortOrder.max)
+                )) ?? 0
+                let pt = PlaylistTrack(
+                    id:         UUID().uuidString,
+                    playlistId: playlistId,
+                    trackId:    track.id,
+                    sortOrder:  maxOrder + 1,
+                    addedAt:    Date()
+                )
+                // UNIQUE(playlist_id, track_id) — ignore if already present
+                try? self.db.run(self.playlistTracks.insert(or: .ignore,
+                    self.colPTId         <- pt.id,
+                    self.colPTPlaylistId <- pt.playlistId,
+                    self.colPTTrackId    <- pt.trackId,
+                    self.colPTSortOrder  <- pt.sortOrder,
+                    self.colPTAddedAt    <- pt.addedAt.timeIntervalSince1970
+                ))
+                continuation.resume()
+            }
+        }
+    }
+
+    func removeTrack(trackId: String, fromPlaylist playlistId: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let row = self.playlistTracks
+                    .filter(self.colPTPlaylistId == playlistId && self.colPTTrackId == trackId)
+                try? self.db.run(row.delete())
+                continuation.resume()
+            }
+        }
+    }
+
+    func fetchTracks(forPlaylist playlistId: String) async -> [Track] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                // Fetch track IDs in sort_order DESC, then fetch each track individually
+                let idQuery = """
+                    SELECT pt.track_id FROM playlist_tracks pt
+                    WHERE pt.playlist_id = ?
+                    ORDER BY pt.sort_order DESC
+                """
+                let ids = ((try? self.db.prepare(idQuery, playlistId)) ?? AnySequence([]))
+                    .compactMap { $0[0] as? String }
+                let tracks = ids.compactMap { id -> Track? in
+                    guard let row = try? self.db.pluck(self.tracks.filter(self.colId == id)) else { return nil }
+                    return self.rowToTrack(row)
+                }
+                continuation.resume(returning: tracks)
+            }
+        }
+    }
+
+    func setTrackOrder(_ trackIds: [String], inPlaylist playlistId: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                try? self.db.transaction {
+                    for (index, trackId) in trackIds.enumerated() {
+                        let row = self.playlistTracks
+                            .filter(self.colPTPlaylistId == playlistId && self.colPTTrackId == trackId)
+                        try self.db.run(row.update(self.colPTSortOrder <- index))
+                    }
+                }
+                continuation.resume()
+            }
+        }
+    }
+
+    func isTrack(_ trackId: String, inPlaylist playlistId: String) async -> Bool {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let count = (try? self.db.scalar(
+                    self.playlistTracks
+                        .filter(self.colPTPlaylistId == playlistId && self.colPTTrackId == trackId)
+                        .count
+                )) ?? 0
+                continuation.resume(returning: count > 0)
+            }
+        }
+    }
+
+    // MARK: - Track play history
+
+    func recordPlayed(channelId: String, trackId: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                try? self.db.run(self.playHistory.insert(or: .replace,
+                    self.colPHChannelId <- channelId,
+                    self.colPHTrackId   <- trackId,
+                    self.colPHPlayedAt  <- Date().timeIntervalSince1970
+                ))
+                continuation.resume()
+            }
+        }
+    }
+
+    func recentlyHeardIds(forChannel channelId: String, withinDays days: Int = 30) async -> Set<String> {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let cutoff = Date().timeIntervalSince1970 - Double(days) * 86400
+                let rows = (try? self.db.prepare(
+                    self.playHistory
+                        .filter(self.colPHChannelId == channelId && self.colPHPlayedAt > cutoff)
+                        .select(self.colPHTrackId)
+                )) ?? AnySequence([])
+                let ids = Set(rows.map { $0[self.colPHTrackId] })
+                continuation.resume(returning: ids)
+            }
+        }
+    }
+
+    func evictOldPlayHistory(olderThanDays days: Int = 30) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let cutoff = Date().timeIntervalSince1970 - Double(days) * 86400
+                try? self.db.run(self.playHistory.filter(self.colPHPlayedAt < cutoff).delete())
+                continuation.resume()
+            }
+        }
+    }
+
+    func lastPlayedTrack(forChannel channelId: String) async -> Track? {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                guard let row = try? self.db.pluck(
+                    self.playHistory
+                        .filter(self.colPHChannelId == channelId)
+                        .order(self.colPHPlayedAt.desc)
+                        .limit(1)
+                ) else { continuation.resume(returning: nil); return }
+                let trackId = row[self.colPHTrackId]
+                let track = (try? self.db.pluck(self.tracks.filter(self.colId == trackId)))
+                    .flatMap(self.rowToTrack)
+                continuation.resume(returning: track)
+            }
+        }
+    }
+
+    func offlineTrackCount(forChannel channel: Channel) async -> Int {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                var query = self.tracks.filter(self.colLocalPath != nil)
+                if !channel.composers.isEmpty {
+                    query = query.filter(channel.composers.contains(self.colComposer ?? ""))
+                }
+                if let src = channel.preferredSource {
+                    query = query.filter(self.colSource == src)
+                }
+                let count = (try? self.db.scalar(query.count)) ?? 0
+                continuation.resume(returning: count)
+            }
+        }
+    }
+
+    func offlineTrackCount(forPlaylist playlistId: String) async -> Int {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let sql = """
+                    SELECT COUNT(*) FROM tracks t
+                    INNER JOIN playlist_tracks pt ON pt.track_id = t.id
+                    WHERE pt.playlist_id = ? AND t.local_file_path IS NOT NULL
+                """
+                let count = (try? self.db.scalar(sql, playlistId) as? Int64).map(Int.init) ?? 0
+                continuation.resume(returning: count)
+            }
+        }
+    }
+
     // MARK: - Private
 
     private func rowToTrack(_ row: Row) -> Track? {
         guard let streamURL = URL(string: row[colStreamURL]) else { return nil }
+        let addedDate: Date? = row[colAddedDate].map { Date(timeIntervalSince1970: $0) }
         return Track(
             id:                 row[colId],
             source:             row[colSource],
@@ -242,7 +584,13 @@ final class DatabaseService {
             rawCreator:         row[colRawCreator],
             composer:           row[colComposer],
             instruments:        Self.decode(row[colInstruments]),
-            metadataConfidence: row[colConfidence]
+            metadataConfidence: row[colConfidence],
+            addedDate:          addedDate,
+            isLocal:            row[colIsLocal],
+            partNumber:         row[colPartNumber],
+            totalParts:         row[colTotalParts],
+            parentIdentifier:   row[colParentId],
+            artworkURLString:   row[colArtworkURL]
         )
     }
 
