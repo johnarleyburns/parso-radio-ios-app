@@ -222,9 +222,9 @@ final class DatabaseService {
                     query = query.filter(self.colSource == src)
                 }
                 query = query.order(self.colConfidence.desc, self.colQuality.desc)
-                let rows = (try? self.db.prepare(query)) ?? AnySequence([])
-                let result = rows.compactMap(self.rowToTrack)
-                    .filter { channel.matches($0) && SourceValidator.isValid($0, for: channel) }
+                let result = (try? self.db.prepare(query))?
+                    .compactMap(self.rowToTrack)
+                    .filter { channel.matches($0) && SourceValidator.isValid($0, for: channel) } ?? []
                 continuation.resume(returning: result)
             }
         }
@@ -248,8 +248,8 @@ final class DatabaseService {
                 if !channel.composers.isEmpty {
                     query = query.filter(channel.composers.contains(self.colComposer ?? ""))
                 }
-                let rows = (try? self.db.prepare(query)) ?? AnySequence([])
-                let result = rows.compactMap(self.rowToTrack).filter { channel.matches($0) }
+                let result = (try? self.db.prepare(query))?
+                    .compactMap(self.rowToTrack).filter { channel.matches($0) } ?? []
                 continuation.resume(returning: result)
             }
         }
@@ -345,10 +345,9 @@ final class DatabaseService {
     func fetchPlaylists() async -> [Playlist] {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
-                let rows = (try? self.db.prepare(
+                let result = (try? self.db.prepare(
                     self.playlists.order(self.colIsFavorites.desc, self.colCreatedAt.asc)
-                )) ?? AnySequence([])
-                let result = rows.compactMap { row -> Playlist? in
+                ))?.compactMap { row -> Playlist? in
                     Playlist(
                         id:          row[self.colPlaylistId],
                         name:        row[self.colPlaylistName],
@@ -357,7 +356,7 @@ final class DatabaseService {
                         isFavorites: row[self.colIsFavorites]
                     )
                 }
-                continuation.resume(returning: result)
+                continuation.resume(returning: result ?? [])
             }
         }
     }
@@ -438,8 +437,8 @@ final class DatabaseService {
                     WHERE pt.playlist_id = ?
                     ORDER BY pt.sort_order DESC
                 """
-                let ids = ((try? self.db.prepare(idQuery, playlistId)) ?? AnySequence([]))
-                    .compactMap { $0[0] as? String }
+                let ids = (try? self.db.prepare(idQuery, playlistId))?
+                    .compactMap { $0[0] as? String } ?? []
                 let tracks = ids.compactMap { id -> Track? in
                     guard let row = try? self.db.pluck(self.tracks.filter(self.colId == id)) else { return nil }
                     return self.rowToTrack(row)
@@ -496,12 +495,11 @@ final class DatabaseService {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
                 let cutoff = Date().timeIntervalSince1970 - Double(days) * 86400
-                let rows = (try? self.db.prepare(
+                let ids = Set((try? self.db.prepare(
                     self.playHistory
                         .filter(self.colPHChannelId == channelId && self.colPHPlayedAt > cutoff)
                         .select(self.colPHTrackId)
-                )) ?? AnySequence([])
-                let ids = Set(rows.map { $0[self.colPHTrackId] })
+                ))?.map { $0[self.colPHTrackId] } ?? [])
                 continuation.resume(returning: ids)
             }
         }
