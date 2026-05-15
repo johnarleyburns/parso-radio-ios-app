@@ -404,10 +404,10 @@ final class PlayerViewModel: ObservableObject {
                 Task { await prefetchNextURL(channel: channel) }
             }
         } catch {
-            // Clear currentTrack so the error view is shown in the screen panel.
-            // Without this, currentTrack remains set and hides the error message.
+            // Clear currentTrack so errorView is reached in the screen panel's
+            // if-let chain (track branch would hide the error otherwise).
             currentTrack = nil
-            errorMessage = "Could not load audio. Tap a channel to try again."
+            errorMessage = "Could not load \"\(track.title)\"."
             isPlaying = false
         }
     }

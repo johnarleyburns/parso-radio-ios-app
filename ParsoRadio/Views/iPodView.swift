@@ -30,19 +30,22 @@ struct iPodView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Screen panel — top portion
+                    // Screen panel — top portion.
+                    // Floor at 160 pt: GeometryReader can report geo.size = (0,0) on
+                    // the first layout pass before the view is measured, which would
+                    // collapse the panel and overflow its content horizontally.
                     screenPanel
-                        .frame(height: geo.size.height * 0.50)
+                        .frame(height: max(160.0, geo.size.height * 0.50))
                         .padding(.horizontal, 12)
                         .padding(.top, 12)
 
                     Spacer()
 
                     // Click wheel — centered in remaining space.
-                    // Floor at 80 pt: GeometryReader can briefly report zero size during
-                    // sheet dismiss animations, which would produce a negative frame and
-                    // collapse the wheel entirely.
-                    let wheelDiameter = max(80.0, min(geo.size.width - 48, geo.size.height * 0.50 - 32))
+                    // Floor at 80 pt prevents a negative frame (and invisible wheel)
+                    // when geo briefly reports zero during sheet dismiss animations.
+                    // Expressed inline to avoid a `let` binding inside @ViewBuilder,
+                    // which can interact unexpectedly with SwiftUI's layout engine.
                     ClickWheel(
                         isPlaying: playerVM.isPlaying,
                         onMenu:      { showMainMenu = true },
@@ -50,7 +53,10 @@ struct iPodView: View {
                         onForward:   { playerVM.skip() },
                         onPlayPause: { playerVM.togglePlayPause() }
                     )
-                    .frame(width: wheelDiameter, height: wheelDiameter)
+                    .frame(
+                        width:  max(80.0, min(geo.size.width - 48, geo.size.height * 0.50 - 32)),
+                        height: max(80.0, min(geo.size.width - 48, geo.size.height * 0.50 - 32))
+                    )
 
                     Spacer()
                 }
@@ -160,14 +166,14 @@ struct iPodView: View {
                 Spacer()
 
                 // Track metadata — bottom section above scrubber.
-                // Error is shown first: if playTrack fails, currentTrack may still be
-                // set from the pre-do assignment but audio isn't running.
-                if playerVM.isLoading {
+                // currentTrack is nil on error (playTrack catch clears it), so
+                // errorView is reached naturally without reordering these branches.
+                if let track = playerVM.currentTrack {
+                    trackMetadataStack(track: track)
+                } else if playerVM.isLoading {
                     loadingView
                 } else if let err = playerVM.errorMessage {
                     errorView(err)
-                } else if let track = playerVM.currentTrack {
-                    trackMetadataStack(track: track)
                 } else {
                     idleView
                 }
