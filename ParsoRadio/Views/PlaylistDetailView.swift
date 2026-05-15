@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PlaylistDetailView: View {
     let playlist: Playlist
+    var dismissAll: (() -> Void)? = nil
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
@@ -12,7 +13,10 @@ struct PlaylistDetailView: View {
             Section {
                 HStack(spacing: 12) {
                     Button {
-                        Task { await playerVM.loadPlaylist(playlist) }
+                        Task {
+                            await playerVM.loadPlaylist(playlist)
+                            dismissAll?()
+                        }
                     } label: {
                         Label("Play", systemImage: "play.fill")
                     }
@@ -20,7 +24,10 @@ struct PlaylistDetailView: View {
 
                     Button {
                         playerVM.shuffleMode = true
-                        Task { await playerVM.loadPlaylist(playlist) }
+                        Task {
+                            await playerVM.loadPlaylist(playlist)
+                            dismissAll?()
+                        }
                     } label: {
                         Label("Shuffle", systemImage: "shuffle")
                     }
@@ -75,7 +82,10 @@ struct PlaylistDetailView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    Task { await playerVM.loadPlaylist(playlist, startingAt: track) }
+                    Task {
+                        await playerVM.loadPlaylist(playlist, startingAt: track)
+                        dismissAll?()
+                    }
                 }
             }
             .onMove { indices, newOffset in

@@ -10,23 +10,16 @@ struct ChannelSelectorView: View {
     @State private var favoriteIds: [String] =
         UserDefaults.standard.stringArray(forKey: "favoriteChannelIds") ?? []
 
+    // Curated appears first after Favorites; remaining categories in a fixed preferred order.
     private var sortedCategories: [String] {
-        Channel.categories.sorted()
+        let preferred = ["Curated", "Ambient", "Audiobooks", "Classical", "Contemporary", "Lectures", "News"]
+        let available = Set(Channel.categories)
+        let extra = Channel.categories.filter { !preferred.contains($0) }.sorted()
+        return preferred.filter { available.contains($0) } + extra
     }
 
     private var favoriteChannels: [Channel] {
         favoriteIds.compactMap { id in Channel.defaults.first { $0.id == id } }
-    }
-
-    // Recently played: MRU visited channels not already in explicit Favorites, capped at 10.
-    private var recentChannels: [Channel] {
-        let visited = UserDefaults.standard.stringArray(forKey: "visitedChannelIds") ?? []
-        return Array(
-            visited
-                .filter { !favoriteIds.contains($0) }
-                .compactMap { id in Channel.defaults.first { $0.id == id } }
-                .prefix(10)
-        )
     }
 
     private func channels(for category: String) -> [Channel] {
@@ -67,14 +60,6 @@ struct ChannelSelectorView: View {
                                         Label("Remove", systemImage: "heart.slash")
                                     }
                                 }
-                        }
-                    }
-                }
-
-                if !recentChannels.isEmpty {
-                    Section("Recently Played") {
-                        ForEach(recentChannels) { channel in
-                            channelRow(channel)
                         }
                     }
                 }

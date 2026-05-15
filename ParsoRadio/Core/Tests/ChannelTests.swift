@@ -4,19 +4,26 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 26 Classical + 22 Audiobooks + 14 Contemporary + 21 Lectures + 4 News + 5 Ambient = 92
-        XCTAssertEqual(Channel.defaults.count, 92)
+        // 26 Classical + 22 Audiobooks + 14 Contemporary + 21 Lectures + 4 News + 5 Ambient + 1 Curated = 93
+        XCTAssertEqual(Channel.defaults.count, 93)
     }
 
     func testClassicalCategoryHas26Channels() {
         let classicalChannels = Channel.defaults.filter { $0.category == "Classical" }
         XCTAssertEqual(classicalChannels.count, 26,
-            "Classical: 8 period/format/instrument + 18 composer channels (Spanish Guitar removed)")
+            "Classical: 8 period/format/instrument + 18 composer channels")
     }
 
-    func testSpanishGuitarChannelRemoved() {
+    func testSpanishGuitarChannelInCurated() {
         let ch = Channel.defaults.first { $0.id == "spanish-guitar" }
-        XCTAssertNil(ch, "Spanish Guitar channel must be removed in Phase 0")
+        XCTAssertNotNil(ch, "Spanish Guitar channel must exist in Curated category")
+        XCTAssertEqual(ch?.category, "Curated")
+        XCTAssertFalse(ch?.excludeTags.isEmpty == true, "Spanish Guitar must have excludeTags")
+    }
+
+    func testCuratedCategoryHas1Channel() {
+        let channels = Channel.defaults.filter { $0.category == "Curated" }
+        XCTAssertEqual(channels.count, 1, "Expected 1 Curated channel (Spanish Guitar)")
     }
 
     func testBachChannelDefinition() {

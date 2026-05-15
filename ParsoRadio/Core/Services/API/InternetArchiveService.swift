@@ -66,14 +66,13 @@ struct InternetArchiveService {
     // disabled in Solr by default and cause the whole query to return an error
     // response with no "response" key, making the JSON decode fail.
     // netlabels results are prepended — higher curation quality for electronic/ambient.
-    func fetchTracks(tags: [String]) async throws -> [Track] {
+    func fetchTracks(tags: [String], excludeTags: [String] = []) async throws -> [Track] {
         let tagClause = tags.map { "subject:\"\($0)\"" }.joined(separator: " OR ")
-        async let generalTask = search(
-            query: "mediatype:audio AND (\(tagClause))",
-            confidenceThreshold: 0.0
-        )
+        let excludeClause = excludeTags.map { " NOT subject:\"\($0)\"" }.joined()
+        let baseQuery = "mediatype:audio AND (\(tagClause))\(excludeClause)"
+        async let generalTask = search(query: baseQuery, confidenceThreshold: 0.0)
         let netlabelTracks = (try? await search(
-            query: "mediatype:audio AND collection:netlabels AND (\(tagClause))",
+            query: "mediatype:audio AND collection:netlabels AND (\(tagClause))\(excludeClause)",
             confidenceThreshold: 0.0
         )) ?? []
         let generalTracks = try await generalTask

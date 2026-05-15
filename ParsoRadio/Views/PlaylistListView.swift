@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct PlaylistListView: View {
+    var dismissAll: (() -> Void)? = nil
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
@@ -15,7 +16,7 @@ struct PlaylistListView: View {
             List {
                 ForEach(playlistVM.playlists) { playlist in
                     NavigationLink {
-                        PlaylistDetailView(playlist: playlist)
+                        PlaylistDetailView(playlist: playlist, dismissAll: dismissAll)
                             .environmentObject(playlistVM)
                             .environmentObject(playerVM)
                             .environmentObject(offlineService)

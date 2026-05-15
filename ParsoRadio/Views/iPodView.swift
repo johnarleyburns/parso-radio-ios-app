@@ -34,11 +34,11 @@ struct iPodView: View {
                     screenPanel
                         .frame(height: geo.size.height * 0.50)
                         .padding(.horizontal, 12)
-                        .padding(.top, 8)
+                        .padding(.top, 12)
 
-                    Spacer(minLength: 8)
+                    Spacer()
 
-                    // Click wheel — bottom portion
+                    // Click wheel — centered in remaining space
                     ClickWheel(
                         isPlaying: playerVM.isPlaying,
                         onMenu:      { showMainMenu = true },
@@ -46,11 +46,14 @@ struct iPodView: View {
                         onForward:   { playerVM.skip() },
                         onPlayPause: { playerVM.togglePlayPause() }
                     )
-                    .frame(width: min(geo.size.width * 0.85, 300),
-                           height: min(geo.size.width * 0.85, 300))
+                    .frame(
+                        width:  min(geo.size.width - 48, geo.size.height * 0.50 - 32),
+                        height: min(geo.size.width - 48, geo.size.height * 0.50 - 32)
+                    )
 
-                    Spacer(minLength: 12)
+                    Spacer()
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .sheet(isPresented: $showMainMenu) {
@@ -68,10 +71,6 @@ struct iPodView: View {
                     showMainMenu = false
                     showSearch = true
                 },
-                onDownloadChannel: {
-                    showMainMenu = false
-                    Task { await offlineService.makeOffline(channel: displayChannel) }
-                },
                 onOpenAbout: {
                     showMainMenu = false
                     showAbout = true
@@ -86,7 +85,7 @@ struct iPodView: View {
             }
         }
         .sheet(isPresented: $showPlaylists) {
-            PlaylistListView()
+            PlaylistListView(dismissAll: { showPlaylists = false })
                 .environmentObject(playlistVM)
                 .environmentObject(playerVM)
                 .environmentObject(offlineService)
@@ -141,26 +140,18 @@ struct iPodView: View {
                 // Channel name / description — top of screen
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(displayChannel.name)
+                        Text(playerVM.currentPlaylist?.name ?? displayChannel.name)
                             .font(.caption)
                             .fontWeight(.semibold)
                             .foregroundStyle(.white.opacity(0.9))
-                            .animation(.spring(duration: 0.25), value: displayChannel.id)
                         if !playerVM.channelDescription.isEmpty {
                             Text(playerVM.channelDescription)
                                 .font(.caption2)
                                 .foregroundStyle(.white.opacity(0.6))
                                 .lineLimit(1)
-                                .animation(.spring(duration: 0.25), value: playerVM.channelDescription)
                         }
                     }
                     Spacer()
-                    // Info button
-                    Button { showAbout = true } label: {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
@@ -192,11 +183,6 @@ struct iPodView: View {
             if let track = playerVM.currentTrack {
                 Button { showAddToPlaylist = true } label: {
                     Label("Add to Playlist", systemImage: "plus.circle")
-                }
-                Button {
-                    Task { await offlineService.makeOffline(channel: displayChannel) }
-                } label: {
-                    Label("Download Channel", systemImage: "arrow.down.circle")
                 }
                 Button { showTrackDetail = true; _ = track } label: {
                     Label("Track Details", systemImage: "info.circle")
@@ -343,9 +329,9 @@ struct iPodView: View {
             HStack(spacing: 0) {
                 // Star / Favorites
                 Button { toggleFavorite() } label: {
-                    Image(systemName: isFavorite ? "star.fill" : "star")
+                    Image(systemName: isFavorite ? "heart.fill" : "heart")
                         .font(.system(size: 16))
-                        .foregroundStyle(isFavorite ? .yellow : .white.opacity(0.7))
+                        .foregroundStyle(isFavorite ? .red : .white.opacity(0.7))
                 }
                 .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
                 .padding(.leading, 14)
@@ -399,13 +385,6 @@ struct iPodView: View {
                             showAddToPlaylist = true
                         } label: {
                             Label("Add to Playlist", systemImage: "plus.circle")
-                        }
-
-                        Button {
-                            showMoreOptions = false
-                            Task { await offlineService.makeOffline(channel: displayChannel) }
-                        } label: {
-                            Label("Download Channel", systemImage: "arrow.down.circle")
                         }
 
                         Button {
@@ -520,48 +499,42 @@ struct ClickWheel: View {
             let midRing = (outerR + innerR) / 2
 
             ZStack {
-                // Outer ring — charcoal
+                // Outer ring — flat metallic
                 Circle()
-                    .fill(Color(red: 0.10, green: 0.10, blue: 0.11))
-                    .shadow(color: .black.opacity(0.5), radius: 12, y: 4)
-                    .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+                    .fill(Color(.secondarySystemGroupedBackground))
+                    .shadow(color: .black.opacity(0.35), radius: 6, y: 3)
 
-                // Subtle inner highlight ring
+                // Center button
                 Circle()
-                    .strokeBorder(.white.opacity(0.06), lineWidth: 1)
-
-                // Center button — slightly lighter charcoal
-                Circle()
-                    .fill(Color(red: 0.14, green: 0.14, blue: 0.15))
+                    .fill(Color(.systemBackground))
                     .frame(width: innerR * 2, height: innerR * 2)
-                    .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
                     .allowsHitTesting(false)
 
                 // MENU icon (top)
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(.primary)
                     .offset(y: -midRing)
                     .allowsHitTesting(false)
 
                 // Back (left)
                 Image(systemName: "backward.fill")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(.primary)
                     .offset(x: -midRing)
                     .allowsHitTesting(false)
 
                 // Forward (right)
                 Image(systemName: "forward.fill")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(.primary)
                     .offset(x: midRing)
                     .allowsHitTesting(false)
 
                 // Play/Pause (bottom)
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(.primary)
                     .offset(y: midRing)
                     .allowsHitTesting(false)
             }

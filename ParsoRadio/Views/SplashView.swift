@@ -24,7 +24,7 @@ struct SplashView: View {
                     .scaleEffect(iconScale)
 
                 VStack(spacing: 6) {
-                    Text("Parso Radio")
+                    Text("Parso Music")
                         .font(.system(size: 38, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
 

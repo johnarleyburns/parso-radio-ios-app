@@ -12,7 +12,11 @@ final class LocalFileImportService {
     func importFile(at url: URL, intoPlaylist playlist: Playlist) async throws -> Track {
         let granted = url.startAccessingSecurityScopedResource()
         defer { if granted { url.stopAccessingSecurityScopedResource() } }
+        let existing = await db.fetchTracks(forPlaylist: playlist.id)
+        let existingKeys = Set(existing.map { $0.title.lowercased() + "|" + $0.artist.lowercased() })
         let track = try await processAudioFile(at: url)
+        let key = track.title.lowercased() + "|" + track.artist.lowercased()
+        guard !existingKeys.contains(key) else { return track }
         await db.addTrack(track, toPlaylist: playlist.id)
         return track
     }
@@ -20,6 +24,8 @@ final class LocalFileImportService {
     func importFolder(at url: URL, intoPlaylist playlist: Playlist) async throws -> [Track] {
         let granted = url.startAccessingSecurityScopedResource()
         defer { if granted { url.stopAccessingSecurityScopedResource() } }
+        let existing = await db.fetchTracks(forPlaylist: playlist.id)
+        var existingKeys = Set(existing.map { $0.title.lowercased() + "|" + $0.artist.lowercased() })
         let audioTypes: [UTType] = [.mp3, .mpeg4Audio, .aiff, .wav]
         var results: [Track] = []
         let enumerator = FileManager.default.enumerator(
@@ -34,6 +40,9 @@ final class LocalFileImportService {
                   let contentType = resourceValues.contentType,
                   audioTypes.contains(where: { contentType.conforms(to: $0) }) else { continue }
             if let track = try? await processAudioFile(at: fileURL) {
+                let key = track.title.lowercased() + "|" + track.artist.lowercased()
+                guard !existingKeys.contains(key) else { continue }
+                existingKeys.insert(key)
                 await db.addTrack(track, toPlaylist: playlist.id)
                 results.append(track)
             }

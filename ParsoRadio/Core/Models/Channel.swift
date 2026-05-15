@@ -14,6 +14,7 @@ struct Channel: Codable, Identifiable, Hashable {
     let composers: [String]
     let instruments: [String]
     let tags: [String]
+    let excludeTags: [String]
     let contentType: ContentType
     // IA collection names to restrict spoken-word searches (empty = general search).
     let spokenWordCollections: [String]
@@ -26,11 +27,13 @@ struct Channel: Codable, Identifiable, Hashable {
     init(
         id: String, name: String, category: String, icon: String,
         composers: [String] = [], instruments: [String] = [], tags: [String] = [],
+        excludeTags: [String] = [],
         contentType: ContentType = .music, spokenWordCollections: [String] = [],
         preferredSource: String? = nil, feedURL: String? = nil, isDownloaded: Bool = false
     ) {
         self.id = id; self.name = name; self.category = category; self.icon = icon
         self.composers = composers; self.instruments = instruments; self.tags = tags
+        self.excludeTags = excludeTags
         self.contentType = contentType; self.spokenWordCollections = spokenWordCollections
         self.preferredSource = preferredSource; self.feedURL = feedURL
         self.isDownloaded = isDownloaded
@@ -615,6 +618,17 @@ extension Channel {
             tags: ["news-npr-1a"],
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feeds.npr.org/510316/podcast.xml"
+        ),
+
+        // MARK: Curated — editorially chosen multi-genre channels
+        // Spanish Guitar: curl-verified 2026-05-14 — subject combo returns 4,104 items.
+        // excludeTags are appended as NOT subject:"..." in InternetArchiveService.fetchTracks(tags:excludeTags:).
+        Channel(
+            id: "spanish-guitar", name: "Spanish Guitar", category: "Curated",
+            icon: "guitars",
+            tags: ["spanish guitar", "classical guitar", "flamenco", "guitarra", "fingerstyle"],
+            excludeTags: ["rock", "electronic", "experimental", "electric guitar"],
+            preferredSource: "internet_archive"
         ),
 
         // MARK: Ambient — nature sounds, lofi, and single-track loops

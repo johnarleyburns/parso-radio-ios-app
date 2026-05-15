@@ -23,7 +23,7 @@ final class PlayerViewModel: ObservableObject {
     @Published var channelDescription: String = ""
     @Published var currentArtwork: UIImage? = nil
     @Published var artworkDominantColor: Color = .accentColor
-    var currentPlaylist: Playlist? = nil
+    @Published var currentPlaylist: Playlist? = nil
 
     let audioPlayer: AudioPlayerService
 
@@ -45,6 +45,8 @@ final class PlayerViewModel: ObservableObject {
     // UC3: track history for backward navigation (most-recent last, cap historyLimit).
     var playHistory: [Track] = []
     let historyLimit = 50
+    // Guards against double-advance when skip() fires onTrackFinished before the Task runs.
+    private var isSkipping = false
 
     init(
         db: DatabaseService,
@@ -95,6 +97,8 @@ final class PlayerViewModel: ObservableObject {
         audioPlayer.onTrackFinished = { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                // skip() already scheduled an advance; ignore the finish notification.
+                if self.isSkipping { self.isSkipping = false; return }
                 // Ambient loop channels: seek back to the beginning instead of advancing.
                 if let channel = self.currentChannel, channel.contentType == .ambientLoop {
                     self.audioPlayer.seek(to: 0)
@@ -138,6 +142,7 @@ final class PlayerViewModel: ObservableObject {
         audioPlayer.skip()
         currentTrack = nil
         isPlaying = false
+        playHistory = []
         // UC2: persist last-used channel so the app restores it after restart.
         UserDefaults.standard.set(channel.id, forKey: "lastChannelId")
         // UC6: track visited channels for Favorites (MRU, capped at 20).
@@ -171,7 +176,7 @@ final class PlayerViewModel: ObservableObject {
                 fetched = try await archiveService.fetchSpokenWordTracks(channel: channel)
             } else if channel.composers.isEmpty {
                 // Tag channels: IA + FMA in parallel; FMA errors are non-fatal.
-                async let iaTracks = archiveService.fetchTracks(tags: channel.tags)
+                async let iaTracks = archiveService.fetchTracks(tags: channel.tags, excludeTags: channel.excludeTags)
                 let fmaTracks = (try? await fmaService.fetchTracks(forChannel: channel)) ?? []
                 let iaResults = try await iaTracks
                 var seen = Set<String>()
@@ -250,6 +255,7 @@ final class PlayerViewModel: ObservableObject {
             currentPosition = 0
             return
         }
+        isSkipping = true
         audioPlayer.skip()
         isPlaying = false
         currentPosition = 0
@@ -257,9 +263,13 @@ final class PlayerViewModel: ObservableObject {
             Task {
                 await db.clearPosition(channelId: channel.id)
                 await advanceToNext()
+                isSkipping = false
             }
         } else {
-            Task { await advanceToNext() }
+            Task {
+                await advanceToNext()
+                isSkipping = false
+            }
         }
     }
 
@@ -420,6 +430,7 @@ final class PlayerViewModel: ObservableObject {
     func loadPlaylist(_ playlist: Playlist, startingAt track: Track? = nil) async {
         currentPlaylist = playlist
         currentChannel = nil
+        playHistory = []
         let tracks = await db.fetchTracks(forPlaylist: playlist.id)
         channelDescription = playlist.name
         channelTrackCount = tracks.count

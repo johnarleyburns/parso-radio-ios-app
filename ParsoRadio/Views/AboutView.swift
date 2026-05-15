@@ -48,7 +48,7 @@ struct AboutView: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Parso Radio")
+                Text("Parso Music")
                     .font(.title2)
                     .fontWeight(.bold)
 
@@ -85,7 +85,7 @@ struct AboutView: View {
 
             policySection(
                 title: "Overview",
-                body: "Parso Consulting (\"we,\" \"our,\" or \"us\") operates the mobile application Parso Radio (the \"App\") available on the Apple App Store. This Privacy Policy describes how we handle information in compliance with App Store requirements."
+                body: "Parso Consulting (\"we,\" \"our,\" or \"us\") operates the mobile application Parso Music (the \"App\") available on the Apple App Store. This Privacy Policy describes how we handle information in compliance with App Store requirements."
             )
 
             policySection(
@@ -110,7 +110,7 @@ struct AboutView: View {
 
             policySection(
                 title: "Children's Privacy",
-                body: "Parso Radio is designed to be appropriate for all ages, including children. We do not knowingly collect any personal information from any user, including children under the age of 13."
+                body: "Parso Music is designed to be appropriate for all ages, including children. We do not knowingly collect any personal information from any user, including children under the age of 13."
             )
 
             policySection(
@@ -125,7 +125,7 @@ struct AboutView: View {
 
             Divider()
 
-            Text("Parso Radio streams public-domain and Creative Commons licensed audio. No copyrighted content is stored or distributed.")
+            Text("Parso Music streams public-domain and Creative Commons licensed audio. No copyrighted content is stored or distributed.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)

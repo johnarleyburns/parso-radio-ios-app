@@ -5,7 +5,6 @@ struct MainMenuView: View {
     let onSelectChannel: () -> Void
     let onOpenPlaylists: () -> Void
     let onOpenSearch: () -> Void
-    let onDownloadChannel: () -> Void
     let onOpenAbout: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -13,7 +12,7 @@ struct MainMenuView: View {
         NavigationStack {
             List {
                 Section {
-                    menuRow(icon: "antenna.radiowaves.left.and.right", label: "Select Channel") {
+                    menuRow(icon: "antenna.radiowaves.left.and.right", label: "Channels") {
                         onSelectChannel()
                     }
                     menuRow(icon: "music.note.list", label: "Playlists") {
@@ -21,9 +20,6 @@ struct MainMenuView: View {
                     }
                     menuRow(icon: "magnifyingglass", label: "Search") {
                         onOpenSearch()
-                    }
-                    menuRow(icon: "arrow.down.circle", label: "Download \(displayChannel.name)") {
-                        onDownloadChannel()
                     }
                 }
                 Section {
