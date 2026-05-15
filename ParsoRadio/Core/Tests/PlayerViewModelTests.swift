@@ -310,18 +310,24 @@ final class PlayerViewModelTests: XCTestCase {
         let playlist = try await db.createPlaylist(name: "Nav Forward")
         for t in [t1, t2, t3] { await db.addTrack(t, toPlaylist: playlist.id) }
 
+        // Source of truth: the order loadPlaylist itself plays in is exactly
+        // db.fetchTracks(forPlaylist:) — which is the same order the playlist
+        // UI shows. Derive expectations from it rather than insertion order.
+        let ordered = await db.fetchTracks(forPlaylist: playlist.id).map(\.id)
+        XCTAssertEqual(ordered.count, 3)
+
         await vm.loadPlaylist(playlist)
-        XCTAssertEqual(vm.currentTrack?.id, "pl-1")
+        XCTAssertEqual(vm.currentTrack?.id, ordered[0], "playlist starts at the first shown track")
         XCTAssertNil(vm.currentChannel)
         XCTAssertEqual(vm.currentPlaylist?.id, playlist.id)
 
         vm.skip()
         try await Task.sleep(nanoseconds: 2_000_000_000)
-        XCTAssertEqual(vm.currentTrack?.id, "pl-2", "<next> must advance to the next playlist track")
+        XCTAssertEqual(vm.currentTrack?.id, ordered[1], "<next> must advance to the next playlist track")
 
         vm.skip()
         try await Task.sleep(nanoseconds: 2_000_000_000)
-        XCTAssertEqual(vm.currentTrack?.id, "pl-3", "<next> must keep advancing within the playlist")
+        XCTAssertEqual(vm.currentTrack?.id, ordered[2], "<next> must keep advancing within the playlist")
     }
 
     func testPlaylistBackStopsAtFirstAndNeverPlaysNonPlaylistTrack() async throws {
@@ -341,22 +347,26 @@ final class PlayerViewModelTests: XCTestCase {
         let playlist = try await db.createPlaylist(name: "Nav Back")
         for t in [t1, t2] { await db.addTrack(t, toPlaylist: playlist.id) }
 
+        // Same playback order as the playlist UI (db sort_order).
+        let ordered = await db.fetchTracks(forPlaylist: playlist.id).map(\.id)
+        XCTAssertEqual(ordered.count, 2)
+
         await vm.loadPlaylist(playlist)
-        XCTAssertEqual(vm.currentTrack?.id, "pl-a")
+        XCTAssertEqual(vm.currentTrack?.id, ordered[0])
 
         vm.skip()
         try await Task.sleep(nanoseconds: 2_000_000_000)
-        XCTAssertEqual(vm.currentTrack?.id, "pl-b")
+        XCTAssertEqual(vm.currentTrack?.id, ordered[1])
 
         vm.back()
         try await Task.sleep(nanoseconds: 2_000_000_000)
-        XCTAssertEqual(vm.currentTrack?.id, "pl-a", "<back> must step to the previous playlist track")
+        XCTAssertEqual(vm.currentTrack?.id, ordered[0], "<back> must step to the previous playlist track")
 
         // The regression: <back> on the first playlist track must NOT fall back
         // to playHistory / the pre-playlist channel track.
         vm.back()
         try await Task.sleep(nanoseconds: 2_000_000_000)
-        XCTAssertEqual(vm.currentTrack?.id, "pl-a",
+        XCTAssertEqual(vm.currentTrack?.id, ordered[0],
             "<back> on the first playlist track must stay in place")
         XCTAssertNotEqual(vm.currentTrack?.id, "channel-pre",
             "<back> must never play the pre-playlist channel track")
