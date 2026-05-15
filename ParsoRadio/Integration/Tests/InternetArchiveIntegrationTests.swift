@@ -157,6 +157,44 @@ final class InternetArchiveIntegrationTests: XCTestCase {
             "noise-genre tracks leaked into Spanish Guitar: " +
             "\(polluted.prefix(3).map { $0.title })")
     }
+
+    // Chamber Music registry channel — same guards as Spanish Guitar. Verifies
+    // the pure-Lucene path (no license/normalizer/category filtering) still
+    // yields a healthy, stamped, noise-free chamber music pool.
+    func testChamberMusicRegistryQueryReturnsCuratedStampedContent() async throws {
+        guard let entry = IAQueryRegistry.shared.entry(for: "chamber-music") else {
+            XCTFail("ia_queries.json missing the chamber-music entry")
+            return
+        }
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchTracks(
+                iaQuery: entry.iaQuery, matchTags: entry.matchTags
+            )
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("Chamber Music registry: \(tracks.count) tracks")
+        for t in tracks.prefix(5) { print("  \(t.title) — \(t.artist)") }
+
+        XCTAssertGreaterThan(tracks.count, 20,
+            "Chamber Music query must return a healthy pool; got \(tracks.count)")
+        XCTAssertTrue(tracks.allSatisfy { $0.tags.contains("chamber-music") },
+            "every registry track must carry the chamber-music stamp")
+        let channel = Channel.defaults.first { $0.id == "chamber-music" }!
+        XCTAssertEqual(channel.category, "Curated")
+        XCTAssertTrue(tracks.allSatisfy { channel.matches($0) },
+            "stamped tracks must pass Channel.matches so the queue isn't starved")
+
+        let noise: Set<String> = [
+            "jazz", "rock", "pop", "electronic", "hip-hop", "rap",
+            "experimental", "ambient", "soundtrack", "newage", "blues", "country"
+        ]
+        let polluted = tracks.filter { !Set($0.tags).isDisjoint(with: noise) }
+        XCTAssertTrue(polluted.isEmpty,
+            "noise-genre tracks leaked into Chamber Music: " +
+            "\(polluted.prefix(3).map { $0.title })")
+    }
 }
 
 // MARK: - Spoken-word (LibriVox) integration tests

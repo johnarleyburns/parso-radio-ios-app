@@ -91,11 +91,6 @@ extension Channel {
             preferredSource: "internet_archive"
         ),
         Channel(
-            id: "chamber-music", name: "Chamber Music", category: "Classical",
-            icon: "guitars", tags: ["chamber music", "string quartet"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
             id: "piano-classics", name: "Piano Classics", category: "Classical",
             icon: "pianokeys", tags: ["piano", "classical"],
             preferredSource: "internet_archive"
@@ -623,14 +618,26 @@ extension Channel {
             feedURL: "https://feeds.npr.org/510316/podcast.xml"
         ),
 
-        // MARK: Curated — editorially chosen multi-genre channels
-        // Spanish Guitar: curl-verified 2026-05-14 — subject combo returns 4,104 items.
-        // excludeTags are appended as NOT subject:"..." in InternetArchiveService.fetchTracks(tags:excludeTags:).
+        // MARK: Curated — pure-Lucene IA channels
+        // Each channel here resolves to ONE hand-tuned Lucene query in
+        // Resources/ia_queries.json. There is NO code-side filtering: no
+        // LicenseValidator rejection, no MetadataNormalizer/confidence gate,
+        // no collection/category post-filter. The query is the entire curation;
+        // matchTags is the per-channel isolation stamp injected at fetch time.
+        // `tags` here only feed detailDescription/UI — matching uses the stamp.
         Channel(
             id: "spanish-guitar", name: "Spanish Guitar", category: "Curated",
             icon: "guitars",
-            tags: ["spanish guitar", "classical guitar", "flamenco", "guitarra", "fingerstyle"],
-            excludeTags: ["rock", "electronic", "experimental", "electric guitar"],
+            tags: ["spanish guitar", "classical guitar", "flamenco"],
+            preferredSource: "internet_archive"
+        ),
+        // Chamber Music: curl-verified 2026-05-15 — 919 items; canonical
+        // ensembles (Budapest/Quartetto Italiano), Trout Quintet, Beethoven
+        // late quartets; zero AI/jazz/radio noise.
+        Channel(
+            id: "chamber-music", name: "Chamber Music", category: "Curated",
+            icon: "music.quarternote.3",
+            tags: ["chamber music", "string quartet", "piano trio"],
             preferredSource: "internet_archive"
         ),
 

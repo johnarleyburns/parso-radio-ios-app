@@ -59,15 +59,63 @@ struct InternetArchiveService {
         return try await search(query: query, musopenCollection: true, confidenceThreshold: 1.5)
     }
 
-    // Channels with an ia_queries.json entry: use the pre-composed Lucene query
-    // verbatim. No netlabels boost — the query already targets specific
-    // collections/subjects/creators. matchTags are STAMPED onto every returned
-    // track so Channel.matches() can isolate them in the shared DB regardless of
-    // how sparse the IA item's own subject metadata is (many curated results
-    // match by creator and carry no guitar-related subject at all).
+    // Pure-Lucene registry channels: the single ia_queries.json query is the
+    // ONLY curation. NOTHING is filtered in code — no LicenseValidator
+    // rejection, no MetadataNormalizer/confidence gate, no collection/category
+    // post-filter. Every document the query returns becomes a track. matchTags
+    // are STAMPED onto every track so Channel.matches() can isolate them in the
+    // shared DB regardless of how sparse the IA item's subject metadata is
+    // (many curated results match by creator and carry no useful subject).
     func fetchTracks(iaQuery: String, matchTags: [String] = []) async throws -> [Track] {
-        let tracks = try await search(query: iaQuery, confidenceThreshold: 0.0)
-        return tracks.map { $0.stamped(with: matchTags) }
+        var components = URLComponents(string: Self.searchBase)!
+        components.queryItems = [
+            URLQueryItem(name: "q",      value: iaQuery),
+            URLQueryItem(name: "fl[]",   value: "identifier"),
+            URLQueryItem(name: "fl[]",   value: "title"),
+            URLQueryItem(name: "fl[]",   value: "creator"),
+            URLQueryItem(name: "fl[]",   value: "subject"),
+            URLQueryItem(name: "fl[]",   value: "licenseurl"),
+            URLQueryItem(name: "fl[]",   value: "year"),
+            URLQueryItem(name: "fl[]",   value: "collection"),
+            URLQueryItem(name: "fl[]",   value: "addeddate"),
+            URLQueryItem(name: "output", value: "json"),
+            URLQueryItem(name: "rows",   value: "200"),
+            URLQueryItem(name: "sort[]", value: "addeddate desc"),
+        ]
+        let (data, _) = try await session.data(from: components.url!)
+        let response = try JSONDecoder().decode(IASearchResponse.self, from: data)
+
+        return response.response.docs.compactMap { doc -> Track? in
+            let encodedId = doc.identifier
+                .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? doc.identifier
+            // The only thing that can drop a doc is an unconstructable URL
+            // (a track with no URL is unplayable) — that is not content
+            // filtering, just a safety guard.
+            guard let streamURL = URL(string: "https://archive.org/download/\(encodedId)")
+            else { return nil }
+            // license is computed for the UI badge only; it never rejects.
+            let license = validator.validate(
+                licenseURL: doc.licenseurl, year: doc.year, collection: doc.collection.first
+            )
+            return Track(
+                id: doc.identifier,
+                source: "internet_archive",
+                title: doc.title ?? doc.identifier,
+                artist: doc.creator ?? "Unknown",
+                duration: 0,
+                streamURL: streamURL,
+                downloadURL: streamURL,
+                localFilePath: nil,
+                license: license,
+                tags: doc.subjects.map { $0.lowercased() },
+                qualityScore: 1.0,
+                rawCreator: doc.creator ?? "",
+                composer: nil,
+                instruments: [],
+                metadataConfidence: 0.0,
+                addedDate: Self.parseIADate(doc.addeddate)
+            ).stamped(with: matchTags)
+        }
     }
 
     // Tag-only channels (Classical, Ambient): threshold 0.0 because these channels

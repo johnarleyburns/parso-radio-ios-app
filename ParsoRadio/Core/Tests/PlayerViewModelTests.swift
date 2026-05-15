@@ -508,6 +508,55 @@ final class IAQueryRegistryTests: XCTestCase {
         XCTAssertTrue(channel.matches(stamped),
             "Channel.matches must accept a stamped track regardless of its IA subjects")
     }
+
+    func testIAQueryRegistryLoadsChamberMusic() {
+        let entry = IAQueryRegistry.shared.entry(for: "chamber-music")
+        XCTAssertNotNil(entry, "ia_queries.json must contain a chamber-music entry")
+        XCTAssertTrue(entry?.iaQuery.contains("chamber music") ?? false)
+        XCTAssertTrue(entry?.iaQuery.contains("string quartet") ?? false)
+        // Curated query must keep the noise out.
+        for excluded in ["creator:Aeon", "subject:jazz", "collection:radioprograms"] {
+            XCTAssertTrue(entry?.iaQuery.contains(excluded) ?? false,
+                "chamber-music query must exclude '\(excluded)'")
+        }
+        XCTAssertEqual(entry?.matchTags, ["chamber-music"],
+            "matchTags is the chamber-music isolation stamp")
+    }
+
+    func testChamberMusicIsCuratedAndRegistryBacked() {
+        let chamber = Channel.defaults.first { $0.id == "chamber-music" }
+        XCTAssertNotNil(chamber, "chamber-music channel must exist")
+        XCTAssertEqual(chamber?.category, "Curated",
+            "chamber-music must live in the Curated section, not Classical")
+        XCTAssertNotNil(chamber?.iaQueryEntry,
+            "chamber-music must be registry-backed (pure-Lucene)")
+        // The stamp isolates it from the shared DB.
+        let stamped = Track(
+            id: "cm-1", source: "internet_archive",
+            title: "Beethoven String Quartet Op.59", artist: "Budapest String Quartet",
+            duration: 180,
+            streamURL: URL(string: "https://archive.org/download/cm-1")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain,
+            tags: ["78rpm", "chamber-music"],
+            qualityScore: 1.0,
+            rawCreator: "Budapest String Quartet", composer: nil, instruments: [],
+            metadataConfidence: 0.0
+        )
+        XCTAssertTrue(chamber?.matches(stamped) ?? false)
+        // A Spanish-Guitar-stamped track must NOT leak into Chamber Music.
+        let other = Track(
+            id: "sg-z", source: "internet_archive",
+            title: "x", artist: "y", duration: 1,
+            streamURL: URL(string: "https://archive.org/download/sg-z")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: ["classical", "spanish-guitar"],
+            qualityScore: 1.0, rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 0.0
+        )
+        XCTAssertFalse(chamber?.matches(other) ?? true,
+            "channels must not cross-contaminate via the shared DB")
+    }
 }
 
 // UC12: AVAudioSession is configured for background playback.
