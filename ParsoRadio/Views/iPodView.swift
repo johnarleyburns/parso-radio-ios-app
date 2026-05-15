@@ -35,7 +35,7 @@ struct iPodView: View {
                     // the first layout pass before the view is measured, which would
                     // collapse the panel and overflow its content horizontally.
                     screenPanel
-                        .frame(maxWidth: .infinity, height: max(160.0, geo.size.height * 0.50))
+                        .frame(height: max(160.0, geo.size.height * 0.50))
                         .padding(.horizontal, 12)
                         .padding(.top, 12)
 
