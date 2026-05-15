@@ -324,6 +324,50 @@ final class PlayerViewModelTests: XCTestCase {
     }
 }
 
+// IAQueryRegistry: bundle JSON loads correctly and matchTags cover relevant query subjects.
+final class IAQueryRegistryTests: XCTestCase {
+
+    func testIAQueryRegistryLoadsSpanishGuitar() {
+        let entry = IAQueryRegistry.shared.entry(for: "spanish-guitar")
+        XCTAssertNotNil(entry, "IAQueryRegistry must load the spanish-guitar entry from ia_queries.json")
+        XCTAssertFalse(entry?.iaQuery.isEmpty ?? true, "iaQuery must not be empty")
+        XCTAssertTrue(entry?.iaQuery.contains("Spanish guitar") ?? false,
+            "iaQuery must contain 'Spanish guitar'")
+        XCTAssertTrue(entry?.iaQuery.contains("jamendo-albums") ?? false,
+            "iaQuery must contain the jamendo-albums arm to catch Tárrega recordings")
+    }
+
+    func testSpanishGuitarMatchTagsCoverQuerySubjects() {
+        let entry = IAQueryRegistry.shared.entry(for: "spanish-guitar")
+        XCTAssertNotNil(entry)
+        let tags = entry?.matchTags ?? []
+        // These are the subject values IA returns for the geographic arm of the query.
+        for expected in ["spain", "flamenco", "guitar", "spanish guitar", "andalusia"] {
+            XCTAssertTrue(tags.contains(expected),
+                "matchTags must include '\(expected)' so QueueManager isolates spanish-guitar tracks")
+        }
+    }
+
+    func testChannelMatchesUsesRegistryMatchTags() {
+        let channel = Channel.defaults.first { $0.id == "spanish-guitar" }!
+        // A track whose tags come from IA geographic arm (not in channel.tags directly).
+        let track = Track(
+            id: "test-spain-1", source: "internet_archive",
+            title: "Andalusian Night", artist: "Various",
+            duration: 180,
+            streamURL: URL(string: "https://archive.org/download/test-spain-1")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .cc0,
+            tags: ["spain", "andalusia"],
+            qualityScore: 0.8,
+            rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 0.0
+        )
+        XCTAssertTrue(channel.matches(track),
+            "Channel.matches must return true for tags from matchTags, not just channel.tags")
+    }
+}
+
 // UC12: AVAudioSession is configured for background playback.
 @MainActor
 final class AudioPlayerServiceTests: XCTestCase {

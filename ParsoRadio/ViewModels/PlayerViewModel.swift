@@ -175,12 +175,17 @@ final class PlayerViewModel: ObservableObject {
                 // Spoken-word channels: LibriVox / podcast collections via IA.
                 fetched = try await archiveService.fetchSpokenWordTracks(channel: channel)
             } else if channel.composers.isEmpty {
-                // Tag channels: IA + FMA in parallel; FMA errors are non-fatal.
-                async let iaTracks = archiveService.fetchTracks(tags: channel.tags, excludeTags: channel.excludeTags)
-                let fmaTracks = (try? await fmaService.fetchTracks(forChannel: channel)) ?? []
-                let iaResults = try await iaTracks
-                var seen = Set<String>()
-                fetched = (iaResults + fmaTracks).filter { seen.insert($0.id).inserted }
+                if let entry = channel.iaQueryEntry {
+                    // Registry channels: Lucene query is precise enough; skip FMA supplement.
+                    fetched = try await archiveService.fetchTracks(iaQuery: entry.iaQuery)
+                } else {
+                    // Tag channels: IA + FMA in parallel; FMA errors are non-fatal.
+                    async let iaTracks = archiveService.fetchTracks(tags: channel.tags, excludeTags: channel.excludeTags)
+                    let fmaTracks = (try? await fmaService.fetchTracks(forChannel: channel)) ?? []
+                    let iaResults = try await iaTracks
+                    var seen = Set<String>()
+                    fetched = (iaResults + fmaTracks).filter { seen.insert($0.id).inserted }
+                }
             } else {
                 // Composer channels: IA + Musopen(IA) + FMA all in parallel.
                 async let iaTracks = archiveService.fetchTracks(

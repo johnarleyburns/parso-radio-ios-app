@@ -59,6 +59,12 @@ struct InternetArchiveService {
         return try await search(query: query, musopenCollection: true, confidenceThreshold: 1.5)
     }
 
+    // Channels with an ia_queries.json entry: use the pre-composed Lucene query verbatim.
+    // No netlabels boost — the query already targets specific collections/subjects.
+    func fetchTracks(iaQuery: String) async throws -> [Track] {
+        return try await search(query: iaQuery, confidenceThreshold: 0.0)
+    }
+
     // Tag-only channels (Classical, Ambient): threshold 0.0 because these channels
     // intentionally include composers not in ComposerMap (Beethoven, Mozart, etc.).
     // License filtering happens entirely in mapDoc via LicenseValidator — do NOT
@@ -384,7 +390,7 @@ struct InternetArchiveService {
             downloadURL: streamURL,
             localFilePath: nil,
             license: license,
-            tags: doc.subjects,
+            tags: doc.subjects.map { $0.lowercased() },
             qualityScore: min(confidence / 4.0, 1.0),
             rawCreator: doc.creator ?? "",
             composer: composer,

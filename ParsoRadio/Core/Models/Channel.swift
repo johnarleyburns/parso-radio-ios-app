@@ -39,12 +39,15 @@ struct Channel: Codable, Identifiable, Hashable {
         self.isDownloaded = isDownloaded
     }
 
+    var iaQueryEntry: IAQueryEntry? { IAQueryRegistry.shared.entry(for: id) }
+
     func matches(_ track: Track) -> Bool {
-        // Tag-only channels (no composer/instrument constraints) must match by tag —
-        // otherwise every track in the DB satisfies the empty-array conditions and
-        // e.g. a Country channel ends up playing Rachmaninoff.
+        // Tag-only channels (no composer/instrument constraints) must match by tag.
+        // matchTags from the IA query registry augment the channel's own tags so that
+        // QueueManager correctly isolates registry-fetched tracks from the DB.
+        let allTags = tags + (iaQueryEntry?.matchTags ?? [])
         if composers.isEmpty && instruments.isEmpty {
-            return tags.isEmpty || tags.contains(where: { track.tags.contains($0) })
+            return allTags.isEmpty || allTags.contains(where: { track.tags.contains($0) })
         }
         let composerMatch = composers.isEmpty || composers.contains(track.composer ?? "")
         let instrumentMatch = instruments.isEmpty

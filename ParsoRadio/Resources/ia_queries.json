@@ -1,0 +1,7 @@
+[
+  {
+    "channelId": "spanish-guitar",
+    "iaQuery": "mediatype:audio AND ((subject:\"Spanish guitar\"^5 OR title:\"Spanish guitar\"^5 OR subject:flamenco OR subject:vihuela OR ((subject:guitar OR subject:\"Classical guitar\" OR title:guitar) AND (coverage:Spain OR coverage:Espana OR subject:Spain OR subject:Andalusia OR language:spa))) OR (collection:jamendo-albums AND (title:tarrega OR title:\"Spanish guitar\" OR title:flamenco OR title:guitarra OR title:segovia OR title:\"de lucia\" OR title:alhambra))) AND NOT (subject:electric OR subject:rock OR subject:jazz OR subject:pop OR subject:Bach OR creator:Bach OR subject:Giuliani OR creator:Giuliani OR subject:Vivaldi OR subject:Paganini)",
+    "matchTags": ["spain", "flamenco", "guitar", "guitarra", "vihuela", "spanish guitar", "classical guitar", "fingerstyle", "alhambra", "andalusia", "andalucia"]
+  }
+]
