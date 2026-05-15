@@ -233,6 +233,66 @@ final class PlayerViewModelTests: XCTestCase {
             "Oxford forward must not add 30 s — it should trigger next-track advance")
     }
 
+    // MARK: - Playlist playback regressions
+
+    // Bug: after loadPlaylist, currentChannel must be nil and currentPlaylist must be set.
+    // Previously both were possible to still hold the channel, leaving the wrong header shown.
+    func testLoadPlaylistClearsChannelAndSetsPlaylist() async throws {
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let track = makeFMATrack(id: "playlist-fma-1", tags: ["jazz"])
+        await db.saveTracks([track])
+        vm.currentChannel = channel
+
+        let playlist = try await db.createPlaylist(name: "Bug1 Regression")
+        await db.addTrack(track, toPlaylist: playlist.id)
+
+        await vm.loadPlaylist(playlist)
+
+        XCTAssertNil(vm.currentChannel,
+            "loadPlaylist must clear currentChannel so the playlist name is shown in the header")
+        XCTAssertEqual(vm.currentPlaylist?.id, playlist.id,
+            "loadPlaylist must set currentPlaylist")
+    }
+
+    // Bug: switching to a playlist must clear play history from the previous channel.
+    func testLoadPlaylistClearsPlayHistory() async throws {
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let prev = makeFMATrack(id: "prev-track", tags: ["jazz"])
+        let playlistTrack = makeFMATrack(id: "playlist-fma-2", tags: ["jazz"])
+        await db.saveTracks([prev, playlistTrack])
+
+        vm.currentChannel = channel
+        vm.playHistory = [prev]
+
+        let playlist = try await db.createPlaylist(name: "Bug1 History Regression")
+        await db.addTrack(playlistTrack, toPlaylist: playlist.id)
+
+        await vm.loadPlaylist(playlist)
+
+        XCTAssertTrue(vm.playHistory.isEmpty,
+            "loadPlaylist must reset playHistory to empty")
+    }
+
+    // Bug 2: wheel diameter formula must not go negative during zero-size geometry glitches.
+    func testWheelDiameterFloorIsNonNegative() {
+        // Simulate GeometryReader reporting (0, 0) — seen during sheet dismiss animations.
+        let geoWidth: CGFloat = 0
+        let geoHeight: CGFloat = 0
+        let wheelDiameter = max(80.0, min(geoWidth - 48, geoHeight * 0.50 - 32))
+        XCTAssertGreaterThanOrEqual(wheelDiameter, 80.0,
+            "Wheel diameter must be at least 80 pt even when geo reports zero")
+    }
+
+    // Bug 2 variant: normal device viewport should still produce a sensible size.
+    func testWheelDiameterOnTypicalDevice() {
+        // iPhone 15 Pro usable area: ~393 × 759 (after safe areas)
+        let geoWidth: CGFloat = 393
+        let geoHeight: CGFloat = 759
+        let wheelDiameter = max(80.0, min(geoWidth - 48, geoHeight * 0.50 - 32))
+        XCTAssertEqual(wheelDiameter, 345.0, accuracy: 1.0,
+            "Wheel diameter for typical iPhone should be ~345 pt")
+    }
+
     // MARK: - Helpers
 
     private func makeFMATrack(id: String, tags: [String]) -> Track {

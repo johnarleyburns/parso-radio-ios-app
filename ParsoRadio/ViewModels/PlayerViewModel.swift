@@ -375,6 +375,12 @@ final class PlayerViewModel: ObservableObject {
             } else if track.source == "internet_archive" {
                 if let cached = prefetchedURLs.removeValue(forKey: track.id) {
                     url = cached
+                } else if track.id.contains("/") {
+                    // Per-file track (id = "identifier/filename"): streamURL is already
+                    // a direct download URL built in fetchTracksForIdentifier.
+                    // Calling resolveAudioURL with a slash-ID hits the wrong metadata
+                    // endpoint and throws, leaving audio silent.
+                    url = track.streamURL
                 } else {
                     url = try await archiveService.resolveAudioURL(for: track.id)
                 }
@@ -398,7 +404,10 @@ final class PlayerViewModel: ObservableObject {
                 Task { await prefetchNextURL(channel: channel) }
             }
         } catch {
-            errorMessage = "Could not load \"\(track.title)\"."
+            // Clear currentTrack so the error view is shown in the screen panel.
+            // Without this, currentTrack remains set and hides the error message.
+            currentTrack = nil
+            errorMessage = "Could not load audio. Tap a channel to try again."
             isPlaying = false
         }
     }

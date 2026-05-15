@@ -38,7 +38,11 @@ struct iPodView: View {
 
                     Spacer()
 
-                    // Click wheel — centered in remaining space
+                    // Click wheel — centered in remaining space.
+                    // Floor at 80 pt: GeometryReader can briefly report zero size during
+                    // sheet dismiss animations, which would produce a negative frame and
+                    // collapse the wheel entirely.
+                    let wheelDiameter = max(80.0, min(geo.size.width - 48, geo.size.height * 0.50 - 32))
                     ClickWheel(
                         isPlaying: playerVM.isPlaying,
                         onMenu:      { showMainMenu = true },
@@ -46,10 +50,7 @@ struct iPodView: View {
                         onForward:   { playerVM.skip() },
                         onPlayPause: { playerVM.togglePlayPause() }
                     )
-                    .frame(
-                        width:  min(geo.size.width - 48, geo.size.height * 0.50 - 32),
-                        height: min(geo.size.width - 48, geo.size.height * 0.50 - 32)
-                    )
+                    .frame(width: wheelDiameter, height: wheelDiameter)
 
                     Spacer()
                 }
@@ -158,13 +159,15 @@ struct iPodView: View {
 
                 Spacer()
 
-                // Track metadata — bottom section above scrubber
-                if let track = playerVM.currentTrack {
-                    trackMetadataStack(track: track)
-                } else if playerVM.isLoading {
+                // Track metadata — bottom section above scrubber.
+                // Error is shown first: if playTrack fails, currentTrack may still be
+                // set from the pre-do assignment but audio isn't running.
+                if playerVM.isLoading {
                     loadingView
                 } else if let err = playerVM.errorMessage {
                     errorView(err)
+                } else if let track = playerVM.currentTrack {
+                    trackMetadataStack(track: track)
                 } else {
                     idleView
                 }
