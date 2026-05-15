@@ -45,6 +45,10 @@ final class PlayerViewModel: ObservableObject {
     // UC3: track history for backward navigation (most-recent last, cap historyLimit).
     var playHistory: [Track] = []
     let historyLimit = 50
+    // Playlist mode: the ordered tracks of the active playlist. Navigation in
+    // playlist mode steps through this array — NOT playHistory (which holds
+    // channel tracks from before the playlist was opened).
+    var playlistTracks: [Track] = []
     // Guards against double-advance when skip() fires onTrackFinished before the Task runs.
     private var isSkipping = false
 
@@ -177,7 +181,10 @@ final class PlayerViewModel: ObservableObject {
             } else if channel.composers.isEmpty {
                 if let entry = channel.iaQueryEntry {
                     // Registry channels: Lucene query is precise enough; skip FMA supplement.
-                    fetched = try await archiveService.fetchTracks(iaQuery: entry.iaQuery)
+                    // matchTags are stamped onto each track for reliable DB isolation.
+                    fetched = try await archiveService.fetchTracks(
+                        iaQuery: entry.iaQuery, matchTags: entry.matchTags
+                    )
                 } else {
                     // Tag channels: IA + FMA in parallel; FMA errors are non-fatal.
                     async let iaTracks = archiveService.fetchTracks(tags: channel.tags, excludeTags: channel.excludeTags)
@@ -211,6 +218,7 @@ final class PlayerViewModel: ObservableObject {
             channelTrackCount = fetched.count
             channelMostRecentDate = fetched.compactMap(\.addedDate).max()
             currentPlaylist = nil
+            playlistTracks = []
         } catch let urlError as URLError
             where urlError.code == .notConnectedToInternet || urlError.code == .networkConnectionLost {
             if currentTrack == nil {
@@ -296,10 +304,14 @@ final class PlayerViewModel: ObservableObject {
     // MARK: - Private
 
     private func advanceToNext() async {
-        guard let channel = currentChannel else {
-            // Playlist mode: no channel — playlist advance handled separately
+        // Playlist mode: advance within the playlist's ordered tracks.
+        // (currentChannel is nil in playlist mode, so the channel queue path
+        // below would otherwise do nothing — which is why <next> was dead.)
+        if currentPlaylist != nil {
+            await advancePlaylist()
             return
         }
+        guard let channel = currentChannel else { return }
 
         // Assert a background task so iOS doesn't kill the network call that
         // resolves the next track URL when the app is backgrounded.
@@ -329,7 +341,41 @@ final class PlayerViewModel: ObservableObject {
         await playTrack(track, seekTo: nil)
     }
 
+    private func advancePlaylist() async {
+        guard !playlistTracks.isEmpty else { return }
+        let next: Track
+        if shuffleMode, playlistTracks.count > 1 {
+            let candidates = playlistTracks.filter { $0.id != currentTrack?.id }
+            next = candidates.randomElement() ?? playlistTracks[0]
+        } else {
+            let idx = currentTrack
+                .flatMap { c in playlistTracks.firstIndex(where: { $0.id == c.id }) } ?? -1
+            next = playlistTracks[(idx + 1) % playlistTracks.count]
+        }
+        // recordHistory:false — playlist back navigation steps through
+        // playlistTracks by index, never playHistory.
+        await playTrack(next, seekTo: nil, recordHistory: false)
+    }
+
     private func playPreviousTrack() async {
+        // Playlist mode: step backward through playlist order. The first track
+        // restarts in place; never fall back to channel playHistory.
+        if currentPlaylist != nil {
+            guard !playlistTracks.isEmpty else {
+                audioPlayer.seek(to: 0)
+                currentPosition = 0
+                return
+            }
+            let idx = currentTrack
+                .flatMap { c in playlistTracks.firstIndex(where: { $0.id == c.id }) } ?? 0
+            guard idx > 0 else {
+                audioPlayer.seek(to: 0)
+                currentPosition = 0
+                return
+            }
+            await playTrack(playlistTracks[idx - 1], seekTo: nil, recordHistory: false)
+            return
+        }
         guard !playHistory.isEmpty else {
             // No history: restart the current track from the beginning.
             audioPlayer.seek(to: 0)
@@ -446,12 +492,16 @@ final class PlayerViewModel: ObservableObject {
         currentChannel = nil
         playHistory = []
         let tracks = await db.fetchTracks(forPlaylist: playlist.id)
+        playlistTracks = tracks
         channelDescription = playlist.name
         channelTrackCount = tracks.count
         channelMostRecentDate = tracks.compactMap(\.addedDate).max()
         guard !tracks.isEmpty else { return }
         let startTrack = track ?? tracks.first!
-        await playTrack(startTrack, seekTo: 0, recordHistory: true)
+        // recordHistory:false — currentTrack here is still the previously-playing
+        // CHANNEL track. Pushing it into playHistory is exactly why "back" on the
+        // first playlist track used to jump to a track not in the playlist.
+        await playTrack(startTrack, seekTo: 0, recordHistory: false)
     }
 
     // MARK: - Book navigation (Librivox)

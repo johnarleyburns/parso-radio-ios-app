@@ -293,7 +293,136 @@ final class PlayerViewModelTests: XCTestCase {
             "Wheel diameter for typical iPhone should be ~345 pt")
     }
 
+    // MARK: - Playlist navigation regressions
+    //
+    // Bug report: in a playlist, <next> never advanced; <back> jumped to a
+    // previously-played track that wasn't even in the playlist. Root causes:
+    //  1. advanceToNext() bailed out via `guard let channel` (nil in playlist mode)
+    //  2. loadPlaylist passed recordHistory:true while currentTrack was still the
+    //     old CHANNEL track, leaking it into playHistory.
+
+    func testPlaylistForwardAdvancesThroughPlaylist() async throws {
+        vm.shuffleMode = false
+        let t1 = makeFMATrack(id: "pl-1", tags: ["jazz"])
+        let t2 = makeFMATrack(id: "pl-2", tags: ["jazz"])
+        let t3 = makeFMATrack(id: "pl-3", tags: ["jazz"])
+        await db.saveTracks([t1, t2, t3])
+        let playlist = try await db.createPlaylist(name: "Nav Forward")
+        for t in [t1, t2, t3] { await db.addTrack(t, toPlaylist: playlist.id) }
+
+        await vm.loadPlaylist(playlist)
+        XCTAssertEqual(vm.currentTrack?.id, "pl-1")
+        XCTAssertNil(vm.currentChannel)
+        XCTAssertEqual(vm.currentPlaylist?.id, playlist.id)
+
+        vm.skip()
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, "pl-2", "<next> must advance to the next playlist track")
+
+        vm.skip()
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, "pl-3", "<next> must keep advancing within the playlist")
+    }
+
+    func testPlaylistBackStopsAtFirstAndNeverPlaysNonPlaylistTrack() async throws {
+        vm.shuffleMode = false
+        // Simulate a channel track playing BEFORE the playlist is opened.
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let preChannelTrack = makeFMATrack(id: "channel-pre", tags: ["jazz"])
+        let olderChannelTrack = makeFMATrack(id: "channel-older", tags: ["jazz"])
+        await db.saveTracks([preChannelTrack, olderChannelTrack])
+        vm.currentChannel = channel
+        vm.currentTrack = preChannelTrack
+        vm.playHistory = [olderChannelTrack]
+
+        let t1 = makeFMATrack(id: "pl-a", tags: ["jazz"])
+        let t2 = makeFMATrack(id: "pl-b", tags: ["jazz"])
+        await db.saveTracks([t1, t2])
+        let playlist = try await db.createPlaylist(name: "Nav Back")
+        for t in [t1, t2] { await db.addTrack(t, toPlaylist: playlist.id) }
+
+        await vm.loadPlaylist(playlist)
+        XCTAssertEqual(vm.currentTrack?.id, "pl-a")
+
+        vm.skip()
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, "pl-b")
+
+        vm.back()
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, "pl-a", "<back> must step to the previous playlist track")
+
+        // The regression: <back> on the first playlist track must NOT fall back
+        // to playHistory / the pre-playlist channel track.
+        vm.back()
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, "pl-a",
+            "<back> on the first playlist track must stay in place")
+        XCTAssertNotEqual(vm.currentTrack?.id, "channel-pre",
+            "<back> must never play the pre-playlist channel track")
+        XCTAssertNotEqual(vm.currentTrack?.id, "channel-older",
+            "<back> must never play a track from the old channel's playHistory")
+    }
+
+    // Registry-backed channels (Spanish Guitar) are radio stations: they must
+    // NOT play strict newest-first even when the global shuffle toggle is off.
+    func testRegistryChannelDoesNotPlayStrictNewestFirst() async throws {
+        let channel = Channel.defaults.first { $0.id == "spanish-guitar" }!
+        XCTAssertNotNil(channel.iaQueryEntry,
+            "precondition: spanish-guitar must be registry-backed")
+
+        var tracks: [Track] = []
+        for i in 1...8 {
+            var t = makeIATrack(id: "sg-\(i)", tags: ["spanish-guitar"])
+            t.addedDate = Date(timeIntervalSince1970: TimeInterval(1_700_000_000 + i * 86_400))
+            tracks.append(t)
+        }
+        await db.saveTracks(tracks)
+
+        let qm = QueueManager(db: db)
+        var order: [String] = []
+        for _ in 0..<8 {
+            guard let n = await qm.nextTrack(channel: channel, shuffleMode: false) else { break }
+            order.append(n.id)
+        }
+        let strictNewestFirst = tracks
+            .sorted { ($0.addedDate ?? .distantPast) > ($1.addedDate ?? .distantPast) }
+            .map(\.id)
+
+        XCTAssertEqual(order.count, 8, "queue should drain the whole channel pool")
+        XCTAssertEqual(Set(order), Set(strictNewestFirst), "every pool track must be reachable")
+        XCTAssertNotEqual(order, strictNewestFirst,
+            "registry channel must be randomized, not strict newest-first")
+    }
+
+    // The stamping fix: registry tracks are isolated by an injected matchTag,
+    // not by sparse IA subjects. A generic 'classical' track without the stamp
+    // must not leak into Spanish Guitar.
+    func testStampedTrackIsolatedToRegistryChannel() {
+        let sg = Channel.defaults.first { $0.id == "spanish-guitar" }!
+        let stamped = makeIATrack(id: "sg-x", tags: ["classical", "78rpm", "spanish-guitar"])
+        XCTAssertTrue(sg.matches(stamped),
+            "a stamped track must match even with sparse/non-guitar subjects")
+        let unstamped = makeIATrack(id: "sg-y", tags: ["classical", "78rpm"])
+        XCTAssertFalse(sg.matches(unstamped),
+            "without the stamp, a generic classical track must not leak into Spanish Guitar")
+    }
+
     // MARK: - Helpers
+
+    private func makeIATrack(id: String, tags: [String]) -> Track {
+        Track(
+            id: id, source: "internet_archive",
+            title: "IA Track \(id)", artist: "Various",
+            duration: 180,
+            streamURL: URL(string: "https://archive.org/download/\(id)")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: tags,
+            qualityScore: 0.8,
+            rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 2.0
+        )
+    }
 
     private func makeFMATrack(id: String, tags: [String]) -> Track {
         Track(
@@ -324,7 +453,7 @@ final class PlayerViewModelTests: XCTestCase {
     }
 }
 
-// IAQueryRegistry: bundle JSON loads correctly and matchTags cover relevant query subjects.
+// IAQueryRegistry: bundle JSON loads and matchTags act as an isolation stamp.
 final class IAQueryRegistryTests: XCTestCase {
 
     func testIAQueryRegistryLoadsSpanishGuitar() {
@@ -335,36 +464,39 @@ final class IAQueryRegistryTests: XCTestCase {
             "iaQuery must contain 'Spanish guitar'")
         XCTAssertTrue(entry?.iaQuery.contains("jamendo-albums") ?? false,
             "iaQuery must contain the jamendo-albums arm to catch Tárrega recordings")
-    }
-
-    func testSpanishGuitarMatchTagsCoverQuerySubjects() {
-        let entry = IAQueryRegistry.shared.entry(for: "spanish-guitar")
-        XCTAssertNotNil(entry)
-        let tags = entry?.matchTags ?? []
-        // These are the subject values IA returns for the geographic arm of the query.
-        for expected in ["spain", "flamenco", "guitar", "spanish guitar", "andalusia"] {
-            XCTAssertTrue(tags.contains(expected),
-                "matchTags must include '\(expected)' so QueueManager isolates spanish-guitar tracks")
+        // Curated query must exclude the noise genres the user reported.
+        for excluded in ["subject:electronic", "subject:dance", "subject:blues", "creator:Bach"] {
+            XCTAssertTrue(entry?.iaQuery.contains(excluded) ?? false,
+                "iaQuery must exclude '\(excluded)' to keep the channel Spanish-classical-guitar")
         }
     }
 
-    func testChannelMatchesUsesRegistryMatchTags() {
+    func testSpanishGuitarMatchTagsAreAnIsolationStamp() {
+        let entry = IAQueryRegistry.shared.entry(for: "spanish-guitar")
+        XCTAssertNotNil(entry)
+        // matchTags are STAMPED onto every fetched track (not expected to overlap
+        // IA subjects). The stamp must be present and collision-resistant.
+        XCTAssertEqual(entry?.matchTags, ["spanish-guitar"],
+            "matchTags is the per-channel isolation stamp injected at fetch time")
+    }
+
+    func testChannelMatchesUsesRegistryStamp() {
         let channel = Channel.defaults.first { $0.id == "spanish-guitar" }!
-        // A track whose tags come from IA geographic arm (not in channel.tags directly).
-        let track = Track(
-            id: "test-spain-1", source: "internet_archive",
-            title: "Andalusian Night", artist: "Various",
+        // A creator-matched track with sparse subjects but carrying the stamp.
+        let stamped = Track(
+            id: "seg-1", source: "internet_archive",
+            title: "Segovia Recital", artist: "Andrés Segovia",
             duration: 180,
-            streamURL: URL(string: "https://archive.org/download/test-spain-1")!,
+            streamURL: URL(string: "https://archive.org/download/seg-1")!,
             downloadURL: nil, localFilePath: nil,
-            license: .cc0,
-            tags: ["spain", "andalusia"],
+            license: .publicDomain,
+            tags: ["78rpm", "classical", "spanish-guitar"],
             qualityScore: 0.8,
-            rawCreator: "", composer: nil, instruments: [],
+            rawCreator: "Andrés Segovia", composer: nil, instruments: [],
             metadataConfidence: 0.0
         )
-        XCTAssertTrue(channel.matches(track),
-            "Channel.matches must return true for tags from matchTags, not just channel.tags")
+        XCTAssertTrue(channel.matches(stamped),
+            "Channel.matches must accept a stamped track regardless of its IA subjects")
     }
 }
 

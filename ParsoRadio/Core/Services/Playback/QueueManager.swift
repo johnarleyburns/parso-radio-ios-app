@@ -88,8 +88,14 @@ final class QueueManager {
         }
         guard !pool.isEmpty else { return nil }
 
+        // Registry-backed channels (e.g. Spanish Guitar) are curated radio
+        // stations: always play in random order regardless of the global
+        // shuffle toggle. Sequential newest-first only makes sense for
+        // composer/podcast channels, not a hand-tuned IA query.
+        let effectiveShuffle = shuffleMode || channel.iaQueryEntry != nil
+
         let track: Track
-        if shuffleMode {
+        if effectiveShuffle {
             track = weightedRandom(from: pool, seed: dailySeed(for: channel))
         } else {
             // Recent-first: sort by addedDate DESC, fall back to qualityScore

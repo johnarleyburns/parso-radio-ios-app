@@ -113,6 +113,50 @@ final class InternetArchiveIntegrationTests: XCTestCase {
             "Expected an audio file extension, got: \(ext)"
         )
     }
+
+    // Spanish Guitar registry channel — guards the user-reported regressions:
+    //  (a) curated query still returns a healthy pool of real Spanish guitar music
+    //  (b) every track is stamped so Channel.matches() can isolate it in the DB
+    //      (the queue was being starved because creator-matched tracks have no
+    //       guitar subject tags)
+    //  (c) noise genres (electronic/dance/blues/etc.) do not leak through
+    func testSpanishGuitarRegistryQueryReturnsCuratedStampedContent() async throws {
+        guard let entry = IAQueryRegistry.shared.entry(for: "spanish-guitar") else {
+            XCTFail("ia_queries.json missing the spanish-guitar entry")
+            return
+        }
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchTracks(
+                iaQuery: entry.iaQuery, matchTags: entry.matchTags
+            )
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("Spanish Guitar registry: \(tracks.count) tracks")
+        for t in tracks.prefix(5) { print("  \(t.title) — \(t.artist)") }
+
+        XCTAssertGreaterThan(tracks.count, 20,
+            "Spanish Guitar query must return a healthy pool; got \(tracks.count)")
+
+        // (b) every fetched track must carry the isolation stamp, and
+        //     Channel.matches() must therefore accept all of them.
+        XCTAssertTrue(tracks.allSatisfy { $0.tags.contains("spanish-guitar") },
+            "every registry track must be stamped with its matchTag")
+        let channel = Channel.defaults.first { $0.id == "spanish-guitar" }!
+        XCTAssertTrue(tracks.allSatisfy { channel.matches($0) },
+            "stamped tracks must pass Channel.matches so the queue isn't starved")
+
+        // (c) noise genres must not leak through the NOT clause.
+        let noise: Set<String> = [
+            "electronic", "electronica", "dance", "hip-hop", "rap",
+            "techno", "house", "metal", "blues", "country", "newage", "new age"
+        ]
+        let polluted = tracks.filter { !Set($0.tags).isDisjoint(with: noise) }
+        XCTAssertTrue(polluted.isEmpty,
+            "noise-genre tracks leaked into Spanish Guitar: " +
+            "\(polluted.prefix(3).map { $0.title })")
+    }
 }
 
 // MARK: - Spoken-word (LibriVox) integration tests

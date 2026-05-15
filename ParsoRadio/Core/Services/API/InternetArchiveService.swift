@@ -59,10 +59,15 @@ struct InternetArchiveService {
         return try await search(query: query, musopenCollection: true, confidenceThreshold: 1.5)
     }
 
-    // Channels with an ia_queries.json entry: use the pre-composed Lucene query verbatim.
-    // No netlabels boost — the query already targets specific collections/subjects.
-    func fetchTracks(iaQuery: String) async throws -> [Track] {
-        return try await search(query: iaQuery, confidenceThreshold: 0.0)
+    // Channels with an ia_queries.json entry: use the pre-composed Lucene query
+    // verbatim. No netlabels boost — the query already targets specific
+    // collections/subjects/creators. matchTags are STAMPED onto every returned
+    // track so Channel.matches() can isolate them in the shared DB regardless of
+    // how sparse the IA item's own subject metadata is (many curated results
+    // match by creator and carry no guitar-related subject at all).
+    func fetchTracks(iaQuery: String, matchTags: [String] = []) async throws -> [Track] {
+        let tracks = try await search(query: iaQuery, confidenceThreshold: 0.0)
+        return tracks.map { $0.stamped(with: matchTags) }
     }
 
     // Tag-only channels (Classical, Ambient): threshold 0.0 because these channels

@@ -11,7 +11,7 @@ struct Track: Codable, Identifiable {
     let downloadURL: URL?
     var localFilePath: String?
     let license: LicenseType
-    let tags: [String]
+    var tags: [String]
     let qualityScore: Double
     let rawCreator: String
     let composer: String?
@@ -39,5 +39,16 @@ extension Track {
         if let d = addedDate { return d }
         if qualityScore > 1_000_000_000 { return Date(timeIntervalSince1970: qualityScore) }
         return nil
+    }
+
+    // Stamp channel-isolation tags onto a track. Registry channels match by these
+    // injected tags (not by IA subject), so a track fetched by an ia_queries.json
+    // query is reliably isolated to its channel even when the IA item has sparse
+    // or missing subject metadata.
+    func stamped(with extraTags: [String]) -> Track {
+        guard !extraTags.isEmpty else { return self }
+        var copy = self
+        copy.tags = copy.tags + extraTags.filter { !copy.tags.contains($0) }
+        return copy
     }
 }
