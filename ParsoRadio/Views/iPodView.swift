@@ -35,7 +35,7 @@ struct iPodView: View {
                     // the first layout pass before the view is measured, which would
                     // collapse the panel and overflow its content horizontally.
                     screenPanel
-                        .frame(height: max(160.0, geo.size.height * 0.50))
+                        .frame(maxWidth: .infinity, height: max(160.0, geo.size.height * 0.50))
                         .padding(.horizontal, 12)
                         .padding(.top, 12)
 
@@ -206,6 +206,8 @@ struct iPodView: View {
             Image(uiImage: art)
                 .resizable()
                 .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
                 .animation(.easeInOut(duration: 0.8), value: playerVM.currentTrack?.id)
         } else {
             ZStack {
