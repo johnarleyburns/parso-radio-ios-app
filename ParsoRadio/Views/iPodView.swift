@@ -200,31 +200,37 @@ struct iPodView: View {
         }
     }
 
-    @ViewBuilder
     private var artworkBackground: some View {
-        if let art = playerVM.currentArtwork {
-            Image(uiImage: art)
-                .resizable()
-                .scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-                .animation(.easeInOut(duration: 0.8), value: playerVM.currentTrack?.id)
-        } else {
-            ZStack {
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [categoryColor(for: displayChannel.category).opacity(0.6),
-                                     categoryColor(for: displayChannel.category).opacity(0.2)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                Image(systemName: displayChannel.icon)
-                    .font(.system(size: 48, weight: .ultraLight))
-                    .foregroundStyle(.white.opacity(0.3))
+        // Rectangle takes EXACTLY the proposed size and never overflows, so it
+        // — not the artwork — determines this view's layout size. The image is an
+        // .overlay, which by SwiftUI's rules does not influence the host's size.
+        // .scaledToFill() on the overlay still overflows visually, but .clipped()
+        // trims it to the Rectangle's bounds. This is why an earlier
+        // `.frame(maxWidth: .infinity).clipped()` did NOT work: an infinite max
+        // lets scaledToFill's oversized dimension pass through as the reported
+        // layout width, inflating the screen panel and pushing the wheel offscreen.
+        Rectangle()
+            .fill(
+                LinearGradient(
+                    colors: [categoryColor(for: displayChannel.category).opacity(0.6),
+                             categoryColor(for: displayChannel.category).opacity(0.2)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay {
+                if let art = playerVM.currentArtwork {
+                    Image(uiImage: art)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image(systemName: displayChannel.icon)
+                        .font(.system(size: 48, weight: .ultraLight))
+                        .foregroundStyle(.white.opacity(0.3))
+                }
             }
-        }
+            .clipped()
+            .animation(.easeInOut(duration: 0.8), value: playerVM.currentTrack?.id)
     }
 
     @ViewBuilder
