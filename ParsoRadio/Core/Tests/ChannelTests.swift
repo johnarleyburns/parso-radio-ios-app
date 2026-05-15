@@ -4,26 +4,36 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 26 Classical + 22 Audiobooks + 14 Contemporary + 21 Lectures + 4 News + 5 Ambient + 1 Curated = 93
+        // 25 Classical + 22 Audiobooks + 14 Contemporary + 21 Lectures + 4 News + 5 Ambient + 2 Curated = 93
         XCTAssertEqual(Channel.defaults.count, 93)
     }
 
-    func testClassicalCategoryHas26Channels() {
+    func testClassicalCategoryHas25Channels() {
         let classicalChannels = Channel.defaults.filter { $0.category == "Classical" }
-        XCTAssertEqual(classicalChannels.count, 26,
-            "Classical: 8 period/format/instrument + 18 composer channels")
+        // chamber-music moved to Curated (pure-Lucene), so 7 period/format/instrument
+        // + 18 composer channels remain.
+        XCTAssertEqual(classicalChannels.count, 25,
+            "Classical: 7 period/format/instrument + 18 composer channels")
     }
 
     func testSpanishGuitarChannelInCurated() {
         let ch = Channel.defaults.first { $0.id == "spanish-guitar" }
         XCTAssertNotNil(ch, "Spanish Guitar channel must exist in Curated category")
         XCTAssertEqual(ch?.category, "Curated")
-        XCTAssertFalse(ch?.excludeTags.isEmpty == true, "Spanish Guitar must have excludeTags")
+        // Pure-Lucene: curation lives entirely in the ia_queries.json query,
+        // not in excludeTags. The channel must be registry-backed instead.
+        XCTAssertNotNil(ch?.iaQueryEntry, "Spanish Guitar must be registry-backed (pure-Lucene)")
     }
 
-    func testCuratedCategoryHas1Channel() {
+    func testCuratedCategoryHas2Channels() {
         let channels = Channel.defaults.filter { $0.category == "Curated" }
-        XCTAssertEqual(channels.count, 1, "Expected 1 Curated channel (Spanish Guitar)")
+        XCTAssertEqual(channels.count, 2,
+            "Expected 2 Curated channels (Spanish Guitar, Chamber Music)")
+        // Every Curated channel must be pure-Lucene registry-backed.
+        for ch in channels {
+            XCTAssertNotNil(ch.iaQueryEntry,
+                "Curated channel '\(ch.id)' must have an ia_queries.json entry")
+        }
     }
 
     func testBachChannelDefinition() {
