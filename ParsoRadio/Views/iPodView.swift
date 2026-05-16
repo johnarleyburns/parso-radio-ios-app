@@ -30,21 +30,23 @@ struct iPodView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Screen panel — top portion.
-                    // Floor at 160 pt: GeometryReader can report geo.size = (0,0) on
-                    // the first layout pass before the view is measured, which would
-                    // collapse the panel and overflow its content horizontally.
+                    // Screen panel — top portion. The VStack respects the top
+                    // safe area, so the panel starts just below the status bar;
+                    // a top margin equal to the side margin then offsets it.
+                    // Floor at 160 pt: GeometryReader can report geo.size = (0,0)
+                    // on the first layout pass before the view is measured,
+                    // which would collapse the panel and overflow its content.
                     screenPanel
                         .frame(height: max(160.0, geo.size.height * 0.50))
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, deviceMargin(geo))
+                        .padding(.top, deviceMargin(geo))
 
+                    // Equal flexible space above and below the wheel keeps the
+                    // track→wheel gap identical to the wheel→bottom gap.
                     Spacer()
 
-                    // Click wheel — centered in remaining space.
-                    // Floor at 80 pt prevents a negative frame (and invisible wheel)
-                    // when geo briefly reports zero during sheet dismiss animations.
-                    // Expressed inline to avoid a `let` binding inside @ViewBuilder,
-                    // which can interact unexpectedly with SwiftUI's layout engine.
+                    // Click wheel — centered, same gap to each screen edge as
+                    // the screen panel (deviceMargin).
                     ClickWheel(
                         isPlaying: playerVM.isPlaying,
                         onMenu:      { showMainMenu = true },
@@ -52,18 +54,11 @@ struct iPodView: View {
                         onForward:   { playerVM.skip() },
                         onPlayPause: { playerVM.togglePlayPause() }
                     )
-                    .frame(
-                        width:  max(80.0, min(geo.size.width - 48, geo.size.height * 0.50 - 32)),
-                        height: max(80.0, min(geo.size.width - 48, geo.size.height * 0.50 - 32))
-                    )
+                    .frame(width: wheelDiameter(geo), height: wheelDiameter(geo))
 
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                // Screen panel hugs the very top (top margin ≈ 0); only the
-                // top edge ignores the safe area so the wheel still clears
-                // the home indicator at the bottom.
-                .ignoresSafeArea(edges: .top)
             }
         }
         .sheet(isPresented: $showMainMenu) {
@@ -424,6 +419,25 @@ struct iPodView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Layout geometry
+    //
+    // Helper functions (not @ViewBuilder `let` bindings, which can interact
+    // badly with SwiftUI's layout engine) shared by the screen panel and the
+    // wheel so they read as one physical device.
+
+    // Click-wheel diameter. Floor at 80 pt prevents a negative/invisible frame
+    // when GeometryReader briefly reports zero during sheet-dismiss animations.
+    private func wheelDiameter(_ geo: GeometryProxy) -> CGFloat {
+        max(80.0, min(geo.size.width - 48, geo.size.height * 0.50 - 32))
+    }
+
+    // The wheel is centered, so its gap to each screen edge is exactly this.
+    // The screen panel uses the same value for its left/right AND top margins
+    // so panel and wheel have identical insets from the screen edge.
+    private func deviceMargin(_ geo: GeometryProxy) -> CGFloat {
+        max(12.0, (geo.size.width - wheelDiameter(geo)) / 2)
     }
 
     // MARK: - Helpers
