@@ -182,11 +182,6 @@ extension Channel {
             preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-music", name: "Music", category: "Lectures",
-            icon: "music.note.list", tags: ["faculty-music"], contentType: .spokenWord,
-            preferredSource: "oxford_lectures"
-        ),
-        Channel(
             id: "oxford-physics", name: "Physics", category: "Lectures",
             icon: "atom", tags: ["department-physics"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
@@ -245,18 +240,6 @@ extension Channel {
             id: "oxford-clinical-medicine", name: "Clinical Medicine (NDM)",
             category: "Lectures", icon: "stethoscope",
             tags: ["nuffield-department-clinical-medicine"], contentType: .spokenWord,
-            preferredSource: "oxford_lectures"
-        ),
-        Channel(
-            id: "oxford-population-health", name: "Population Health",
-            category: "Lectures", icon: "heart.fill",
-            tags: ["nuffield-department-population-health"], contentType: .spokenWord,
-            preferredSource: "oxford_lectures"
-        ),
-        Channel(
-            id: "oxford-surgical", name: "Surgical Sciences",
-            category: "Lectures", icon: "cross.fill",
-            tags: ["nuffield-department-surgical-sciences"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
         ),
         Channel(

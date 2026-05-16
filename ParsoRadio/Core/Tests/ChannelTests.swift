@@ -4,11 +4,11 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 14 Contemporary + 21 Lectures + 4 News + 4 Ambient + 7 Curated = 50.
-        // All non-curated IA channels (Classical/Audiobooks) were deleted; they
-        // are being replaced piecemeal by pure-Lucene Curated channels.
-        // Lofi Cafe was removed from Ambient.
-        XCTAssertEqual(Channel.defaults.count, 50)
+        // 14 Contemporary + 18 Lectures + 4 News + 4 Ambient + 7 Curated = 47.
+        // Non-curated IA channels (Classical/Audiobooks) and Lofi Cafe were
+        // deleted; 3 thin Oxford units (music, population-health, surgical)
+        // were removed for returning too little content.
+        XCTAssertEqual(Channel.defaults.count, 47)
     }
 
     func testNoLegacyIAChannelsRemain() {
@@ -91,10 +91,15 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    // Lectures category: 21 channels (Blavatnik removed — 0 series on podcasts.ox.ac.uk).
-    func testLecturesCategoryHas22Channels() {
+    // Lectures category: 18 channels. music/population-health/surgical were
+    // removed for returning too little podcasts.ox.ac.uk content.
+    func testLecturesCategoryHas18Channels() {
         let channels = Channel.defaults.filter { $0.category == "Lectures" }
-        XCTAssertEqual(channels.count, 21, "Expected 21 Lectures channels")
+        XCTAssertEqual(channels.count, 18, "Expected 18 Lectures channels")
+        let ids = Set(channels.map(\.id))
+        for removed in ["oxford-music", "oxford-population-health", "oxford-surgical"] {
+            XCTAssertFalse(ids.contains(removed), "\(removed) must be removed")
+        }
     }
 
     func testLecturesChannelsAreSpokenWord() {
