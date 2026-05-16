@@ -45,10 +45,12 @@ final class PlayerViewModel: ObservableObject {
     // UC3: track history for backward navigation (most-recent last, cap historyLimit).
     var playHistory: [Track] = []
     let historyLimit = 50
-    // Playlist mode: the ordered tracks of the active playlist. Navigation in
-    // playlist mode steps through this array — NOT playHistory (which holds
-    // channel tracks from before the playlist was opened).
+    // Playlist mode: the ordered tracks of the active playlist plus an
+    // EXPLICIT cursor. Navigation steps the cursor — it is never derived from
+    // currentTrack (which other code nulls for spinners/failures). This makes
+    // playlist next/back robust regardless of currentTrack mutations.
     var playlistTracks: [Track] = []
+    var playlistIndex: Int = 0
     // Guards against double-advance when skip() fires onTrackFinished before the Task runs.
     private var isSkipping = false
     // A track has 10 s to start; on failure/timeout we auto-skip to the next.
@@ -224,6 +226,7 @@ final class PlayerViewModel: ObservableObject {
             channelMostRecentDate = fetched.compactMap(\.addedDate).max()
             currentPlaylist = nil
             playlistTracks = []
+            playlistIndex = 0
         } catch let urlError as URLError
             where urlError.code == .notConnectedToInternet || urlError.code == .networkConnectionLost {
             if currentTrack == nil {
@@ -277,10 +280,9 @@ final class PlayerViewModel: ObservableObject {
         audioPlayer.skip()
         isPlaying = false
         currentPosition = 0
-        // Show the spinner immediately — don't leave the old track on screen
-        // with no feedback while the next one resolves.
-        currentTrack = nil
-        trackDuration = nil
+        // Show the spinner immediately (trackMetadataStack renders a
+        // ProgressView while isLoading). currentTrack stays set so playlist
+        // index + history math in advanceToNext stays correct.
         errorMessage = nil
         isLoading = true
         loadingMessage = "Loading…"
@@ -355,37 +357,30 @@ final class PlayerViewModel: ObservableObject {
 
     private func advancePlaylist() async {
         guard !playlistTracks.isEmpty else { return }
-        let next: Track
         if shuffleMode, playlistTracks.count > 1 {
-            let candidates = playlistTracks.filter { $0.id != currentTrack?.id }
-            next = candidates.randomElement() ?? playlistTracks[0]
+            var i = Int.random(in: 0..<playlistTracks.count)
+            if i == playlistIndex { i = (i + 1) % playlistTracks.count }
+            playlistIndex = i
         } else {
-            let idx = currentTrack
-                .flatMap { c in playlistTracks.firstIndex(where: { $0.id == c.id }) } ?? -1
-            next = playlistTracks[(idx + 1) % playlistTracks.count]
+            playlistIndex = (playlistIndex + 1) % playlistTracks.count
         }
-        // recordHistory:false — playlist back navigation steps through
-        // playlistTracks by index, never playHistory.
-        await playTrack(next, seekTo: nil, recordHistory: false)
+        // recordHistory:false — playlist back navigation uses the cursor.
+        await playTrack(playlistTracks[playlistIndex], seekTo: nil, recordHistory: false)
     }
 
     private func playPreviousTrack() async {
         // Playlist mode: step backward through playlist order. The first track
         // restarts in place; never fall back to channel playHistory.
         if currentPlaylist != nil {
-            guard !playlistTracks.isEmpty else {
+            guard !playlistTracks.isEmpty, playlistIndex > 0 else {
+                // First track (or empty): restart in place; never fall back
+                // to channel playHistory.
                 audioPlayer.seek(to: 0)
                 currentPosition = 0
                 return
             }
-            let idx = currentTrack
-                .flatMap { c in playlistTracks.firstIndex(where: { $0.id == c.id }) } ?? 0
-            guard idx > 0 else {
-                audioPlayer.seek(to: 0)
-                currentPosition = 0
-                return
-            }
-            await playTrack(playlistTracks[idx - 1], seekTo: nil, recordHistory: false)
+            playlistIndex -= 1
+            await playTrack(playlistTracks[playlistIndex], seekTo: nil, recordHistory: false)
             return
         }
         guard !playHistory.isEmpty else {
@@ -571,8 +566,10 @@ final class PlayerViewModel: ObservableObject {
         channelDescription = playlist.name
         channelTrackCount = tracks.count
         channelMostRecentDate = tracks.compactMap(\.addedDate).max()
-        guard !tracks.isEmpty else { return }
+        guard !tracks.isEmpty else { playlistIndex = 0; return }
         let startTrack = track ?? tracks.first!
+        playlistIndex = track
+            .flatMap { t in tracks.firstIndex(where: { $0.id == t.id }) } ?? 0
         // recordHistory:false — currentTrack here is still the previously-playing
         // CHANNEL track. Pushing it into playHistory is exactly why "back" on the
         // first playlist track used to jump to a track not in the playlist.

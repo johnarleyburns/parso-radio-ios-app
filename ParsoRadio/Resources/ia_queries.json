@@ -47,5 +47,152 @@
     "matchTags": [
       "cafe-lento"
     ]
+  },
+  {
+    "channelId": "lv-general-fiction",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"General Fiction\" OR subject:\"Culture & Heritage Fiction\" OR subject:\"Family Life\")",
+    "matchTags": [
+      "lv-general-fiction"
+    ]
+  },
+  {
+    "channelId": "lv-literary-fiction",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Literary Fiction\" OR subject:\"Epistolary Fiction\" OR subject:Literature OR subject:\"Literary Collections\")",
+    "matchTags": [
+      "lv-literary-fiction"
+    ]
+  },
+  {
+    "channelId": "lv-science-fiction",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Science Fiction\")",
+    "matchTags": [
+      "lv-science-fiction"
+    ]
+  },
+  {
+    "channelId": "lv-horror-gothic",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Horror & Supernatural Fiction\" OR subject:Horror OR subject:Gothic OR subject:\"Ghost stories\" OR subject:Supernatural OR subject:\"Gothic Fiction\")",
+    "matchTags": [
+      "lv-horror-gothic"
+    ]
+  },
+  {
+    "channelId": "lv-mystery-crime",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Crime & Mystery Fiction\" OR subject:\"Detective Fiction\")",
+    "matchTags": [
+      "lv-mystery-crime"
+    ]
+  },
+  {
+    "channelId": "lv-adventure",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Action & Adventure Fiction\" OR subject:\"Historical Fiction\" OR subject:\"Nautical & Marine Fiction\" OR subject:\"Sagas\" OR subject:\"Westerns\")",
+    "matchTags": [
+      "lv-adventure"
+    ]
+  },
+  {
+    "channelId": "lv-fantasy-mythology",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Fantasy Fiction\" OR subject:Fantasy OR subject:\"Fairy tales\" OR subject:Mythology OR subject:Myths OR subject:Legends OR subject:Folklore OR subject:\"Fantastic Fiction\")",
+    "matchTags": [
+      "lv-fantasy-mythology"
+    ]
+  },
+  {
+    "channelId": "lv-romance",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Romance\")",
+    "matchTags": [
+      "lv-romance"
+    ]
+  },
+  {
+    "channelId": "lv-satire-humor",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Humorous Fiction\" OR subject:\"Satire\" OR subject:\"Humor\")",
+    "matchTags": [
+      "lv-satire-humor"
+    ]
+  },
+  {
+    "channelId": "lv-war-military",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"War & Military Fiction\" OR subject:War OR subject:\"World War\" OR subject:Military OR subject:\"World War I\" OR subject:\"World War, 1914-1918\" OR subject:Espionage OR subject:Thrillers)",
+    "matchTags": [
+      "lv-war-military"
+    ]
+  },
+  {
+    "channelId": "lv-short-stories",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Short Stories\")",
+    "matchTags": [
+      "lv-short-stories"
+    ]
+  },
+  {
+    "channelId": "lv-drama-plays",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Plays\" OR subject:\"Dramatic Readings\")",
+    "matchTags": [
+      "lv-drama-plays"
+    ]
+  },
+  {
+    "channelId": "lv-travel",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Travel & Geography\" OR subject:Travel OR subject:\"Voyages and travels\" OR subject:Geography OR subject:Exploration OR subject:\"Travel Fiction\")",
+    "matchTags": [
+      "lv-travel"
+    ]
+  },
+  {
+    "channelId": "lv-ancient-world",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Classics (Greek & Latin Antiquity)\" OR subject:\"Antiquity\")",
+    "matchTags": [
+      "lv-ancient-world"
+    ]
+  },
+  {
+    "channelId": "lv-poetry",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Poetry\")",
+    "matchTags": [
+      "lv-poetry"
+    ]
+  },
+  {
+    "channelId": "lv-philosophy-mind",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Philosophy\" OR subject:\"Psychology\")",
+    "matchTags": [
+      "lv-philosophy-mind"
+    ]
+  },
+  {
+    "channelId": "lv-history",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"History\" OR subject:\"Middle Ages/Middle History\")",
+    "matchTags": [
+      "lv-history"
+    ]
+  },
+  {
+    "channelId": "lv-biography",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Biography & Autobiography\" OR subject:Biography OR subject:Autobiography OR subject:Memoirs OR subject:Biographical)",
+    "matchTags": [
+      "lv-biography"
+    ]
+  },
+  {
+    "channelId": "lv-science-nature",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Science\" OR subject:\"Nature\" OR subject:\"Life Sciences\" OR subject:\"Astronomy, Physics & Mechanics\" OR subject:\"Nature & Animal Fiction\")",
+    "matchTags": [
+      "lv-science-nature"
+    ]
+  },
+  {
+    "channelId": "lv-religion",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Religion\" OR subject:\"Bibles\" OR subject:\"Religious Fiction\")",
+    "matchTags": [
+      "lv-religion"
+    ]
+  },
+  {
+    "channelId": "lv-essays-ideas",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Essays & Short Works\" OR subject:\"Literary Criticism\" OR subject:\"Political Science\")",
+    "matchTags": [
+      "lv-essays-ideas"
+    ]
   }
 ]

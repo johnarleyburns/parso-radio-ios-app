@@ -80,7 +80,9 @@ struct InternetArchiveService {
             URLQueryItem(name: "fl[]",   value: "addeddate"),
             URLQueryItem(name: "output", value: "json"),
             URLQueryItem(name: "rows",   value: "200"),
-            URLQueryItem(name: "sort[]", value: "addeddate desc"),
+            // ALL pure-Lucene IA channels (curated + LibriVox) get a fresh
+            // server-side random page every load — true "radio" variety.
+            URLQueryItem(name: "sort[]", value: "random"),
         ]
         let (data, _) = try await session.data(from: components.url!)
         let response = try JSONDecoder().decode(IASearchResponse.self, from: data)

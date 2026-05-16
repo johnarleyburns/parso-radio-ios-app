@@ -418,6 +418,102 @@ final class PlayerViewModelTests: XCTestCase {
             "without the stamp, a generic classical track must not leak into Spanish Guitar")
     }
 
+    // MARK: - Playlist cursor hardening
+    //
+    // Playlist navigation is an EXPLICIT index cursor, never derived from
+    // currentTrack. These lock that contract so future changes that touch
+    // currentTrack (spinners, auto-skip, failures) can't reintroduce the
+    // recurring "playlist next/back jumps to the wrong track" regression.
+
+    private func seedPlaylist(_ ids: [String]) async throws -> Playlist {
+        let tracks = ids.map { makeFMATrack(id: $0, tags: ["jazz"]) }
+        await db.saveTracks(tracks)
+        let pl = try await db.createPlaylist(name: "Hardening \(UUID())")
+        for t in tracks { await db.addTrack(t, toPlaylist: pl.id) }
+        return pl
+    }
+
+    func testPlaylistFullTraversalAndWrap() async throws {
+        vm.shuffleMode = false
+        let pl = try await seedPlaylist(["h1", "h2", "h3"])
+        let order = await db.fetchTracks(forPlaylist: pl.id).map(\.id)
+        await vm.loadPlaylist(pl)
+        XCTAssertEqual(vm.currentTrack?.id, order[0])
+        XCTAssertEqual(vm.playlistIndex, 0)
+
+        // Forward through the whole list, then WRAP back to the first.
+        for expected in [order[1], order[2], order[0], order[1]] {
+            vm.skip()
+            try await Task.sleep(nanoseconds: 1_500_000_000)
+            XCTAssertEqual(vm.currentTrack?.id, expected,
+                "forward must step the cursor (incl. wrap)")
+        }
+    }
+
+    // THE recurring regression, locked: if something nulls currentTrack
+    // (spinner / load failure) mid-navigation, skip/back must STILL advance
+    // by the cursor — not jump to index 0 or a non-playlist track.
+    func testPlaylistNavigationSurvivesNilCurrentTrack() async throws {
+        vm.shuffleMode = false
+        let pl = try await seedPlaylist(["n1", "n2", "n3", "n4"])
+        let order = await db.fetchTracks(forPlaylist: pl.id).map(\.id)
+        await vm.loadPlaylist(pl)
+
+        vm.skip()                                   // -> index 1
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, order[1])
+
+        vm.currentTrack = nil                       // simulate spinner/failure state
+        vm.skip()                                   // must go to index 2, NOT 0
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, order[2],
+            "skip with nil currentTrack must still advance by cursor")
+
+        vm.currentTrack = nil
+        vm.back()                                   // must go to index 1
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, order[1],
+            "back with nil currentTrack must still step the cursor back")
+    }
+
+    // Opening a playlist after playing a channel, then pressing back on the
+    // first playlist track, must never resurrect the channel track — even
+    // though playHistory held channel tracks.
+    func testChannelThenPlaylistBackNeverLeaksChannelTrack() async throws {
+        vm.shuffleMode = false
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let chTrack = makeFMATrack(id: "ch-keep-out", tags: ["jazz"])
+        await db.saveTracks([chTrack])
+        vm.currentChannel = channel
+        vm.currentTrack = chTrack
+        vm.playHistory = [makeFMATrack(id: "ch-old", tags: ["jazz"])]
+
+        let pl = try await seedPlaylist(["p1", "p2"])
+        let order = await db.fetchTracks(forPlaylist: pl.id).map(\.id)
+        await vm.loadPlaylist(pl)
+        XCTAssertNil(vm.currentChannel)
+        XCTAssertTrue(vm.playHistory.isEmpty, "loadPlaylist must clear channel history")
+
+        vm.back()                                   // first track -> restart, NOT channel
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, order[0])
+        XCTAssertNotEqual(vm.currentTrack?.id, "ch-keep-out")
+        XCTAssertNotEqual(vm.currentTrack?.id, "ch-old")
+    }
+
+    func testLoadPlaylistStartingAtMidTrackSetsCursor() async throws {
+        vm.shuffleMode = false
+        let pl = try await seedPlaylist(["s1", "s2", "s3"])
+        let order = await db.fetchTracks(forPlaylist: pl.id)
+        let mid = order[1]
+        await vm.loadPlaylist(pl, startingAt: mid)
+        XCTAssertEqual(vm.currentTrack?.id, mid.id)
+        XCTAssertEqual(vm.playlistIndex, 1, "cursor must start at the chosen track")
+        vm.skip()
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, order[2].id)
+    }
+
     // MARK: - Helpers
 
     private func makeIATrack(id: String, tags: [String]) -> Track {
