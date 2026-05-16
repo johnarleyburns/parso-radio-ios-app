@@ -4,10 +4,11 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 14 Contemporary + 21 Lectures + 4 News + 5 Ambient + 7 Curated = 51.
+        // 14 Contemporary + 21 Lectures + 4 News + 4 Ambient + 7 Curated = 50.
         // All non-curated IA channels (Classical/Audiobooks) were deleted; they
         // are being replaced piecemeal by pure-Lucene Curated channels.
-        XCTAssertEqual(Channel.defaults.count, 51)
+        // Lofi Cafe was removed from Ambient.
+        XCTAssertEqual(Channel.defaults.count, 50)
     }
 
     func testNoLegacyIAChannelsRemain() {
@@ -150,10 +151,13 @@ final class ChannelTests: XCTestCase {
         XCTAssertEqual(decoded.instruments, original.instruments)
     }
 
-    // Ambient category: 5 channels (Yellowstone, Lofi Cafe, Flowing Water, Rainy Day, Ocean Waves).
-    func testAmbientCategoryHas5Channels() {
+    // Ambient category: 4 channels (Yellowstone, Flowing Water, Rainy Day, Ocean Waves).
+    // Lofi Cafe was removed.
+    func testAmbientCategoryHas4Channels() {
         let channels = Channel.defaults.filter { $0.category == "Ambient" }
-        XCTAssertEqual(channels.count, 5, "Expected 5 Ambient channels")
+        XCTAssertEqual(channels.count, 4, "Expected 4 Ambient channels")
+        XCTAssertFalse(channels.contains { $0.id == "ambient-lofi" },
+            "Lofi Cafe must be removed")
     }
 
     func testYellowstoneChannelDefinition() {
@@ -162,17 +166,6 @@ final class ChannelTests: XCTestCase {
         XCTAssertEqual(ch?.category, "Ambient")
         XCTAssertEqual(ch?.preferredSource, "nps")
         XCTAssertTrue(ch?.tags.contains("yellowstone") == true)
-    }
-
-    func testLofiCafeChannelDefinition() {
-        let ch = Channel.defaults.first { $0.id == "ambient-lofi" }
-        XCTAssertNotNil(ch)
-        XCTAssertEqual(ch?.category, "Ambient")
-        XCTAssertEqual(ch?.preferredSource, "fma")
-        XCTAssertTrue(ch?.tags.contains("lo-fi-hip-hop") == true,
-            "Lofi Cafe tag must match FMAService.genreMap key 'lo-fi-hip-hop'")
-        XCTAssertNotNil(FMAService.genreMap["lo-fi-hip-hop"],
-            "FMAService.genreMap must contain 'lo-fi-hip-hop' for Lofi Cafe to fetch")
     }
 
     func testAmbientLoopChannelsHaveMatchingTags() {

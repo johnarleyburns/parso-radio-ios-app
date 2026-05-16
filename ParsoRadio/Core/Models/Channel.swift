@@ -42,12 +42,19 @@ struct Channel: Codable, Identifiable, Hashable {
     var iaQueryEntry: IAQueryEntry? { IAQueryRegistry.shared.entry(for: id) }
 
     func matches(_ track: Track) -> Bool {
-        // Tag-only channels (no composer/instrument constraints) must match by tag.
-        // matchTags from the IA query registry augment the channel's own tags so that
-        // QueueManager correctly isolates registry-fetched tracks from the DB.
-        let allTags = tags + (iaQueryEntry?.matchTags ?? [])
+        // Pure-Lucene registry channels isolate STRICTLY by their injected
+        // stamp. The descriptive `tags` are display-only and must NOT be used
+        // for matching: generic words collide across channels in the shared DB
+        // (e.g. a Spanish-Guitar "Concierto de Aranjuez" track carries the IA
+        // subject "concerto", which would otherwise leak it into Symphony
+        // Orchestra). The stamp is unique per channel and injected only into
+        // that channel's fetched tracks, so it cannot cross-contaminate.
+        if let entry = iaQueryEntry {
+            return entry.matchTags.contains { track.tags.contains($0) }
+        }
+        // Non-registry channels (FMA, Lectures, News, Ambient) match by tag.
         if composers.isEmpty && instruments.isEmpty {
-            return allTags.isEmpty || allTags.contains(where: { track.tags.contains($0) })
+            return tags.isEmpty || tags.contains(where: { track.tags.contains($0) })
         }
         let composerMatch = composers.isEmpty || composers.contains(track.composer ?? "")
         let instrumentMatch = instruments.isEmpty
@@ -366,22 +373,16 @@ extension Channel {
             preferredSource: "internet_archive"
         ),
 
-        // MARK: Ambient — nature sounds, lofi, and single-track loops
+        // MARK: Ambient — nature sounds and single-track loops
         // Yellowstone: 114 NPS public-domain MP3s via AmbientStaticService (AWS CloudFront, no auth).
-        // Lofi Cafe: FMA Lo-fi-Hip-Hop genre, CC0/CC-BY tracks.
-        // Loop channels: single CC0 track from Freesound CDN; contentType .ambientLoop restarts on finish.
+        // Loop channels: single CC0 track from Freesound CDN; contentType .ambientLoop
+        // plays through AudioPlayerService's seamless AVAudioEngine crossfade-loop path.
         // tags:[id] + preferredSource isolate each channel in the DB (same pattern as News).
         Channel(
             id: "ambient-yellowstone", name: "Sounds of Yellowstone",
             category: "Ambient", icon: "mountain.2.fill",
             tags: ["yellowstone"],
             preferredSource: "nps"
-        ),
-        Channel(
-            id: "ambient-lofi", name: "Lofi Cafe",
-            category: "Ambient", icon: "cup.and.saucer.fill",
-            tags: ["lo-fi-hip-hop"],
-            preferredSource: "fma"
         ),
         Channel(
             id: "ambient-flowing-water", name: "Flowing Water",
