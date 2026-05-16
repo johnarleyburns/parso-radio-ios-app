@@ -88,11 +88,17 @@ final class QueueManager {
         }
         guard !pool.isEmpty else { return nil }
 
-        // Registry-backed channels (e.g. Spanish Guitar) are curated radio
-        // stations: always play in random order regardless of the global
-        // shuffle toggle. Sequential newest-first only makes sense for
-        // composer/podcast channels, not a hand-tuned IA query.
-        let effectiveShuffle = shuffleMode || channel.iaQueryEntry != nil
+        // Curated radio-style channels always play in random order regardless
+        // of the global shuffle toggle:
+        //  - registry-backed IA channels (e.g. Spanish Guitar), and
+        //  - Lecture channels, which aggregate every series in a faculty, so a
+        //    random mix is the intended experience (not one course in order;
+        //    Oxford tracks also carry no addedDate, so the non-shuffle path
+        //    would just emit an arbitrary DB order anyway).
+        // Sequential newest-first only makes sense for podcast/news channels.
+        let effectiveShuffle = shuffleMode
+            || channel.iaQueryEntry != nil
+            || channel.category == "Lectures"
 
         let track: Track
         if effectiveShuffle {

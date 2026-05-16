@@ -64,6 +64,49 @@ final class QueueManagerTests: XCTestCase {
         XCTAssertEqual(t1?.id, t2?.id)
     }
 
+    // Lecture channels aggregate a whole faculty — they must play in random
+    // order even with the global shuffle toggle OFF (Oxford tracks carry no
+    // addedDate, so the non-shuffle path would emit an arbitrary order anyway).
+    func testLectureChannelPlaysRandomOrderWithShuffleOff() async throws {
+        let slug = "faculty-philosophy"
+        var tracks: [Track] = []
+        for i in 1...8 {
+            var t = Track(
+                id: "oxford-\(i)", source: "oxford_lectures",
+                title: "Lecture \(i)", artist: "University of Oxford",
+                duration: 600,
+                streamURL: URL(string: "https://podcasts.ox.ac.uk/x/\(i)")!,
+                downloadURL: nil, localFilePath: nil,
+                license: .ccBy, tags: ["oxford-lectures", slug],
+                qualityScore: 1.0,
+                rawCreator: "University of Oxford", composer: nil, instruments: [],
+                metadataConfidence: 2.0
+            )
+            t.addedDate = Date(timeIntervalSince1970: TimeInterval(1_700_000_000 + i * 86_400))
+            tracks.append(t)
+        }
+        await db.saveTracks(tracks)
+
+        let channel = Channel(
+            id: "oxford-philosophy", name: "Philosophy", category: "Lectures",
+            icon: "quote.bubble", tags: [slug],
+            contentType: .spokenWord, preferredSource: "oxford_lectures"
+        )
+        var order: [String] = []
+        for _ in 0..<8 {
+            guard let t = await queue.nextTrack(channel: channel, shuffleMode: false) else { break }
+            order.append(t.id)
+        }
+        let strictNewestFirst = tracks
+            .sorted { ($0.addedDate ?? .distantPast) > ($1.addedDate ?? .distantPast) }
+            .map(\.id)
+
+        XCTAssertEqual(order.count, 8, "queue should drain the lecture pool")
+        XCTAssertEqual(Set(order), Set(strictNewestFirst), "every lecture must be reachable")
+        XCTAssertNotEqual(order, strictNewestFirst,
+            "Lecture channel must be randomized, not strict newest-first, with shuffle off")
+    }
+
     // MARK: - Helpers
 
     private func seedTracks(composer: String, instrument: String, count: Int, prefix: String? = nil) async {
