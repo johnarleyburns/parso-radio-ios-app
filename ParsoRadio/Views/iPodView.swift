@@ -36,17 +36,17 @@ struct iPodView: View {
                     // Floor at 160 pt: GeometryReader can report geo.size = (0,0)
                     // on the first layout pass before the view is measured,
                     // which would collapse the panel and overflow its content.
+                    // No top margin: the panel sits flush just below the
+                    // status bar (the VStack still respects the top safe area).
                     screenPanel
                         .frame(height: max(160.0, geo.size.height * 0.50))
                         .padding(.horizontal, deviceMargin(geo))
-                        .padding(.top, deviceMargin(geo))
 
-                    // Equal flexible space above and below the wheel keeps the
-                    // track→wheel gap identical to the wheel→bottom gap.
-                    Spacer()
+                    // Two equal spacers center the wheel between the track box
+                    // and the physical screen bottom. minLength guarantees the
+                    // track→wheel gap is at least the side margin.
+                    Spacer(minLength: deviceMargin(geo))
 
-                    // Click wheel — centered, same gap to each screen edge as
-                    // the screen panel (deviceMargin).
                     ClickWheel(
                         isPlaying: playerVM.isPlaying,
                         onMenu:      { showMainMenu = true },
@@ -56,9 +56,14 @@ struct iPodView: View {
                     )
                     .frame(width: wheelDiameter(geo), height: wheelDiameter(geo))
 
-                    Spacer()
+                    Spacer(minLength: deviceMargin(geo))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Match the device-body Color: extend to the physical screen
+                // bottom so the bottom spacer (and thus the wheel centering)
+                // is measured to the real screen edge, not the safe-area inset
+                // — otherwise the wheel looks bottom-heavy.
+                .ignoresSafeArea(.container, edges: .bottom)
             }
         }
         .sheet(isPresented: $showMainMenu) {
