@@ -13,7 +13,7 @@ final class DatabaseServiceTests: XCTestCase {
         let track = makeTrack(id: "t1", source: "internet_archive", composer: "bach", instruments: ["strings"])
         await db.saveTracks([track])
 
-        let channel = Channel.defaults.first { $0.id == "bach" }!
+        let channel = Channel(id: "bach", name: "Bach", category: "Classical", icon: "music.note", composers: ["bach"], preferredSource: "internet_archive")
         let fetched = await db.fetchTracks(forChannel: channel)
         XCTAssertEqual(fetched.count, 1)
         XCTAssertEqual(fetched[0].id, "t1")
@@ -25,7 +25,7 @@ final class DatabaseServiceTests: XCTestCase {
             makeTrack(id: "chopin-1", source: "internet_archive", composer: "chopin", instruments: ["piano"]),
         ])
 
-        let bachChannel = Channel.defaults.first { $0.id == "bach" }!
+        let bachChannel = Channel(id: "bach", name: "Bach", category: "Classical", icon: "music.note", composers: ["bach"], preferredSource: "internet_archive")
         let results = await db.fetchTracks(forChannel: bachChannel)
         XCTAssertTrue(results.allSatisfy { $0.composer == "bach" })
         XCTAssertFalse(results.contains { $0.id == "chopin-1" })
@@ -36,7 +36,7 @@ final class DatabaseServiceTests: XCTestCase {
         await db.saveTracks([track])
         await db.markDownloaded(trackID: "dl-1", localPath: "/tmp/dl-1.mp3")
 
-        let channel = Channel.defaults.first { $0.id == "chopin" }!
+        let channel = Channel(id: "chopin", name: "Chopin", category: "Classical", icon: "pianokeys", composers: ["chopin"], preferredSource: "internet_archive")
         let downloaded = await db.fetchDownloadedTracks(forChannel: channel)
         XCTAssertEqual(downloaded.count, 1)
         XCTAssertEqual(downloaded[0].localFilePath, "/tmp/dl-1.mp3")
@@ -47,7 +47,7 @@ final class DatabaseServiceTests: XCTestCase {
         let highConf = makeTrack(id: "high-1", source: "internet_archive", composer: "bach", instruments: ["strings"], confidence: 3.0)
         await db.saveTracks([lowConf, highConf])
 
-        let channel = Channel.defaults.first { $0.id == "bach" }!
+        let channel = Channel(id: "bach", name: "Bach", category: "Classical", icon: "music.note", composers: ["bach"], preferredSource: "internet_archive")
         let results = await db.fetchTracks(forChannel: channel)
         XCTAssertFalse(results.contains { $0.id == "low-1" })
         XCTAssertTrue(results.contains  { $0.id == "high-1" })

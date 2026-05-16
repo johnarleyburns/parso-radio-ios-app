@@ -121,7 +121,7 @@ final class DatabaseServicePlaylistTests: XCTestCase {
     // MARK: - Play history
 
     func testRecordPlayedAndRecentlyHeardIds() async throws {
-        let channel = Channel.defaults.first { $0.id == "bach" }!
+        let channel = Channel(id: "bach", name: "Bach", category: "Classical", icon: "music.note", composers: ["bach"], preferredSource: "internet_archive")
         let t1 = makeTrack(id: "hist-1", composer: "bach")
         let t2 = makeTrack(id: "hist-2", composer: "bach")
         await db.saveTracks([t1, t2])
@@ -139,7 +139,7 @@ final class DatabaseServicePlaylistTests: XCTestCase {
     }
 
     func testLastPlayedTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "bach" }!
+        let channel = Channel(id: "bach", name: "Bach", category: "Classical", icon: "music.note", composers: ["bach"], preferredSource: "internet_archive")
         let track = makeTrack(id: "last-1", composer: "bach")
         await db.saveTracks([track])
         await db.recordPlayed(channelId: channel.id, trackId: track.id)
@@ -149,8 +149,8 @@ final class DatabaseServicePlaylistTests: XCTestCase {
     }
 
     func testRecentlyHeardIdsExcludesOtherChannels() async throws {
-        let bachChannel  = Channel.defaults.first { $0.id == "bach" }!
-        let chopinChannel = Channel.defaults.first { $0.id == "chopin" }!
+        let bachChannel  = Channel(id: "bach", name: "Bach", category: "Classical", icon: "music.note", composers: ["bach"], preferredSource: "internet_archive")
+        let chopinChannel = Channel(id: "chopin", name: "Chopin", category: "Classical", icon: "pianokeys", composers: ["chopin"], preferredSource: "internet_archive")
         let t1 = makeTrack(id: "cross-1", composer: "bach")
         let t2 = makeTrack(id: "cross-2", composer: "chopin")
         await db.saveTracks([t1, t2])

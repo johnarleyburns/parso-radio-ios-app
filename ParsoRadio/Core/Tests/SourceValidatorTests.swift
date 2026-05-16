@@ -4,7 +4,7 @@ import XCTest
 final class SourceValidatorTests: XCTestCase {
 
     // A classical composer channel (no feedURL) — broadcast creator tracks must be rejected
-    private let bachChannel = Channel.defaults.first(where: { $0.id == "bach" })!
+    private let bachChannel = Channel(id: "bach", name: "Bach", category: "Classical", icon: "music.note", composers: ["bach"], preferredSource: "internet_archive")
 
     // An FMA jazz channel (no feedURL) — non-broadcast creator tracks must pass
     private let jazzChannel = Channel.defaults.first(where: { $0.id == "fma-jazz" })!

@@ -73,326 +73,6 @@ struct Channel: Codable, Identifiable, Hashable {
 extension Channel {
     static let defaults: [Channel] = [
 
-        // MARK: Classical — Format/Period channels (UC16)
-        // subject: queries; curl-verified against archive.org Solr before adding.
-        Channel(
-            id: "baroque", name: "Baroque", category: "Classical",
-            icon: "music.quarternote.3", tags: ["baroque"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "symphony", name: "Symphony & Orchestra", category: "Classical",
-            icon: "music.note.list", tags: ["symphony"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "opera", name: "Opera", category: "Classical",
-            icon: "theatermasks", tags: ["opera"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "piano-classics", name: "Piano Classics", category: "Classical",
-            icon: "pianokeys", tags: ["piano", "classical"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "organ-harpsichord", name: "Organ & Harpsichord", category: "Classical",
-            icon: "waveform", tags: ["organ", "harpsichord"],
-            preferredSource: "internet_archive"
-        ),
-        // Curl-verified: "classical guitar" subject returns 259 items on IA; ~45% with CC/PD license.
-        Channel(
-            id: "classical-guitar", name: "Classical Guitar", category: "Classical",
-            icon: "guitars", tags: ["classical guitar"],
-            preferredSource: "internet_archive"
-        ),
-        // Curl-verified: "cello" subject returns 1,631 items on IA; broad but well-populated.
-        Channel(
-            id: "cello", name: "Cello", category: "Classical",
-            icon: "music.note", tags: ["cello"],
-            preferredSource: "internet_archive"
-        ),
-
-        // MARK: Classical — Individual composer channels (UC16)
-        // creator: queries; curl-verified. ComposerMap normalizes aliases.
-        Channel(
-            id: "bach", name: "Bach", category: "Classical",
-            icon: "music.note", composers: ["bach"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "mozart", name: "Mozart", category: "Classical",
-            icon: "music.note", composers: ["mozart"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "beethoven", name: "Beethoven", category: "Classical",
-            icon: "music.note", composers: ["beethoven"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "schubert", name: "Schubert", category: "Classical",
-            icon: "music.note", composers: ["schubert"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "schumann", name: "Schumann", category: "Classical",
-            icon: "music.note", composers: ["schumann"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "brahms", name: "Brahms", category: "Classical",
-            icon: "music.note", composers: ["brahms"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "haydn", name: "Haydn", category: "Classical",
-            icon: "music.note", composers: ["haydn"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "chopin", name: "Chopin", category: "Classical",
-            icon: "pianokeys", composers: ["chopin"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "rachmaninoff", name: "Rachmaninoff", category: "Classical",
-            icon: "pianokeys", composers: ["rachmaninoff"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "vivaldi", name: "Vivaldi", category: "Classical",
-            icon: "music.note", composers: ["vivaldi"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "handel", name: "Handel", category: "Classical",
-            icon: "music.quarternote.3", composers: ["handel"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "telemann", name: "Telemann", category: "Classical",
-            icon: "music.quarternote.3", composers: ["telemann"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "liszt", name: "Liszt", category: "Classical",
-            icon: "pianokeys", composers: ["liszt"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "mendelssohn", name: "Mendelssohn", category: "Classical",
-            icon: "music.note", composers: ["mendelssohn"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "tchaikovsky", name: "Tchaikovsky", category: "Classical",
-            icon: "music.note.list", composers: ["tchaikovsky"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "dvorak", name: "Dvořák", category: "Classical",
-            icon: "music.note", composers: ["dvorak"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "debussy", name: "Debussy", category: "Classical",
-            icon: "waveform", composers: ["debussy"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "grieg", name: "Grieg", category: "Classical",
-            icon: "music.note", composers: ["grieg"],
-            preferredSource: "internet_archive"
-        ),
-
-        // MARK: Audiobooks (spoken word — position is persisted across sessions)
-        // Named channels use specific-name tags; genre channels use IA subject strings (curl-verified).
-        Channel(
-            id: "greek-philosophy",
-            name: "Greek Philosophy",
-            category: "Audiobooks",
-            icon: "building.columns",
-            tags: ["plato", "socrates", "aristotle"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "chinese-philosophy",
-            name: "Chinese Philosophy",
-            category: "Audiobooks",
-            icon: "circle.lefthalf.filled",
-            tags: ["confucius", "tao", "chinese philosophy"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "chinese-history",
-            name: "Chinese History",
-            category: "Audiobooks",
-            icon: "building.2",
-            tags: ["china", "chinese history"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "greek-history",
-            name: "Greek History",
-            category: "Audiobooks",
-            icon: "building.columns.fill",
-            tags: ["herodotus", "greek history", "ancient greece"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-poetry", name: "Poetry", category: "Audiobooks",
-            icon: "text.quote",
-            tags: ["poetry"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-short-stories", name: "Short Stories", category: "Audiobooks",
-            icon: "books.vertical",
-            tags: ["short stories"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-nature", name: "Nature", category: "Audiobooks",
-            icon: "leaf.fill",
-            tags: ["nature"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-humor", name: "Humor & Satire", category: "Audiobooks",
-            icon: "face.smiling",
-            tags: ["humor"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-science-fiction", name: "Science Fiction", category: "Audiobooks",
-            icon: "sparkles",
-            tags: ["science fiction"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-travel", name: "Travel & Adventure", category: "Audiobooks",
-            icon: "map.fill",
-            tags: ["travel"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-biography", name: "Biography", category: "Audiobooks",
-            icon: "person.text.rectangle.fill",
-            tags: ["biography"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-drama", name: "Drama & Theater", category: "Audiobooks",
-            icon: "theatermasks.fill",
-            tags: ["drama"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-philosophy", name: "Philosophy", category: "Audiobooks",
-            icon: "lightbulb.fill",
-            tags: ["philosophy"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-religion", name: "Religion & Spirituality", category: "Audiobooks",
-            icon: "rays",
-            tags: ["religion"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-science", name: "Science & Technology", category: "Audiobooks",
-            icon: "atom",
-            tags: ["science"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-essays", name: "Essays & Speeches", category: "Audiobooks",
-            icon: "doc.text.fill",
-            tags: ["essays"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-historical-fiction", name: "Historical Fiction", category: "Audiobooks",
-            icon: "clock.arrow.circlepath",
-            tags: ["historical fiction"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-fairy-tales", name: "Fairy Tales", category: "Audiobooks",
-            icon: "wand.and.stars",
-            tags: ["fairy tales"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-art", name: "Art & Music", category: "Audiobooks",
-            icon: "paintbrush.fill",
-            tags: ["art"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-ghost-stories", name: "Ghost Stories", category: "Audiobooks",
-            icon: "moon.stars.fill",
-            tags: ["ghost stories"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-folklore", name: "Folklore & Legends", category: "Audiobooks",
-            icon: "globe.europe.africa",
-            tags: ["folklore"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "lv-mythology", name: "Mythology", category: "Audiobooks",
-            icon: "building.columns",
-            tags: ["mythology"],
-            contentType: .spokenWord,
-            spokenWordCollections: ["librivoxaudio"],
-            preferredSource: "internet_archive"
-        ),
-
         // MARK: Contemporary — Free Music Archive genre channels (all curl-verified)
         Channel(
             id: "fma-classical", name: "Classical", category: "Contemporary",
@@ -638,6 +318,51 @@ extension Channel {
             id: "chamber-music", name: "Chamber Music", category: "Curated",
             icon: "music.quarternote.3",
             tags: ["chamber music", "string quartet", "piano trio"],
+            preferredSource: "internet_archive"
+        ),
+        // Historical Voices: curl-verified 2026-05-15 — 2716 items; Pacifica
+        // Radio Archives + Freedom Archives interviews/public-affairs (Sontag,
+        // Vidal, Churchill, Clarke, civil-rights & Vietnam-era recordings).
+        Channel(
+            id: "historical-voices", name: "Historical Voices", category: "Curated",
+            icon: "mic",
+            tags: ["interview", "public affairs", "history"],
+            preferredSource: "internet_archive"
+        ),
+        // Symphony Orchestra: curl-verified 2026-05-15 — 889 items; orchestral
+        // symphonies/concertos/overtures (Beethoven, Mahler, Shostakovich,
+        // Szell-Cleveland); chamber/vocal/jazz/soundtrack excluded.
+        Channel(
+            id: "symphony-orchestra", name: "Symphony Orchestra", category: "Curated",
+            icon: "music.note.list",
+            tags: ["symphony", "orchestra", "concerto"],
+            preferredSource: "internet_archive"
+        ),
+        // Piano Hour: curl-verified 2026-05-15 — 1192 items; solo piano
+        // (sonatas, nocturnes, études, Chopin/Liszt/Debussy/Beethoven);
+        // jazz/ragtime/orchestral/vocal and religious collections excluded.
+        Channel(
+            id: "piano-hour", name: "Piano Hour", category: "Curated",
+            icon: "pianokeys",
+            tags: ["piano", "piano sonata", "nocturne"],
+            preferredSource: "internet_archive"
+        ),
+        // Tribal Works: curl-verified 2026-05-15 — 2324 items; ethnomusicology
+        // / world traditional & field recordings (gamelan, West-African,
+        // Native American, Autry collection); new-age/ambient/spoken excluded.
+        Channel(
+            id: "tribal-works", name: "Tribal Works", category: "Curated",
+            icon: "globe",
+            tags: ["ethnomusicology", "world music", "field recording"],
+            preferredSource: "internet_archive"
+        ),
+        // Café Lento: curl-verified 2026-05-15 — 882 items; mellow bossa /
+        // cool & chamber jazz / solo guitar (Laurindo Almeida, Bill Evans,
+        // André Previn); bebop/rock/electronic/big-band excluded.
+        Channel(
+            id: "cafe-lento", name: "Café Lento", category: "Curated",
+            icon: "cup.and.saucer",
+            tags: ["bossa nova", "cool jazz", "lounge"],
             preferredSource: "internet_archive"
         ),
 

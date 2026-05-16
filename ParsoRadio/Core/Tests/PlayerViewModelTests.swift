@@ -138,7 +138,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // Back/forward redesign: forward always advances track; back restarts or goes to previous.
     func testBackInSpokenWordMidTrackRestartsFromBeginning() throws {
-        let channel = Channel.defaults.first { $0.id == "greek-philosophy" }!
+        let channel = Channel(id: "greek-philosophy", name: "Greek Philosophy", category: "Audiobooks", icon: "building.columns", tags: ["plato"], contentType: .spokenWord, spokenWordCollections: ["librivoxaudio"], preferredSource: "internet_archive")
         let track = makeSpokenWordTrack(id: "plato-1")
 
         vm.currentChannel = channel
@@ -152,7 +152,7 @@ final class PlayerViewModelTests: XCTestCase {
     }
 
     func testBackInSpokenWordAtStartGoesToPreviousTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "greek-philosophy" }!
+        let channel = Channel(id: "greek-philosophy", name: "Greek Philosophy", category: "Audiobooks", icon: "building.columns", tags: ["plato"], contentType: .spokenWord, spokenWordCollections: ["librivoxaudio"], preferredSource: "internet_archive")
         let t1 = makeSpokenWordTrack(id: "plato-prev")
         let t2 = makeSpokenWordTrack(id: "plato-curr")
         await db.saveTracks([t1, t2])
@@ -170,7 +170,7 @@ final class PlayerViewModelTests: XCTestCase {
     }
 
     func testSkipInSpokenWordAdvancesToNextTrack() throws {
-        let channel = Channel.defaults.first { $0.id == "greek-philosophy" }!
+        let channel = Channel(id: "greek-philosophy", name: "Greek Philosophy", category: "Audiobooks", icon: "building.columns", tags: ["plato"], contentType: .spokenWord, spokenWordCollections: ["librivoxaudio"], preferredSource: "internet_archive")
         let track = makeSpokenWordTrack(id: "plato-1")
 
         vm.currentChannel = channel

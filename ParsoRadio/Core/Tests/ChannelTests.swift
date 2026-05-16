@@ -4,65 +4,55 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 25 Classical + 22 Audiobooks + 14 Contemporary + 21 Lectures + 4 News + 5 Ambient + 2 Curated = 93
-        XCTAssertEqual(Channel.defaults.count, 93)
+        // 14 Contemporary + 21 Lectures + 4 News + 5 Ambient + 7 Curated = 51.
+        // All non-curated IA channels (Classical/Audiobooks) were deleted; they
+        // are being replaced piecemeal by pure-Lucene Curated channels.
+        XCTAssertEqual(Channel.defaults.count, 51)
     }
 
-    func testClassicalCategoryHas25Channels() {
-        let classicalChannels = Channel.defaults.filter { $0.category == "Classical" }
-        // chamber-music moved to Curated (pure-Lucene), so 7 period/format/instrument
-        // + 18 composer channels remain.
-        XCTAssertEqual(classicalChannels.count, 25,
-            "Classical: 7 period/format/instrument + 18 composer channels")
+    func testNoLegacyIAChannelsRemain() {
+        // Classical + Audiobooks were the legacy non-curated IA channels.
+        // They must be fully removed (replaced piecemeal by Curated).
+        XCTAssertTrue(Channel.defaults.allSatisfy { $0.category != "Classical" },
+            "No Classical channels should remain")
+        XCTAssertTrue(Channel.defaults.allSatisfy { $0.category != "Audiobooks" },
+            "No Audiobooks channels should remain")
+        // Any internet_archive channel must now be a registry-backed Curated one.
+        for ch in Channel.defaults where ch.preferredSource == "internet_archive" {
+            XCTAssertEqual(ch.category, "Curated",
+                "IA channel '\(ch.id)' must be Curated")
+            XCTAssertNotNil(ch.iaQueryEntry,
+                "IA channel '\(ch.id)' must be pure-Lucene registry-backed")
+        }
     }
 
     func testSpanishGuitarChannelInCurated() {
         let ch = Channel.defaults.first { $0.id == "spanish-guitar" }
         XCTAssertNotNil(ch, "Spanish Guitar channel must exist in Curated category")
         XCTAssertEqual(ch?.category, "Curated")
-        // Pure-Lucene: curation lives entirely in the ia_queries.json query,
-        // not in excludeTags. The channel must be registry-backed instead.
         XCTAssertNotNil(ch?.iaQueryEntry, "Spanish Guitar must be registry-backed (pure-Lucene)")
     }
 
-    func testCuratedCategoryHas2Channels() {
+    func testCuratedChannelsAreRegistryBacked() {
         let channels = Channel.defaults.filter { $0.category == "Curated" }
-        XCTAssertEqual(channels.count, 2,
-            "Expected 2 Curated channels (Spanish Guitar, Chamber Music)")
-        // Every Curated channel must be pure-Lucene registry-backed.
+        XCTAssertEqual(channels.count, 7,
+            "Expected 7 Curated channels")
+        let ids = Set(channels.map(\.id))
+        XCTAssertEqual(ids, [
+            "spanish-guitar", "chamber-music", "historical-voices",
+            "symphony-orchestra", "piano-hour", "tribal-works", "cafe-lento"
+        ])
+        // Every Curated channel must be pure-Lucene registry-backed, and its
+        // matchTag stamp must equal its own id (the isolation contract).
         for ch in channels {
-            XCTAssertNotNil(ch.iaQueryEntry,
-                "Curated channel '\(ch.id)' must have an ia_queries.json entry")
+            guard let entry = ch.iaQueryEntry else {
+                XCTFail("Curated channel '\(ch.id)' must have an ia_queries.json entry")
+                continue
+            }
+            XCTAssertFalse(entry.iaQuery.isEmpty, "\(ch.id) iaQuery must not be empty")
+            XCTAssertEqual(entry.matchTags, [ch.id],
+                "\(ch.id) matchTags must be its isolation stamp [\(ch.id)]")
         }
-    }
-
-    func testBachChannelDefinition() {
-        let ch = Channel.defaults.first { $0.id == "bach" }
-        XCTAssertNotNil(ch)
-        XCTAssertEqual(ch?.composers, ["bach"])
-        XCTAssertEqual(ch?.category, "Classical")
-        XCTAssertEqual(ch?.preferredSource, "internet_archive")
-    }
-
-    func testMozartChannelDefinition() {
-        let ch = Channel.defaults.first { $0.id == "mozart" }
-        XCTAssertNotNil(ch)
-        XCTAssertEqual(ch?.composers, ["mozart"])
-        XCTAssertEqual(ch?.category, "Classical")
-    }
-
-    func testClassicalGuitarChannelExists() {
-        let ch = Channel.defaults.first { $0.id == "classical-guitar" }
-        XCTAssertNotNil(ch)
-        XCTAssertEqual(ch?.category, "Classical")
-        XCTAssertTrue(ch?.tags.contains("classical guitar") == true)
-    }
-
-    func testCelloChannelExists() {
-        let ch = Channel.defaults.first { $0.id == "cello" }
-        XCTAssertNotNil(ch)
-        XCTAssertEqual(ch?.category, "Classical")
-        XCTAssertTrue(ch?.tags.contains("cello") == true)
     }
 
     func testFMATagChannelMatchesByTag() {
@@ -76,15 +66,13 @@ final class ChannelTests: XCTestCase {
     }
 
     func testPreferredSourceAssignedCorrectly() {
-        let bach         = Channel.defaults.first { $0.id == "bach" }!
-        let fmaJazz      = Channel.defaults.first { $0.id == "fma-jazz" }!
-        let greekPhilo   = Channel.defaults.first { $0.id == "greek-philosophy" }!
-        let oxford       = Channel.defaults.first { $0.id == "oxford-philosophy" }!
+        let spanishGuitar = Channel.defaults.first { $0.id == "spanish-guitar" }!
+        let fmaJazz       = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let oxford        = Channel.defaults.first { $0.id == "oxford-philosophy" }!
 
-        XCTAssertEqual(bach.preferredSource,       "internet_archive")
-        XCTAssertEqual(fmaJazz.preferredSource,    "fma")
-        XCTAssertEqual(greekPhilo.preferredSource, "internet_archive")
-        XCTAssertEqual(oxford.preferredSource,     "oxford_lectures")
+        XCTAssertEqual(spanishGuitar.preferredSource, "internet_archive")
+        XCTAssertEqual(fmaJazz.preferredSource,       "fma")
+        XCTAssertEqual(oxford.preferredSource,        "oxford_lectures")
     }
 
     // Contemporary category (formerly FMA): 14 genre channels.
@@ -99,26 +87,6 @@ final class ChannelTests: XCTestCase {
             XCTAssertFalse(channel.tags.isEmpty, "Contemporary channel \(channel.id) must have at least one tag")
             let hasKnownGenre = channel.tags.first { FMAService.genreMap[$0] != nil } != nil
             XCTAssertTrue(hasKnownGenre, "Contemporary channel \(channel.id) tags must map to a known FMA genre")
-        }
-    }
-
-    func testAudiobooksCategoryHas22Channels() {
-        let lvChannels = Channel.defaults.filter { $0.category == "Audiobooks" }
-        XCTAssertEqual(lvChannels.count, 22,
-            "Expected 4 named + 18 genre Audiobooks channels")
-    }
-
-    // Non-feed spoken-word channels (not Lectures or News) must use "Audiobooks" category.
-    func testNonFeedSpokenWordChannelsUseAudiobooksCategory() {
-        let librivoxChannels = Channel.defaults.filter {
-            $0.contentType == .spokenWord
-                && $0.category != "Lectures"
-                && $0.category != "News"
-        }
-        XCTAssertFalse(librivoxChannels.isEmpty, "Expected at least one Audiobooks spoken-word channel")
-        for channel in librivoxChannels {
-            XCTAssertEqual(channel.category, "Audiobooks",
-                "Spoken-word channel '\(channel.id)' must use 'Audiobooks' category")
         }
     }
 

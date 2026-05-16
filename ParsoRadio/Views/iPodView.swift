@@ -5,7 +5,7 @@ struct iPodView: View {
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
     @State private var pendingChannel: Channel = {
-        let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "bach"
+        let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "spanish-guitar"
         return Channel.defaults.first { $0.id == lastId } ?? Channel.defaults[0]
     }()
     @State private var showChannelSelector = false
@@ -37,7 +37,6 @@ struct iPodView: View {
                     screenPanel
                         .frame(height: max(160.0, geo.size.height * 0.50))
                         .padding(.horizontal, 12)
-                        .padding(.top, 12)
 
                     Spacer()
 
@@ -61,6 +60,10 @@ struct iPodView: View {
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Screen panel hugs the very top (top margin ≈ 0); only the
+                // top edge ignores the safe area so the wheel still clears
+                // the home indicator at the bottom.
+                .ignoresSafeArea(edges: .top)
             }
         }
         .sheet(isPresented: $showMainMenu) {

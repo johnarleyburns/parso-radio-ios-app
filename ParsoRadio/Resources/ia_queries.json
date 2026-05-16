@@ -2,11 +2,50 @@
   {
     "channelId": "spanish-guitar",
     "iaQuery": "mediatype:audio AND (subject:\"Spanish guitar\" OR title:\"Spanish guitar\" OR subject:vihuela OR subject:\"flamenco guitar\" OR title:\"flamenco guitar\" OR creator:\"Andres Segovia\" OR creator:\"Andrés Segovia\" OR creator:\"Francisco Tarrega\" OR creator:\"Francisco Tárrega\" OR title:Tarrega OR title:Tárrega OR creator:\"Fernando Sor\" OR creator:\"Isaac Albeniz\" OR creator:\"Isaac Albéniz\" OR creator:\"Enrique Granados\" OR creator:\"Joaquin Rodrigo\" OR creator:\"Joaquín Rodrigo\" OR title:\"Concierto de Aranjuez\" OR creator:\"Paco de Lucia\" OR creator:\"Paco de Lucía\" OR title:\"de lucia\" OR creator:Sabicas OR creator:\"Carlos Montoya\" OR creator:\"Narciso Yepes\" OR creator:\"Regino Sainz de la Maza\" OR (collection:jamendo-albums AND (title:tarrega OR title:\"spanish guitar\" OR title:guitarra OR title:segovia OR title:\"de lucia\" OR title:alhambra OR title:\"classical guitar\"))) AND NOT (subject:electric OR subject:rock OR subject:jazz OR subject:pop OR subject:electronic OR subject:electronica OR subject:dance OR subject:\"hip-hop\" OR subject:rap OR subject:newage OR subject:\"new age\" OR subject:techno OR subject:house OR subject:metal OR subject:ambient OR subject:blues OR subject:country OR creator:Bach OR creator:Vivaldi)",
-    "matchTags": ["spanish-guitar"]
+    "matchTags": [
+      "spanish-guitar"
+    ]
   },
   {
     "channelId": "chamber-music",
     "iaQuery": "mediatype:audio AND (subject:\"chamber music\" OR subject:\"string quartet\" OR subject:\"piano trio\" OR subject:\"piano quintet\" OR subject:\"string quintet\" OR subject:\"piano quartet\" OR subject:\"clarinet quintet\" OR subject:\"wind quintet\" OR subject:\"string trio\") AND (creator:Beethoven OR creator:Brahms OR creator:Mozart OR creator:Schubert OR creator:Haydn OR creator:Mendelssohn OR creator:Dvorak OR creator:Dvořák OR creator:Schumann OR creator:Ravel OR creator:Debussy OR creator:Borodin OR creator:Smetana OR creator:Shostakovich OR creator:Boccherini OR creator:Faure OR creator:Fauré OR creator:Tchaikovsky OR creator:Bartok OR creator:Bartók OR title:quartet OR title:quintet OR title:trio OR title:sonata) AND NOT (creator:Aeon OR subject:\"ai music\" OR collection:radioprograms OR collection:radio OR collection:podcasts OR subject:jazz OR subject:rock OR subject:pop OR subject:electronic OR subject:\"hip-hop\" OR subject:rap OR subject:experimental OR subject:ambient OR subject:soundtrack OR subject:newage OR subject:blues OR subject:country OR title:karaoke OR title:remix)",
-    "matchTags": ["chamber-music"]
+    "matchTags": [
+      "chamber-music"
+    ]
+  },
+  {
+    "channelId": "historical-voices",
+    "iaQuery": "( collection:pacifica_radio_archives^10 OR collection:freedomarchives^5 OR identifier:InterviewsWithOrsonWelles^8 OR identifier:gore-vidal-in-the-psychiatrists-chair^7 OR identifier:yt-1s.com-norman-corwin-cbc-radio-9-jauary-2000^6 OR identifier:winston-churchill-as-peacemaker^6 OR identifier:arthur-c-clarke-the-science-and-the-fiction^6 OR identifier:lillian-gish^5 OR identifier:ruth-rendell-in-the-psychiatrists-chair^5 ) AND mediatype:audio AND ( subject:\"interview\"^5 OR subject:\"conversation\"^4 OR subject:\"public affairs\"^3 OR subject:\"civil rights\"^4 OR subject:\"civil rights movement\"^7 OR subject:\"political\"^2 OR subject:\"lecture\"^1 OR subject:\"Studs Terkel\"^9 OR subject:\"Martin Luther King\"^8 OR subject:\"Malcolm X\"^6 OR subject:\"Vietnam\"^4 OR subject:\"Kissinger\"^4 OR subject:\"McCarthy\"^5 OR *:*^0.01 )",
+    "matchTags": [
+      "historical-voices"
+    ]
+  },
+  {
+    "channelId": "symphony-orchestra",
+    "iaQuery": "mediatype:audio AND ( subject:\"Symphony orchestra\"^5 OR subject:Philharmonic^5 OR ( subject:Orchestra AND ( subject:Symphony^4 OR subject:Concerto^4 OR subject:\"Tone Poem\"^3 OR subject:Overture^3 ) ) ) AND NOT ( subject:jazz OR subject:\"dance band\" OR subject:quartet OR subject:trio OR subject:sonata OR subject:quintet OR subject:pop OR subject:rock OR subject:opera OR subject:choral OR subject:vocal OR subject:operetta OR subject:Bootleg OR subject:soundtrack OR subject:\"film score\" OR subject:\"steel drum\" OR subject:calypso OR subject:\"video game\" OR creator:\"Dance Orchestra\" ) AND NOT ( collection:radio OR collection:radioprograms OR collection:stream_only OR collection:jamendo-albums OR collection:podcasts OR collection:podcasts_miscellaneous ) AND downloads:[25 TO *]",
+    "matchTags": [
+      "symphony-orchestra"
+    ]
+  },
+  {
+    "channelId": "piano-hour",
+    "iaQuery": "mediatype:audio AND ( subject:\"Piano sonata\"^6 OR subject:Nocturne^6 OR subject:Ballade^5 OR subject:Impromptu^5 OR subject:\"piano solo\"^4 OR ( subject:Piano AND ( subject:Chopin^6 OR subject:Liszt^5 OR subject:Schubert^5 OR subject:Beethoven^5 OR subject:Brahms^5 OR subject:Debussy^5 OR subject:Schumann^5 OR subject:Scriabin^4 OR subject:Ravel^4 OR subject:Scarlatti^4 ) ) OR ( subject:Piano AND (subject:Etude^5 OR subject:Prelude^5) ) ) AND NOT ( subject:jazz OR subject:ragtime OR subject:blues OR subject:orchestra OR subject:concerto OR subject:vocal OR subject:pop OR subject:rock OR subject:organ OR subject:harpsichord OR subject:newage OR subject:\"neo-classical\" OR subject:ambient OR subject:cinematic OR subject:\"film score\" OR subject:soundtrack OR subject:saloon OR subject:trio OR subject:quartet OR subject:Bootleg OR subject:violin OR subject:cello OR subject:\"four hands\" OR subject:standard OR subject:islam OR subject:religion ) AND NOT ( collection:jamendo-albums OR collection:radio OR collection:radioprograms OR collection:podcasts OR collection:podcasts_miscellaneous OR collection:audio_islamic OR collection:audio_religion ) AND downloads:[25 TO *]",
+    "matchTags": [
+      "piano-hour"
+    ]
+  },
+  {
+    "channelId": "tribal-works",
+    "iaQuery": "mediatype:audio AND ( subject:\"ethnomusicology\"^8 OR subject:gamelan^7 OR subject:\"Native American music\"^7 OR subject:\"African music\"^7 OR subject:\"Aboriginal music\"^6 OR (subject:\"world music\" AND subject:traditional)^5 OR (subject:\"folk music\" AND subject:\"field recording\")^6 OR subject:\"indigenous music\"^6 OR collection:autrynationalcenter^8 ) AND NOT ( subject:shamanism OR subject:meditation OR subject:healing OR subject:\"new age\" OR subject:spiritual OR subject:relaxation OR subject:electronic OR subject:ambient OR subject:remix OR subject:trance OR subject:psychedelic OR subject:lecture OR subject:interview OR subject:speech OR subject:podcast OR subject:worship OR subject:sermon OR subject:noise OR subject:\"sound art\" OR subject:experimental OR subject:soundtrack OR subject:\"video game\" OR subject:\"spoken word\" OR subject:\"open mic\" ) AND NOT ( collection:audio_religion OR collection:audio_sermons OR collection:netlabels OR collection:podcasts OR collection:podcasts_miscellaneous OR collection:jamendo-albums OR collection:librivoxaudio ) AND downloads:[25 TO *]",
+    "matchTags": [
+      "tribal-works"
+    ]
+  },
+  {
+    "channelId": "cafe-lento",
+    "iaQuery": "mediatype:audio AND ( subject:\"bossa nova\"^8 OR subject:\"cool jazz\"^7 OR subject:\"chamber jazz\"^7 OR subject:\"piano jazz\"^6 OR subject:\"jazz piano\"^6 OR subject:\"lounge jazz\"^5 OR subject:\"solo guitar\"^6 OR subject:\"classical guitar\"^6 OR subject:\"fingerstyle\"^5 OR (subject:jazz AND subject:acoustic)^5 OR (subject:jazz AND subject:quartet)^4 ) AND NOT ( subject:bebop OR subject:\"free jazz\" OR subject:\"hard bop\" OR subject:rock OR subject:pop OR subject:electronic OR subject:orchestra OR subject:symphony OR subject:metal OR subject:punk OR subject:ambient OR subject:drone OR subject:experimental OR subject:noise OR subject:remix OR subject:trance OR subject:psychedelic OR subject:rap OR subject:\"hip hop\" OR subject:swing OR subject:\"big band\" OR subject:soundtrack OR subject:reggae OR subject:salsa OR subject:tango OR subject:\"new age\" OR subject:\"jazz hop\" OR subject:rnb OR subject:\"r&b\" OR subject:funk ) AND NOT ( collection:jamendo-albums OR collection:podcasts OR collection:podcasts_miscellaneous OR collection:stream_only OR collection:radio OR collection:radioprograms OR collection:audio_religion OR collection:audio_sermons OR collection:librivoxaudio OR collection:netlabels ) AND downloads:[75 TO *]",
+    "matchTags": [
+      "cafe-lento"
+    ]
   }
 ]

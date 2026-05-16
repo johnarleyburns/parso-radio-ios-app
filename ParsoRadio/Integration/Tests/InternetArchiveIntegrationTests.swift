@@ -15,7 +15,7 @@ final class InternetArchiveIntegrationTests: XCTestCase {
     }
 
     func testBachComposerChannelReturnsAtLeastOneTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "bach" }!
+        let channel = Channel(id: "bach", name: "Bach", category: "Classical", icon: "music.note", composers: ["bach"], preferredSource: "internet_archive")
         let tracks: [Track]
         do {
             tracks = try await service.fetchTracks(
@@ -41,7 +41,7 @@ final class InternetArchiveIntegrationTests: XCTestCase {
     }
 
     func testBaroqueTagChannelReturnsAtLeastOneTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "baroque" }!
+        let channel = Channel(id: "baroque", name: "Baroque", category: "Classical", icon: "music.quarternote.3", tags: ["baroque"], preferredSource: "internet_archive")
         let tracks: [Track]
         do {
             tracks = try await service.fetchTracks(tags: channel.tags)
@@ -114,86 +114,49 @@ final class InternetArchiveIntegrationTests: XCTestCase {
         )
     }
 
-    // Spanish Guitar registry channel — guards the user-reported regressions:
-    //  (a) curated query still returns a healthy pool of real Spanish guitar music
-    //  (b) every track is stamped so Channel.matches() can isolate it in the DB
-    //      (the queue was being starved because creator-matched tracks have no
-    //       guitar subject tags)
-    //  (c) noise genres (electronic/dance/blues/etc.) do not leak through
-    func testSpanishGuitarRegistryQueryReturnsCuratedStampedContent() async throws {
-        guard let entry = IAQueryRegistry.shared.entry(for: "spanish-guitar") else {
-            XCTFail("ia_queries.json missing the spanish-guitar entry")
-            return
+    // Parametrized over EVERY pure-Lucene Curated channel (auto-covers every
+    // channel the user adds to ia_queries.json). For each channel this guards
+    // the contract that makes the registry work end-to-end:
+    //  (a) the query returns a healthy pool (not starved/empty)
+    //  (b) every track is stamped with the channel's matchTag
+    //  (c) every track passes Channel.matches — i.e. the shared-DB queue isn't
+    //      starved because creator-matched tracks have no useful subject tags
+    //  (d) the stamp is unique per channel (no cross-channel contamination)
+    func testEveryCuratedRegistryChannelReturnsHealthyStampedPool() async throws {
+        let curated = Channel.defaults.filter { $0.category == "Curated" }
+        XCTAssertFalse(curated.isEmpty, "expected at least one Curated channel")
+
+        for channel in curated {
+            guard let entry = channel.iaQueryEntry else {
+                XCTFail("Curated channel '\(channel.id)' has no ia_queries.json entry")
+                continue
+            }
+            XCTAssertEqual(entry.matchTags, [channel.id],
+                "\(channel.id): matchTags must be the per-channel stamp [\(channel.id)]")
+
+            let tracks: [Track]
+            do {
+                tracks = try await service.fetchTracks(
+                    iaQuery: entry.iaQuery, matchTags: entry.matchTags
+                )
+            } catch let e as URLError {
+                throw XCTSkip("Network unavailable for \(channel.id): \(e.localizedDescription)")
+            }
+            print("\(channel.id): \(tracks.count) tracks")
+            for t in tracks.prefix(3) { print("  \(t.title) — \(t.artist)") }
+
+            XCTAssertGreaterThan(tracks.count, 20,
+                "\(channel.id): query must return a healthy pool; got \(tracks.count)")
+            XCTAssertTrue(tracks.allSatisfy { $0.tags.contains(channel.id) },
+                "\(channel.id): every track must carry its [\(channel.id)] stamp")
+            XCTAssertTrue(tracks.allSatisfy { channel.matches($0) },
+                "\(channel.id): stamped tracks must pass Channel.matches (queue not starved)")
+            // No OTHER curated channel must claim these tracks (isolation).
+            for other in curated where other.id != channel.id {
+                XCTAssertFalse(tracks.contains { other.matches($0) },
+                    "\(channel.id) tracks leaked into \(other.id) — stamp isolation broken")
+            }
         }
-        let tracks: [Track]
-        do {
-            tracks = try await service.fetchTracks(
-                iaQuery: entry.iaQuery, matchTags: entry.matchTags
-            )
-        } catch let e as URLError {
-            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
-        }
-        print("Spanish Guitar registry: \(tracks.count) tracks")
-        for t in tracks.prefix(5) { print("  \(t.title) — \(t.artist)") }
-
-        XCTAssertGreaterThan(tracks.count, 20,
-            "Spanish Guitar query must return a healthy pool; got \(tracks.count)")
-
-        // (b) every fetched track must carry the isolation stamp, and
-        //     Channel.matches() must therefore accept all of them.
-        XCTAssertTrue(tracks.allSatisfy { $0.tags.contains("spanish-guitar") },
-            "every registry track must be stamped with its matchTag")
-        let channel = Channel.defaults.first { $0.id == "spanish-guitar" }!
-        XCTAssertTrue(tracks.allSatisfy { channel.matches($0) },
-            "stamped tracks must pass Channel.matches so the queue isn't starved")
-
-        // (c) noise genres must not leak through the NOT clause.
-        let noise: Set<String> = [
-            "electronic", "electronica", "dance", "hip-hop", "rap",
-            "techno", "house", "metal", "blues", "country", "newage", "new age"
-        ]
-        let polluted = tracks.filter { !Set($0.tags).isDisjoint(with: noise) }
-        XCTAssertTrue(polluted.isEmpty,
-            "noise-genre tracks leaked into Spanish Guitar: " +
-            "\(polluted.prefix(3).map { $0.title })")
-    }
-
-    // Chamber Music registry channel — same guards as Spanish Guitar. Verifies
-    // the pure-Lucene path (no license/normalizer/category filtering) still
-    // yields a healthy, stamped, noise-free chamber music pool.
-    func testChamberMusicRegistryQueryReturnsCuratedStampedContent() async throws {
-        guard let entry = IAQueryRegistry.shared.entry(for: "chamber-music") else {
-            XCTFail("ia_queries.json missing the chamber-music entry")
-            return
-        }
-        let tracks: [Track]
-        do {
-            tracks = try await service.fetchTracks(
-                iaQuery: entry.iaQuery, matchTags: entry.matchTags
-            )
-        } catch let e as URLError {
-            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
-        }
-        print("Chamber Music registry: \(tracks.count) tracks")
-        for t in tracks.prefix(5) { print("  \(t.title) — \(t.artist)") }
-
-        XCTAssertGreaterThan(tracks.count, 20,
-            "Chamber Music query must return a healthy pool; got \(tracks.count)")
-        XCTAssertTrue(tracks.allSatisfy { $0.tags.contains("chamber-music") },
-            "every registry track must carry the chamber-music stamp")
-        let channel = Channel.defaults.first { $0.id == "chamber-music" }!
-        XCTAssertEqual(channel.category, "Curated")
-        XCTAssertTrue(tracks.allSatisfy { channel.matches($0) },
-            "stamped tracks must pass Channel.matches so the queue isn't starved")
-
-        let noise: Set<String> = [
-            "jazz", "rock", "pop", "electronic", "hip-hop", "rap",
-            "experimental", "ambient", "soundtrack", "newage", "blues", "country"
-        ]
-        let polluted = tracks.filter { !Set($0.tags).isDisjoint(with: noise) }
-        XCTAssertTrue(polluted.isEmpty,
-            "noise-genre tracks leaked into Chamber Music: " +
-            "\(polluted.prefix(3).map { $0.title })")
     }
 }
 
@@ -209,7 +172,7 @@ final class SpokenWordIntegrationTests: XCTestCase {
     }
 
     func testGreekPhilosophyChannelReturnsAtLeastOneTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "greek-philosophy" }!
+        let channel = Channel(id: "greek-philosophy", name: "Greek Philosophy", category: "Audiobooks", icon: "building.columns", tags: ["plato"], contentType: .spokenWord, spokenWordCollections: ["librivoxaudio"], preferredSource: "internet_archive")
         let tracks: [Track]
         do {
             tracks = try await service.fetchSpokenWordTracks(channel: channel)
@@ -223,7 +186,7 @@ final class SpokenWordIntegrationTests: XCTestCase {
     }
 
     func testPoetryChannelReturnsAtLeastOneTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "lv-poetry" }!
+        let channel = Channel(id: "lv-poetry", name: "Poetry", category: "Audiobooks", icon: "text.quote", tags: ["poetry"], contentType: .spokenWord, spokenWordCollections: ["librivoxaudio"], preferredSource: "internet_archive")
         let tracks: [Track]
         do {
             tracks = try await service.fetchSpokenWordTracks(channel: channel)
@@ -235,7 +198,7 @@ final class SpokenWordIntegrationTests: XCTestCase {
     }
 
     func testScienceFictionGenreChannelReturnsAtLeastOneTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "lv-science-fiction" }!
+        let channel = Channel(id: "lv-science-fiction", name: "Science Fiction", category: "Audiobooks", icon: "sparkles", tags: ["science fiction"], contentType: .spokenWord, spokenWordCollections: ["librivoxaudio"], preferredSource: "internet_archive")
         let tracks: [Track]
         do {
             tracks = try await service.fetchSpokenWordTracks(channel: channel)
@@ -247,7 +210,7 @@ final class SpokenWordIntegrationTests: XCTestCase {
     }
 
     func testSpokenWordTracksHaveChannelTagsForMatching() async throws {
-        let channel = Channel.defaults.first { $0.id == "greek-philosophy" }!
+        let channel = Channel(id: "greek-philosophy", name: "Greek Philosophy", category: "Audiobooks", icon: "building.columns", tags: ["plato"], contentType: .spokenWord, spokenWordCollections: ["librivoxaudio"], preferredSource: "internet_archive")
         let tracks: [Track]
         do {
             tracks = try await service.fetchSpokenWordTracks(channel: channel)

@@ -86,7 +86,7 @@ final class PlaylistPersistenceIntegrationTests: XCTestCase {
 
     // Verify play history integration: recordPlayed feeds recentlyHeardIds
     func testPlayHistoryPersistenceAcrossOperations() async throws {
-        let channel = Channel.defaults.first { $0.id == "bach" }!
+        let channel = Channel(id: "bach", name: "Bach", category: "Classical", icon: "music.note", composers: ["bach"], preferredSource: "internet_archive")
         let tracks = (1...3).map { makeTrack(id: "hist-integ-\($0)", composer: "bach") }
         await db.saveTracks(tracks)
 
