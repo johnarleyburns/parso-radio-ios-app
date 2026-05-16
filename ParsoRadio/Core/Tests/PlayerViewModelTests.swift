@@ -569,3 +569,62 @@ final class AudioPlayerServiceTests: XCTestCase {
         XCTAssertEqual(category, .playback, "AVAudioSession category must be .playback for background audio")
     }
 }
+
+// Bug: imported local files stored an ABSOLUTE sandbox path that goes stale
+// across launches → silent playback. resolvedLocalURL must find the file by
+// name in the CURRENT Documents/audio dir, regardless of the stored path.
+final class TrackLocalURLTests: XCTestCase {
+
+    private func audioDir() -> URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("audio", isDirectory: true)
+    }
+
+    func testResolvedLocalURLFindsFileDespiteStaleAbsolutePath() throws {
+        let dir = audioDir()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let name = "unit-test-\(UUID().uuidString).mp3"
+        let real = dir.appendingPathComponent(name)
+        try Data([0x49, 0x44, 0x33]).write(to: real)
+        defer { try? FileManager.default.removeItem(at: real) }
+
+        // Stored path is a stale absolute container path that no longer exists,
+        // but its last component matches the real file.
+        let track = Track(
+            id: "loc-1", source: "local",
+            title: "Mine", artist: "Me", duration: 1,
+            streamURL: URL(fileURLWithPath: "/stale/\(name)"),
+            downloadURL: nil,
+            localFilePath: "/var/old-container/Documents/audio/\(name)",
+            license: .publicDomain, tags: [],
+            qualityScore: 0, rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 0, isLocal: true
+        )
+        XCTAssertEqual(track.resolvedLocalURL?.lastPathComponent, name)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: track.resolvedLocalURL?.path ?? ""))
+    }
+
+    func testResolvedLocalURLNilWhenMissingOrNotLocal() {
+        let missing = Track(
+            id: "loc-2", source: "local",
+            title: "Gone", artist: "x", duration: 1,
+            streamURL: URL(fileURLWithPath: "/x.mp3"),
+            downloadURL: nil, localFilePath: "audio/does-not-exist-\(UUID()).mp3",
+            license: .publicDomain, tags: [],
+            qualityScore: 0, rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 0, isLocal: true
+        )
+        XCTAssertNil(missing.resolvedLocalURL, "missing file must resolve to nil (→ auto-skip)")
+
+        let remote = Track(
+            id: "ia-1", source: "internet_archive",
+            title: "x", artist: "y", duration: 1,
+            streamURL: URL(string: "https://archive.org/download/ia-1")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: [],
+            qualityScore: 0, rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 0
+        )
+        XCTAssertNil(remote.resolvedLocalURL, "non-local track has no local URL")
+    }
+}

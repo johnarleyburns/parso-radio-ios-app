@@ -2,10 +2,22 @@ import Foundation
 
 final class QueueManager {
     private let db: DatabaseService
-    private var recentIDs: [String] = []
+    // Recently-played IDs are tracked PER CHANNEL. A single shared list let one
+    // channel's history shrink another channel's pool (and, via the old
+    // tag-fallback, leak tracks across channels).
+    private var recentByChannel: [String: [String]] = [:]
     private let historyLimit = 50
 
     init(db: DatabaseService) { self.db = db }
+
+    private func recents(_ channelId: String) -> [String] { recentByChannel[channelId] ?? [] }
+
+    private func record(_ id: String, channelId: String) {
+        var list = recentByChannel[channelId] ?? []
+        list.append(id)
+        if list.count > historyLimit { list.removeFirst() }
+        recentByChannel[channelId] = list
+    }
 
     // MARK: - Public
 
@@ -61,10 +73,12 @@ final class QueueManager {
             return await nextPodcastTrack(channel: channel, record: record)
         }
 
+        let recent = recents(channel.id)
         var pool = await db.fetchTracks(forChannel: channel)
-            .filter { !recentIDs.contains($0.id) }
+            .filter { !recent.contains($0.id) }
 
-        // Expand pool if thin
+        // Expand pool if thin (composer channels only — never touches the
+        // isolation of curated/registry channels, which have no composers).
         if pool.count < 20, !channel.composers.isEmpty {
             let similar = channel.composers.flatMap { ComposerMap.similarity[$0] ?? [] }
             let expanded = Channel(
@@ -74,17 +88,15 @@ final class QueueManager {
                 tags: channel.tags, contentType: channel.contentType
             )
             let extra = await db.fetchTracks(forChannel: expanded)
-                .filter { !recentIDs.contains($0.id) }
+                .filter { !recent.contains($0.id) }
             pool.append(contentsOf: extra)
         }
+        // Channel exhausted: loop it. Re-fetch the SAME channel (preferredSource
+        // + stamp/tag isolation intact) — never a generic non-isolated
+        // fallback, which used to leak other channels' tracks in.
         if pool.isEmpty {
-            let tagChannel = Channel(
-                id: channel.id + "-tag-fallback", name: channel.name,
-                category: channel.category, icon: channel.icon,
-                tags: channel.tags, contentType: channel.contentType
-            )
-            pool = await db.fetchTracks(forChannel: tagChannel)
-                .filter { !recentIDs.contains($0.id) }
+            recentByChannel[channel.id] = []
+            pool = await db.fetchTracks(forChannel: channel)
         }
         guard !pool.isEmpty else { return nil }
 
@@ -102,7 +114,9 @@ final class QueueManager {
 
         let track: Track
         if effectiveShuffle {
-            track = weightedRandom(from: pool, seed: dailySeed(for: channel))
+            track = weightedRandom(from: pool,
+                                   seed: dailySeed(for: channel),
+                                   variance: recent.count)
         } else {
             // Recent-first: sort by addedDate DESC, fall back to qualityScore
             let sorted = pool.sorted {
@@ -112,17 +126,18 @@ final class QueueManager {
             }
             track = sorted.first!
         }
-        if record { recordID(track.id) }
+        if record { self.record(track.id, channelId: channel.id) }
         return track
     }
 
-    private func nextPodcastTrack(channel: Channel, record: Bool) async -> Track? {
+    private func nextPodcastTrack(channel: Channel, record shouldRecord: Bool) async -> Track? {
         let heard = await db.recentlyHeardIds(forChannel: channel.id)
+        let recent = recents(channel.id)
         let pool = await db.fetchTracks(forChannel: channel)
-            .filter { !heard.contains($0.id) && !recentIDs.contains($0.id) }
+            .filter { !heard.contains($0.id) && !recent.contains($0.id) }
         guard let track = pool.first else { return nil }
-        if record {
-            recordID(track.id)
+        if shouldRecord {
+            self.record(track.id, channelId: channel.id)
             await db.recordPlayed(channelId: channel.id, trackId: track.id)
         }
         return track
@@ -159,8 +174,10 @@ final class QueueManager {
               .min(by: { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) })
     }
 
-    private func weightedRandom(from pool: [Track], seed: UInt64) -> Track {
-        var rng = SeededRNG(seed: seed &+ UInt64(recentIDs.count))
+    // `variance` (the channel's recent-play count) perturbs the daily seed so
+    // successive picks within a session differ while staying reproducible.
+    private func weightedRandom(from pool: [Track], seed: UInt64, variance: Int) -> Track {
+        var rng = SeededRNG(seed: seed &+ UInt64(variance))
         let totalWeight = pool.reduce(0.0) { $0 + ($1.qualityScore * max($1.metadataConfidence, 0.01)) }
         guard totalWeight > 0 else { return pool[Int(rng.next() % UInt64(pool.count))] }
         var pick = Double(rng.next()) / Double(UInt64.max) * totalWeight
@@ -168,7 +185,7 @@ final class QueueManager {
             pick -= track.qualityScore * max(track.metadataConfidence, 0.01)
             if pick <= 0 { return track }
         }
-        var fallback = SeededRNG(seed: seed &+ UInt64(recentIDs.count) &+ 1)
+        var fallback = SeededRNG(seed: seed &+ UInt64(variance) &+ 1)
         return pool[Int(fallback.next() % UInt64(pool.count))]
     }
 
@@ -177,10 +194,6 @@ final class QueueManager {
         return (dateStr + channel.id).utf8.reduce(UInt64(5381)) { ($0 &<< 5) &+ $0 &+ UInt64($1) }
     }
 
-    private func recordID(_ id: String) {
-        recentIDs.append(id)
-        if recentIDs.count > historyLimit { recentIDs.removeFirst() }
-    }
 }
 
 // MARK: - Simple seeded RNG (xorshift64)

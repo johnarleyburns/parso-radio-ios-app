@@ -107,7 +107,54 @@ final class QueueManagerTests: XCTestCase {
             "Lecture channel must be randomized, not strict newest-first, with shuffle off")
     }
 
+    // Channel leakage regression: draining a curated channel past its pool
+    // (forcing the exhausted-loop path) must NEVER surface another channel's
+    // tracks, and one channel's play history must not shrink another's pool.
+    func testCuratedChannelsDoNotLeakAcrossEachOther() async throws {
+        let sg = Channel.defaults.first { $0.id == "spanish-guitar" }!
+        let cm = Channel.defaults.first { $0.id == "chamber-music" }!
+        var all: [Track] = []
+        for i in 1...5 { all.append(makeStamped(id: "sg-\(i)", stamp: "spanish-guitar")) }
+        for i in 1...5 { all.append(makeStamped(id: "cm-\(i)", stamp: "chamber-music")) }
+        await db.saveTracks(all)
+
+        // Drain Spanish Guitar far past its 5-track pool to force the
+        // exhausted -> reset -> re-fetch loop. It must only ever return its
+        // own stamped tracks.
+        for _ in 0..<30 {
+            guard let t = await queue.nextTrack(channel: sg, shuffleMode: false) else {
+                XCTFail("Spanish Guitar pool should loop, not run dry"); return
+            }
+            XCTAssertTrue(t.id.hasPrefix("sg-"),
+                "Spanish Guitar leaked a non-spanish-guitar track: \(t.id)")
+        }
+        // Chamber Music's pool must be its full 5 — NOT shrunk by Spanish
+        // Guitar's per-channel history.
+        var cmSeen = Set<String>()
+        for _ in 0..<5 {
+            guard let t = await queue.nextTrack(channel: cm, shuffleMode: false) else { break }
+            XCTAssertTrue(t.id.hasPrefix("cm-"), "Chamber Music returned a foreign track: \(t.id)")
+            cmSeen.insert(t.id)
+        }
+        XCTAssertEqual(cmSeen.count, 5,
+            "Chamber Music pool must be independent of Spanish Guitar history")
+    }
+
     // MARK: - Helpers
+
+    private func makeStamped(id: String, stamp: String) -> Track {
+        Track(
+            id: id, source: "internet_archive",
+            title: "T \(id)", artist: "Various",
+            duration: 180,
+            streamURL: URL(string: "https://archive.org/download/\(id)")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: ["classical", stamp],
+            qualityScore: 1.0,
+            rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 0.0
+        )
+    }
 
     private func seedTracks(composer: String, instrument: String, count: Int, prefix: String? = nil) async {
         let p = prefix ?? composer

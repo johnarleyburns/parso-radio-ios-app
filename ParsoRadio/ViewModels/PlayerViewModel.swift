@@ -51,6 +51,11 @@ final class PlayerViewModel: ObservableObject {
     var playlistTracks: [Track] = []
     // Guards against double-advance when skip() fires onTrackFinished before the Task runs.
     private var isSkipping = false
+    // A track has 10 s to start; on failure/timeout we auto-skip to the next.
+    // Capped so a channel where everything fails doesn't loop forever.
+    private let loadTimeout: Double = 10
+    private let maxConsecutiveLoadFailures = 8
+    private var consecutiveLoadFailures = 0
 
     init(
         db: DatabaseService,
@@ -272,6 +277,13 @@ final class PlayerViewModel: ObservableObject {
         audioPlayer.skip()
         isPlaying = false
         currentPosition = 0
+        // Show the spinner immediately — don't leave the old track on screen
+        // with no feedback while the next one resolves.
+        currentTrack = nil
+        trackDuration = nil
+        errorMessage = nil
+        isLoading = true
+        loadingMessage = "Loading…"
         if let channel = currentChannel, channel.contentType == .spokenWord {
             Task {
                 await db.clearPosition(channelId: channel.id)
@@ -413,27 +425,35 @@ final class PlayerViewModel: ObservableObject {
         }
         isLoading = true
         loadingMessage = track.source == "internet_archive" ? "Buffering…" : "Loading…"
-        defer {
-            isLoading = false
-            loadingMessage = nil
-        }
 
         do {
             let url: URL
-            if let localPath = track.localFilePath,
-               FileManager.default.fileExists(atPath: localPath) {
-                url = URL(fileURLWithPath: localPath)
+            if track.isLocal || track.source == "local" {
+                // Imported file — resolve against the CURRENT Documents dir
+                // (a stored absolute sandbox path goes stale across launches).
+                guard let local = track.resolvedLocalURL else {
+                    throw URLError(.fileDoesNotExist)
+                }
+                url = local
+            } else if let localPath = track.localFilePath,
+                      FileManager.default.fileExists(atPath: localPath) {
+                url = URL(fileURLWithPath: localPath)   // offline-downloaded track
             } else if track.source == "internet_archive" {
                 if let cached = prefetchedURLs.removeValue(forKey: track.id) {
                     url = cached
                 } else if track.id.contains("/") {
-                    // Per-file track (id = "identifier/filename"): streamURL is already
-                    // a direct download URL built in fetchTracksForIdentifier.
-                    // Calling resolveAudioURL with a slash-ID hits the wrong metadata
-                    // endpoint and throws, leaving audio silent.
+                    // Per-file track (id = "identifier/filename"): streamURL is
+                    // already a direct download URL; resolveAudioURL with a
+                    // slash-ID hits the wrong endpoint and would hang/throw.
                     url = track.streamURL
                 } else {
-                    url = try await archiveService.resolveAudioURL(for: track.id)
+                    // 10 s cap — many IA items have slow/huge metadata; without
+                    // this the channel dead-ends on the first slow track.
+                    let svc = archiveService
+                    let identifier = track.id
+                    url = try await withTimeout(loadTimeout) {
+                        try await svc.resolveAudioURL(for: identifier)
+                    }
                 }
             } else {
                 url = track.streamURL
@@ -444,23 +464,78 @@ final class PlayerViewModel: ObservableObject {
                 currentPosition = seconds
             }
             isPlaying = true
+            isLoading = false
+            loadingMessage = nil
             errorMessage = nil
+            consecutiveLoadFailures = 0
 
             if let channel = currentChannel {
-                // Save current track for music channels so it can be resumed after restart.
-                // Spoken-word position is kept current by the onTimeUpdate callback.
                 if channel.contentType != .spokenWord {
                     await db.savePosition(channelId: channel.id, trackId: track.id, seconds: 0)
                 }
                 Task { await prefetchNextURL(channel: channel) }
             }
+            scheduleStallWatchdog(for: track, seekTo: seekTo)
         } catch {
-            // Clear currentTrack so errorView is reached in the screen panel's
-            // if-let chain (track branch would hide the error otherwise).
-            currentTrack = nil
-            errorMessage = "Could not load \"\(track.title)\"."
-            isPlaying = false
+            await handleLoadFailure(track)
         }
+    }
+
+    // Runs `op` but throws if it doesn't finish within `seconds`.
+    private func withTimeout<T: Sendable>(
+        _ seconds: Double, _ op: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await op() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw URLError(.timedOut)
+            }
+            defer { group.cancelAll() }
+            guard let result = try await group.next() else { throw URLError(.timedOut) }
+            return result
+        }
+    }
+
+    // A track that resolved but never actually starts (AVPlayer stalls on a
+    // dead/slow URL) must not silently hang the channel. After loadTimeout,
+    // if we're still on this track and no audio has progressed, auto-skip.
+    private func scheduleStallWatchdog(for track: Track, seekTo: Double?) {
+        if currentChannel?.contentType == .ambientLoop { return }  // engine loop: no position updates
+        let resumed = (seekTo ?? 0) > 0
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64((self?.loadTimeout ?? 10) * 1_000_000_000))
+            guard let self else { return }
+            guard self.currentTrack?.id == track.id,
+                  self.isPlaying,
+                  !resumed,
+                  self.currentPosition < 0.5 else { return }
+            await self.handleLoadFailure(track)
+        }
+    }
+
+    // Failure/timeout/stall: auto-advance to the next track instead of
+    // dead-ending. Capped so a channel where everything fails stops cleanly.
+    private func handleLoadFailure(_ track: Track) async {
+        consecutiveLoadFailures += 1
+        guard consecutiveLoadFailures < maxConsecutiveLoadFailures else {
+            consecutiveLoadFailures = 0
+            currentTrack = nil
+            trackDuration = nil
+            isPlaying = false
+            isLoading = false
+            loadingMessage = nil
+            errorMessage = "Couldn't find a playable track in this channel."
+            return
+        }
+        // Keep the spinner up and move on. currentTrack = nil so the failed
+        // track isn't pushed onto playHistory by the next playTrack.
+        currentTrack = nil
+        trackDuration = nil
+        isPlaying = false
+        isLoading = true
+        loadingMessage = "Skipping unavailable track…"
+        await advanceToNext()
     }
 
     private func prefetchNextURL(channel: Channel) async {

@@ -35,6 +35,21 @@ extension Track {
         return artworkURLString.flatMap(URL.init)
     }
 
+    // Imported local files live in Documents/audio/. The app's sandbox
+    // container path changes across launches, so a stored ABSOLUTE path goes
+    // stale and playback silently fails. Resolve by filename against the
+    // CURRENT Documents dir instead — backward-compatible with rows that
+    // stored an absolute path (we only use its last component).
+    var resolvedLocalURL: URL? {
+        guard isLocal || source == "local", let stored = localFilePath else { return nil }
+        let name = (stored as NSString).lastPathComponent
+        let url = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("audio", isDirectory: true)
+            .appendingPathComponent(name)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
     var displayDate: Date? {
         if let d = addedDate { return d }
         if qualityScore > 1_000_000_000 { return Date(timeIntervalSince1970: qualityScore) }
