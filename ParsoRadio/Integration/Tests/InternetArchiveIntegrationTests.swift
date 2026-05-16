@@ -11,7 +11,8 @@ final class InternetArchiveIntegrationTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        executionTimeAllowance = 60
+        // The parametrized registry test fetches ~28 channels live.
+        executionTimeAllowance = 300
     }
 
     func testBachComposerChannelReturnsAtLeastOneTrack() async throws {
@@ -114,19 +115,19 @@ final class InternetArchiveIntegrationTests: XCTestCase {
         )
     }
 
-    // Parametrized over EVERY pure-Lucene Curated channel (auto-covers every
-    // channel the user adds to ia_queries.json). For each channel this guards
-    // the contract that makes the registry work end-to-end:
+    // Parametrized over EVERY pure-Lucene registry channel — Curated music
+    // AND the 21 LibriVox audiobook channels (auto-covers anything added to
+    // ia_queries.json). Guards the end-to-end contract:
     //  (a) the query returns a healthy pool (not starved/empty)
     //  (b) every track is stamped with the channel's matchTag
-    //  (c) every track passes Channel.matches — i.e. the shared-DB queue isn't
-    //      starved because creator-matched tracks have no useful subject tags
+    //  (c) every track passes Channel.matches — shared-DB queue not starved
     //  (d) the stamp is unique per channel (no cross-channel contamination)
-    func testEveryCuratedRegistryChannelReturnsHealthyStampedPool() async throws {
-        let curated = Channel.defaults.filter { $0.category == "Curated" }
-        XCTAssertFalse(curated.isEmpty, "expected at least one Curated channel")
+    func testEveryRegistryChannelReturnsHealthyStampedPool() async throws {
+        let registry = Channel.defaults.filter { $0.iaQueryEntry != nil }
+        XCTAssertGreaterThanOrEqual(registry.count, 28,
+            "expected the curated + LibriVox registry channels")
 
-        for channel in curated {
+        for channel in registry {
             guard let entry = channel.iaQueryEntry else {
                 XCTFail("Curated channel '\(channel.id)' has no ia_queries.json entry")
                 continue
@@ -151,8 +152,8 @@ final class InternetArchiveIntegrationTests: XCTestCase {
                 "\(channel.id): every track must carry its [\(channel.id)] stamp")
             XCTAssertTrue(tracks.allSatisfy { channel.matches($0) },
                 "\(channel.id): stamped tracks must pass Channel.matches (queue not starved)")
-            // No OTHER curated channel must claim these tracks (isolation).
-            for other in curated where other.id != channel.id {
+            // No OTHER registry channel must claim these tracks (isolation).
+            for other in registry where other.id != channel.id {
                 XCTAssertFalse(tracks.contains { other.matches($0) },
                     "\(channel.id) tracks leaked into \(other.id) — stamp isolation broken")
             }

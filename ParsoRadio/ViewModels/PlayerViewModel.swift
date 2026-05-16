@@ -182,24 +182,25 @@ final class PlayerViewModel: ObservableObject {
             } else if channel.category == "Lectures" {
                 // Oxford channels fetch from podcasts.ox.ac.uk via OxfordLecturesService.
                 fetched = try await oxfordService.fetchTracks(unitSlug: channel.tags.first ?? "")
+            } else if let entry = channel.iaQueryEntry {
+                // Pure-Lucene registry channels (curated music + LibriVox
+                // audiobooks) — checked BEFORE the spoken-word branch so
+                // .spokenWord LibriVox channels use the registry query, not
+                // the legacy fetchSpokenWordTracks path. matchTags stamp
+                // isolates them in the shared DB; sort=random gives variety.
+                fetched = try await archiveService.fetchTracks(
+                    iaQuery: entry.iaQuery, matchTags: entry.matchTags
+                )
             } else if channel.contentType == .spokenWord {
-                // Spoken-word channels: LibriVox / podcast collections via IA.
+                // Spoken-word channels with no registry entry: legacy IA path.
                 fetched = try await archiveService.fetchSpokenWordTracks(channel: channel)
             } else if channel.composers.isEmpty {
-                if let entry = channel.iaQueryEntry {
-                    // Registry channels: Lucene query is precise enough; skip FMA supplement.
-                    // matchTags are stamped onto each track for reliable DB isolation.
-                    fetched = try await archiveService.fetchTracks(
-                        iaQuery: entry.iaQuery, matchTags: entry.matchTags
-                    )
-                } else {
-                    // Tag channels: IA + FMA in parallel; FMA errors are non-fatal.
-                    async let iaTracks = archiveService.fetchTracks(tags: channel.tags, excludeTags: channel.excludeTags)
-                    let fmaTracks = (try? await fmaService.fetchTracks(forChannel: channel)) ?? []
-                    let iaResults = try await iaTracks
-                    var seen = Set<String>()
-                    fetched = (iaResults + fmaTracks).filter { seen.insert($0.id).inserted }
-                }
+                // Tag channels: IA + FMA in parallel; FMA errors are non-fatal.
+                async let iaTracks = archiveService.fetchTracks(tags: channel.tags, excludeTags: channel.excludeTags)
+                let fmaTracks = (try? await fmaService.fetchTracks(forChannel: channel)) ?? []
+                let iaResults = try await iaTracks
+                var seen = Set<String>()
+                fetched = (iaResults + fmaTracks).filter { seen.insert($0.id).inserted }
             } else {
                 // Composer channels: IA + Musopen(IA) + FMA all in parallel.
                 async let iaTracks = archiveService.fetchTracks(

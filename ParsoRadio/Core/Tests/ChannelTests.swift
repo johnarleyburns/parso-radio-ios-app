@@ -4,26 +4,40 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 14 Contemporary + 18 Lectures + 4 News + 4 Ambient + 7 Curated = 47.
-        // Non-curated IA channels (Classical/Audiobooks) and Lofi Cafe were
-        // deleted; 3 thin Oxford units (music, population-health, surgical)
-        // were removed for returning too little content.
-        XCTAssertEqual(Channel.defaults.count, 47)
+        // 14 Contemporary + 18 Lectures + 4 News + 4 Ambient + 7 Curated
+        // + 21 Audiobooks (LibriVox) = 68.
+        XCTAssertEqual(Channel.defaults.count, 68)
     }
 
-    func testNoLegacyIAChannelsRemain() {
-        // Classical + Audiobooks were the legacy non-curated IA channels.
-        // They must be fully removed (replaced piecemeal by Curated).
+    func testEveryIAChannelIsPureLuceneRegistryBacked() {
+        // Legacy Classical is gone. Audiobooks are back, but ONLY as
+        // pure-Lucene registry channels — every internet_archive channel
+        // (Curated music + LibriVox audiobooks) must have an ia_queries.json
+        // entry whose stamp is its own id. No code-side filtered IA channels.
         XCTAssertTrue(Channel.defaults.allSatisfy { $0.category != "Classical" },
-            "No Classical channels should remain")
-        XCTAssertTrue(Channel.defaults.allSatisfy { $0.category != "Audiobooks" },
-            "No Audiobooks channels should remain")
-        // Any internet_archive channel must now be a registry-backed Curated one.
+            "No legacy Classical channels should remain")
         for ch in Channel.defaults where ch.preferredSource == "internet_archive" {
-            XCTAssertEqual(ch.category, "Curated",
-                "IA channel '\(ch.id)' must be Curated")
+            XCTAssertTrue(ch.category == "Curated" || ch.category == "Audiobooks",
+                "IA channel '\(ch.id)' must be Curated or Audiobooks")
+            guard let entry = ch.iaQueryEntry else {
+                XCTFail("IA channel '\(ch.id)' must be registry-backed"); continue
+            }
+            XCTAssertEqual(entry.matchTags, [ch.id],
+                "IA channel '\(ch.id)' stamp must be [\(ch.id)]")
+        }
+    }
+
+    func testAudiobooksAreTwentyOneLibriVoxRegistryChannels() {
+        let ab = Channel.defaults.filter { $0.category == "Audiobooks" }
+        XCTAssertEqual(ab.count, 21, "Expected 21 LibriVox Audiobooks channels")
+        for ch in ab {
+            XCTAssertEqual(ch.contentType, .spokenWord,
+                "Audiobook '\(ch.id)' must be .spokenWord (position persistence)")
+            XCTAssertTrue(ch.id.hasPrefix("lv-"), "Audiobook id convention: \(ch.id)")
             XCTAssertNotNil(ch.iaQueryEntry,
-                "IA channel '\(ch.id)' must be pure-Lucene registry-backed")
+                "Audiobook '\(ch.id)' must be registry-backed")
+            XCTAssertTrue(ch.iaQueryEntry?.iaQuery.contains("collection:librivoxaudio") ?? false,
+                "Audiobook '\(ch.id)' query must target the librivoxaudio collection")
         }
     }
 

@@ -356,6 +356,117 @@ extension Channel {
             preferredSource: "internet_archive"
         ),
 
+        // MARK: Audiobooks — LibriVox via pure-Lucene IA registry
+        // Each channel is a single curl-verified
+        // `collection:librivoxaudio AND (subject:... OR ...)` query in
+        // ia_queries.json, fetched with sort=random. tags:[id] is the
+        // isolation stamp; .spokenWord persists position + audiobook UX.
+        Channel(
+            id: "lv-general-fiction", name: "General Fiction", category: "Audiobooks",
+            icon: "book", tags: ["lv-general-fiction"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-literary-fiction", name: "Literary Fiction", category: "Audiobooks",
+            icon: "books.vertical", tags: ["lv-literary-fiction"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-science-fiction", name: "Science Fiction", category: "Audiobooks",
+            icon: "sparkles", tags: ["lv-science-fiction"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-horror-gothic", name: "Horror & Gothic", category: "Audiobooks",
+            icon: "moon.stars.fill", tags: ["lv-horror-gothic"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-mystery-crime", name: "Mystery & Crime", category: "Audiobooks",
+            icon: "magnifyingglass", tags: ["lv-mystery-crime"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-adventure", name: "Adventure", category: "Audiobooks",
+            icon: "map.fill", tags: ["lv-adventure"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-fantasy-mythology", name: "Fantasy & Mythology", category: "Audiobooks",
+            icon: "wand.and.stars", tags: ["lv-fantasy-mythology"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-romance", name: "Romance", category: "Audiobooks",
+            icon: "heart.fill", tags: ["lv-romance"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-satire-humor", name: "Satire & Humor", category: "Audiobooks",
+            icon: "face.smiling", tags: ["lv-satire-humor"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-war-military", name: "War & Military", category: "Audiobooks",
+            icon: "shield.fill", tags: ["lv-war-military"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-short-stories", name: "Short Stories", category: "Audiobooks",
+            icon: "doc.text", tags: ["lv-short-stories"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-drama-plays", name: "Drama & Plays", category: "Audiobooks",
+            icon: "theatermasks.fill", tags: ["lv-drama-plays"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-travel", name: "Travel & Exploration", category: "Audiobooks",
+            icon: "airplane", tags: ["lv-travel"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-ancient-world", name: "Ancient World", category: "Audiobooks",
+            icon: "building.columns.fill", tags: ["lv-ancient-world"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-poetry", name: "Poetry", category: "Audiobooks",
+            icon: "text.quote", tags: ["lv-poetry"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-philosophy-mind", name: "Philosophy & Mind", category: "Audiobooks",
+            icon: "brain.head.profile", tags: ["lv-philosophy-mind"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-history", name: "History", category: "Audiobooks",
+            icon: "scroll", tags: ["lv-history"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-biography", name: "Biography", category: "Audiobooks",
+            icon: "person.text.rectangle", tags: ["lv-biography"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-science-nature", name: "Science & Nature", category: "Audiobooks",
+            icon: "atom", tags: ["lv-science-nature"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-religion", name: "Religion & Scripture", category: "Audiobooks",
+            icon: "book.closed.fill", tags: ["lv-religion"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-essays-ideas", name: "Essays & Ideas", category: "Audiobooks",
+            icon: "lightbulb", tags: ["lv-essays-ideas"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+
         // MARK: Ambient — nature sounds and single-track loops
         // Yellowstone: 114 NPS public-domain MP3s via AmbientStaticService (AWS CloudFront, no auth).
         // Loop channels: single CC0 track from Freesound CDN; contentType .ambientLoop
