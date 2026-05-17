@@ -8,11 +8,12 @@ final class AmbientStaticService {
     func fetchTracks(channel: Channel) -> [Track] {
         switch channel.id {
         case "ambient-yellowstone":    return yellowstoneTracks
-        case "ambient-flowing-water":  return [loopTrack("332250", "332/332250_5450487-hq.mp3",
-                                                          title: "Flowing Water", artist: "cabled_mess",
+        // Loop-authored CC0 sources (user-selected) to avoid the seam click.
+        case "ambient-flowing-water":  return [loopTrack("443869", "443/443869_2155630-hq.mp3",
+                                                          title: "Flowing Water", artist: "eardeer",
                                                           channelId: "ambient-flowing-water")]
-        case "ambient-rain":           return [loopTrack("371710", "371/371710_6512973-hq.mp3",
-                                                          title: "Rainy Day", artist: "Jofae",
+        case "ambient-rain":           return [loopTrack("136971", "136/136971_2289019-hq.mp3",
+                                                          title: "Rainy Day", artist: "DWOBoyle",
                                                           channelId: "ambient-rain")]
         case "ambient-ocean":          return [loopTrack("156598", "156/156598_981371-hq.mp3",
                                                           title: "Ocean Waves", artist: "Rmutt",
