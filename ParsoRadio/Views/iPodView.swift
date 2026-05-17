@@ -23,6 +23,13 @@ struct iPodView: View {
         playerVM.currentChannel ?? pendingChannel
     }
 
+    // A looping ambient channel is a single track that repeats forever:
+    // transport / scrubber / favorites / shuffle / repeat make no sense, so
+    // the UI collapses to "now playing + info" only.
+    private var isAmbientLoop: Bool {
+        playerVM.currentChannel?.contentType == .ambientLoop
+    }
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
@@ -52,6 +59,7 @@ struct iPodView: View {
                         isPlaying: playerVM.isPlaying,
                         currentTime: playerVM.currentPosition,
                         duration: playerVM.trackDuration ?? 0,
+                        transportEnabled: !isAmbientLoop,
                         onSeek: { playerVM.seek(to: $0) },
                         onScrubChanged: { playerVM.isScrubbing = $0 },
                         onMenu:      { showMainMenu = true },
@@ -194,7 +202,7 @@ struct iPodView: View {
             if playerVM.currentTrack != nil { showMoreOptions = true }
         }
         .contextMenu {
-            if playerVM.currentTrack != nil {
+            if playerVM.currentTrack != nil, !isAmbientLoop {
                 Button { showAddToPlaylist = true } label: {
                     Label("Add to Playlist", systemImage: "plus.circle")
                 }
@@ -330,9 +338,28 @@ struct iPodView: View {
 
     // The scrub bar is gone — the click wheel arc IS the position display.
     // Bottom control row: Favorites · elapsed | Shuffle Repeat | remaining · More.
-    // Elapsed/remaining text only appears once a duration is known (hidden for
-    // ambient loops and before the player reports a duration).
+    // Ambient-loop channels collapse this to just the info (•••) button —
+    // a single forever-repeating track has nothing to favorite/shuffle/seek.
+    @ViewBuilder
     private var scrubberRow: some View {
+        if isAmbientLoop {
+            HStack(spacing: 0) {
+                Spacer()
+                Button { showMoreOptions = true } label: {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                .accessibilityLabel("Track Info")
+                .padding(.trailing, 14)
+            }
+            .padding(.vertical, 4)
+        } else {
+            fullScrubberRow
+        }
+    }
+
+    private var fullScrubberRow: some View {
         HStack(spacing: 0) {
             Button { toggleFavorite() } label: {
                 Image(systemName: isFavorite ? "heart.fill" : "heart")
@@ -415,20 +442,23 @@ struct iPodView: View {
                         }
                     }
 
-                    Section {
-                        Button {
-                            showMoreOptions = false
-                            showAddToPlaylist = true
-                        } label: {
-                            Label("Add to Playlist", systemImage: "plus.circle")
-                        }
-                        if playerVM.currentTrackIsMultiPart {
+                    // Ambient loops are info-only: no playlist actions.
+                    if !isAmbientLoop {
+                        Section {
                             Button {
                                 showMoreOptions = false
-                                showAddItemToPlaylist = true
+                                showAddToPlaylist = true
                             } label: {
-                                Label("Add \(itemKindLabel(track)) to Playlist",
-                                      systemImage: "text.badge.plus")
+                                Label("Add to Playlist", systemImage: "plus.circle")
+                            }
+                            if playerVM.currentTrackIsMultiPart {
+                                Button {
+                                    showMoreOptions = false
+                                    showAddItemToPlaylist = true
+                                } label: {
+                                    Label("Add \(itemKindLabel(track)) to Playlist",
+                                          systemImage: "text.badge.plus")
+                                }
                             }
                         }
                     }
@@ -637,6 +667,9 @@ struct ClickWheel: View {
     // Seek-wheel inputs (duration == 0 ⇒ pure transport, no seeking/arc).
     var currentTime: Double = 0
     var duration: Double = 0
+    // Ambient-loop channels have a single forever-repeating track: no
+    // back/forward/play and no seeking — only MENU stays active.
+    var transportEnabled: Bool = true
     var onSeek: (Double) -> Void = { _ in }
     var onScrubChanged: (Bool) -> Void = { _ in }
     let onMenu:      () -> Void
@@ -695,26 +728,28 @@ struct ClickWheel: View {
                     .offset(y: -midRing)
                     .allowsHitTesting(false)
 
-                // Back (left)
-                Image(systemName: "backward.fill")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.primary)
-                    .offset(x: -midRing)
-                    .allowsHitTesting(false)
+                if transportEnabled {
+                    // Back (left)
+                    Image(systemName: "backward.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .offset(x: -midRing)
+                        .allowsHitTesting(false)
 
-                // Forward (right)
-                Image(systemName: "forward.fill")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.primary)
-                    .offset(x: midRing)
-                    .allowsHitTesting(false)
+                    // Forward (right)
+                    Image(systemName: "forward.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .offset(x: midRing)
+                        .allowsHitTesting(false)
 
-                // Play/Pause (bottom)
-                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.primary)
-                    .offset(y: midRing)
-                    .allowsHitTesting(false)
+                    // Play/Pause (bottom)
+                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .offset(y: midRing)
+                        .allowsHitTesting(false)
+                }
             }
             .frame(width: size, height: size)
             .contentShape(Circle())
@@ -730,6 +765,11 @@ struct ClickWheel: View {
                         guard dist <= outerR, dist > innerR else { return }
 
                         tapTrigger += 1
+                        if !transportEnabled {
+                            // Ambient loop: only the MENU sector responds.
+                            if abs(dy) >= abs(dx), dy < 0 { onMenu() }
+                            return
+                        }
                         if abs(dy) >= abs(dx) {
                             if dy < 0 { onMenu() } else { onPlayPause() }
                         } else {

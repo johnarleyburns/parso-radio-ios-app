@@ -12,14 +12,29 @@ final class AmbientStaticService {
         case "ambient-flowing-water":  return [loopTrack("443869", "443/443869_2155630-hq.mp3",
                                                           title: "Flowing Water", artist: "eardeer",
                                                           channelId: "ambient-flowing-water")]
-        case "ambient-rain":           return [loopTrack("136971", "136/136971_2289019-hq.mp3",
-                                                          title: "Rainy Day", artist: "DWOBoyle",
+        case "ambient-rain":           return [loopTrack("334149", "334/334149_5910095-hq.mp3",
+                                                          title: "Rainy Day", artist: "svampen",
                                                           channelId: "ambient-rain")]
-        case "ambient-ocean":          return [loopTrack("156598", "156/156598_981371-hq.mp3",
-                                                          title: "Ocean Waves", artist: "Rmutt",
+        case "ambient-ocean":          return [loopTrack("829629", "829/829629_9250976-hq.mp3",
+                                                          title: "Ocean Waves", artist: "Nox_Sound",
                                                           channelId: "ambient-ocean")]
         default: return []
         }
+    }
+
+    // Offline-by-default: if a loop asset is bundled at
+    // Resources/Audio/<channelId>.<ext>, play THAT (no network, and PCM
+    // formats loop seamlessly). Otherwise the Freesound HQ-mp3 preview is
+    // streamed as a fallback. PCM/lossless extensions are preferred so a
+    // committed .wav/.caf loops without the LAME encoder-padding click.
+    static func bundledLoopURL(forChannelId id: String) -> URL? {
+        guard !id.isEmpty else { return nil }
+        for ext in ["caf", "wav", "aiff", "m4a", "aac", "mp3"] {
+            if let url = Bundle.main.url(forResource: id, withExtension: ext) {
+                return url
+            }
+        }
+        return nil
     }
 
     // MARK: - Track builders

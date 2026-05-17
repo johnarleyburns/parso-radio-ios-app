@@ -465,6 +465,12 @@ final class PlayerViewModel: ObservableObject {
                         try await svc.resolveAudioURL(for: identifier)
                     }
                 }
+            } else if currentChannel?.contentType == .ambientLoop,
+                      let bundled = AmbientStaticService.bundledLoopURL(
+                        forChannelId: currentChannel?.id ?? "") {
+                // Offline + gapless: a committed local loop asset wins over
+                // the streamed Freesound preview.
+                url = bundled
             } else {
                 url = track.streamURL
             }
