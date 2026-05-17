@@ -43,6 +43,26 @@ struct InternetArchiveService {
             ?? iaBasicNoTZ.date(from: str)
     }
 
+    private static let ymdNoTZ: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
+
+    // IA `date` can be ISO, "yyyy-MM-dd", or just "yyyy"; fall back to `year`.
+    private static func parseRecordingDate(_ str: String?, year: Int?) -> Date? {
+        if let str, !str.isEmpty {
+            if let d = parseIADate(str) ?? ymdNoTZ.date(from: str) { return d }
+            if str.count >= 4, let y = Int(str.prefix(4)) {
+                return DateComponents(calendar: .current, year: y, month: 1, day: 1).date
+            }
+        }
+        if let year { return DateComponents(calendar: .current, year: year, month: 1, day: 1).date }
+        return nil
+    }
+
     func fetchTracks(composers: [String], instruments: [String]) async throws -> [Track] {
         let query = composerQuery(composers: composers)
         return try await search(query: query, confidenceThreshold: 1.5)
@@ -78,6 +98,7 @@ struct InternetArchiveService {
             URLQueryItem(name: "fl[]",   value: "year"),
             URLQueryItem(name: "fl[]",   value: "collection"),
             URLQueryItem(name: "fl[]",   value: "addeddate"),
+            URLQueryItem(name: "fl[]",   value: "date"),
             URLQueryItem(name: "output", value: "json"),
             URLQueryItem(name: "rows",   value: "200"),
             // ALL pure-Lucene IA channels (curated + LibriVox) get a fresh
@@ -99,7 +120,7 @@ struct InternetArchiveService {
             let license = validator.validate(
                 licenseURL: doc.licenseurl, year: doc.year, collection: doc.collection.first
             )
-            return Track(
+            var t = Track(
                 id: doc.identifier,
                 source: "internet_archive",
                 title: doc.title ?? doc.identifier,
@@ -116,7 +137,9 @@ struct InternetArchiveService {
                 instruments: [],
                 metadataConfidence: 0.0,
                 addedDate: Self.parseIADate(doc.addeddate)
-            ).stamped(with: matchTags)
+            )
+            t.recordingDate = Self.parseRecordingDate(doc.date, year: doc.year)
+            return t.stamped(with: matchTags)
         }
     }
 
@@ -476,10 +499,11 @@ struct IADoc: Decodable {
     let year: Int?
     let collection: [String]
     let addeddate: String?
+    let date: String?
 
     enum CodingKeys: String, CodingKey {
         case identifier, title, creator, licenseurl, description, year, addeddate
-        case subject, collection
+        case subject, collection, date
     }
 
     init(from decoder: Decoder) throws {
@@ -524,5 +548,12 @@ struct IADoc: Decodable {
         }
 
         addeddate = try? c.decode(String.self, forKey: .addeddate)
+
+        // date: String or [String] (IA original publication/recording date)
+        if let arr = try? c.decode([String].self, forKey: .date) {
+            date = arr.first
+        } else {
+            date = try? c.decode(String.self, forKey: .date)
+        }
     }
 }

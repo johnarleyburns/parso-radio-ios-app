@@ -355,6 +355,28 @@ extension Channel {
             tags: ["bossa nova", "cool jazz", "lounge"],
             preferredSource: "internet_archive"
         ),
+        // Netlabels: the entire IA netlabels collection, randomized
+        // (curl-verified 2026-05-16 — 78,120 audio items).
+        Channel(
+            id: "netlabels", name: "Netlabels", category: "Curated",
+            icon: "dot.radiowaves.left.and.right",
+            tags: ["netlabels"],
+            preferredSource: "internet_archive"
+        ),
+        // Lofi: netlabels-only lo-fi-tagged content (2,233 items).
+        Channel(
+            id: "lofi", name: "Lofi", category: "Curated",
+            icon: "cup.and.saucer.fill",
+            tags: ["lofi", "lo-fi"],
+            preferredSource: "internet_archive"
+        ),
+        // 78 RPM: the entire IA 78rpm collection, randomized (309,347 items).
+        Channel(
+            id: "rpm-78", name: "78 RPM", category: "Curated",
+            icon: "opticaldisc",
+            tags: ["78rpm", "shellac"],
+            preferredSource: "internet_archive"
+        ),
 
         // MARK: Audiobooks — LibriVox via pure-Lucene IA registry
         // Each channel is a single curl-verified

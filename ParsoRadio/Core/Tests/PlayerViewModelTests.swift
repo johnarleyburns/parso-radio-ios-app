@@ -664,6 +664,28 @@ final class AudioPlayerServiceTests: XCTestCase {
         let category = AVAudioSession.sharedInstance().category
         XCTAssertEqual(category, .playback, "AVAudioSession category must be .playback for background audio")
     }
+
+    // Regression: ambient-loop channels (Ocean Waves / Rainy Day / Flowing
+    // Water) crashed on play with the AVAudioEngine crossfade backend. The
+    // AVPlayerLooper path must set up and tear down without crashing.
+    func testAmbientLoopPlaybackDoesNotCrash() {
+        let svc = AudioPlayerService()
+        let track = Track(
+            id: "freesound-156598", source: "freesound",
+            title: "Ocean Waves", artist: "Rmutt", duration: 0,
+            streamURL: URL(string: "https://cdn.freesound.org/previews/156/156598_981371-hq.mp3")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .cc0, tags: ["ambient-ocean"],
+            qualityScore: 1.0, rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 2.0
+        )
+        svc.play(url: track.streamURL, track: track, looping: true)
+        XCTAssertTrue(svc.isPlaying)
+        XCTAssertEqual(svc.currentTrack?.id, "freesound-156598")
+        svc.pause(); svc.resume()        // looper pause/resume must not crash
+        svc.skip()                       // AVPlayerLooper teardown must not crash
+        XCTAssertFalse(svc.isPlaying)
+    }
 }
 
 // Bug: imported local files stored an ABSOLUTE sandbox path that goes stale

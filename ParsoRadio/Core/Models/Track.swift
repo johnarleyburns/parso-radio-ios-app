@@ -25,6 +25,9 @@ struct Track: Codable, Identifiable {
     var totalParts: Int? = nil
     var parentIdentifier: String? = nil
     var artworkURLString: String? = nil
+    // Original recording/publication date when the source exposes one
+    // (IA `date`/`year`). Distinct from addedDate (upload date).
+    var recordingDate: Date? = nil
 }
 
 extension Track {
@@ -34,6 +37,11 @@ extension Track {
         }
         return artworkURLString.flatMap(URL.init)
     }
+
+    // Prefer the original recording/publication date; fall back to the
+    // upload date. `dateLabel` tells the UI which one it is.
+    var bestDate: Date? { recordingDate ?? displayDate }
+    var dateLabel: String { recordingDate != nil ? "Recorded" : "Added" }
 
     // Imported local files live in Documents/audio/. The app's sandbox
     // container path changes across launches, so a stored ABSOLUTE path goes

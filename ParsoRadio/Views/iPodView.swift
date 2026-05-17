@@ -10,7 +10,6 @@ struct iPodView: View {
     }()
     @State private var showChannelSelector = false
     @State private var showAbout = false
-    @State private var showTrackDetail = false
     @State private var showMainMenu = false
     @State private var showPlaylists = false
     @State private var showSearch = false
@@ -49,6 +48,10 @@ struct iPodView: View {
 
                     ClickWheel(
                         isPlaying: playerVM.isPlaying,
+                        currentTime: playerVM.currentPosition,
+                        duration: playerVM.trackDuration ?? 0,
+                        onSeek: { playerVM.seek(to: $0) },
+                        onScrubChanged: { playerVM.isScrubbing = $0 },
                         onMenu:      { showMainMenu = true },
                         onBack:      { playerVM.back() },
                         onForward:   { playerVM.skip() },
@@ -107,11 +110,6 @@ struct iPodView: View {
         .sheet(isPresented: $showAbout) {
             AboutView()
         }
-        .sheet(isPresented: $showTrackDetail) {
-            if let track = playerVM.currentTrack {
-                TrackDetailView(track: track)
-            }
-        }
         .sheet(isPresented: $showAddToPlaylist) {
             if let track = playerVM.currentTrack {
                 AddToPlaylistSheet(track: track)
@@ -119,7 +117,7 @@ struct iPodView: View {
             }
         }
         .sheet(isPresented: $showMoreOptions) {
-            moreOptionsSheet
+            combinedTrackSheet
         }
         .onChange(of: playerVM.currentTrack?.id) { _, _ in
             refreshFavoriteState()
@@ -139,28 +137,27 @@ struct iPodView: View {
             // Full-bleed album art background
             artworkBackground
 
-            // Dark gradient overlay for text legibility
+            // Top scrim — keeps the channel title readable over light artwork.
+            LinearGradient(
+                colors: [.black.opacity(0.55), .clear],
+                startPoint: .top,
+                endPoint: .center
+            )
+
+            // Bottom scrim for the track metadata / scrubber legibility.
             LinearGradient(
                 colors: [.clear, .black.opacity(0.75)],
-                startPoint: .top,
+                startPoint: .center,
                 endPoint: .bottom
             )
 
             VStack(spacing: 0) {
-                // Channel name / description — top of screen
+                // Channel / playlist name only (no subtitle).
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(playerVM.currentPlaylist?.name ?? displayChannel.name)
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white.opacity(0.9))
-                        if !playerVM.channelDescription.isEmpty {
-                            Text(playerVM.channelDescription)
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.6))
-                                .lineLimit(1)
-                        }
-                    }
+                    Text(playerVM.currentPlaylist?.name ?? displayChannel.name)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white.opacity(0.95))
                     Spacer()
                 }
                 .padding(.horizontal, 14)
@@ -189,15 +186,12 @@ struct iPodView: View {
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
         .onTapGesture {
-            if playerVM.currentTrack != nil { showTrackDetail = true }
+            if playerVM.currentTrack != nil { showMoreOptions = true }
         }
         .contextMenu {
-            if let track = playerVM.currentTrack {
+            if playerVM.currentTrack != nil {
                 Button { showAddToPlaylist = true } label: {
                     Label("Add to Playlist", systemImage: "plus.circle")
-                }
-                Button { showTrackDetail = true; _ = track } label: {
-                    Label("Track Details", systemImage: "info.circle")
                 }
             }
         }
@@ -255,13 +249,24 @@ struct iPodView: View {
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text(track.artist)
-                .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.8))
-                .lineLimit(1)
+            if let artist = cleaned(track.artist) {
+                Text(artist)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(1)
+            }
 
             if let part = track.partNumber, let total = track.totalParts, total > 1 {
                 Text("Part \(part) of \(total)")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.65))
+            }
+
+            // News episodes: show the publish date on the now-playing line
+            // (this single-track screen IS the news "listing").
+            if playerVM.currentChannel?.preferredSource == "podcast",
+               let date = track.bestDate {
+                Text(date.formatted(.dateTime.year().month().day()))
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.65))
             }
@@ -371,11 +376,28 @@ struct iPodView: View {
         }
     }
 
-    // MARK: - More Options Sheet
+    // MARK: - Combined Track Info + Options sheet
 
-    private var moreOptionsSheet: some View {
+    private var combinedTrackSheet: some View {
         NavigationStack {
             List {
+                if let track = playerVM.currentTrack {
+                    Section("Now Playing") {
+                        infoRow("Title", track.title)
+                        if let a = cleaned(track.artist) { infoRow("Artist", a) }
+                        if let c = cleaned(track.composer) { infoRow("Composer", c.capitalized) }
+                        if track.duration > 0 {
+                            infoRow("Duration", formatTime(track.duration))
+                        }
+                        if let date = track.bestDate {
+                            infoRow(track.dateLabel,
+                                    date.formatted(.dateTime.year().month().day()))
+                        }
+                        infoRow("License", licenseName(track.license))
+                        infoRow("Source", sourceName(track.source))
+                    }
+                }
+
                 Section("Playback") {
                     Button {
                         playerVM.toggleShuffle()
@@ -386,7 +408,6 @@ struct iPodView: View {
                         )
                         .foregroundStyle(playerVM.shuffleMode ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                     }
-
                     Button {
                         playerVM.toggleRepeat()
                     } label: {
@@ -399,30 +420,53 @@ struct iPodView: View {
                 }
 
                 if playerVM.currentTrack != nil {
-                    Section("Track") {
+                    Section {
                         Button {
                             showMoreOptions = false
                             showAddToPlaylist = true
                         } label: {
                             Label("Add to Playlist", systemImage: "plus.circle")
                         }
-
-                        Button {
-                            showMoreOptions = false
-                            showTrackDetail = true
-                        } label: {
-                            Label("Track Details", systemImage: "info.circle")
-                        }
                     }
                 }
             }
-            .navigationTitle("Options")
+            .navigationTitle("Track")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { showMoreOptions = false }
                 }
             }
+        }
+    }
+
+    private func infoRow(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).foregroundStyle(.secondary)
+            Spacer()
+            Text(value).multilineTextAlignment(.trailing)
+        }
+    }
+
+    private func licenseName(_ l: LicenseType) -> String {
+        switch l {
+        case .cc0:          return "CC0"
+        case .ccBy:         return "CC BY"
+        case .publicDomain: return "Public Domain"
+        case .rejected:     return "Unknown"
+        }
+    }
+
+    private func sourceName(_ s: String) -> String {
+        switch s {
+        case "internet_archive": return "Internet Archive"
+        case "fma":              return "Free Music Archive"
+        case "oxford_lectures":  return "Oxford University"
+        case "podcast":          return "Podcast"
+        case "nps":              return "National Park Service"
+        case "freesound":        return "Freesound"
+        case "local":            return "My Files"
+        default:                  return s
         }
     }
 
@@ -446,6 +490,14 @@ struct iPodView: View {
     }
 
     // MARK: - Helpers
+
+    // Treats empty / "Unknown" (case-insensitive) placeholder values as
+    // absent so the UI shows nothing rather than the word "Unknown".
+    private func cleaned(_ value: String?) -> String? {
+        guard let v = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !v.isEmpty, v.lowercased() != "unknown" else { return nil }
+        return v
+    }
 
     private func categoryColor(for category: String) -> Color {
         switch category {
@@ -523,12 +575,19 @@ struct iPodView: View {
 
 struct ClickWheel: View {
     let isPlaying: Bool
+    // Seek-wheel inputs (duration == 0 ⇒ pure transport, no seeking/arc).
+    var currentTime: Double = 0
+    var duration: Double = 0
+    var onSeek: (Double) -> Void = { _ in }
+    var onScrubChanged: (Bool) -> Void = { _ in }
     let onMenu:      () -> Void
     let onBack:      () -> Void
     let onForward:   () -> Void
     let onPlayPause: () -> Void
 
     @State private var tapTrigger = 0
+    @State private var isDragging = false
+    @StateObject private var seekVM = SeekWheelViewModel()
 
     var body: some View {
         GeometryReader { geo in
@@ -536,12 +595,33 @@ struct ClickWheel: View {
             let outerR  = size / 2
             let innerR  = size * 0.225
             let midRing = (outerR + innerR) / 2
+            let arcR    = (outerR + midRing) / 2
+            let fraction = duration > 0 ? min(max(currentTime / duration, 0), 1) : 0
+            let thumbA  = angle(for: currentTime, duration: duration)
 
             ZStack {
                 // Outer ring — flat metallic
                 Circle()
                     .fill(Color(.secondarySystemGroupedBackground))
                     .shadow(color: .black.opacity(0.35), radius: 6, y: 3)
+
+                // Progress arc + thumb (only when the track has a duration).
+                if duration > 0 {
+                    Circle()
+                        .trim(from: 0, to: fraction)
+                        .stroke(Color.accentColor,
+                                style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: arcR * 2, height: arcR * 2)
+                        .allowsHitTesting(false)
+
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 16, height: 16)
+                        .shadow(radius: 3)
+                        .offset(x: arcR * cos(thumbA), y: arcR * sin(thumbA))
+                        .allowsHitTesting(false)
+                }
 
                 // Center button
                 Circle()
@@ -598,6 +678,35 @@ struct ClickWheel: View {
                         }
                     }
             )
+            // Drag-to-seek. minimumDistance:12 so quick taps still hit the
+            // transport SpatialTapGesture; .simultaneousGesture so it doesn't
+            // block parent gestures. Only active when the track has duration.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 12, coordinateSpace: .local)
+                    .onChanged { value in
+                        guard duration > 0 else { return }
+                        if !isDragging {
+                            isDragging = true
+                            seekVM.duration = duration
+                            seekVM.currentTime = currentTime
+                            seekVM.onSeek = onSeek
+                            onScrubChanged(true)
+                        } else {
+                            seekVM.duration = duration
+                        }
+                        seekVM.handleDrag(
+                            location: value.location,
+                            center: CGPoint(x: size / 2, y: size / 2)
+                        )
+                    }
+                    .onEnded { _ in
+                        guard isDragging else { return }
+                        seekVM.handleDragEnded()
+                        onScrubChanged(false)
+                        isDragging = false
+                    }
+            )
+            .onAppear { seekVM.onAppear() }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Playback Controls")
             .accessibilityAction(.default) { onPlayPause() }

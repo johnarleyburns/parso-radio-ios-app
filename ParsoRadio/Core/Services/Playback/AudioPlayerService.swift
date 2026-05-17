@@ -18,13 +18,12 @@ final class AudioPlayerService: ObservableObject {
     var onTimeUpdate: ((Double) -> Void)?
 
     var currentTime: Double {
-        guard !isLooping, let t = player?.currentTime(), t.isNumeric else { return 0 }
+        guard let t = player?.currentTime(), t.isNumeric else { return 0 }
         return t.seconds
     }
 
     var duration: Double? {
-        guard !isLooping,
-              let d = player?.currentItem?.duration, d.isNumeric, d.seconds > 0 else { return nil }
+        guard let d = player?.currentItem?.duration, d.isNumeric, d.seconds > 0 else { return nil }
         return d.seconds
     }
 
@@ -35,18 +34,6 @@ final class AudioPlayerService: ObservableObject {
     private var interruptionObserver: (any NSObjectProtocol)?
     private var routeChangeObserver: (any NSObjectProtocol)?
 
-    // Seamless ambient-loop backend. AVPlayerLooper loops the *padded* MP3
-    // stream, so Freesound-preview ambiences leave an audible gap at every
-    // seam. Instead we decode the clip to PCM once, build an equal-power
-    // crossfaded loop buffer, and let an AVAudioPlayerNode loop that buffer —
-    // no item boundary, no MP3 priming gap, and the crossfade hides the fact
-    // that field recordings aren't authored to loop.
-    private let loopEngine = AVAudioEngine()
-    private let loopNode = AVAudioPlayerNode()
-    private var isLooping = false
-    private var loopBuffer: AVAudioPCMBuffer?
-    private var loopLoadTask: Task<Void, Never>?
-
     init() {
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
@@ -54,7 +41,6 @@ final class AudioPlayerService: ObservableObject {
         } catch {
             Log.playback.error("AVAudioSession setup failed: \(error)")
         }
-        loopEngine.attach(loopNode)
         setupRemoteCommandCenter()
         setupAudioSessionObservers()
     }
@@ -62,21 +48,27 @@ final class AudioPlayerService: ObservableObject {
     func play(url: URL, track: Track, looping: Bool = false) {
         tearDownPlayer()
 
-        if looping {
-            startSeamlessLoop(url: url, track: track)
-            return
-        }
-
         let item = AVPlayerItem(url: url)
-        player = AVPlayer(playerItem: item)
-        endObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.isPlaying = false
-                self?.handleTrackFinished()
+
+        if looping {
+            // AVPlayerLooper on AVQueuePlayer: stable, proven, gapless-enough
+            // infinite looping at the AVFoundation level. (An AVAudioEngine
+            // crossfade was tried for a truly seamless loop but crashed on
+            // device and can't be validated without one — reverted.)
+            let queuePlayer = AVQueuePlayer()
+            player = queuePlayer
+            playerLooper = AVPlayerLooper(player: queuePlayer, templateItem: item)
+        } else {
+            player = AVPlayer(playerItem: item)
+            endObserver = NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: item,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.isPlaying = false
+                    self?.handleTrackFinished()
+                }
             }
         }
 
@@ -95,96 +87,14 @@ final class AudioPlayerService: ObservableObject {
         updateNowPlayingInfo(for: track)
     }
 
-    // MARK: - Seamless ambient loop (AVAudioEngine + crossfaded PCM buffer)
-
-    private func startSeamlessLoop(url: URL, track: Track) {
-        isLooping = true
-        currentTrack = track
-        isPlaying = true
-        updateNowPlayingInfo(for: track)
-
-        loopLoadTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let (tmpURL, _) = try await URLSession.app.download(from: url)
-                let dst = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("ambientloop").appendingPathExtension("mp3")
-                try? FileManager.default.removeItem(at: dst)
-                try FileManager.default.moveItem(at: tmpURL, to: dst)
-
-                let file = try AVAudioFile(forReading: dst)
-                let format = file.processingFormat            // standard float, deinterleaved
-                let frames = AVAudioFrameCount(file.length)
-                guard frames > 0,
-                      let raw = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames) else { return }
-                try file.read(into: raw)
-                raw.frameLength = frames
-                let loop = Self.makeCrossfadedLoopBuffer(raw) ?? raw
-
-                await MainActor.run {
-                    // Bail if the channel was switched while we were downloading.
-                    guard self.isLooping else { return }
-                    self.loopBuffer = loop
-                    self.loopEngine.connect(self.loopNode,
-                                            to: self.loopEngine.mainMixerNode,
-                                            format: loop.format)
-                    do {
-                        try self.loopEngine.start()
-                        self.loopNode.scheduleBuffer(loop, at: nil,
-                                                     options: .loops, completionHandler: nil)
-                        if self.isPlaying { self.loopNode.play() }
-                    } catch {
-                        Log.playback.error("ambient loop engine start failed: \(error)")
-                    }
-                }
-            } catch {
-                Log.playback.error("ambient loop load failed: \(error)")
-            }
-        }
-    }
-
-    // Build a loopable buffer: the first `xfade` frames are an equal-power
-    // blend of the head (rising) with the clip's tail (falling), and the last
-    // `xfade` frames are dropped. The wrap point then connects two ADJACENT
-    // source samples (s[loopLen-1] -> s[loopLen]), so there is no click, and
-    // the steady ambience masks the energy morph back to the head.
-    private static func makeCrossfadedLoopBuffer(_ src: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
-        let format = src.format
-        guard let srcData = src.floatChannelData else { return nil }
-        let channels = Int(format.channelCount)
-        let n = Int(src.frameLength)
-        let xfade = min(Int(format.sampleRate * 2.0), n / 3)
-        guard xfade > 64 else { return src }   // too short to crossfade — loop raw
-        let loopLen = n - xfade
-        guard let out = AVAudioPCMBuffer(pcmFormat: format,
-                                         frameCapacity: AVAudioFrameCount(loopLen)),
-              let outData = out.floatChannelData else { return nil }
-        out.frameLength = AVAudioFrameCount(loopLen)
-        let halfPi = Float.pi / 2
-        for ch in 0..<channels {
-            let s = srcData[ch]
-            let o = outData[ch]
-            for i in 0..<loopLen {
-                if i < xfade {
-                    let t = Float(i) / Float(xfade)
-                    o[i] = s[i] * sin(t * halfPi) + s[i + loopLen] * cos(t * halfPi)
-                } else {
-                    o[i] = s[i]
-                }
-            }
-        }
-        return out
-    }
-
     func seek(to seconds: Double) {
-        guard !isLooping else { return }   // infinite ambience — nothing to seek
         let time = CMTime(seconds: seconds, preferredTimescale: 600)
         player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: CMTime(seconds: 1, preferredTimescale: 1))
         updateNowPlayingElapsed(seconds)
     }
 
     func pause() {
-        if isLooping { loopNode.pause() } else { player?.pause() }
+        player?.pause()
         isPlaying = false
         MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 0.0
     }
@@ -192,12 +102,7 @@ final class AudioPlayerService: ObservableObject {
     func resume() {
         // Re-activate the audio session in case it was deactivated during an interruption.
         try? AVAudioSession.sharedInstance().setActive(true)
-        if isLooping {
-            try? loopEngine.start()
-            loopNode.play()
-        } else {
-            player?.play()
-        }
+        player?.play()
         isPlaying = true
         MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 1.0
     }
@@ -245,8 +150,7 @@ final class AudioPlayerService: ObservableObject {
 
         switch type {
         case .began:
-            // AVPlayer auto-pauses; AVAudioEngine does NOT — pause it explicitly.
-            if isLooping { loopNode.pause() }
+            // AVPlayer has already paused itself; sync our state.
             isPlaying = false
             MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 0.0
 
@@ -258,13 +162,6 @@ final class AudioPlayerService: ObservableObject {
                 // then resume playback where we left off.
                 do {
                     try AVAudioSession.sharedInstance().setActive(true)
-                    if isLooping {
-                        try loopEngine.start()
-                        loopNode.play()
-                        isPlaying = true
-                        MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 1.0
-                        return
-                    }
                     // Guard against player being nil if a channel switch
                     // happened during the interruption.
                     guard let player else {
@@ -375,15 +272,6 @@ final class AudioPlayerService: ObservableObject {
     // MARK: - Teardown
 
     private func tearDownPlayer() {
-        loopLoadTask?.cancel()
-        loopLoadTask = nil
-        if isLooping {
-            loopNode.stop()
-            loopEngine.stop()
-            loopEngine.disconnectNodeOutput(loopNode)
-            loopBuffer = nil
-            isLooping = false
-        }
         player?.pause()
         playerLooper?.disableLooping()
         playerLooper = nil

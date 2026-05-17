@@ -36,7 +36,7 @@
   },
   {
     "channelId": "tribal-works",
-    "iaQuery": "mediatype:audio AND ( subject:\"ethnomusicology\"^8 OR subject:gamelan^7 OR subject:\"Native American music\"^7 OR subject:\"African music\"^7 OR subject:\"Aboriginal music\"^6 OR (subject:\"world music\" AND subject:traditional)^5 OR (subject:\"folk music\" AND subject:\"field recording\")^6 OR subject:\"indigenous music\"^6 OR collection:autrynationalcenter^8 ) AND NOT ( subject:shamanism OR subject:meditation OR subject:healing OR subject:\"new age\" OR subject:spiritual OR subject:relaxation OR subject:electronic OR subject:ambient OR subject:remix OR subject:trance OR subject:psychedelic OR subject:lecture OR subject:interview OR subject:speech OR subject:podcast OR subject:worship OR subject:sermon OR subject:noise OR subject:\"sound art\" OR subject:experimental OR subject:soundtrack OR subject:\"video game\" OR subject:\"spoken word\" OR subject:\"open mic\" ) AND NOT ( collection:audio_religion OR collection:audio_sermons OR collection:netlabels OR collection:podcasts OR collection:podcasts_miscellaneous OR collection:jamendo-albums OR collection:librivoxaudio ) AND downloads:[25 TO *]",
+    "iaQuery": "mediatype:audio AND ( subject:\"ethnomusicology\"^8 OR subject:gamelan^7 OR subject:\"Native American music\"^7 OR subject:\"African music\"^7 OR subject:\"Aboriginal music\"^6 OR (subject:\"world music\" AND subject:traditional)^5 OR (subject:\"folk music\" AND subject:\"field recording\")^6 OR subject:\"indigenous music\"^6 OR collection:autrynationalcenter^8 OR collection:indonesian-cassette-archive^6 OR (collection:78rpm AND (subject:gamelan OR subject:\"Native American music\" OR subject:\"Indigenous Music of North America\" OR subject:ethnomusicology))^6 OR subject:kroncong^5 OR subject:wayang^5 OR subject:\"cylinder recording\"^5 OR subject:\"field recording\"^5 ) AND NOT ( subject:shamanism OR subject:meditation OR subject:healing OR subject:\"new age\" OR subject:spiritual OR subject:relaxation OR subject:electronic OR subject:ambient OR subject:remix OR subject:trance OR subject:psychedelic OR subject:lecture OR subject:interview OR subject:speech OR subject:podcast OR subject:worship OR subject:sermon OR subject:noise OR subject:\"sound art\" OR subject:experimental OR subject:soundtrack OR subject:\"video game\" OR subject:\"spoken word\" OR subject:\"open mic\" OR subject:\"radio show\" OR subject:\"radio program\" OR subject:\"world music radio show\" OR subject:broadcast OR subject:sfx OR subject:\"sound effects\" OR subject:vaporwave OR subject:dangdut OR subject:\"oral history\" OR subject:\"oral histories\" ) AND NOT ( collection:audio_religion OR collection:audio_sermons OR collection:netlabels OR collection:podcasts OR collection:podcasts_miscellaneous OR collection:jamendo-albums OR collection:librivoxaudio OR collection:radiostationarchives OR collection:kqbmarchive OR collection:voa-music-time-in-africa OR collection:airchecks OR collection:shortwave-airchecks OR collection:uw-ethnomusicology-archives ) AND NOT creator:\"Voice of America\" AND downloads:[25 TO *]",
     "matchTags": [
       "tribal-works"
     ]
@@ -155,7 +155,7 @@
   },
   {
     "channelId": "lv-philosophy-mind",
-    "iaQuery": "collection:librivoxaudio AND (subject:\"Philosophy\" OR subject:\"Psychology\")",
+    "iaQuery": "collection:librivoxaudio AND ( subject:epistemology OR subject:metaphysics OR subject:ontology OR subject:\"political philosophy\" OR subject:\"philosophy of mind\" OR subject:stoicism OR subject:stoic OR subject:utilitarianism OR subject:empiricism OR subject:rationalism OR subject:\"german idealism\" OR subject:\"history of philosophy\" OR subject:\"ancient philosophy\" OR subject:\"ancient Greek philosophy\" OR subject:\"moral philosophy\" OR subject:phenomenology OR subject:existentialism OR subject:\"natural law\" OR subject:pragmatism OR subject:\"Indian philosophy\" OR subject:\"eastern philosophy\" OR subject:\"Chinese philosophy\" OR subject:\"Islamic philosophy\" OR subject:Confucianism OR subject:Taoism OR subject:neoplatonism OR subject:\"medieval philosophy\" OR subject:\"jewish philosophy\" OR subject:psychoanalysis OR ( creator:(Plato OR Aristotle OR Kant OR Descartes OR Hume OR Locke OR Spinoza OR Hegel OR Nietzsche OR Schopenhauer OR Leibniz OR \"John Stuart Mill\" OR Rousseau OR Epicurus OR Epictetus OR \"Marcus Aurelius\" OR Seneca OR Cicero OR Fichte OR Bergson OR Bentham OR \"Francis Bacon\" OR \"Thomas Hobbes\" OR Voltaire OR \"John Dewey\" OR Russell OR Plotinus OR Boethius OR \"Thomas Aquinas\" OR Confucius OR \"Lao Tzu\" OR Maimonides OR Avicenna OR Freud) AND (subject:philosophy OR subject:ethics OR subject:logic OR subject:nonfiction OR subject:\"non-fiction\" OR subject:metaphysics OR subject:epistemology) ) ) AND NOT ( subject:poetry OR subject:fiction OR subject:\"science fiction\" OR subject:\"fairy tales\" OR subject:children OR subject:Christmas OR subject:novel OR subject:biography OR subject:autobiography OR subject:\"self-help\" OR subject:\"New Thought\" OR subject:\"true crime\" OR subject:thriller OR subject:mystery OR subject:romance OR subject:adventure OR subject:supernatural OR subject:occult OR subject:mysticism OR subject:hermeticism OR subject:thelema OR subject:yoga OR subject:hypnosis )",
     "matchTags": [
       "lv-philosophy-mind"
     ]
@@ -193,6 +193,27 @@
     "iaQuery": "collection:librivoxaudio AND (subject:\"Essays & Short Works\" OR subject:\"Literary Criticism\" OR subject:\"Political Science\")",
     "matchTags": [
       "lv-essays-ideas"
+    ]
+  },
+  {
+    "channelId": "netlabels",
+    "iaQuery": "collection:netlabels AND mediatype:audio",
+    "matchTags": [
+      "netlabels"
+    ]
+  },
+  {
+    "channelId": "lofi",
+    "iaQuery": "collection:netlabels AND mediatype:audio AND (subject:lofi OR subject:\"lo-fi\" OR subject:\"lo fi\" OR subject:lo_fi)",
+    "matchTags": [
+      "lofi"
+    ]
+  },
+  {
+    "channelId": "rpm-78",
+    "iaQuery": "collection:78rpm AND mediatype:audio",
+    "matchTags": [
+      "rpm-78"
     ]
   }
 ]
