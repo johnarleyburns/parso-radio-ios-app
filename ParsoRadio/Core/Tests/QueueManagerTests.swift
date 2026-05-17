@@ -151,7 +151,7 @@ final class QueueManagerTests: XCTestCase {
             duration: 180,
             streamURL: URL(string: "https://archive.org/download/\(id)")!,
             downloadURL: nil, localFilePath: nil,
-            license: .publicDomain, tags: ["classical", stamp],
+            license: .publicDomain, tags: ["classical", Channel.stampToken(stamp)],
             qualityScore: 1.0,
             rawCreator: "", composer: nil, instruments: [],
             metadataConfidence: 0.0

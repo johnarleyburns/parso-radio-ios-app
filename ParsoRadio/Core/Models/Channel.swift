@@ -41,6 +41,12 @@ struct Channel: Codable, Identifiable, Hashable {
 
     var iaQueryEntry: IAQueryEntry? { IAQueryRegistry.shared.entry(for: id) }
 
+    // The per-channel isolation stamp injected onto registry tracks. It is
+    // namespaced so it can NEVER collide with a natural IA subject value —
+    // bare ids like "lofi"/"netlabels" ARE real IA subjects and were leaking
+    // other channels' tracks into those channels.
+    static func stampToken(_ id: String) -> String { "pmreg::\(id)" }
+
     func matches(_ track: Track) -> Bool {
         // Pure-Lucene registry channels isolate STRICTLY by their injected
         // stamp. The descriptive `tags` are display-only and must NOT be used
@@ -50,7 +56,7 @@ struct Channel: Codable, Identifiable, Hashable {
         // Orchestra). The stamp is unique per channel and injected only into
         // that channel's fetched tracks, so it cannot cross-contaminate.
         if let entry = iaQueryEntry {
-            return entry.matchTags.contains { track.tags.contains($0) }
+            return entry.matchTags.contains { track.tags.contains(Channel.stampToken($0)) }
         }
         // Non-registry channels (FMA, Lectures, News, Ambient) match by tag.
         if composers.isEmpty && instruments.isEmpty {

@@ -411,7 +411,7 @@ final class PlayerViewModelTests: XCTestCase {
 
         var tracks: [Track] = []
         for i in 1...8 {
-            var t = makeIATrack(id: "sg-\(i)", tags: ["spanish-guitar"])
+            var t = makeIATrack(id: "sg-\(i)", tags: [Channel.stampToken("spanish-guitar")])
             t.addedDate = Date(timeIntervalSince1970: TimeInterval(1_700_000_000 + i * 86_400))
             tracks.append(t)
         }
@@ -437,9 +437,14 @@ final class PlayerViewModelTests: XCTestCase {
     // must not leak into Spanish Guitar.
     func testStampedTrackIsolatedToRegistryChannel() {
         let sg = Channel.defaults.first { $0.id == "spanish-guitar" }!
-        let stamped = makeIATrack(id: "sg-x", tags: ["classical", "78rpm", "spanish-guitar"])
+        let stamped = makeIATrack(id: "sg-x",
+            tags: ["classical", "78rpm", Channel.stampToken("spanish-guitar")])
         XCTAssertTrue(sg.matches(stamped),
             "a stamped track must match even with sparse/non-guitar subjects")
+        // A real IA subject equal to the bare id must NOT match (the leak bug).
+        let bareId = makeIATrack(id: "sg-z", tags: ["spanish-guitar"])
+        XCTAssertFalse(sg.matches(bareId),
+            "a natural subject equal to the bare id must not be treated as the stamp")
         let unstamped = makeIATrack(id: "sg-y", tags: ["classical", "78rpm"])
         XCTAssertFalse(sg.matches(unstamped),
             "without the stamp, a generic classical track must not leak into Spanish Guitar")
@@ -623,7 +628,7 @@ final class IAQueryRegistryTests: XCTestCase {
             streamURL: URL(string: "https://archive.org/download/seg-1")!,
             downloadURL: nil, localFilePath: nil,
             license: .publicDomain,
-            tags: ["78rpm", "classical", "spanish-guitar"],
+            tags: ["78rpm", "classical", Channel.stampToken("spanish-guitar")],
             qualityScore: 0.8,
             rawCreator: "Andrés Segovia", composer: nil, instruments: [],
             metadataConfidence: 0.0
@@ -661,7 +666,7 @@ final class IAQueryRegistryTests: XCTestCase {
             streamURL: URL(string: "https://archive.org/download/cm-1")!,
             downloadURL: nil, localFilePath: nil,
             license: .publicDomain,
-            tags: ["78rpm", "chamber-music"],
+            tags: ["78rpm", Channel.stampToken("chamber-music")],
             qualityScore: 1.0,
             rawCreator: "Budapest String Quartet", composer: nil, instruments: [],
             metadataConfidence: 0.0
@@ -673,7 +678,7 @@ final class IAQueryRegistryTests: XCTestCase {
             title: "x", artist: "y", duration: 1,
             streamURL: URL(string: "https://archive.org/download/sg-z")!,
             downloadURL: nil, localFilePath: nil,
-            license: .publicDomain, tags: ["classical", "spanish-guitar"],
+            license: .publicDomain, tags: ["classical", Channel.stampToken("spanish-guitar")],
             qualityScore: 1.0, rawCreator: "", composer: nil, instruments: [],
             metadataConfidence: 0.0
         )

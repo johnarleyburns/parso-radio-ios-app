@@ -139,7 +139,7 @@ struct InternetArchiveService {
                 addedDate: Self.parseIADate(doc.addeddate)
             )
             t.recordingDate = Self.parseRecordingDate(doc.date, year: doc.year)
-            return t.stamped(with: matchTags)
+            return t.stamped(with: matchTags.map { Channel.stampToken($0) })
         }
     }
 

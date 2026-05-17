@@ -148,8 +148,8 @@ final class InternetArchiveIntegrationTests: XCTestCase {
 
             XCTAssertGreaterThan(tracks.count, 20,
                 "\(channel.id): query must return a healthy pool; got \(tracks.count)")
-            XCTAssertTrue(tracks.allSatisfy { $0.tags.contains(channel.id) },
-                "\(channel.id): every track must carry its [\(channel.id)] stamp")
+            XCTAssertTrue(tracks.allSatisfy { $0.tags.contains(Channel.stampToken(channel.id)) },
+                "\(channel.id): every track must carry its namespaced stamp")
             XCTAssertTrue(tracks.allSatisfy { channel.matches($0) },
                 "\(channel.id): stamped tracks must pass Channel.matches (queue not starved)")
             // No OTHER registry channel must claim these tracks (isolation).
