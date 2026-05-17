@@ -389,20 +389,25 @@ final class PlayerViewModelTests: XCTestCase {
         }
         await db.saveTracks(tracks)
 
-        let qm = QueueManager(db: db)
-        var order: [String] = []
-        for _ in 0..<8 {
-            guard let n = await qm.nextTrack(channel: channel, shuffleMode: false) else { break }
-            order.append(n.id)
+        func drain(shuffle: Bool) async -> [String] {
+            let qm = QueueManager(db: db)
+            var out: [String] = []
+            for _ in 0..<8 {
+                guard let n = await qm.nextTrack(channel: channel, shuffleMode: shuffle) else { break }
+                out.append(n.id)
+            }
+            return out
         }
-        let strictNewestFirst = tracks
-            .sorted { ($0.addedDate ?? .distantPast) > ($1.addedDate ?? .distantPast) }
-            .map(\.id)
+        let off = await drain(shuffle: false)
+        let on  = await drain(shuffle: true)
 
-        XCTAssertEqual(order.count, 8, "queue should drain the whole channel pool")
-        XCTAssertEqual(Set(order), Set(strictNewestFirst), "every pool track must be reachable")
-        XCTAssertNotEqual(order, strictNewestFirst,
-            "registry channel must be randomized, not strict newest-first")
+        // Deterministic: a registry channel ALWAYS shuffles, so its emission
+        // is identical with the toggle on or off (and never the strict
+        // date-sorted sequence the non-registry path would yield).
+        XCTAssertEqual(off.count, 8, "queue should drain the whole channel pool")
+        XCTAssertEqual(Set(off), Set(tracks.map(\.id)), "every pool track must be reachable")
+        XCTAssertEqual(off, on,
+            "registry channel must ignore the shuffle toggle (always randomized)")
     }
 
     // The stamping fix: registry tracks are isolated by an injected matchTag,
