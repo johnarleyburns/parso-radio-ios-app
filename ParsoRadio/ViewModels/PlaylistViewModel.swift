@@ -44,6 +44,12 @@ final class PlaylistViewModel: ObservableObject {
         await loadPlaylists()
     }
 
+    // Persist a user-defined order for the non-Favorites playlists.
+    func reorderPlaylists(_ ordered: [Playlist]) async {
+        await db.setPlaylistOrder(ordered.map(\.id))
+        await loadPlaylists()
+    }
+
     func addTrack(_ track: Track, to playlist: Playlist) async {
         await db.addTrack(track, toPlaylist: playlist.id)
         if playlist.isFavorites { trackFavoriteCache[track.id] = true }

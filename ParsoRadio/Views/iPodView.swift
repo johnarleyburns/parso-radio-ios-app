@@ -154,21 +154,15 @@ struct iPodView: View {
             )
 
             VStack(spacing: 0) {
-                // Channel / playlist name (+ book/album override-queue hint).
+                // Playlist or channel name only. NO stale fallback to the
+                // last-selected channel: a search-result/standalone play has
+                // neither, so the label stays blank until real content shows.
                 HStack {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(playerVM.currentPlaylist?.name ?? displayChannel.name)
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white.opacity(0.95))
-                        if let queuedTitle = playerVM.overrideQueueTitle {
-                            Text("Next: \(queuedTitle)")
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.65))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                        }
-                    }
+                    Text(playerVM.currentPlaylist?.name
+                         ?? playerVM.currentChannel?.name ?? "")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white.opacity(0.95))
                     Spacer()
                 }
                 .padding(.horizontal, 14)
@@ -421,33 +415,21 @@ struct iPodView: View {
                         }
                     }
 
-                    if playerVM.currentTrackIsMultiPart {
-                        Section(itemSectionTitle(track)) {
-                            Button {
-                                showMoreOptions = false
-                                Task { await playerVM.playEntireItem(from: track) }
-                            } label: {
-                                Label("Play Entire \(itemKindLabel(track))",
-                                      systemImage: "play.rectangle.fill")
-                            }
-                            Button {
-                                showMoreOptions = false
-                                showAddItemToPlaylist = true
-                            } label: {
-                                Label("Add Entire \(itemKindLabel(track)) to Playlist",
-                                      systemImage: "text.badge.plus")
-                            }
-                        }
-                    }
-                }
-
-                if playerVM.currentTrack != nil {
                     Section {
                         Button {
                             showMoreOptions = false
                             showAddToPlaylist = true
                         } label: {
                             Label("Add to Playlist", systemImage: "plus.circle")
+                        }
+                        if playerVM.currentTrackIsMultiPart {
+                            Button {
+                                showMoreOptions = false
+                                showAddItemToPlaylist = true
+                            } label: {
+                                Label("Add \(itemKindLabel(track)) to Playlist",
+                                      systemImage: "text.badge.plus")
+                            }
                         }
                     }
                 }
@@ -499,13 +481,15 @@ struct iPodView: View {
         return track.duration > 0 ? track.duration : nil
     }
 
-    // "Book" for Audiobooks-category channels, "Album" for all other IA items.
+    // "Book" for Audiobooks-category channels or LibriVox/audiobook items;
+    // "Album" otherwise.
     private func itemKindLabel(_ track: Track) -> String {
-        playerVM.currentChannel?.category == "Audiobooks" ? "Book" : "Album"
-    }
-
-    private func itemSectionTitle(_ track: Track) -> String {
-        "This \(itemKindLabel(track))"
+        if playerVM.currentChannel?.category == "Audiobooks" { return "Book" }
+        let hay = (track.parentIdentifier ?? track.id).lowercased()
+        if hay.contains("librivox") || track.tags.contains(where: {
+            $0.contains("librivox") || $0.contains("audiobook")
+        }) { return "Book" }
+        return "Album"
     }
 
     // Everything else, surfaced behind the "Full Metadata" disclosure so the

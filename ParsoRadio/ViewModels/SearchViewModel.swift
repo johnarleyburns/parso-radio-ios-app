@@ -15,6 +15,10 @@ final class SearchViewModel: ObservableObject {
         var artworkURLString: String? = nil
     }
 
+    // Single track, multi-track album, or multi-chapter audiobook — drives
+    // the leading icon/label and the "Add Book/Album" action.
+    enum ItemKind: String { case track, album, book }
+
     @Published var query: String = ""
     @Published var results: [ResultGroup] = []
     @Published var isSearching: Bool = false
@@ -25,10 +29,16 @@ final class SearchViewModel: ObservableObject {
     // during the debounce window before the first request goes out.
     @Published var hasSearched: Bool = false
 
-    // Per-item total duration, fetched lazily from IA metadata (search docs
-    // carry no runtime). Distinguishes a song from a multi-hour audiobook.
+    // Per-item total duration + classification, fetched lazily from IA
+    // metadata in ONE request (search docs carry neither runtime nor file count).
     @Published var durations: [String: Double] = [:]
-    private var durationTasks: Set<String> = []
+    @Published var itemKinds: [String: ItemKind] = [:]
+    private var infoTasks: Set<String> = []
+
+    // Recent successful queries, most-recent first (persisted, de-duped, capped).
+    @Published var recentSearches: [String] = []
+    private let historyKey = "searchHistory"
+    private let historyLimit = 12
 
     private let archiveService: InternetArchiveService
     private var searchTask: Task<Void, Never>? = nil
@@ -36,6 +46,31 @@ final class SearchViewModel: ObservableObject {
 
     init(archiveService: InternetArchiveService = InternetArchiveService()) {
         self.archiveService = archiveService
+        recentSearches = UserDefaults.standard.stringArray(forKey: historyKey) ?? []
+    }
+
+    // MARK: - Search history
+
+    func recordHistory(_ raw: String) {
+        let q = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard q.count >= 2 else { return }
+        var list = recentSearches.filter {
+            $0.localizedCaseInsensitiveCompare(q) != .orderedSame
+        }
+        list.insert(q, at: 0)
+        if list.count > historyLimit { list = Array(list.prefix(historyLimit)) }
+        recentSearches = list
+        UserDefaults.standard.set(list, forKey: historyKey)
+    }
+
+    func removeHistory(_ q: String) {
+        recentSearches.removeAll { $0 == q }
+        UserDefaults.standard.set(recentSearches, forKey: historyKey)
+    }
+
+    func clearHistory() {
+        recentSearches = []
+        UserDefaults.standard.removeObject(forKey: historyKey)
     }
 
     // True only when a real query produced zero results (not while typing,
@@ -47,16 +82,29 @@ final class SearchViewModel: ObservableObject {
             && query.count >= 2 && results.isEmpty
     }
 
-    func loadDuration(_ id: String) {
-        guard durations[id] == nil, !durationTasks.contains(id) else { return }
-        durationTasks.insert(id)
+    // Lazily fetch duration + kind for one result (one IA metadata request).
+    func loadItemInfo(_ group: ResultGroup) {
+        let id = group.id
+        guard itemKinds[id] == nil, !infoTasks.contains(id) else { return }
+        infoTasks.insert(id)
         Task { [weak self] in
             guard let self else { return }
-            if let d = await self.archiveService.itemDuration(forIdentifier: id), d > 0 {
-                self.durations[id] = d
+            if let info = await self.archiveService.itemInfo(forIdentifier: id) {
+                if info.duration > 0 { self.durations[id] = info.duration }
+                self.itemKinds[id] = Self.classify(
+                    audioCount: info.audioCount, collection: group.collection
+                )
             }
-            self.durationTasks.remove(id)
+            self.infoTasks.remove(id)
         }
+    }
+
+    static func classify(audioCount: Int, collection: String?) -> ItemKind {
+        guard audioCount > 1 else { return .track }
+        let c = (collection ?? "").lowercased()
+        let bookish = ["librivox", "audio_bookspoetry", "audiobook",
+                       "audio_books"].contains { c.contains($0) }
+        return bookish ? .book : .album
     }
 
     func searchChanged() {
@@ -92,5 +140,6 @@ final class SearchViewModel: ObservableObject {
         // The query has now produced a definitive result (or an error);
         // only now may the "No results" message be shown.
         hasSearched = true
+        if page == 0, errorMessage == nil { recordHistory(query) }
     }
 }

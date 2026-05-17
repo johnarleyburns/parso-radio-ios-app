@@ -47,6 +47,7 @@ final class DatabaseService {
     private let colCreatedAt     = Expression<Double>("created_at")
     private let colUpdatedAt     = Expression<Double>("updated_at")
     private let colIsFavorites   = Expression<Bool>("is_favorites")
+    private let colPlaylistOrder = Expression<Int?>("sort_order")
 
     // MARK: - Playlist tracks table
     private let playlistTracks   = Table("playlist_tracks")
@@ -141,6 +142,16 @@ final class DatabaseService {
         try? db.run("ALTER TABLE tracks ADD COLUMN is_multi_part INTEGER")
         try? db.run("CREATE INDEX IF NOT EXISTS idx_added_date ON tracks(added_date DESC)")
         try? db.run("CREATE INDEX IF NOT EXISTS idx_parent_id ON tracks(parent_identifier)")
+
+        // User-defined playlist ordering. Backfill legacy rows deterministically
+        // by creation time so NULLs never sort ahead of explicitly-ordered ones.
+        try? db.run("ALTER TABLE playlists ADD COLUMN sort_order INTEGER")
+        try? db.run("""
+            UPDATE playlists SET sort_order = (
+                SELECT COUNT(*) FROM playlists p2
+                WHERE p2.created_at <= playlists.created_at
+            ) WHERE sort_order IS NULL
+        """)
 
         // Enable FK enforcement
         try? db.run("PRAGMA foreign_keys = ON")
@@ -361,12 +372,15 @@ final class DatabaseService {
         return try await withCheckedThrowingContinuation { continuation in
             queue.async { [self] in
                 do {
+                    let maxOrder = (try? self.db.scalar(
+                        self.playlists.select(self.colPlaylistOrder.max))) ?? 0
                     try self.db.run(self.playlists.insert(
                         self.colPlaylistId   <- p.id,
                         self.colPlaylistName <- p.name,
                         self.colCreatedAt    <- p.createdAt.timeIntervalSince1970,
                         self.colUpdatedAt    <- p.updatedAt.timeIntervalSince1970,
-                        self.colIsFavorites  <- p.isFavorites
+                        self.colIsFavorites  <- p.isFavorites,
+                        self.colPlaylistOrder <- maxOrder + 1
                     ))
                     continuation.resume(returning: p)
                 } catch {
@@ -380,7 +394,11 @@ final class DatabaseService {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
                 let result = (try? self.db.prepare(
-                    self.playlists.order(self.colIsFavorites.desc, self.colCreatedAt.asc)
+                    self.playlists.order(
+                        self.colIsFavorites.desc,
+                        self.colPlaylistOrder.asc,
+                        self.colCreatedAt.asc
+                    )
                 ))?.compactMap { row -> Playlist? in
                     Playlist(
                         id:          row[self.colPlaylistId],
@@ -391,6 +409,22 @@ final class DatabaseService {
                     )
                 }
                 continuation.resume(returning: result ?? [])
+            }
+        }
+    }
+
+    // Persist user-defined playlist order. `ids` is the desired order of the
+    // NON-favorites playlists (Favorites stays pinned via isFavorites DESC).
+    func setPlaylistOrder(_ ids: [String]) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                try? self.db.transaction {
+                    for (index, id) in ids.enumerated() {
+                        let row = self.playlists.filter(self.colPlaylistId == id)
+                        try self.db.run(row.update(self.colPlaylistOrder <- index))
+                    }
+                }
+                continuation.resume()
             }
         }
     }

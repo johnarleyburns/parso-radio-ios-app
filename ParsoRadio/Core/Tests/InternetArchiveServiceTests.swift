@@ -298,7 +298,7 @@ final class InternetArchiveServiceTests: XCTestCase {
               "files":[
                 {"name":"track01.mp3","format":"VBR MP3","length":"240.5",
                  "title":"Aria da Capo","creator":"J.S. Bach"},
-                {"name":"track02.mp3","format":"128Kbps MP3","length":"180.0",
+                {"name":"track02.mp3","format":"VBR MP3","length":"180.0",
                  "title":"Allemande","creator":"J.S. Bach"},
                 {"name":"cover.jpg","format":"JPEG"}
               ],
@@ -318,8 +318,87 @@ final class InternetArchiveServiceTests: XCTestCase {
         XCTAssertEqual(tracks[0].partNumber, 1)
         XCTAssertEqual(tracks[0].totalParts, 2)
         XCTAssertEqual(tracks[0].parentIdentifier, "goldberg-vars-001")
+        XCTAssertEqual(tracks[0].isMultiPart, true)
         XCTAssertTrue(tracks[0].streamURL.absoluteString.contains("archive.org/download/goldberg-vars-001/track01.mp3"))
         XCTAssertEqual(tracks[0].license, .publicDomain)
+    }
+
+    // Item 7: a multi-format item (the Laws_Plato bug) must yield ONE format's
+    // files only — NOT mp3+ogg+flac+wav duplicated as N×formats "parts".
+    func testFetchTracksForIdentifierPicksSingleFormat() async throws {
+        MockURLProtocol.requestHandler = { _ in
+            let json = """
+            {
+              "files":[
+                {"name":"laws_02.flac","format":"Flac","length":"100"},
+                {"name":"laws_02.mp3","format":"VBR MP3","length":"2:00","title":"Book I Pt II"},
+                {"name":"laws_02.ogg","format":"Ogg Vorbis","length":"100"},
+                {"name":"laws_10.mp3","format":"VBR MP3","length":"3:00","title":"Book V"},
+                {"name":"laws_10.flac","format":"Flac","length":"180"},
+                {"name":"laws_01.mp3","format":"VBR MP3","length":"1:30","title":"Book I Pt I"},
+                {"name":"laws_01.wav","format":"WAVE","length":"90"}
+              ],
+              "metadata":{"title":"Laws by Plato","creator":"Plato",
+                          "licenseurl":"https://creativecommons.org/publicdomain/mark/1.0/"}
+            }
+            """
+            let data = json.data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+        let service = InternetArchiveService(session: session)
+        let tracks = try await service.fetchTracksForIdentifier("Laws_Plato")
+        XCTAssertEqual(tracks.count, 3, "only the 3 VBR MP3 chapters, not 7 mixed files")
+        XCTAssertTrue(tracks.allSatisfy { $0.streamURL.absoluteString.hasSuffix(".mp3") },
+            "every part must be the single chosen format (mp3)")
+        // Natural numeric order: laws_01 < laws_02 < laws_10 (not lexical).
+        XCTAssertEqual(tracks.map(\.partNumber), [1, 2, 3])
+        XCTAssertEqual(tracks.map(\.title), ["Book I Pt I", "Book I Pt II", "Book V"])
+        XCTAssertEqual(tracks[0].duration, 90, accuracy: 0.01)   // 1:30 via parseRuntime
+        XCTAssertEqual(tracks[1].duration, 120, accuracy: 0.01)  // 2:00
+        XCTAssertTrue(tracks.allSatisfy { $0.isMultiPart == true })
+    }
+
+    func testItemInfoCountsSingleFormatAndSumsDuration() async throws {
+        MockURLProtocol.requestHandler = { _ in
+            let json = """
+            {
+              "files":[
+                {"name":"c1.mp3","format":"VBR MP3","length":"1:00"},
+                {"name":"c1.ogg","format":"Ogg Vorbis","length":"60"},
+                {"name":"c2.mp3","format":"VBR MP3","length":"2:00"}
+              ]
+            }
+            """
+            let data = json.data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+        let service = InternetArchiveService(session: session)
+        let info = await service.itemInfo(forIdentifier: "multi-1")
+        XCTAssertEqual(info?.audioCount, 2, "count only the single chosen format")
+        XCTAssertEqual(info?.duration ?? 0, 180, accuracy: 0.01)  // 60 + 120
+    }
+
+    func testSearchUsesGeneralDefaultFieldQuery() async throws {
+        var captured: URL?
+        MockURLProtocol.requestHandler = { req in
+            captured = req.url
+            let data = "{\"response\":{\"docs\":[]}}".data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+        let service = InternetArchiveService(session: session)
+        _ = try await service.search(query: "tarrega guitar", page: 0)
+        // Decode so the assertion is independent of %20/+ encoding.
+        let q = (captured?.query ?? "").removingPercentEncoding ?? ""
+        XCTAssertTrue(q.contains("(tarrega guitar) AND mediatype:audio")
+                   || q.contains("(tarrega+guitar)+AND+mediatype:audio"),
+            "search must use the broad default-field form, got: \(q)")
+        XCTAssertFalse(q.contains("title:("),
+            "must NOT field-scope the query (that ANDs words within one field)")
+        XCTAssertFalse(q.contains("creator:("),
+            "must NOT field-scope the query")
     }
 
     func testFetchTracksForIdentifierSingleFileHasNoPartInfo() async throws {

@@ -25,6 +25,29 @@ final class DatabaseServicePlaylistTests: XCTestCase {
         XCTAssertTrue(all.contains { $0.isFavorites }, "Favorites playlist must be seeded on first schema creation")
     }
 
+    // Item 2: persisted custom playlist order. Favorites stays pinned first
+    // (isFavorites DESC); setPlaylistOrder controls the rest.
+    func testPlaylistCustomOrderPersists() async throws {
+        let a = try await db.createPlaylist(name: "Alpha")
+        let b = try await db.createPlaylist(name: "Bravo")
+        let c = try await db.createPlaylist(name: "Charlie")
+
+        // Default: Favorites first, then creation order.
+        var all = await db.fetchPlaylists()
+        XCTAssertTrue(all.first?.isFavorites ?? false, "Favorites pinned first")
+        XCTAssertEqual(all.filter { !$0.isFavorites }.map(\.name),
+                       ["Alpha", "Bravo", "Charlie"])
+
+        // Reorder the non-favorites: Charlie, Alpha, Bravo.
+        await db.setPlaylistOrder([c.id, a.id, b.id])
+        all = await db.fetchPlaylists()
+        XCTAssertTrue(all.first?.isFavorites ?? false,
+            "Favorites must remain pinned first after reorder")
+        XCTAssertEqual(all.filter { !$0.isFavorites }.map(\.name),
+                       ["Charlie", "Alpha", "Bravo"],
+            "custom order must persist via setPlaylistOrder")
+    }
+
     func testRenamePlaylist() async throws {
         let playlist = try await db.createPlaylist(name: "Old Name")
         await db.renamePlaylist(id: playlist.id, name: "New Name")

@@ -265,27 +265,47 @@ struct InternetArchiveService {
 
     // MARK: - Search (used by SearchViewModel)
 
+    // General default-field search (title/creator/description/subject/text),
+    // matching the Internet Archive website. A field-scoped form like
+    // `title:(a b)` ANDs the words within ONE field and misses most hits
+    // (e.g. "Tarrega Guitar" → 2 vs 36).
     func search(query: String, page: Int) async throws -> [SearchViewModel.ResultGroup] {
-        let q = "(title:(\(query)) OR creator:(\(query))) AND mediatype:audio"
+        let q = "(\(query)) AND mediatype:audio"
         return try await searchGroups(query: q, page: page)
     }
 
-    // IA search docs carry no runtime, so total duration (the song-vs-book
-    // signal) needs the per-item metadata. Sums the MP3 files' lengths.
-    func itemDuration(forIdentifier identifier: String) async -> Double? {
+    // IA search docs carry no runtime or file count. One metadata GET yields
+    // both the total duration (song-vs-book signal) AND the number of audio
+    // parts in the single best format — the SAME selection
+    // fetchTracksForIdentifier uses, so the search marker matches what
+    // "Add Book/Album to Playlist" would actually add.
+    func itemInfo(forIdentifier identifier: String) async -> (duration: Double, audioCount: Int)? {
         guard let enc = identifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
               let url = URL(string: "https://archive.org/metadata/\(enc)"),
               let (data, _) = try? await session.data(from: url) else { return nil }
         struct Meta: Decodable {
-            struct F: Decodable { let length: String?; let format: String? }
+            struct F: Decodable { let name: String; let length: String?; let format: String? }
             let files: [F]
         }
         guard let meta = try? JSONDecoder().decode(Meta.self, from: data) else { return nil }
-        let total = meta.files.reduce(0.0) { acc, f in
-            guard let fmt = f.format, fmt.localizedCaseInsensitiveContains("mp3") else { return acc }
-            return acc + Self.parseRuntime(f.length)
-        }
-        return total > 0 ? total : nil
+        let selectors: [(Meta.F) -> Bool] = [
+            { $0.format == "VBR MP3" }, { $0.format == "128Kbps MP3" },
+            { $0.format == "64Kbps MP3" }, { $0.format == "MP3" },
+            { $0.format == "Ogg Vorbis" },
+            { ($0.name as NSString).pathExtension.lowercased() == "mp3" },
+            { ($0.name as NSString).pathExtension.lowercased() == "m4a" },
+            { ($0.name as NSString).pathExtension.lowercased() == "aac" },
+            { ($0.name as NSString).pathExtension.lowercased() == "opus" },
+            { ($0.name as NSString).pathExtension.lowercased() == "ogg" },
+            { ($0.name as NSString).pathExtension.lowercased() == "flac" },
+            { ($0.name as NSString).pathExtension.lowercased() == "wav" },
+        ]
+        let chosen = selectors.lazy
+            .map { sel in meta.files.filter(sel) }
+            .first { !$0.isEmpty } ?? []
+        guard !chosen.isEmpty else { return nil }
+        let total = chosen.reduce(0.0) { $0 + Self.parseRuntime($1.length) }
+        return (duration: total, audioCount: chosen.count)
     }
 
     func fetchTracksForIdentifier(_ identifier: String) async throws -> [Track] {
@@ -324,30 +344,50 @@ struct InternetArchiveService {
         }
 
         let meta = try JSONDecoder().decode(IAMetaFull.self, from: data)
-        let preferredFormats = ["VBR MP3", "128Kbps MP3", "64Kbps MP3", "MP3", "Ogg Vorbis"]
-        let audioExtensions: Set<String> = ["mp3", "ogg", "flac", "m4a", "aac", "opus", "wav"]
 
-        let audioFiles = meta.files.filter { file in
-            if let fmt = file.format, preferredFormats.contains(fmt) { return true }
-            let ext = (file.name as NSString).pathExtension.lowercased()
-            return audioExtensions.contains(ext)
+        // Pick exactly ONE audio format. IA items frequently expose the same
+        // chapters in MP3 + OGG + FLAC + WAV; mixing them yielded N×formats
+        // bogus "parts" with scrambled order. The first selector (in quality
+        // priority) that matches ≥1 file wins; only those files are used.
+        let selectors: [(IAMetaFull.IAMetaFile) -> Bool] = [
+            { $0.format == "VBR MP3" },
+            { $0.format == "128Kbps MP3" },
+            { $0.format == "64Kbps MP3" },
+            { $0.format == "MP3" },
+            { $0.format == "Ogg Vorbis" },
+            { ($0.name as NSString).pathExtension.lowercased() == "mp3" },
+            { ($0.name as NSString).pathExtension.lowercased() == "m4a" },
+            { ($0.name as NSString).pathExtension.lowercased() == "aac" },
+            { ($0.name as NSString).pathExtension.lowercased() == "opus" },
+            { ($0.name as NSString).pathExtension.lowercased() == "ogg" },
+            { ($0.name as NSString).pathExtension.lowercased() == "flac" },
+            { ($0.name as NSString).pathExtension.lowercased() == "wav" },
+        ]
+        let chosen = selectors.lazy
+            .map { sel in meta.files.filter(sel) }
+            .first { !$0.isEmpty } ?? []
+
+        // Finder-style natural order so laws_01 < laws_02 < … < laws_10 < … <
+        // laws_20 (and chapter 2 < chapter 10) — guarantees book/album order.
+        let audioFiles = chosen.sorted {
+            $0.name.localizedStandardCompare($1.name) == .orderedAscending
         }
 
         let itemTitle = meta.metadata.title ?? identifier
         let itemCreator = meta.metadata.creator ?? "Unknown"
         let licenseURL = meta.metadata.licenseurl
         let license = validator.validate(licenseURL: licenseURL, year: meta.metadata.year, collection: nil)
+        let isMulti = audioFiles.count > 1
 
         return audioFiles.enumerated().compactMap { index, file in
             let enc = file.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? file.name
             guard let streamURL = URL(string: "https://archive.org/download/\(encoded)/\(enc)") else { return nil }
-            let duration = file.length.flatMap { Double($0) } ?? 0
             return Track(
                 id: "\(identifier)/\(file.name)",
                 source: "internet_archive",
-                title: file.title ?? (audioFiles.count == 1 ? itemTitle : file.name),
+                title: file.title ?? (isMulti ? file.name : itemTitle),
                 artist: file.creator ?? itemCreator,
-                duration: duration,
+                duration: Self.parseRuntime(file.length),
                 streamURL: streamURL,
                 downloadURL: streamURL,
                 localFilePath: nil,
@@ -359,9 +399,10 @@ struct InternetArchiveService {
                 instruments: [],
                 metadataConfidence: 1.0,
                 addedDate: nil,
-                partNumber: audioFiles.count > 1 ? index + 1 : nil,
-                totalParts: audioFiles.count > 1 ? audioFiles.count : nil,
-                parentIdentifier: audioFiles.count > 1 ? identifier : nil
+                partNumber: isMulti ? index + 1 : nil,
+                totalParts: isMulti ? audioFiles.count : nil,
+                parentIdentifier: isMulti ? identifier : nil,
+                isMultiPart: isMulti ? true : false
             )
         }
     }

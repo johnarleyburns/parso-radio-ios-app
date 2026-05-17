@@ -133,6 +133,27 @@ final class PlaylistViewModelTests: XCTestCase {
             "count must be re-derived from the DB, not blindly incremented")
     }
 
+    // Item 2: reordering persists and survives a reload (Favorites pinned).
+    func testReorderPlaylistsPersists() async throws {
+        await vm.createPlaylist(name: "One")
+        await vm.createPlaylist(name: "Two")
+        await vm.createPlaylist(name: "Three")
+        await vm.loadPlaylists()
+
+        let others = vm.playlists.filter { !$0.isFavorites }
+        XCTAssertEqual(others.map(\.name), ["One", "Two", "Three"])
+
+        // Move "Three" to the front of the non-favorites.
+        let reordered = [others[2], others[0], others[1]]
+        await vm.reorderPlaylists(reordered)
+
+        XCTAssertTrue(vm.playlists.first?.isFavorites ?? false,
+            "Favorites stays pinned first")
+        XCTAssertEqual(vm.playlists.filter { !$0.isFavorites }.map(\.name),
+                       ["Three", "One", "Two"],
+            "reorderPlaylists must persist the new order")
+    }
+
     // MARK: - Helpers
 
     private func makeTrack(id: String) -> Track {

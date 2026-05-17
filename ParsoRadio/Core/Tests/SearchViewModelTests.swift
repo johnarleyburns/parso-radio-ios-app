@@ -80,4 +80,55 @@ final class SearchViewModelTests: XCTestCase {
         )
         XCTAssertNil(none.collection, "collection defaults to nil when absent")
     }
+
+    // Item 6: classification from audio-file count + collection.
+    func testClassifyItemKind() {
+        XCTAssertEqual(SearchViewModel.classify(audioCount: 1, collection: nil), .track)
+        XCTAssertEqual(SearchViewModel.classify(audioCount: 1,
+            collection: "librivoxaudio"), .track, "one file is a track even if a book collection")
+        XCTAssertEqual(SearchViewModel.classify(audioCount: 12,
+            collection: "librivoxaudio"), .book)
+        XCTAssertEqual(SearchViewModel.classify(audioCount: 12,
+            collection: "audio_bookspoetry"), .book)
+        XCTAssertEqual(SearchViewModel.classify(audioCount: 9,
+            collection: "opensource_audio"), .album)
+        XCTAssertEqual(SearchViewModel.classify(audioCount: 9,
+            collection: nil), .album)
+    }
+
+    // Item 3: history records on successful search, de-dupes case-insensitively,
+    // keeps most-recent-first, caps the list, and persists.
+    func testSearchHistoryRecordsDedupesAndClears() {
+        UserDefaults.standard.removeObject(forKey: "searchHistory")
+        let vm = SearchViewModel()
+        XCTAssertTrue(vm.recentSearches.isEmpty)
+
+        vm.recordHistory("Bach")
+        vm.recordHistory("chopin")
+        vm.recordHistory("bach")          // dedupe (case-insensitive)
+        XCTAssertEqual(vm.recentSearches, ["bach", "chopin"],
+            "most-recent first, de-duped case-insensitively")
+
+        vm.recordHistory("a")             // < 2 chars ignored
+        XCTAssertEqual(vm.recentSearches.count, 2)
+
+        vm.removeHistory("chopin")
+        XCTAssertEqual(vm.recentSearches, ["bach"])
+
+        // Persisted across instances.
+        let vm2 = SearchViewModel()
+        XCTAssertEqual(vm2.recentSearches, ["bach"])
+
+        vm.clearHistory()
+        XCTAssertTrue(vm.recentSearches.isEmpty)
+        XCTAssertNil(UserDefaults.standard.stringArray(forKey: "searchHistory"))
+    }
+
+    func testSearchHistoryCapsAtTwelve() {
+        UserDefaults.standard.removeObject(forKey: "searchHistory")
+        let vm = SearchViewModel()
+        for i in 1...20 { vm.recordHistory("query\(i)") }
+        XCTAssertEqual(vm.recentSearches.count, 12, "history is capped at 12")
+        XCTAssertEqual(vm.recentSearches.first, "query20", "newest first")
+    }
 }

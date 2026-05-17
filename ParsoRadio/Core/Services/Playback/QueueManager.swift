@@ -8,30 +8,7 @@ final class QueueManager {
     private var recentByChannel: [String: [String]] = [:]
     private let historyLimit = 50
 
-    // Ordered "play these next" buffer for the Play-Entire-Book/Album feature.
-    // Drains BEFORE any normal channel selection; when empty, normal random
-    // channel flow resumes transparently.
-    private var overrideQueue: [Track] = []
-
     init(db: DatabaseService) { self.db = db }
-
-    // MARK: - Override queue (whole book/album playback)
-
-    // Replace the override queue entirely. Enqueued IDs are dropped from the
-    // channel recency buffer so the recency filter can't strip them when the
-    // override queue drains back into normal flow.
-    func enqueueItemTracks(_ tracks: [Track], channelId: String) {
-        overrideQueue = tracks
-        let ids = Set(tracks.map(\.id))
-        recentByChannel[channelId] = (recentByChannel[channelId] ?? [])
-            .filter { !ids.contains($0) }
-    }
-
-    var hasOverrideQueue: Bool { !overrideQueue.isEmpty }
-
-    // Called by PlayerViewModel.load(channel:) so a stale book/album queue
-    // never bleeds into a newly-selected channel.
-    func clearOverrideQueue() { overrideQueue.removeAll() }
 
     // Curated radio-style channels always shuffle regardless of the global
     // toggle: registry-backed IA channels and Lecture channels (which
@@ -64,10 +41,6 @@ final class QueueManager {
     // MARK: - Librivox sequential advance
 
     func nextPart(after track: Track, channel: Channel) async -> Track? {
-        // While a Play-Entire-Book/Album override queue is active, advancement
-        // must come ONLY from the override queue (via _next). Returning a part
-        // here too would double-advance and skip every other chapter.
-        guard !hasOverrideQueue else { return nil }
         guard let parent = track.parentIdentifier,
               let currentPart = track.partNumber else { return nil }
         let allTracks = await db.fetchTracks(forChannel: channel)
@@ -104,17 +77,6 @@ final class QueueManager {
     // MARK: - Private
 
     private func _next(channel: Channel, shuffleMode: Bool, record: Bool) async -> Track? {
-        // Override queue (Play Entire Book/Album) drains first, bypassing ALL
-        // existing logic — podcast dedup, composer expansion, shuffle
-        // weighting, recency filtering — until fully consumed. A peek
-        // (record:false, used by URL prefetch) must NOT consume a part.
-        if !overrideQueue.isEmpty {
-            guard record else { return overrideQueue.first }
-            let next = overrideQueue.removeFirst()
-            self.record(next.id, channelId: channel.id)
-            return next
-        }
-
         // Podcast/news channels: always sequential newest-first, 30-day dedup via DB
         if channel.feedURL != nil {
             return await nextPodcastTrack(channel: channel, record: record)

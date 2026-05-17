@@ -273,6 +273,27 @@ final class SearchIntegrationTests: XCTestCase {
             "Expected ≥1 'beethoven' result to expose an IA collection")
     }
 
+    // Item 9 regression: the old field-scoped query returned only 2 results
+    // for "tarrega guitar"; the broad default-field query returns dozens and
+    // surfaces the Narciso Yepes-Tárrega album the user reported missing.
+    func testTarregaGuitarSearchIsBroad() async throws {
+        let groups: [SearchViewModel.ResultGroup]
+        do {
+            groups = try await service.search(query: "tarrega guitar", page: 0)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        print("Search 'tarrega guitar': \(groups.count) groups")
+        for g in groups.prefix(5) { print("  \(g.id) — \(g.title) / \(g.creator)") }
+        XCTAssertGreaterThanOrEqual(groups.count, 10,
+            "broad search must return many results, not the old 2")
+        let hay = groups.map { "\($0.title) \($0.creator)".lowercased() }
+        XCTAssertTrue(
+            hay.contains { $0.contains("yepes") || $0.contains("tárrega")
+                        || $0.contains("tarrega") },
+            "must surface Tárrega/Yepes recordings that field-scoping missed")
+    }
+
     func testFetchTracksForIdentifierReturnsPlayableFiles() async throws {
         let groups: [SearchViewModel.ResultGroup]
         do {
@@ -304,9 +325,9 @@ final class SearchIntegrationTests: XCTestCase {
 
 // MARK: - Whole book/album probe integration test
 
-// Exercises the real multi-file probe end-to-end: PlayerViewModel.playEntireItem
-// → resolveItemParts → live archive.org metadata → DB persistence. Uses the
-// stable public-domain LibriVox item "art_of_war_librivox" (14 MP3 chapters).
+// Exercises the real multi-file probe end-to-end:
+// addEntireItemToPlaylist → resolveItemParts → live archive.org metadata →
+// single-format chapter extraction → DB persistence in book order.
 @MainActor
 final class WholeBookIntegrationTests: XCTestCase {
 
@@ -315,7 +336,39 @@ final class WholeBookIntegrationTests: XCTestCase {
         executionTimeAllowance = 120
     }
 
-    func testPlayEntireBookProbesNetworkAndPersistsParts() async throws {
+    // Item 7: the "Laws by Plato (Hi-Res Audiobook)" item (Laws_Plato) has 20
+    // chapters in 4 formats. We must extract exactly the single-format set,
+    // in chapter order, NOT 80 mixed-format duplicates.
+    func testLawsPlatoExtractsSingleFormatOrderedChapters() async throws {
+        let service = InternetArchiveService()
+        let tracks: [Track]
+        do {
+            tracks = try await service.fetchTracksForIdentifier("Laws_Plato")
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        guard !tracks.isEmpty else {
+            throw XCTSkip("Laws_Plato unavailable")
+        }
+        print("Laws_Plato → \(tracks.count) parts")
+        // 20 chapters in ONE format — not 40/60/80 mixed-format files.
+        XCTAssertGreaterThanOrEqual(tracks.count, 10,
+            "must return the book's chapters")
+        XCTAssertLessThanOrEqual(tracks.count, 30,
+            "must be ONE format, not mp3+ogg+flac+wav combined")
+        let exts = Set(tracks.map {
+            ($0.streamURL.lastPathComponent as NSString).pathExtension.lowercased()
+        })
+        XCTAssertEqual(exts.count, 1, "all parts must share ONE audio format, got \(exts)")
+        XCTAssertEqual(tracks.map(\.partNumber), Array(1...tracks.count),
+            "partNumber must be a strict 1…n in chapter order")
+        XCTAssertTrue(tracks.allSatisfy { $0.parentIdentifier == "Laws_Plato" })
+        XCTAssertTrue(tracks.allSatisfy { $0.isMultiPart == true })
+    }
+
+    // Items 7 + 8a end-to-end: adding the whole book to a playlist persists
+    // every chapter under its parent in ascending order.
+    func testAddEntireBookFromSearchPersistsChaptersInOrder() async throws {
         let db: DatabaseService
         do { db = try DatabaseService(path: ":memory:") }
         catch { throw XCTSkip("Could not open in-memory DB: \(error)") }
@@ -328,45 +381,35 @@ final class WholeBookIntegrationTests: XCTestCase {
             audioPlayer: AudioPlayerService(),
             downloadManager: DownloadManager(db: db)
         )
-
-        let identifier = "art_of_war_librivox"
-        // Sanity-probe the network first so a transient IA outage skips
-        // (rather than fails) the test.
-        do {
-            let probe = try await InternetArchiveService()
-                .fetchTracksForIdentifier(identifier)
-            guard probe.count >= 2 else {
-                throw XCTSkip("\(identifier) is no longer multi-file (\(probe.count) files)")
-            }
-        } catch let e as URLError {
-            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
-        }
+        let plVM = PlaylistViewModel(db: db)
+        let identifier = "Laws_Plato"
 
         let itemTrack = Track(
             id: identifier, source: "internet_archive",
-            title: "The Art of War", artist: "Sun Tzu", duration: 0,
+            title: "Laws by Plato (Hi-Res Audiobook)", artist: "Plato",
+            duration: 0,
             streamURL: URL(string: "https://archive.org/download/\(identifier)")!,
             downloadURL: nil, localFilePath: nil,
             license: .publicDomain, tags: [],
-            qualityScore: 1.0, rawCreator: "Sun Tzu", composer: nil,
+            qualityScore: 1.0, rawCreator: "Plato", composer: nil,
             instruments: [], metadataConfidence: 0.0)
-        vm.currentChannel = Channel(
-            id: "lv-history", name: "History", category: "Audiobooks",
-            icon: "book", tags: ["history"], contentType: .spokenWord,
-            preferredSource: "internet_archive")
 
-        await vm.playEntireItem(from: itemTrack)
+        let playlist: Playlist
+        do { playlist = try await db.createPlaylist(name: "Plato Shelf") }
+        catch { throw XCTSkip("DB error: \(error)") }
 
-        XCTAssertNotNil(vm.overrideQueueTitle,
-            "playEntireItem must set the screen-panel indicator after the probe")
+        await vm.addEntireItemToPlaylist(from: itemTrack, to: playlist, using: plVM)
 
         let persisted = await db.fetchTracks(forParentIdentifier: identifier)
-        print("Persisted \(persisted.count) parts for \(identifier)")
-        XCTAssertGreaterThanOrEqual(persisted.count, 2,
-            "the probe must persist every chapter under parent_identifier")
-        XCTAssertEqual(persisted.map(\.partNumber),
-                       persisted.map(\.partNumber).sorted { ($0 ?? 0) < ($1 ?? 0) },
-            "persisted parts must be ordered by part number")
+        if persisted.isEmpty { throw XCTSkip("Laws_Plato unavailable / network down") }
+        print("Persisted \(persisted.count) chapters")
+        XCTAssertGreaterThanOrEqual(persisted.count, 10)
+        XCTAssertEqual(persisted.map(\.partNumber), Array(1...persisted.count),
+            "chapters must persist in strict book order (8a)")
+
+        let inPlaylist = await db.fetchTracks(forPlaylist: playlist.id)
+        XCTAssertEqual(inPlaylist.count, persisted.count,
+            "every chapter must be added to the playlist (item 7 fix)")
     }
 }
 

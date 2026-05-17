@@ -24,12 +24,9 @@ final class PlayerViewModel: ObservableObject {
     @Published var currentArtwork: UIImage? = nil
     @Published var artworkDominantColor: Color = .accentColor
     @Published var currentPlaylist: Playlist? = nil
-    // Drives the "Play / Add Entire Book/Album" buttons. Set false on every
+    // Drives the "Add Book/Album to Playlist" button. Set false on every
     // track change; set true once the silent probe confirms a multi-file item.
     @Published var currentTrackIsMultiPart: Bool = false
-    // Screen-panel "Next: …" indicator while a book/album override queue is
-    // active; cleared when the queue drains or the channel changes.
-    @Published var overrideQueueTitle: String? = nil
 
     let audioPlayer: AudioPlayerService
 
@@ -166,11 +163,8 @@ final class PlayerViewModel: ObservableObject {
         currentTrack = nil
         isPlaying = false
         playHistory = []
-        // A book/album override queue must never bleed into a new channel.
-        queueManager.clearOverrideQueue()
-        overrideQueueTitle = nil
         currentTrackIsMultiPart = false
-        itemPartsCache = [:]
+        itemPartsCache = [:]   // IA item file lists are immutable per session
         // UC2: persist last-used channel so the app restores it after restart.
         UserDefaults.standard.set(channel.id, forKey: "lastChannelId")
         // UC6: track visited channels for Favorites (MRU, capped at 20).
@@ -370,9 +364,6 @@ final class PlayerViewModel: ObservableObject {
             isLoading = false
             return
         }
-        // The moment the last queued book/album part is pulled, the override
-        // queue is empty — drop the screen-panel "Next: …" indicator.
-        if !queueManager.hasOverrideQueue { overrideQueueTitle = nil }
         await playTrack(track, seekTo: nil)
     }
 
@@ -567,43 +558,17 @@ final class PlayerViewModel: ObservableObject {
         }
     }
 
-    // "Play Entire Book/Album": enqueue all parts after the current track.
-    // Current track keeps playing; the next advance picks up Part 1.
-    func playEntireItem(from track: Track) async {
-        let identifier = track.parentIdentifier ?? track.id
-        guard let parts = await resolveItemParts(identifier: identifier),
-              !parts.isEmpty else { return }
-        let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
-        queueManager.enqueueItemTracks(ordered, channelId: currentChannel?.id ?? "")
-        overrideQueueTitle = prettifiedItemTitle(identifier: identifier, track: track)
-    }
-
-    // "Add Entire Book/Album to Playlist". playlistVM is passed in (no stored
-    // reference) to keep the view models decoupled and avoid a retain cycle.
+    // "Add Entire Book/Album to Playlist" — adds every part in book/album
+    // order. playlistVM is passed in (no stored reference) to keep the view
+    // models decoupled and avoid a retain cycle.
     func addEntireItemToPlaylist(
         from track: Track, to playlist: Playlist, using playlistVM: PlaylistViewModel
     ) async {
         let identifier = track.parentIdentifier ?? track.id
         guard let parts = await resolveItemParts(identifier: identifier),
               !parts.isEmpty else { return }
-        await playlistVM.addTracks(parts, to: playlist)
-    }
-
-    private func prettifiedItemTitle(identifier: String, track: Track) -> String {
-        if track.parentIdentifier != nil {
-            let artist = track.artist.trimmingCharacters(in: .whitespacesAndNewlines)
-            let pretty = prettify(identifier)
-            return artist.isEmpty || artist.lowercased() == "unknown"
-                ? pretty : "\(artist) – \(pretty)"
-        }
-        return track.title
-    }
-
-    private func prettify(_ identifier: String) -> String {
-        identifier
-            .replacingOccurrences(of: "_", with: " ")
-            .replacingOccurrences(of: "-", with: " ")
-            .capitalized
+        let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+        await playlistVM.addTracks(ordered, to: playlist)
     }
 
     // Runs `op` but throws if it doesn't finish within `seconds`.

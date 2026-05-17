@@ -28,6 +28,25 @@ struct MainMenuView: View {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
+    @ViewBuilder
+    private func playlistRow(_ playlist: Playlist) -> some View {
+        // Push the playlist detail (play/shuffle/add/edit), not straight to playback.
+        NavigationLink {
+            PlaylistDetailView(playlist: playlist, dismissAll: dismissAll)
+                .environmentObject(playlistVM)
+                .environmentObject(playerVM)
+                .environmentObject(offlineService)
+        } label: {
+            HStack {
+                Label(playlist.name,
+                      systemImage: playlist.isFavorites ? "heart.fill" : "music.note.list")
+                Spacer()
+                Text("\(playlistVM.trackCount(for: playlist))")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -41,27 +60,35 @@ struct MainMenuView: View {
                     .foregroundStyle(.primary)
                 }
 
-                let playlists = playlistVM.playlists
-                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-                if !playlists.isEmpty {
-                    Section("Playlists") {
-                        ForEach(playlists) { playlist in
-                            // Push the playlist detail (play/shuffle/add/edit),
-                            // not straight to playback.
-                            NavigationLink {
-                                PlaylistDetailView(playlist: playlist, dismissAll: dismissAll)
-                                    .environmentObject(playlistVM)
-                                    .environmentObject(playerVM)
-                                    .environmentObject(offlineService)
-                            } label: {
-                                HStack {
-                                    Label(playlist.name,
-                                          systemImage: playlist.isFavorites ? "heart.fill" : "music.note.list")
-                                    Spacer()
-                                    Text("\(playlistVM.trackCount(for: playlist))")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                }
+                // Persisted order (Favorites pinned first, then user order).
+                let favorites = playlistVM.playlists.filter { $0.isFavorites }
+                let others    = playlistVM.playlists.filter { !$0.isFavorites }
+                if !playlistVM.playlists.isEmpty {
+                    Section {
+                        ForEach(favorites) { playlist in
+                            playlistRow(playlist)
+                        }
+                        ForEach(others) { playlist in
+                            playlistRow(playlist)
+                        }
+                        .onMove { indices, newOffset in
+                            var reordered = others
+                            reordered.move(fromOffsets: indices, toOffset: newOffset)
+                            Task { await playlistVM.reorderPlaylists(reordered) }
+                        }
+                        .onDelete { indices in
+                            let toDelete = indices.map { others[$0] }
+                            Task {
+                                for pl in toDelete { await playlistVM.deletePlaylist(pl) }
                             }
+                        }
+                    } header: {
+                        HStack {
+                            Text("Playlists")
+                            Spacer()
+                            EditButton()
+                                .font(.caption)
+                                .textCase(nil)
                         }
                     }
                 }
