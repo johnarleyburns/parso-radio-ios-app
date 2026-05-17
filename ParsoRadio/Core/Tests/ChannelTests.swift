@@ -244,4 +244,16 @@ final class ChannelTests: XCTestCase {
             metadataConfidence: 3.0
         )
     }
+
+    // Master-menu section order (item 1): fixed sequence, only categories
+    // that actually have channels, and every channel category is covered.
+    func testMainMenuCategoryOrder() {
+        let order = MainMenuView.orderedCategories()
+        XCTAssertEqual(order, ["Curated", "Ambient", "News", "Contemporary",
+                               "Audiobooks", "Lectures"])
+        // No channel category is silently dropped from the menu.
+        let present = Set(Channel.defaults.map(\.category))
+        XCTAssertEqual(Set(order), present,
+            "every channel category must appear in the menu order")
+    }
 }

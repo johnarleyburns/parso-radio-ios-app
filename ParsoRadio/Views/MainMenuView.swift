@@ -2,19 +2,38 @@ import SwiftUI
 
 struct MainMenuView: View {
     let onSelectChannel: (Channel) -> Void
-    let onPlayPlaylist: (Playlist) -> Void
-    let onOpenSearch: () -> Void
-    let onOpenAbout: () -> Void
+    let dismissAll: () -> Void          // close the whole menu (back to player)
 
     @EnvironmentObject var playlistVM: PlaylistViewModel
+    @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var offlineService: OfflineDownloadService
     @Environment(\.dismiss) private var dismiss
+
+    @State private var showSearch = false
+    @State private var showAbout = false
+
+    // Fixed section order (item 1). Alphabetical WITHIN each (item 9).
+    private static let categoryOrder = [
+        "Curated", "Ambient", "News", "Contemporary", "Audiobooks", "Lectures"
+    ]
+
+    static func orderedCategories() -> [String] {
+        let present = Set(Channel.defaults.map(\.category))
+        return categoryOrder.filter(present.contains)
+    }
+
+    private func channels(in category: String) -> [Channel] {
+        Channel.defaults
+            .filter { $0.category == category }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
                     Button {
-                        onOpenSearch()
+                        showSearch = true
                     } label: {
                         Label("Search", systemImage: "magnifyingglass")
                             .font(.body).padding(.vertical, 2)
@@ -22,11 +41,18 @@ struct MainMenuView: View {
                     .foregroundStyle(.primary)
                 }
 
-                if !playlistVM.playlists.isEmpty {
+                let playlists = playlistVM.playlists
+                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                if !playlists.isEmpty {
                     Section("Playlists") {
-                        ForEach(playlistVM.playlists) { playlist in
-                            Button {
-                                onPlayPlaylist(playlist)
+                        ForEach(playlists) { playlist in
+                            // Push the playlist detail (play/shuffle/add/edit),
+                            // not straight to playback.
+                            NavigationLink {
+                                PlaylistDetailView(playlist: playlist, dismissAll: dismissAll)
+                                    .environmentObject(playlistVM)
+                                    .environmentObject(playerVM)
+                                    .environmentObject(offlineService)
                             } label: {
                                 HStack {
                                     Label(playlist.name,
@@ -36,14 +62,13 @@ struct MainMenuView: View {
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                             }
-                            .foregroundStyle(.primary)
                         }
                     }
                 }
 
-                ForEach(Channel.categories, id: \.self) { category in
+                ForEach(Self.orderedCategories(), id: \.self) { category in
                     Section(category) {
-                        ForEach(Channel.defaults.filter { $0.category == category }) { channel in
+                        ForEach(channels(in: category)) { channel in
                             Button {
                                 onSelectChannel(channel)
                             } label: {
@@ -56,7 +81,7 @@ struct MainMenuView: View {
 
                 Section {
                     Button {
-                        onOpenAbout()
+                        showAbout = true
                     } label: {
                         Label("About", systemImage: "info.circle")
                             .font(.body).padding(.vertical, 2)
@@ -71,6 +96,16 @@ struct MainMenuView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
                 }
+            }
+            // Presented FROM the menu (not after dismissing it) so there is no
+            // flash of the player screen between transitions (item 10).
+            .sheet(isPresented: $showSearch) {
+                SearchView(dismissAll: dismissAll)
+                    .environmentObject(playlistVM)
+                    .environmentObject(playerVM)
+            }
+            .sheet(isPresented: $showAbout) {
+                AboutView()
             }
         }
     }

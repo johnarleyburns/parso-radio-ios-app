@@ -6,6 +6,7 @@ struct SearchView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @StateObject private var searchVM: SearchViewModel
     @State private var showAddToPlaylist: Track? = nil
+    @FocusState private var searchFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
     init(dismissAll: (() -> Void)? = nil,
@@ -19,15 +20,40 @@ struct SearchView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField("Search music, audiobooks…", text: $searchVM.query)
+                        .focused($searchFocused)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .submitLabel(.search)
+                        .onChange(of: searchVM.query) { _ in searchVM.searchChanged() }
+                    if !searchVM.query.isEmpty {
+                        Button { searchVM.query = "" } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(10)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+
                 if searchVM.isSearching {
                     ProgressView().padding()
                 }
                 if let error = searchVM.errorMessage {
-                    Text(error).foregroundStyle(.secondary).padding()
+                    ContentUnavailableView("Search failed", systemImage: "wifi.slash",
+                                            description: Text(error))
+                } else if searchVM.showNoResults {
+                    ContentUnavailableView.search(text: searchVM.query)
                 }
 
                 List {
                     ForEach(searchVM.results) { group in
+                        let dur = searchVM.durations[group.id] ?? group.duration
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(group.title)
@@ -40,9 +66,9 @@ struct SearchView: View {
                                 }
                             }
                             Spacer()
-                            if group.duration > 0 {
-                                Text(Duration.seconds(group.duration)
-                                    .formatted(.time(pattern: .minuteSecond)))
+                            if dur > 0 {
+                                Text(Duration.seconds(dur)
+                                    .formatted(.time(pattern: .hourMinuteSecond)))
                                     .font(.caption)
                                     .monospacedDigit()
                                     .foregroundStyle(.secondary)
@@ -62,6 +88,7 @@ struct SearchView: View {
                                 dismissAll?()
                             }
                         }
+                        .task { searchVM.loadDuration(group.id) }
                     }
 
                     if searchVM.hasMorePages {
@@ -69,9 +96,8 @@ struct SearchView: View {
                             .task { await searchVM.loadNextPage() }
                     }
                 }
+                .listStyle(.plain)
             }
-            .searchable(text: $searchVM.query, prompt: "Search music, audiobooks…")
-            .onChange(of: searchVM.query) { _ in searchVM.searchChanged() }
             .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -83,6 +109,7 @@ struct SearchView: View {
                 AddToPlaylistSheet(track: track)
                     .environmentObject(playlistVM)
             }
+            .onAppear { searchFocused = true }   // cursor ready immediately
         }
     }
 

@@ -76,21 +76,11 @@ struct iPodView: View {
                     showMainMenu = false
                     Task { await playerVM.load(channel: channel) }
                 },
-                onPlayPlaylist: { playlist in
-                    showMainMenu = false
-                    Task { await playerVM.loadPlaylist(playlist) }
-                },
-                onOpenSearch: {
-                    showMainMenu = false
-                    showSearch = true
-                },
-                onOpenAbout: {
-                    showMainMenu = false
-                    showAbout = true
-                }
+                dismissAll: { showMainMenu = false }
             )
             .environmentObject(playlistVM)
             .environmentObject(playerVM)
+            .environmentObject(offlineService)
         }
         .sheet(isPresented: $showChannelSelector) {
             ChannelSelectorView(currentChannelId: displayChannel.id) { channel in
@@ -326,57 +316,47 @@ struct iPodView: View {
             .padding(.bottom, 8)
     }
 
+    // The scrub bar is gone — the click wheel arc IS the position display.
+    // Bottom control row: Favorites | Shuffle  Repeat | More options.
     private var scrubberRow: some View {
-        VStack(spacing: 4) {
-            if let dur = playerVM.trackDuration, dur > 0 {
-                Slider(
-                    value: Binding(
-                        get: { playerVM.currentPosition },
-                        set: { playerVM.currentPosition = $0 }
-                    ),
-                    in: 0...max(dur, 1),
-                    onEditingChanged: { editing in
-                        playerVM.isScrubbing = editing
-                        if !editing { playerVM.seek(to: playerVM.currentPosition) }
-                    }
-                )
-                .tint(playerVM.artworkDominantColor)
-                .padding(.horizontal, 14)
-
-                HStack {
-                    Text(formatTime(playerVM.currentPosition))
-                    Spacer()
-                    Text("-\(formatTime(max(0, dur - playerVM.currentPosition)))")
-                }
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.7))
-                .monospacedDigit()
-                .padding(.horizontal, 14)
+        HStack(spacing: 0) {
+            Button { toggleFavorite() } label: {
+                Image(systemName: isFavorite ? "heart.fill" : "heart")
+                    .font(.system(size: 16))
+                    .foregroundStyle(isFavorite ? .red : .white.opacity(0.7))
             }
+            .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+            .padding(.leading, 14)
 
-            HStack(spacing: 0) {
-                // Star / Favorites
-                Button { toggleFavorite() } label: {
-                    Image(systemName: isFavorite ? "heart.fill" : "heart")
-                        .font(.system(size: 16))
-                        .foregroundStyle(isFavorite ? .red : .white.opacity(0.7))
-                }
-                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-                .padding(.leading, 14)
+            Spacer()
 
-                Spacer()
-
-                // More options (•••)
-                Button { showMoreOptions = true } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.white.opacity(0.7))
-                }
-                .accessibilityLabel("More Options")
-                .padding(.trailing, 14)
+            Button { playerVM.toggleShuffle() } label: {
+                Image(systemName: "shuffle")
+                    .font(.system(size: 16))
+                    .foregroundStyle(playerVM.shuffleMode ? .white : .white.opacity(0.4))
             }
-            .padding(.top, playerVM.trackDuration != nil ? 4 : 0)
+            .accessibilityLabel(playerVM.shuffleMode ? "Shuffle On" : "Shuffle Off")
+            .padding(.horizontal, 18)
+
+            Button { playerVM.toggleRepeat() } label: {
+                Image(systemName: playerVM.repeatMode == .off ? "repeat" : "repeat.1")
+                    .font(.system(size: 16))
+                    .foregroundStyle(playerVM.repeatMode == .off ? .white.opacity(0.4) : .white)
+            }
+            .accessibilityLabel(playerVM.repeatMode == .off ? "Repeat Off" : "Repeat One")
+            .padding(.trailing, 18)
+
+            Spacer()
+
+            Button { showMoreOptions = true } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            .accessibilityLabel("More Options")
+            .padding(.trailing, 14)
         }
+        .padding(.vertical, 4)
     }
 
     // MARK: - Combined Track Info + Options sheet
@@ -398,27 +378,6 @@ struct iPodView: View {
                         }
                         infoRow("License", licenseName(track.license))
                         infoRow("Source", sourceName(track.source))
-                    }
-                }
-
-                Section("Playback") {
-                    Button {
-                        playerVM.toggleShuffle()
-                    } label: {
-                        Label(
-                            playerVM.shuffleMode ? "Shuffle: On" : "Shuffle: Off",
-                            systemImage: "shuffle"
-                        )
-                        .foregroundStyle(playerVM.shuffleMode ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                    }
-                    Button {
-                        playerVM.toggleRepeat()
-                    } label: {
-                        Label(
-                            playerVM.repeatMode == .off ? "Repeat: Off" : "Repeat: One",
-                            systemImage: playerVM.repeatMode == .off ? "repeat" : "repeat.1"
-                        )
-                        .foregroundStyle(playerVM.repeatMode == .off ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
                     }
                 }
 

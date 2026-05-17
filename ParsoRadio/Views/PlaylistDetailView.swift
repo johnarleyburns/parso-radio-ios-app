@@ -115,6 +115,7 @@ struct PlaylistDetailView: View {
                 NavigationLink {
                     AddTracksView(playlist: playlist, db: playlistVM.db)
                         .environmentObject(playlistVM)
+                        .environmentObject(playerVM)
                 } label: {
                     Label("Add", systemImage: "plus")
                 }

@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct AddTracksView: View {
     let playlist: Playlist
     @EnvironmentObject var playlistVM: PlaylistViewModel
+    @EnvironmentObject var playerVM: PlayerViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var showFilePicker = false
     @State private var showFolderPicker = false
@@ -80,6 +81,7 @@ struct AddTracksView: View {
             .sheet(isPresented: $showSearch) {
                 SearchView()
                     .environmentObject(playlistVM)
+                    .environmentObject(playerVM)
             }
         }
     }

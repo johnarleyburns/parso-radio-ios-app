@@ -270,6 +270,24 @@ struct InternetArchiveService {
         return try await searchGroups(query: q, page: page)
     }
 
+    // IA search docs carry no runtime, so total duration (the song-vs-book
+    // signal) needs the per-item metadata. Sums the MP3 files' lengths.
+    func itemDuration(forIdentifier identifier: String) async -> Double? {
+        guard let enc = identifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = URL(string: "https://archive.org/metadata/\(enc)"),
+              let (data, _) = try? await session.data(from: url) else { return nil }
+        struct Meta: Decodable {
+            struct F: Decodable { let length: String?; let format: String? }
+            let files: [F]
+        }
+        guard let meta = try? JSONDecoder().decode(Meta.self, from: data) else { return nil }
+        let total = meta.files.reduce(0.0) { acc, f in
+            guard let fmt = f.format, fmt.localizedCaseInsensitiveContains("mp3") else { return acc }
+            return acc + Self.parseRuntime(f.length)
+        }
+        return total > 0 ? total : nil
+    }
+
     func fetchTracksForIdentifier(_ identifier: String) async throws -> [Track] {
         guard let encoded = identifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
               let metaURL = URL(string: "https://archive.org/metadata/\(encoded)") else {

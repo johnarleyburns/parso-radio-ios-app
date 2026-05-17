@@ -19,12 +19,35 @@ final class SearchViewModel: ObservableObject {
     @Published var errorMessage: String? = nil
     @Published var hasMorePages: Bool = false
 
+    // Per-item total duration, fetched lazily from IA metadata (search docs
+    // carry no runtime). Distinguishes a song from a multi-hour audiobook.
+    @Published var durations: [String: Double] = [:]
+    private var durationTasks: Set<String> = []
+
     private let archiveService: InternetArchiveService
     private var searchTask: Task<Void, Never>? = nil
     private var currentPage = 0
 
     init(archiveService: InternetArchiveService = InternetArchiveService()) {
         self.archiveService = archiveService
+    }
+
+    // True only when a real query produced zero results (not while typing
+    // or searching) — drives the "No results" message.
+    var showNoResults: Bool {
+        !isSearching && errorMessage == nil && query.count >= 2 && results.isEmpty
+    }
+
+    func loadDuration(_ id: String) {
+        guard durations[id] == nil, !durationTasks.contains(id) else { return }
+        durationTasks.insert(id)
+        Task { [weak self] in
+            guard let self else { return }
+            if let d = await self.archiveService.itemDuration(forIdentifier: id), d > 0 {
+                self.durations[id] = d
+            }
+            self.durationTasks.remove(id)
+        }
     }
 
     func searchChanged() {
