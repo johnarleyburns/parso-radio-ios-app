@@ -44,18 +44,26 @@ struct FMAService {
         // Composer channels: fetch Classical genre; channel.matches() filters by composer later.
         // Tag channels: map the first recognised tag to an FMA genre.
         let genre: String
+        let appTag: String?
         if !channel.composers.isEmpty {
             genre = "Classical"
+            appTag = nil   // composer channels match by composer, not tag
         } else {
             let firstKnown = channel.tags.first { Self.genreMap[$0] != nil }
             genre = firstKnown.flatMap { Self.genreMap[$0] } ?? "Classical"
+            appTag = firstKnown
         }
 
         let pdTracks   = try await fetchGenre(genre: genre, licenseFilter: "music-filter-public-domain", page: page)
         let ccbyTracks = (try? await fetchGenre(genre: genre, licenseFilter: "music-filter-CC-attribution", page: page)) ?? []
 
         var seen = Set<String>()
-        return (pdTracks + ccbyTracks).filter { seen.insert($0.id).inserted }
+        let merged = (pdTracks + ccbyTracks).filter { seen.insert($0.id).inserted }
+        // mapTrack tags tracks with the FMA genre SLUG ("soul-rb"), but
+        // Channel.matches() needs the channel's own tag ("soul"). Stamp it so
+        // channels whose slug != tag (Soul & R&B, World Music, …) aren't empty.
+        guard let appTag else { return merged }
+        return merged.map { $0.stamped(with: [appTag]) }
     }
 
     // MARK: - Search (used by SearchViewModel)

@@ -64,64 +64,49 @@ final class QueueManagerTests: XCTestCase {
         XCTAssertEqual(t1?.id, t2?.id)
     }
 
-    // Lecture channels aggregate a whole faculty — they must play in random
-    // order even with the global shuffle toggle OFF (Oxford tracks carry no
-    // addedDate, so the non-shuffle path would emit an arbitrary order anyway).
-    func testLectureChannelPlaysRandomOrderWithShuffleOff() async throws {
-        let slug = "faculty-philosophy"
+    // Lecture channels aggregate a whole faculty — they must ALWAYS shuffle
+    // regardless of the global toggle. Asserted via the pure decision
+    // (QueueManager.usesShuffle) so it can't flake on a seeded-RNG
+    // permutation that coincidentally equals sorted order; plus a
+    // deterministic drain to prove the whole pool stays reachable.
+    func testLectureChannelAlwaysShuffles() async throws {
+        let lecture = Channel(
+            id: "oxford-philosophy", name: "Philosophy", category: "Lectures",
+            icon: "quote.bubble", tags: ["faculty-philosophy"],
+            contentType: .spokenWord, preferredSource: "oxford_lectures"
+        )
+        XCTAssertTrue(QueueManager.usesShuffle(channel: lecture, shuffleMode: false),
+            "Lecture channel must shuffle even with the toggle OFF")
+        XCTAssertTrue(QueueManager.usesShuffle(channel: lecture, shuffleMode: true))
+
+        // Control: a plain non-registry tag channel follows the toggle.
+        let tagCh = Channel(id: "x", name: "x", category: "Contemporary",
+                            icon: "x", tags: ["jazz"], preferredSource: "fma")
+        XCTAssertFalse(QueueManager.usesShuffle(channel: tagCh, shuffleMode: false))
+        XCTAssertTrue(QueueManager.usesShuffle(channel: tagCh, shuffleMode: true))
+
+        // Deterministic drain: regardless of order, the whole pool is reachable.
         var tracks: [Track] = []
         for i in 1...8 {
-            var t = Track(
+            tracks.append(Track(
                 id: "oxford-\(i)", source: "oxford_lectures",
                 title: "Lecture \(i)", artist: "University of Oxford",
                 duration: 600,
                 streamURL: URL(string: "https://podcasts.ox.ac.uk/x/\(i)")!,
                 downloadURL: nil, localFilePath: nil,
-                license: .ccBy, tags: ["oxford-lectures", slug],
+                license: .ccBy, tags: ["oxford-lectures", "faculty-philosophy"],
                 qualityScore: 1.0,
                 rawCreator: "University of Oxford", composer: nil, instruments: [],
                 metadataConfidence: 2.0
-            )
-            t.addedDate = Date(timeIntervalSince1970: TimeInterval(1_700_000_000 + i * 86_400))
-            tracks.append(t)
+            ))
         }
         await db.saveTracks(tracks)
-
-        let lecture = Channel(
-            id: "oxford-philosophy", name: "Philosophy", category: "Lectures",
-            icon: "quote.bubble", tags: [slug],
-            contentType: .spokenWord, preferredSource: "oxford_lectures"
-        )
-        // A plain tag channel over the SAME pool: non-registry, non-lecture →
-        // honors the shuffle toggle (sequential when off).
-        let tagChannel = Channel(
-            id: "oxford-philosophy", name: "x", category: "Contemporary",
-            icon: "x", tags: ["oxford-lectures"], preferredSource: "oxford_lectures"
-        )
-        func drain(_ ch: Channel, shuffle: Bool) async -> [String] {
-            let qm = QueueManager(db: db)
-            var out: [String] = []
-            for _ in 0..<8 {
-                guard let t = await qm.nextTrack(channel: ch, shuffleMode: shuffle) else { break }
-                out.append(t.id)
-            }
-            return out
+        var seen = Set<String>()
+        for _ in 0..<8 {
+            guard let t = await queue.nextTrack(channel: lecture, shuffleMode: false) else { break }
+            seen.insert(t.id)
         }
-
-        let lectureOff = await drain(lecture, shuffle: false)
-        let lectureOn  = await drain(lecture, shuffle: true)
-        let tagOff     = await drain(tagChannel, shuffle: false)
-        let tagOn      = await drain(tagChannel, shuffle: true)
-
-        // Deterministic, non-flaky: a Lecture channel ALWAYS shuffles, so its
-        // output is identical whether the global toggle is on or off — whereas
-        // a plain tag channel changes (sequential vs shuffled).
-        XCTAssertEqual(lectureOff.count, 8, "queue should drain the lecture pool")
-        XCTAssertEqual(Set(lectureOff), Set(tracks.map(\.id)), "every lecture reachable")
-        XCTAssertEqual(lectureOff, lectureOn,
-            "Lecture channel must ignore the shuffle toggle (always randomized)")
-        XCTAssertNotEqual(tagOff, tagOn,
-            "control: a non-lecture tag channel DOES respond to the shuffle toggle")
+        XCTAssertEqual(seen, Set(tracks.map(\.id)), "every lecture must be reachable")
     }
 
     // Channel leakage regression: draining a curated channel past its pool

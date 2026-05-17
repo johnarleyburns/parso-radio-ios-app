@@ -10,6 +10,15 @@ final class QueueManager {
 
     init(db: DatabaseService) { self.db = db }
 
+    // Curated radio-style channels always shuffle regardless of the global
+    // toggle: registry-backed IA channels and Lecture channels (which
+    // aggregate a whole faculty). Sequential only makes sense for
+    // podcast/news. Pure + static so it is deterministically unit-testable
+    // without draining a seeded-random queue.
+    static func usesShuffle(channel: Channel, shuffleMode: Bool) -> Bool {
+        shuffleMode || channel.iaQueryEntry != nil || channel.category == "Lectures"
+    }
+
     private func recents(_ channelId: String) -> [String] { recentByChannel[channelId] ?? [] }
 
     private func record(_ id: String, channelId: String) {
@@ -108,9 +117,7 @@ final class QueueManager {
         //    Oxford tracks also carry no addedDate, so the non-shuffle path
         //    would just emit an arbitrary DB order anyway).
         // Sequential newest-first only makes sense for podcast/news channels.
-        let effectiveShuffle = shuffleMode
-            || channel.iaQueryEntry != nil
-            || channel.category == "Lectures"
+        let effectiveShuffle = Self.usesShuffle(channel: channel, shuffleMode: shuffleMode)
 
         let track: Track
         if effectiveShuffle {

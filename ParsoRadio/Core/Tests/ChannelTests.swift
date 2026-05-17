@@ -81,6 +81,30 @@ final class ChannelTests: XCTestCase {
         XCTAssertFalse(fmaJazz.matches(noTagTrack),"Untagged track should not match Jazz channel")
     }
 
+    // Regression: Soul & R&B / World Music were empty because FMA tags tracks
+    // with the genre SLUG ("soul-rb") while the channel tag is "soul" —
+    // Channel.matches() never matched. FMAService now stamps the channel tag.
+    func testFMASlugMismatchChannelsNeedChannelTagStamp() {
+        let soul = Channel.defaults.first { $0.id == "fma-soul-rnb" }!
+        let world = Channel.defaults.first { $0.id == "fma-international" }!
+        XCTAssertEqual(soul.tags, ["soul"])
+        XCTAssertEqual(world.tags, ["world music"])
+
+        // FMA mapTrack tags by lowercased slug — the bug.
+        let slugTagged = makeTrack(composer: nil, instruments: [], tags: ["soul-rb"])
+        XCTAssertFalse(soul.matches(slugTagged),
+            "slug-only tag must NOT match (this was the empty-channel bug)")
+
+        // The FMAService fix stamps the channel tag → matches.
+        let stamped = slugTagged.stamped(with: ["soul"])
+        XCTAssertTrue(soul.matches(stamped),
+            "stamping the channel tag must make Soul & R&B match")
+        let worldStamped = makeTrack(composer: nil, instruments: [], tags: ["international"])
+            .stamped(with: ["world music"])
+        XCTAssertTrue(world.matches(worldStamped),
+            "stamping must make World Music match")
+    }
+
     func testPreferredSourceAssignedCorrectly() {
         let spanishGuitar = Channel.defaults.first { $0.id == "spanish-guitar" }!
         let fmaJazz       = Channel.defaults.first { $0.id == "fma-jazz" }!
