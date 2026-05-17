@@ -267,12 +267,7 @@ struct InternetArchiveService {
 
     func search(query: String, page: Int) async throws -> [SearchViewModel.ResultGroup] {
         let q = "(title:(\(query)) OR creator:(\(query))) AND mediatype:audio"
-        return try await searchGroups(query: q, page: page, source: .internetArchive)
-    }
-
-    func searchLibrivox(query: String, page: Int) async throws -> [SearchViewModel.ResultGroup] {
-        let q = "(title:(\(query)) OR creator:(\(query))) AND mediatype:audio AND collection:librivoxaudio"
-        return try await searchGroups(query: q, page: page, source: .librivox)
+        return try await searchGroups(query: q, page: page)
     }
 
     func fetchTracksForIdentifier(_ identifier: String) async throws -> [Track] {
@@ -355,8 +350,7 @@ struct InternetArchiveService {
 
     private func searchGroups(
         query: String,
-        page: Int,
-        source: SearchViewModel.SearchSource
+        page: Int
     ) async throws -> [SearchViewModel.ResultGroup] {
         var components = URLComponents(string: Self.searchBase)!
         components.queryItems = [
@@ -365,6 +359,7 @@ struct InternetArchiveService {
             URLQueryItem(name: "fl[]",    value: "title"),
             URLQueryItem(name: "fl[]",    value: "creator"),
             URLQueryItem(name: "fl[]",    value: "addeddate"),
+            URLQueryItem(name: "fl[]",    value: "runtime"),
             URLQueryItem(name: "output",  value: "json"),
             URLQueryItem(name: "rows",    value: "20"),
             URLQueryItem(name: "start",   value: "\(page * 20)"),
@@ -378,10 +373,19 @@ struct InternetArchiveService {
                 title: doc.title ?? doc.identifier,
                 creator: doc.creator ?? "Unknown",
                 addedDate: Self.parseIADate(doc.addeddate),
-                trackCount: 1,
-                source: source
+                duration: Self.parseRuntime(doc.runtime)
             )
         }
+    }
+
+    // IA `runtime` is usually "H:MM:SS"/"MM:SS"; sometimes plain seconds.
+    private static func parseRuntime(_ raw: String?) -> Double {
+        guard let s = raw?.trimmingCharacters(in: .whitespaces), !s.isEmpty else { return 0 }
+        if let d = Double(s) { return d }
+        let parts = s.split(separator: ":").compactMap { Double($0) }
+        if parts.count == 3 { return parts[0] * 3600 + parts[1] * 60 + parts[2] }
+        if parts.count == 2 { return parts[0] * 60 + parts[1] }
+        return 0
     }
 
     // MARK: - Private
@@ -500,10 +504,11 @@ struct IADoc: Decodable {
     let collection: [String]
     let addeddate: String?
     let date: String?
+    let runtime: String?
 
     enum CodingKeys: String, CodingKey {
         case identifier, title, creator, licenseurl, description, year, addeddate
-        case subject, collection, date
+        case subject, collection, date, runtime
     }
 
     init(from decoder: Decoder) throws {
@@ -554,6 +559,13 @@ struct IADoc: Decodable {
             date = arr.first
         } else {
             date = try? c.decode(String.self, forKey: .date)
+        }
+
+        // runtime: String or [String] (item duration, "H:MM:SS")
+        if let arr = try? c.decode([String].self, forKey: .runtime) {
+            runtime = arr.first
+        } else {
+            runtime = try? c.decode(String.self, forKey: .runtime)
         }
     }
 }

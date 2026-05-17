@@ -104,8 +104,9 @@ struct iPodView: View {
                 .environmentObject(offlineService)
         }
         .sheet(isPresented: $showSearch) {
-            SearchView()
+            SearchView(dismissAll: { showSearch = false })
                 .environmentObject(playlistVM)
+                .environmentObject(playerVM)
         }
         .sheet(isPresented: $showAbout) {
             AboutView()

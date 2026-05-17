@@ -293,6 +293,34 @@ final class PlayerViewModelTests: XCTestCase {
             "Wheel diameter for typical iPhone should be ~345 pt")
     }
 
+    // Smooth transition: opening a playlist must wipe the previous track's
+    // UI state SYNCHRONOUSLY (before the async fetch) so the main screen
+    // never shows stale elapsed time / artwork, and pre-populate the chosen
+    // track so its metadata shows under the spinner.
+    func testLoadPlaylistClearsStaleStateImmediately() async throws {
+        vm.shuffleMode = false
+        let t1 = makeFMATrack(id: "bt-1", tags: ["jazz"])
+        await db.saveTracks([t1])
+        let pl = try await db.createPlaylist(name: "BeginTransition")
+        await db.addTrack(t1, toPlaylist: pl.id)
+
+        // Simulate a previous track mid-playback.
+        vm.currentTrack = makeFMATrack(id: "stale", tags: ["jazz"])
+        vm.currentPosition = 137
+        vm.trackDuration = 200
+
+        let loadTask = Task { await self.vm.loadPlaylist(pl, startingAt: t1) }
+        await Task.yield()   // let the synchronous preamble run
+
+        XCTAssertEqual(vm.currentPosition, 0,
+            "stale elapsed time must be cleared before any await")
+        XCTAssertNil(vm.currentArtwork, "stale artwork must be cleared")
+        XCTAssertTrue(vm.isLoading, "spinner must show during the transition")
+        XCTAssertEqual(vm.currentTrack?.id, "bt-1",
+            "the chosen track must be pre-populated (metadata under spinner)")
+        _ = await loadTask.value
+    }
+
     // MARK: - Playlist navigation regressions
     //
     // Bug report: in a playlist, <next> never advanced; <back> jumped to a

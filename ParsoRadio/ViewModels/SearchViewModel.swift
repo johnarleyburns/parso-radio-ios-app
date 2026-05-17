@@ -2,26 +2,18 @@ import Foundation
 
 @MainActor
 final class SearchViewModel: ObservableObject {
-    enum SearchSource: String, CaseIterable, Identifiable {
-        case internetArchive = "Internet Archive"
-        case librivox        = "Librivox"
-        var id: String { rawValue }
-    }
-
+    // One flat result per Internet Archive item. Tapping it plays immediately
+    // (no source picker, no expand/“N tracks”).
     struct ResultGroup: Identifiable {
         let id: String
         let title: String
         let creator: String
         let addedDate: Date?
-        var trackCount: Int
-        var tracks: [Track] = []
-        var isExpanded: Bool = false
-        let source: SearchSource
+        let duration: Double          // seconds; 0 if IA exposes no runtime
         var artworkURLString: String? = nil
     }
 
     @Published var query: String = ""
-    @Published var source: SearchSource = .internetArchive
     @Published var results: [ResultGroup] = []
     @Published var isSearching: Bool = false
     @Published var errorMessage: String? = nil
@@ -50,32 +42,11 @@ final class SearchViewModel: ObservableObject {
         await performSearch(page: currentPage + 1)
     }
 
-    func expandGroup(at index: Int) async {
-        guard index < results.count else { return }
-        if !results[index].tracks.isEmpty {
-            results[index].isExpanded.toggle()
-            return
-        }
-        let group = results[index]
-        let tracks = (try? await archiveService.fetchTracksForIdentifier(group.id)) ?? []
-        results[index].tracks = tracks
-        results[index].trackCount = tracks.count
-        results[index].isExpanded = true
-    }
-
-    // MARK: - Private
-
     private func performSearch(page: Int) async {
         isSearching = true
         errorMessage = nil
         do {
-            let groups: [ResultGroup]
-            switch source {
-            case .internetArchive:
-                groups = try await archiveService.search(query: query, page: page)
-            case .librivox:
-                groups = try await archiveService.searchLibrivox(query: query, page: page)
-            }
+            let groups = try await archiveService.search(query: query, page: page)
             if page == 0 { results = groups } else { results.append(contentsOf: groups) }
             currentPage = page
             hasMorePages = groups.count == 20

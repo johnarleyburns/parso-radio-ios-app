@@ -229,16 +229,16 @@ final class InternetArchiveServiceTests: XCTestCase {
         XCTAssertEqual(groups[0].id, "beethoven-sym3")
         XCTAssertEqual(groups[0].title, "Symphony No. 3")
         XCTAssertEqual(groups[0].creator, "Ludwig van Beethoven")
-        XCTAssertEqual(groups[0].source, .internetArchive)
         XCTAssertNotNil(groups[0].addedDate)
     }
 
-    func testSearchLibrivoxHasLibrivoxSource() async throws {
+    func testSearchParsesRuntimeIntoDuration() async throws {
         MockURLProtocol.requestHandler = { _ in
             let json = """
             {"response":{"docs":[
-              {"identifier":"sherlock-holmes-librivox","title":"Adventures of Sherlock Holmes",
-               "creator":"Arthur Conan Doyle","addeddate":"2021-03-15T00:00:00.000000"}
+              {"identifier":"x1","title":"A","creator":"C","runtime":"3:45"},
+              {"identifier":"x2","title":"B","creator":"C","runtime":"1:02:03"},
+              {"identifier":"x3","title":"D","creator":"C"}
             ]}}
             """
             let data = json.data(using: .utf8)!
@@ -246,10 +246,10 @@ final class InternetArchiveServiceTests: XCTestCase {
             return (response, data)
         }
         let service = InternetArchiveService(session: session)
-        let groups = try await service.searchLibrivox(query: "sherlock", page: 0)
-        XCTAssertEqual(groups.count, 1)
-        XCTAssertEqual(groups[0].source, .librivox)
-        XCTAssertEqual(groups[0].id, "sherlock-holmes-librivox")
+        let groups = try await service.search(query: "x", page: 0)
+        XCTAssertEqual(groups[0].duration, 225, accuracy: 0.01)        // 3:45
+        XCTAssertEqual(groups[1].duration, 3723, accuracy: 0.01)       // 1:02:03
+        XCTAssertEqual(groups[2].duration, 0, accuracy: 0.01)          // missing → 0
     }
 
     func testSearchPaginationSetsStartParam() async throws {

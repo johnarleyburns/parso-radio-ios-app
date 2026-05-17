@@ -250,20 +250,6 @@ final class SearchIntegrationTests: XCTestCase {
         for g in groups.prefix(3) { print("  \(g.id) — \(g.title)") }
         XCTAssertFalse(groups.isEmpty, "Expected ≥1 result for 'beethoven' on Internet Archive")
         XCTAssertTrue(groups.allSatisfy { !$0.id.isEmpty }, "All groups must have a non-empty identifier")
-        XCTAssertTrue(groups.allSatisfy { $0.source == .internetArchive })
-    }
-
-    func testSearchLibrivoxSherlockReturnsResults() async throws {
-        let groups: [SearchViewModel.ResultGroup]
-        do {
-            groups = try await service.searchLibrivox(query: "sherlock", page: 0)
-        } catch let e as URLError {
-            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
-        }
-        print("LibriVox 'sherlock': \(groups.count) groups")
-        for g in groups.prefix(3) { print("  \(g.id) — \(g.title)") }
-        XCTAssertFalse(groups.isEmpty, "Expected ≥1 LibriVox result for 'sherlock'")
-        XCTAssertTrue(groups.allSatisfy { $0.source == .librivox })
     }
 
     func testFetchTracksForIdentifierReturnsPlayableFiles() async throws {

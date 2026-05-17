@@ -1,12 +1,16 @@
 import SwiftUI
 
 struct SearchView: View {
+    var dismissAll: (() -> Void)? = nil
     @EnvironmentObject var playlistVM: PlaylistViewModel
+    @EnvironmentObject var playerVM: PlayerViewModel
     @StateObject private var searchVM: SearchViewModel
     @State private var showAddToPlaylist: Track? = nil
     @Environment(\.dismiss) private var dismiss
 
-    init(archiveService: InternetArchiveService = InternetArchiveService()) {
+    init(dismissAll: (() -> Void)? = nil,
+         archiveService: InternetArchiveService = InternetArchiveService()) {
+        self.dismissAll = dismissAll
         _searchVM = StateObject(wrappedValue: SearchViewModel(
             archiveService: archiveService
         ))
@@ -15,73 +19,47 @@ struct SearchView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("Source", selection: $searchVM.source) {
-                    ForEach(SearchViewModel.SearchSource.allCases) { source in
-                        Text(source.rawValue).tag(source)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-
                 if searchVM.isSearching {
-                    ProgressView()
-                        .padding()
+                    ProgressView().padding()
                 }
-
                 if let error = searchVM.errorMessage {
-                    Text(error)
-                        .foregroundStyle(.secondary)
-                        .padding()
+                    Text(error).foregroundStyle(.secondary).padding()
                 }
 
                 List {
-                    ForEach(Array(searchVM.results.enumerated()), id: \.element.id) { index, group in
-                        Section {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(group.title)
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                    Text(group.creator)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    if let date = group.addedDate {
-                                        Text(date.formatted(.dateTime.year().month().day()))
-                                            .font(.caption2)
-                                            .foregroundStyle(.tertiary)
-                                    }
-                                }
-                                Spacer()
-                                Text("\(group.trackCount) tracks")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Button {
-                                    Task { await searchVM.expandGroup(at: index) }
-                                } label: {
-                                    Image(systemName: group.isExpanded ? "chevron.up" : "chevron.down")
+                    ForEach(searchVM.results) { group in
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(group.title)
+                                    .font(.body).fontWeight(.medium).lineLimit(2)
+                                Text(group.creator)
+                                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                if let date = group.addedDate {
+                                    Text(date.formatted(.dateTime.year().month().day()))
+                                        .font(.caption2).foregroundStyle(.tertiary)
                                 }
                             }
-
-                            if group.isExpanded {
-                                ForEach(group.tracks) { track in
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(track.title).font(.subheadline).lineLimit(1)
-                                            Text(track.artist).font(.caption).foregroundStyle(.secondary)
-                                        }
-                                        Spacer()
-                                        Text(Duration.seconds(track.duration)
-                                            .formatted(.time(pattern: .minuteSecond)))
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        Button {
-                                            showAddToPlaylist = track
-                                        } label: {
-                                            Image(systemName: "plus.circle")
-                                        }
-                                    }
-                                }
+                            Spacer()
+                            if group.duration > 0 {
+                                Text(Duration.seconds(group.duration)
+                                    .formatted(.time(pattern: .minuteSecond)))
+                                    .font(.caption)
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                            }
+                            Button {
+                                showAddToPlaylist = searchTrack(group)
+                            } label: {
+                                Image(systemName: "plus.circle")
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Color.accentColor)
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Task {
+                                await playerVM.playSearchResult(group)
+                                dismissAll?()
                             }
                         }
                     }
@@ -94,7 +72,6 @@ struct SearchView: View {
             }
             .searchable(text: $searchVM.query, prompt: "Search music, audiobooks…")
             .onChange(of: searchVM.query) { _ in searchVM.searchChanged() }
-            .onChange(of: searchVM.source) { _ in searchVM.searchChanged() }
             .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -107,5 +84,20 @@ struct SearchView: View {
                     .environmentObject(playlistVM)
             }
         }
+    }
+
+    private func searchTrack(_ group: SearchViewModel.ResultGroup) -> Track {
+        Track(
+            id: group.id, source: "internet_archive",
+            title: group.title, artist: group.creator,
+            duration: group.duration,
+            streamURL: URL(string: "https://archive.org/download/\(group.id)")
+                ?? URL(string: "https://archive.org")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: [],
+            qualityScore: 1.0, rawCreator: group.creator,
+            composer: nil, instruments: [],
+            metadataConfidence: 0.0, addedDate: group.addedDate
+        )
     }
 }

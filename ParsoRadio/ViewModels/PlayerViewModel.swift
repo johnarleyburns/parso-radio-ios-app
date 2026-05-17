@@ -558,7 +558,51 @@ final class PlayerViewModel: ObservableObject {
 
     // MARK: - Playlist playback
 
+    // Synchronously wipe the outgoing track's UI state BEFORE any await, so
+    // entering the main screen never shows stale elapsed time / artwork.
+    // If `pre` is known, pre-populate it so its metadata shows under the
+    // spinner; playTrack then finalises + starts audio in one update.
+    private func beginTransition(pre: Track?) {
+        audioPlayer.skip()
+        currentArtwork = nil
+        artworkDominantColor = .accentColor
+        currentPosition = 0
+        errorMessage = nil
+        isPlaying = false
+        currentTrack = pre
+        trackDuration = (pre?.duration ?? 0) > 0 ? pre?.duration : nil
+        isLoading = true
+        loadingMessage = "Loading…"
+    }
+
+    // Play a single Internet Archive search result immediately.
+    func playSearchResult(_ group: SearchViewModel.ResultGroup) async {
+        let pre = Track(
+            id: group.id, source: "internet_archive",
+            title: group.title, artist: group.creator,
+            duration: group.duration,
+            streamURL: URL(string: "https://archive.org/download/\(group.id)")
+                ?? URL(string: "https://archive.org")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: [],
+            qualityScore: 1.0, rawCreator: group.creator, composer: nil,
+            instruments: [], metadataConfidence: 0.0,
+            addedDate: group.addedDate
+        )
+        currentChannel = nil
+        currentPlaylist = nil
+        playlistTracks = []
+        playlistIndex = 0
+        playHistory = []
+        channelDescription = ""
+        beginTransition(pre: pre)
+        await playTrack(pre, seekTo: nil, recordHistory: false)
+        isLoading = false
+        loadingMessage = nil
+    }
+
     func loadPlaylist(_ playlist: Playlist, startingAt track: Track? = nil) async {
+        beginTransition(pre: track)
         currentPlaylist = playlist
         currentChannel = nil
         playHistory = []
