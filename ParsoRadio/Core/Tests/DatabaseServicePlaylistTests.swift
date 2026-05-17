@@ -48,6 +48,45 @@ final class DatabaseServicePlaylistTests: XCTestCase {
             "custom order must persist via setPlaylistOrder")
     }
 
+    // Item 4/8a: a whole book/album must read in the given order even though
+    // the playlist fetch is newest-first (sort_order DESC).
+    func testAddTracksOrderedReadsInGivenOrder() async throws {
+        let pl = try await db.createPlaylist(name: "Book Shelf")
+        let parts = (1...5).map { i -> Track in
+            Track(id: "bk/part\(i).mp3", source: "internet_archive",
+                  title: "Ch \(i)", artist: "Author", duration: 60,
+                  streamURL: URL(string: "https://archive.org/download/bk/part\(i).mp3")!,
+                  downloadURL: nil, localFilePath: nil, license: .publicDomain,
+                  tags: [], qualityScore: 0.7, rawCreator: "", composer: nil,
+                  instruments: [], metadataConfidence: 1.0,
+                  partNumber: i, totalParts: 5, parentIdentifier: "bk")
+        }
+        await db.addTracksOrdered(parts, toPlaylist: pl.id)
+        let got = await db.fetchTracks(forPlaylist: pl.id)
+        XCTAssertEqual(got.map(\.id), parts.map(\.id),
+            "addTracksOrdered must preserve chapter order under DESC fetch")
+    }
+
+    // Item 4: re-probe purge — stale parent rows must be removable so a
+    // mixed-format extraction can be replaced by a clean single-format set.
+    func testDeleteTracksForParentIdentifier() async throws {
+        let mixed = ["bk/c1.mp3", "bk/c1.ogg", "bk/c2.mp3", "other/x.mp3"].map { id in
+            Track(id: id, source: "internet_archive", title: id, artist: "a",
+                  duration: 1, streamURL: URL(string: "https://archive.org/download/\(id)")!,
+                  downloadURL: nil, localFilePath: nil, license: .publicDomain,
+                  tags: [], qualityScore: 0.7, rawCreator: "", composer: nil,
+                  instruments: [], metadataConfidence: 1.0,
+                  partNumber: 1, totalParts: 1,
+                  parentIdentifier: id.hasPrefix("bk/") ? "bk" : "other")
+        }
+        await db.saveTracks(mixed)
+        await db.deleteTracks(forParentIdentifier: "bk")
+        let bk = await db.fetchTracks(forParentIdentifier: "bk")
+        let other = await db.fetchTracks(forParentIdentifier: "other")
+        XCTAssertTrue(bk.isEmpty, "all 'bk' parts purged")
+        XCTAssertEqual(other.count, 1, "other items untouched")
+    }
+
     func testRenamePlaylist() async throws {
         let playlist = try await db.createPlaylist(name: "Old Name")
         await db.renamePlaylist(id: playlist.id, name: "New Name")

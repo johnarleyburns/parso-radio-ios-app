@@ -96,6 +96,24 @@ final class SearchViewModelTests: XCTestCase {
             collection: nil), .album)
     }
 
+    // Item 1: books & albums rank above tracks; stable within a kind;
+    // not-yet-classified items keep their place (track rank).
+    func testDisplayedResultsRanksBooksAndAlbumsFirst() {
+        let vm = SearchViewModel()
+        func g(_ id: String) -> SearchViewModel.ResultGroup {
+            .init(id: id, title: id, creator: "c", addedDate: nil, duration: 0)
+        }
+        vm.results = ["t1", "bk1", "al1", "t2", "bk2", "unk"].map(g)
+        vm.itemKinds = [
+            "t1": .track, "bk1": .book, "al1": .album,
+            "t2": .track, "bk2": .book   // "unk" intentionally unclassified
+        ]
+        XCTAssertEqual(vm.displayedResults.map(\.id),
+                       ["bk1", "bk2", "al1", "t1", "t2", "unk"],
+            "books then albums then tracks; original order preserved per kind; "
+            + "unclassified stays at track rank")
+    }
+
     // Item 3: history records on successful search, de-dupes case-insensitively,
     // keeps most-recent-first, caps the list, and persists.
     func testSearchHistoryRecordsDedupesAndClears() {

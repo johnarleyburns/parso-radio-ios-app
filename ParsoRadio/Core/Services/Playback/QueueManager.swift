@@ -181,15 +181,26 @@ final class QueueManager {
               .min(by: { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) })
     }
 
+    // Items confirmed to belong to a multi-file album/book are boosted: in
+    // curated channels these are typically higher-quality full releases, so
+    // they should surface more often than one-off single tracks. nil (not yet
+    // probed) and false stay neutral, so this only ever lifts known albums.
+    static let albumBoost = 2.5
+
+    static func selectionWeight(_ t: Track) -> Double {
+        let base = t.qualityScore * max(t.metadataConfidence, 0.01)
+        return base * (t.isMultiPart == true ? albumBoost : 1.0)
+    }
+
     // `variance` (the channel's recent-play count) perturbs the daily seed so
     // successive picks within a session differ while staying reproducible.
     private func weightedRandom(from pool: [Track], seed: UInt64, variance: Int) -> Track {
         var rng = SeededRNG(seed: seed &+ UInt64(variance))
-        let totalWeight = pool.reduce(0.0) { $0 + ($1.qualityScore * max($1.metadataConfidence, 0.01)) }
+        let totalWeight = pool.reduce(0.0) { $0 + Self.selectionWeight($1) }
         guard totalWeight > 0 else { return pool[Int(rng.next() % UInt64(pool.count))] }
         var pick = Double(rng.next()) / Double(UInt64.max) * totalWeight
         for track in pool {
-            pick -= track.qualityScore * max(track.metadataConfidence, 0.01)
+            pick -= Self.selectionWeight(track)
             if pick <= 0 { return track }
         }
         var fallback = SeededRNG(seed: seed &+ UInt64(variance) &+ 1)

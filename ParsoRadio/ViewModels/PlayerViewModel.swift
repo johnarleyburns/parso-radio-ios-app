@@ -521,9 +521,11 @@ final class PlayerViewModel: ObservableObject {
         // 1. In-session cache (key present → definitive; nil value = single).
         if let cached = itemPartsCache[identifier] { return cached }
 
-        // 2. DB-first: already-expanded parts win, no network needed.
+        // 2. DB-first: already-expanded parts win — but ONLY if they form a
+        //    clean single-format, contiguous set. Stale mixed-format rows from
+        //    an older extraction are rejected so we re-probe and self-heal.
         let dbParts = await db.fetchTracks(forParentIdentifier: identifier)
-        if dbParts.count >= 2 {
+        if dbParts.count >= 2, Self.partsAreClean(dbParts) {
             let ordered = dbParts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
             itemPartsCache[identifier] = ordered
             return ordered
@@ -547,6 +549,9 @@ final class PlayerViewModel: ObservableObject {
             let stampTags = (currentChannel?.iaQueryEntry?.matchTags ?? [])
                 .map { Channel.stampToken($0) }
             let stamped = fetched.map { $0.stamped(with: stampTags) }
+            // Purge any stale rows (old mixed-format extraction) so the DB
+            // holds ONLY this clean single-format set going forward.
+            await db.deleteTracks(forParentIdentifier: identifier)
             await db.saveTracks(stamped)
             await db.setIsMultiPart(true, forTrackId: identifier)
             let ordered = stamped.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
@@ -556,6 +561,19 @@ final class PlayerViewModel: ObservableObject {
             // Network error: do NOT cache (absence = retry on next load).
             return nil
         }
+    }
+
+    // A DB part-set is trustworthy only if it is ONE audio format and its
+    // part numbers are exactly 1…n (no gaps, dupes, or nils). Anything else
+    // is a stale mixed-format extraction and must be re-probed.
+    static func partsAreClean(_ parts: [Track]) -> Bool {
+        guard !parts.isEmpty else { return false }
+        let exts = Set(parts.map {
+            ($0.id as NSString).pathExtension.lowercased()
+        })
+        guard exts.count == 1, exts.first?.isEmpty == false else { return false }
+        let numbers = parts.compactMap(\.partNumber).sorted()
+        return numbers.count == parts.count && numbers == Array(1...parts.count)
     }
 
     // "Add Entire Book/Album to Playlist" — adds every part in book/album

@@ -60,9 +60,9 @@ final class PlaylistViewModel: ObservableObject {
     // (idempotent), so the count is re-derived from the DB rather than
     // incremented blindly — re-adding a partially-present book stays accurate.
     func addTracks(_ tracks: [Track], to playlist: Playlist) async {
-        for track in tracks {
-            await db.addTrack(track, toPlaylist: playlist.id)
-        }
+        // Order-preserving bulk insert so a book/album reads in chapter order
+        // (fetchTracks(forPlaylist:) sorts newest-first).
+        await db.addTracksOrdered(tracks, toPlaylist: playlist.id)
         if playlist.isFavorites {
             tracks.forEach { trackFavoriteCache[$0.id] = true }
         }

@@ -369,13 +369,6 @@ extension Channel {
             tags: ["netlabels"],
             preferredSource: "internet_archive"
         ),
-        // Lofi: netlabels-only lo-fi-tagged content (2,233 items).
-        Channel(
-            id: "lofi", name: "Lofi", category: "Curated",
-            icon: "cup.and.saucer.fill",
-            tags: ["lofi", "lo-fi"],
-            preferredSource: "internet_archive"
-        ),
         // 78 RPM: the entire IA 78rpm collection, randomized (309,347 items).
         Channel(
             id: "rpm-78", name: "78 RPM", category: "Curated",

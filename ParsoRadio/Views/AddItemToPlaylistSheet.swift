@@ -12,6 +12,7 @@ struct AddItemToPlaylistSheet: View {
     @State private var added = false
     @State private var newPlaylistName = ""
     @State private var showNewPlaylistField = false
+    @FocusState private var nameFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -35,18 +36,11 @@ struct AddItemToPlaylistSheet: View {
                     if showNewPlaylistField {
                         HStack {
                             TextField("Playlist name", text: $newPlaylistName)
-                            Button("Add") {
-                                let name = newPlaylistName.trimmingCharacters(in: .whitespaces)
-                                guard !name.isEmpty else { return }
-                                Task {
-                                    let p = await playlistVM.createPlaylist(name: name)
-                                    newPlaylistName = ""
-                                    showNewPlaylistField = false
-                                    await addToPlaylist(p)
-                                }
-                            }
+                                .focused($nameFocused)
+                            Button("Add") { commitNewPlaylist() }
                             .disabled(newPlaylistName.trimmingCharacters(in: .whitespaces).isEmpty)
                         }
+                        .onAppear { nameFocused = true }   // cursor ready immediately
                     } else {
                         Button {
                             showNewPlaylistField = true
@@ -64,6 +58,20 @@ struct AddItemToPlaylistSheet: View {
                 }
             }
             .task { await playlistVM.loadPlaylists() }
+        }
+    }
+
+    private func commitNewPlaylist() {
+        let name = newPlaylistName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        // Hide the input row + switch to the spinner BEFORE creating the
+        // playlist, so the new list row never overlaps the filled field.
+        newPlaylistName = ""
+        showNewPlaylistField = false
+        isAdding = true
+        Task {
+            let p = await playlistVM.createPlaylist(name: name)
+            await addToPlaylist(p)
         }
     }
 

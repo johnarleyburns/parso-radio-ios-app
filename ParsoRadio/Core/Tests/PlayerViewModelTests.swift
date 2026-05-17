@@ -575,10 +575,10 @@ final class PlayerViewModelTests: XCTestCase {
         loadTask.cancel()
     }
 
-    // 8a: parts are added in book order regardless of DB/probe order.
-    // db.fetchTracks(forPlaylist:) returns sort_order DESC, so a correctly
-    // ascending insertion comes back as part4 → part1.
-    func testAddEntireItemToPlaylistAddsAllPartsInOrder() async throws {
+    // 8a: a whole book reads in chapter order in the playlist, regardless of
+    // DB/probe order. The order-preserving bulk insert means
+    // fetchTracks(forPlaylist:) (sort_order DESC) returns part1 → partN.
+    func testAddEntireItemToPlaylistReadsInBookOrder() async throws {
         let plVM = PlaylistViewModel(db: db)
         let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
         vm.currentChannel = channel
@@ -593,9 +593,33 @@ final class PlayerViewModelTests: XCTestCase {
                        "every part of the book must be added")
         XCTAssertEqual(
             inPlaylist.map(\.id),
-            ["tom_sawyer/part4.mp3", "tom_sawyer/part3.mp3",
-             "tom_sawyer/part2.mp3", "tom_sawyer/part1.mp3"],
-            "parts must be inserted in ascending book order (8a)")
+            ["tom_sawyer/part1.mp3", "tom_sawyer/part2.mp3",
+             "tom_sawyer/part3.mp3", "tom_sawyer/part4.mp3"],
+            "the book must read in chapter order in the playlist (8a)")
+    }
+
+    func testPartsAreCleanValidation() {
+        let clean = (1...3).map { makeBookPart(parent: "bk", part: $0) }
+        XCTAssertTrue(PlayerViewModel.partsAreClean(clean))
+
+        // Mixed formats (the Laws_Plato bug): same chapters as .mp3 + .ogg.
+        let mixed = clean + clean.map { p in
+            Track(id: p.id.replacingOccurrences(of: ".mp3", with: ".ogg"),
+                  source: "internet_archive", title: p.title, artist: p.artist,
+                  duration: p.duration, streamURL: p.streamURL, downloadURL: nil,
+                  localFilePath: nil, license: .publicDomain, tags: [],
+                  qualityScore: 0.7, rawCreator: "", composer: nil, instruments: [],
+                  metadataConfidence: 1.0,
+                  partNumber: p.partNumber, totalParts: 3, parentIdentifier: "bk")
+        }
+        XCTAssertFalse(PlayerViewModel.partsAreClean(mixed),
+            "mixed-format set must be rejected so it re-probes")
+
+        // Non-contiguous part numbers.
+        let gap = [makeBookPart(parent: "bk", part: 1),
+                   makeBookPart(parent: "bk", part: 4)]
+        XCTAssertFalse(PlayerViewModel.partsAreClean(gap))
+        XCTAssertFalse(PlayerViewModel.partsAreClean([]))
     }
 
     // MARK: - Helpers

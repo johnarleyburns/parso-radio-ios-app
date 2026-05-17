@@ -142,6 +142,29 @@ final class QueueManagerTests: XCTestCase {
             "Chamber Music pool must be independent of Spanish Guitar history")
     }
 
+    // Item 7: confirmed album/book items are weighted higher so they surface
+    // more often than one-off single tracks in curated channels.
+    func testAlbumItemsAreWeightedHigher() {
+        func track(_ id: String, multi: Bool?) -> Track {
+            Track(id: id, source: "internet_archive", title: id, artist: "a",
+                  duration: 1,
+                  streamURL: URL(string: "https://archive.org/download/\(id)")!,
+                  downloadURL: nil, localFilePath: nil,
+                  license: .publicDomain, tags: [], qualityScore: 1.0,
+                  rawCreator: "", composer: nil, instruments: [],
+                  metadataConfidence: 1.0, isMultiPart: multi)
+        }
+        let single  = QueueManager.selectionWeight(track("s", multi: false))
+        let unknown = QueueManager.selectionWeight(track("u", multi: nil))
+        let album   = QueueManager.selectionWeight(track("a", multi: true))
+
+        XCTAssertEqual(single, unknown, accuracy: 1e-9,
+            "nil (unprobed) and false stay neutral")
+        XCTAssertEqual(album, single * QueueManager.albumBoost, accuracy: 1e-9,
+            "confirmed album/book items get the album boost")
+        XCTAssertGreaterThan(album, single, "albums must out-weigh singles")
+    }
+
     // MARK: - Helpers
 
     private func makeStamped(id: String, stamp: String) -> Track {

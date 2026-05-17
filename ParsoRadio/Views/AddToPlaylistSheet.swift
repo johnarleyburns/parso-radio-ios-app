@@ -7,6 +7,7 @@ struct AddToPlaylistSheet: View {
     @State private var newPlaylistName = ""
     @State private var showNewPlaylistField = false
     @State private var inPlaylist: Set<String> = []
+    @FocusState private var nameFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -38,19 +39,11 @@ struct AddToPlaylistSheet: View {
                 if showNewPlaylistField {
                     HStack {
                         TextField("Playlist name", text: $newPlaylistName)
-                        Button("Add") {
-                            let name = newPlaylistName.trimmingCharacters(in: .whitespaces)
-                            guard !name.isEmpty else { return }
-                            Task {
-                                let p = await playlistVM.createPlaylist(name: name)
-                                await playlistVM.addTrack(track, to: p)
-                                inPlaylist.insert(p.id)
-                                newPlaylistName = ""
-                                showNewPlaylistField = false
-                            }
-                        }
-                        .disabled(newPlaylistName.trimmingCharacters(in: .whitespaces).isEmpty)
+                            .focused($nameFocused)
+                        Button("Add") { commitNewPlaylist() }
+                            .disabled(newPlaylistName.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
+                    .onAppear { nameFocused = true }   // cursor ready immediately
                 } else {
                     Button {
                         showNewPlaylistField = true
@@ -74,6 +67,21 @@ struct AddToPlaylistSheet: View {
                     }
                 }
             }
+        }
+    }
+
+    private func commitNewPlaylist() {
+        let name = newPlaylistName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        // Tear down the input row BEFORE creating the playlist, so the new
+        // row appearing in the list never overlaps the still-filled field
+        // (the "name shown twice" flash).
+        newPlaylistName = ""
+        showNewPlaylistField = false
+        Task {
+            let p = await playlistVM.createPlaylist(name: name)
+            await playlistVM.addTrack(track, to: p)
+            inPlaylist.insert(p.id)
         }
     }
 }

@@ -139,7 +139,7 @@ struct SearchView: View {
 
     private var resultsList: some View {
         List {
-            ForEach(searchVM.results) { group in
+            ForEach(searchVM.displayedResults) { group in
                 let dur = searchVM.durations[group.id] ?? group.duration
                 HStack(spacing: 10) {
                     Image(systemName: kindIcon(group))
@@ -206,10 +206,10 @@ struct SearchView: View {
 
     private func kindIcon(_ group: SearchViewModel.ResultGroup) -> String {
         switch searchVM.itemKinds[group.id] {
-        case .book:  return "book.fill"
-        case .album: return "square.stack.fill"
-        case .track: return "music.note"
-        case nil:    return "waveform"
+        case .book:  return "book.closed.fill"      // a book
+        case .album: return "opticaldisc.fill"      // a record album
+        case .track: return "music.note"            // a single track
+        case nil:    return "waveform"              // not yet classified
         }
     }
 

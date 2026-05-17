@@ -4,9 +4,9 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 14 Contemporary + 18 Lectures + 4 News + 4 Ambient + 10 Curated
-        // + 21 Audiobooks (LibriVox) = 71.
-        XCTAssertEqual(Channel.defaults.count, 71)
+        // 14 Contemporary + 18 Lectures + 4 News + 4 Ambient + 9 Curated
+        // + 21 Audiobooks (LibriVox) = 70.
+        XCTAssertEqual(Channel.defaults.count, 70)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {
@@ -50,13 +50,13 @@ final class ChannelTests: XCTestCase {
 
     func testCuratedChannelsAreRegistryBacked() {
         let channels = Channel.defaults.filter { $0.category == "Curated" }
-        XCTAssertEqual(channels.count, 10,
-            "Expected 10 Curated channels")
+        XCTAssertEqual(channels.count, 9,
+            "Expected 9 Curated channels (Lofi removed — it was just noise)")
         let ids = Set(channels.map(\.id))
         XCTAssertEqual(ids, [
             "spanish-guitar", "chamber-music", "historical-voices",
             "symphony-orchestra", "piano-hour", "tribal-works", "cafe-lento",
-            "netlabels", "lofi", "rpm-78"
+            "netlabels", "rpm-78"
         ])
         // Every Curated channel must be pure-Lucene registry-backed, and its
         // matchTag stamp must equal its own id (the isolation contract).

@@ -203,13 +203,6 @@
     ]
   },
   {
-    "channelId": "lofi",
-    "iaQuery": "collection:netlabels AND mediatype:audio AND (subject:lofi OR subject:\"lo-fi\" OR subject:\"lo fi\" OR subject:lo_fi)",
-    "matchTags": [
-      "lofi"
-    ]
-  },
-  {
     "channelId": "rpm-78",
     "iaQuery": "collection:78rpm AND mediatype:audio",
     "matchTags": [

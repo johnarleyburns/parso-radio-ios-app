@@ -410,6 +410,15 @@ final class WholeBookIntegrationTests: XCTestCase {
         let inPlaylist = await db.fetchTracks(forPlaylist: playlist.id)
         XCTAssertEqual(inPlaylist.count, persisted.count,
             "every chapter must be added to the playlist (item 7 fix)")
+        // Item 4/8a: the playlist must read in chapter order, not reversed.
+        XCTAssertEqual(inPlaylist.map(\.partNumber), Array(1...inPlaylist.count),
+            "the book must read Chapter 1 → N in the playlist")
+        // Item 7: ONE audio format only (no mp3+ogg+flac+wav duplicates).
+        let exts = Set(inPlaylist.map {
+            ($0.id as NSString).pathExtension.lowercased()
+        })
+        XCTAssertEqual(exts.count, 1,
+            "exactly one audio format must be persisted, got \(exts)")
     }
 }
 

@@ -272,6 +272,19 @@ final class DatabaseService {
         }
     }
 
+    // Drop every expanded part of a multi-file item. Used before re-probing
+    // so stale mixed-format rows (from an older extraction) can't re-pollute
+    // the single-format set via the DB-first path.
+    func deleteTracks(forParentIdentifier parentId: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                try? self.db.run(
+                    self.tracks.filter(self.colParentId == parentId).delete())
+                continuation.resume()
+            }
+        }
+    }
+
     // Persist the multi-file probe verdict so a track only ever hits the
     // network once across all sessions. true→1, false→0, nil→NULL.
     func setIsMultiPart(_ value: Bool?, forTrackId id: String) async {
@@ -480,6 +493,36 @@ final class DatabaseService {
                     self.colPTSortOrder  <- pt.sortOrder,
                     self.colPTAddedAt    <- pt.addedAt.timeIntervalSince1970
                 ))
+                continuation.resume()
+            }
+        }
+    }
+
+    // Add an ORDERED set (a whole book/album) so it reads in the given order.
+    // fetchTracks(forPlaylist:) sorts sort_order DESC, so the first element
+    // must get the HIGHEST order to come back first.
+    func addTracksOrdered(_ orderedTracks: [Track], toPlaylist playlistId: String) async {
+        guard !orderedTracks.isEmpty else { return }
+        await saveTracks(orderedTracks)
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let maxOrder = (try? self.db.scalar(
+                    self.playlistTracks
+                        .filter(self.colPTPlaylistId == playlistId)
+                        .select(self.colPTSortOrder.max)
+                )) ?? 0
+                let n = orderedTracks.count
+                try? self.db.transaction {
+                    for (i, track) in orderedTracks.enumerated() {
+                        try self.db.run(self.playlistTracks.insert(or: .ignore,
+                            self.colPTId         <- UUID().uuidString,
+                            self.colPTPlaylistId <- playlistId,
+                            self.colPTTrackId    <- track.id,
+                            self.colPTSortOrder  <- maxOrder + (n - i),
+                            self.colPTAddedAt    <- Date().timeIntervalSince1970
+                        ))
+                    }
+                }
                 continuation.resume()
             }
         }

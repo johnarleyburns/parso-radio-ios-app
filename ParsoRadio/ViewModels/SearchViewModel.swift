@@ -99,6 +99,32 @@ final class SearchViewModel: ObservableObject {
         }
     }
 
+    // Books and albums are surfaced ABOVE individual tracks (collections are
+    // generally higher-quality / more relevant). Stable: original relative
+    // order is preserved within each kind, and not-yet-classified items keep
+    // their place (rank as track) so the list doesn't churn while probing.
+    var displayedResults: [ResultGroup] {
+        func rank(_ g: ResultGroup) -> Int {
+            switch itemKinds[g.id] {
+            case .book:  return 0
+            case .album: return 1
+            default:     return 2
+            }
+        }
+        return results.enumerated()
+            .sorted { a, b in
+                let ra = rank(a.element), rb = rank(b.element)
+                return ra == rb ? a.offset < b.offset : ra < rb
+            }
+            .map(\.element)
+    }
+
+    // Resolve kinds for the whole page up front so the ranking settles
+    // quickly instead of reshuffling row-by-row as the user scrolls.
+    private func prefetchKinds() {
+        for group in results { loadItemInfo(group) }
+    }
+
     static func classify(audioCount: Int, collection: String?) -> ItemKind {
         guard audioCount > 1 else { return .track }
         let c = (collection ?? "").lowercased()
@@ -133,6 +159,7 @@ final class SearchViewModel: ObservableObject {
             if page == 0 { results = groups } else { results.append(contentsOf: groups) }
             currentPage = page
             hasMorePages = groups.count == 20
+            prefetchKinds()
         } catch {
             errorMessage = "Search failed — check your connection"
         }
