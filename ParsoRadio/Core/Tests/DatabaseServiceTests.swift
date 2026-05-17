@@ -129,6 +129,68 @@ final class DatabaseServiceTests: XCTestCase {
         XCTAssertEqual(count, 1)
     }
 
+    // MARK: - Multi-file item (book/album) support
+
+    func testFetchTracksForParentIdentifierReturnsOrderedParts() async throws {
+        // Saved out of order; must come back ascending by part_number.
+        let p3 = makePart(parent: "book-A", part: 3)
+        let p1 = makePart(parent: "book-A", part: 1)
+        let p2 = makePart(parent: "book-A", part: 2)
+        let other = makePart(parent: "book-B", part: 1)
+        await db.saveTracks([p3, p1, p2, other])
+
+        let parts = await db.fetchTracks(forParentIdentifier: "book-A")
+        XCTAssertEqual(parts.map(\.partNumber), [1, 2, 3],
+            "parts must be ordered by part_number ascending")
+        XCTAssertFalse(parts.contains { $0.parentIdentifier == "book-B" },
+            "must not bleed in another item's parts")
+
+        let none = await db.fetchTracks(forParentIdentifier: "not-expanded")
+        XCTAssertTrue(none.isEmpty, "unexpanded item returns []")
+    }
+
+    func testIsMultiPartPersistsAndRoundTrips() async throws {
+        let t = makeTrack(id: "probe-1", source: "internet_archive",
+                          composer: nil, instruments: [])
+        await db.saveTracks([t])
+
+        // Default: not yet probed.
+        let initial = await db.fetchTrack(id: "probe-1")
+        XCTAssertNil(initial?.isMultiPart, "fresh track is unprobed (nil)")
+
+        await db.setIsMultiPart(true, forTrackId: "probe-1")
+        let multi = await db.fetchTrack(id: "probe-1")
+        XCTAssertEqual(multi?.isMultiPart, true, "true must persist as multi-file")
+
+        await db.setIsMultiPart(false, forTrackId: "probe-1")
+        let single = await db.fetchTrack(id: "probe-1")
+        XCTAssertEqual(single?.isMultiPart, false, "false must persist as single-file")
+    }
+
+    func testSaveTracksCarriesIsMultiPart() async throws {
+        var t = makeTrack(id: "mp-save", source: "internet_archive",
+                          composer: nil, instruments: [])
+        t.isMultiPart = true
+        await db.saveTracks([t])
+        let back = await db.fetchTrack(id: "mp-save")
+        XCTAssertEqual(back?.isMultiPart, true,
+            "isMultiPart must survive saveTracks → rowToTrack")
+    }
+
+    private func makePart(parent: String, part: Int) -> Track {
+        Track(
+            id: "\(parent)/part\(part).mp3", source: "internet_archive",
+            title: "Part \(part)", artist: "Author",
+            duration: 600,
+            streamURL: URL(string: "https://archive.org/download/\(parent)/part\(part).mp3")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: [],
+            qualityScore: 0.7, rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 1.0,
+            partNumber: part, totalParts: 5, parentIdentifier: parent
+        )
+    }
+
     // MARK: - Helpers
 
     private func makeTrack(id: String, source: String, composer: String?, instruments: [String], confidence: Double = 3.0) -> Track {

@@ -28,6 +28,11 @@ struct Track: Codable, Identifiable {
     // Original recording/publication date when the source exposes one
     // (IA `date`/`year`). Distinct from addedDate (upload date).
     var recordingDate: Date? = nil
+    // Multi-file-item probe result, persisted in the DB:
+    //   nil   = not yet probed
+    //   false = confirmed single-file IA item
+    //   true  = confirmed multi-file IA item (book/album)
+    var isMultiPart: Bool? = nil
 }
 
 extension Track {

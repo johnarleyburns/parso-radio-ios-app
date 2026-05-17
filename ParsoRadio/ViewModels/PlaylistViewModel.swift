@@ -50,6 +50,20 @@ final class PlaylistViewModel: ObservableObject {
         trackCounts[playlist.id] = (trackCounts[playlist.id] ?? 0) + 1
     }
 
+    // Bulk-add every part of a book/album. db.addTrack is INSERT OR IGNORE
+    // (idempotent), so the count is re-derived from the DB rather than
+    // incremented blindly — re-adding a partially-present book stays accurate.
+    func addTracks(_ tracks: [Track], to playlist: Playlist) async {
+        for track in tracks {
+            await db.addTrack(track, toPlaylist: playlist.id)
+        }
+        if playlist.isFavorites {
+            tracks.forEach { trackFavoriteCache[$0.id] = true }
+        }
+        let updated = await db.fetchTracks(forPlaylist: playlist.id)
+        trackCounts[playlist.id] = updated.count
+    }
+
     func removeTrack(_ track: Track, from playlist: Playlist) async {
         await db.removeTrack(trackId: track.id, fromPlaylist: playlist.id)
         if playlist.isFavorites { trackFavoriteCache[track.id] = false }

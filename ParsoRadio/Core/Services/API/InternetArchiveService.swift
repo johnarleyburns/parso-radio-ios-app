@@ -378,6 +378,7 @@ struct InternetArchiveService {
             URLQueryItem(name: "fl[]",    value: "creator"),
             URLQueryItem(name: "fl[]",    value: "addeddate"),
             URLQueryItem(name: "fl[]",    value: "runtime"),
+            URLQueryItem(name: "fl[]",    value: "collection"),
             URLQueryItem(name: "output",  value: "json"),
             URLQueryItem(name: "rows",    value: "20"),
             URLQueryItem(name: "start",   value: "\(page * 20)"),
@@ -391,7 +392,8 @@ struct InternetArchiveService {
                 title: doc.title ?? doc.identifier,
                 creator: doc.creator ?? "Unknown",
                 addedDate: Self.parseIADate(doc.addeddate),
-                duration: Self.parseRuntime(doc.runtime)
+                duration: Self.parseRuntime(doc.runtime),
+                collection: doc.collection.first
             )
         }
     }

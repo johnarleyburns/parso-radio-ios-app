@@ -546,6 +546,89 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertEqual(vm.currentTrack?.id, order[2].id)
     }
 
+    // MARK: - Whole book/album (override queue)
+
+    private func makeBookPart(parent: String, part: Int) -> Track {
+        Track(
+            id: "\(parent)/part\(part).mp3", source: "internet_archive",
+            title: "Part \(part)", artist: "Sun Tzu", duration: 600,
+            streamURL: URL(string: "https://archive.org/download/\(parent)/part\(part).mp3")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: [],
+            qualityScore: 0.7, rawCreator: "Sun Tzu", composer: nil, instruments: [],
+            metadataConfidence: 1.0,
+            partNumber: part, totalParts: 3, parentIdentifier: parent)
+    }
+
+    // playEntireItem resolves parts DB-first (no network), enqueues them, sets
+    // the screen indicator, and does NOT disturb the currently-playing track.
+    // The next advance then drains Part 1, Part 2, … in order.
+    func testPlayEntireItemEnqueuesPartsAndDrainsInOrder() async throws {
+        vm.shuffleMode = false
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let parts = [makeBookPart(parent: "art_of_war", part: 1),
+                     makeBookPart(parent: "art_of_war", part: 2),
+                     makeBookPart(parent: "art_of_war", part: 3)]
+        await db.saveTracks(parts.shuffled())   // order must come from part_number
+
+        let nowPlaying = makeFMATrack(id: "unrelated-now", tags: ["jazz"])
+        vm.currentChannel = channel
+        vm.currentTrack = nowPlaying
+
+        await vm.playEntireItem(from: parts[0])
+
+        XCTAssertEqual(vm.currentTrack?.id, "unrelated-now",
+            "Play Entire Book must NOT interrupt the current track")
+        XCTAssertNotNil(vm.overrideQueueTitle,
+            "the screen-panel 'Next:' indicator must be set")
+
+        vm.skip()
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, "art_of_war/part1.mp3", "drains Part 1 first")
+
+        vm.skip()
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, "art_of_war/part2.mp3", "then Part 2")
+
+        vm.skip()
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        XCTAssertEqual(vm.currentTrack?.id, "art_of_war/part3.mp3", "then Part 3")
+        XCTAssertNil(vm.overrideQueueTitle,
+            "indicator clears once the last queued part is pulled")
+    }
+
+    func testLoadChannelClearsOverrideQueueState() async throws {
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        await db.saveTracks([makeFMATrack(id: "jz", tags: ["jazz"])])
+        vm.overrideQueueTitle = "Some Book"
+        vm.currentTrackIsMultiPart = true
+
+        let loadTask = Task { await self.vm.load(channel: channel) }
+        await Task.yield()   // synchronous reset preamble runs before any await
+
+        XCTAssertNil(vm.overrideQueueTitle,
+            "switching channel must clear a stale book/album indicator")
+        XCTAssertFalse(vm.currentTrackIsMultiPart,
+            "switching channel must hide the book/album buttons")
+        loadTask.cancel()
+    }
+
+    func testAddEntireItemToPlaylistAddsAllParts() async throws {
+        let plVM = PlaylistViewModel(db: db)
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        vm.currentChannel = channel
+        let parts = (1...4).map { makeBookPart(parent: "tom_sawyer", part: $0) }
+        await db.saveTracks(parts)
+        let playlist = try await db.createPlaylist(name: "Audiobook Shelf")
+
+        await vm.addEntireItemToPlaylist(from: parts[0], to: playlist, using: plVM)
+
+        let inPlaylist = await db.fetchTracks(forPlaylist: playlist.id)
+        XCTAssertEqual(Set(inPlaylist.map(\.id)),
+                       Set(parts.map(\.id)),
+                       "every part of the book must be added to the playlist")
+    }
+
     // MARK: - Helpers
 
     private func makeIATrack(id: String, tags: [String]) -> Track {

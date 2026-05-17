@@ -60,6 +60,16 @@ struct SearchView: View {
                                     .font(.body).fontWeight(.medium).lineLimit(2)
                                 Text(group.creator)
                                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                if let coll = group.collection,
+                                   !coll.trimmingCharacters(in: .whitespaces).isEmpty {
+                                    Text(coll)
+                                        .font(.caption2)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color(.tertiarySystemFill))
+                                        .clipShape(Capsule())
+                                        .foregroundStyle(.secondary)
+                                }
                                 if let date = group.addedDate {
                                     Text(date.formatted(.dateTime.year().month().day()))
                                         .font(.caption2).foregroundStyle(.tertiary)

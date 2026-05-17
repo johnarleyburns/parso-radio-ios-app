@@ -142,6 +142,67 @@ final class QueueManagerTests: XCTestCase {
             "Chamber Music pool must be independent of Spanish Guitar history")
     }
 
+    // MARK: - Override queue (Play Entire Book/Album)
+
+    func testOverrideQueueDrainsInOrderBeforeChannelPool() async throws {
+        // Channel has its own pool, but the override queue must win until empty.
+        await seedTracks(composer: "bach", instrument: "strings", count: 5)
+        let channel = Channel(id: "bach", name: "Bach", category: "Classical",
+                              icon: "music.note", composers: ["bach"],
+                              preferredSource: "internet_archive")
+        let parts = (1...3).map { makeStamped(id: "book/part\($0)", stamp: "x") }
+
+        XCTAssertFalse(queue.hasOverrideQueue)
+        queue.enqueueItemTracks(parts, channelId: channel.id)
+        XCTAssertTrue(queue.hasOverrideQueue)
+
+        // Peek must NOT consume — prefetch relies on this.
+        let peek = await queue.peekNextTrack(channel: channel, shuffleMode: false)
+        XCTAssertEqual(peek?.id, "book/part1", "peek returns the head without consuming")
+        XCTAssertTrue(queue.hasOverrideQueue, "peek must not drain the override queue")
+
+        for expected in ["book/part1", "book/part2", "book/part3"] {
+            let t = await queue.nextTrack(channel: channel, shuffleMode: false)
+            XCTAssertEqual(t?.id, expected, "override parts must drain in order")
+        }
+        XCTAssertFalse(queue.hasOverrideQueue, "queue empty after the last part")
+
+        // Normal channel flow resumes transparently.
+        let after = await queue.nextTrack(channel: channel, shuffleMode: false)
+        XCTAssertEqual(after?.composer, "bach",
+            "after the override queue drains, the channel pool resumes")
+    }
+
+    func testClearOverrideQueueEmptiesIt() {
+        let parts = (1...2).map { makeStamped(id: "b/p\($0)", stamp: "x") }
+        queue.enqueueItemTracks(parts, channelId: "ch")
+        XCTAssertTrue(queue.hasOverrideQueue)
+        queue.clearOverrideQueue()
+        XCTAssertFalse(queue.hasOverrideQueue,
+            "clearOverrideQueue must drop a stale book/album queue")
+    }
+
+    func testNextPartReturnsNilWhileOverrideQueueActive() async throws {
+        let channel = Channel(id: "lv", name: "LV", category: "Audiobooks",
+                              icon: "book", tags: ["x"], contentType: .spokenWord,
+                              preferredSource: "internet_archive")
+        let chapter = Track(
+            id: "bk/ch2.mp3", source: "internet_archive",
+            title: "Ch 2", artist: "Author", duration: 600,
+            streamURL: URL(string: "https://archive.org/download/bk/ch2.mp3")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: [],
+            qualityScore: 0.7, rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 1.0,
+            partNumber: 2, totalParts: 5, parentIdentifier: "bk")
+        await db.saveTracks([chapter])
+
+        queue.enqueueItemTracks([makeStamped(id: "x/p1", stamp: "x")], channelId: channel.id)
+        let next = await queue.nextPart(after: chapter, channel: channel)
+        XCTAssertNil(next,
+            "nextPart must yield to the override queue (no double-advance)")
+    }
+
     // MARK: - Helpers
 
     private func makeStamped(id: String, stamp: String) -> Track {

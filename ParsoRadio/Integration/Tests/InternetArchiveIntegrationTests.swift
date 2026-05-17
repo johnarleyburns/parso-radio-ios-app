@@ -252,6 +252,27 @@ final class SearchIntegrationTests: XCTestCase {
         XCTAssertTrue(groups.allSatisfy { !$0.id.isEmpty }, "All groups must have a non-empty identifier")
     }
 
+    // Item 2: live search results must expose the IA collection so the row
+    // can show it (e.g. "librivoxaudio"). Virtually every public IA audio
+    // item belongs to at least one collection, so ≥1 must be non-nil.
+    func testSearchResultsCarryCollection() async throws {
+        let groups: [SearchViewModel.ResultGroup]
+        do {
+            groups = try await service.search(query: "beethoven", page: 0)
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+        guard !groups.isEmpty else {
+            throw XCTSkip("No search results — cannot verify collection parsing")
+        }
+        let withCollection = groups.filter {
+            !($0.collection ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        for g in withCollection.prefix(3) { print("  \(g.id) — collection: \(g.collection!)") }
+        XCTAssertFalse(withCollection.isEmpty,
+            "Expected ≥1 'beethoven' result to expose an IA collection")
+    }
+
     func testFetchTracksForIdentifierReturnsPlayableFiles() async throws {
         let groups: [SearchViewModel.ResultGroup]
         do {
@@ -278,6 +299,74 @@ final class SearchIntegrationTests: XCTestCase {
             },
             "All tracks must have audio file URLs"
         )
+    }
+}
+
+// MARK: - Whole book/album probe integration test
+
+// Exercises the real multi-file probe end-to-end: PlayerViewModel.playEntireItem
+// → resolveItemParts → live archive.org metadata → DB persistence. Uses the
+// stable public-domain LibriVox item "art_of_war_librivox" (14 MP3 chapters).
+@MainActor
+final class WholeBookIntegrationTests: XCTestCase {
+
+    override func setUp() {
+        super.setUp()
+        executionTimeAllowance = 120
+    }
+
+    func testPlayEntireBookProbesNetworkAndPersistsParts() async throws {
+        let db: DatabaseService
+        do { db = try DatabaseService(path: ":memory:") }
+        catch { throw XCTSkip("Could not open in-memory DB: \(error)") }
+
+        let vm = PlayerViewModel(
+            db: db,
+            archiveService: InternetArchiveService(),
+            fmaService: FMAService(),
+            queueManager: QueueManager(db: db),
+            audioPlayer: AudioPlayerService(),
+            downloadManager: DownloadManager(db: db)
+        )
+
+        let identifier = "art_of_war_librivox"
+        // Sanity-probe the network first so a transient IA outage skips
+        // (rather than fails) the test.
+        do {
+            let probe = try await InternetArchiveService()
+                .fetchTracksForIdentifier(identifier)
+            guard probe.count >= 2 else {
+                throw XCTSkip("\(identifier) is no longer multi-file (\(probe.count) files)")
+            }
+        } catch let e as URLError {
+            throw XCTSkip("Network unavailable: \(e.localizedDescription)")
+        }
+
+        let itemTrack = Track(
+            id: identifier, source: "internet_archive",
+            title: "The Art of War", artist: "Sun Tzu", duration: 0,
+            streamURL: URL(string: "https://archive.org/download/\(identifier)")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: [],
+            qualityScore: 1.0, rawCreator: "Sun Tzu", composer: nil,
+            instruments: [], metadataConfidence: 0.0)
+        vm.currentChannel = Channel(
+            id: "lv-history", name: "History", category: "Audiobooks",
+            icon: "book", tags: ["history"], contentType: .spokenWord,
+            preferredSource: "internet_archive")
+
+        await vm.playEntireItem(from: itemTrack)
+
+        XCTAssertNotNil(vm.overrideQueueTitle,
+            "playEntireItem must set the screen-panel indicator after the probe")
+
+        let persisted = await db.fetchTracks(forParentIdentifier: identifier)
+        print("Persisted \(persisted.count) parts for \(identifier)")
+        XCTAssertGreaterThanOrEqual(persisted.count, 2,
+            "the probe must persist every chapter under parent_identifier")
+        XCTAssertEqual(persisted.map(\.partNumber),
+                       persisted.map(\.partNumber).sorted { ($0 ?? 0) < ($1 ?? 0) },
+            "persisted parts must be ordered by part number")
     }
 }
 

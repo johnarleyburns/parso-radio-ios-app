@@ -24,6 +24,12 @@ final class PlayerViewModel: ObservableObject {
     @Published var currentArtwork: UIImage? = nil
     @Published var artworkDominantColor: Color = .accentColor
     @Published var currentPlaylist: Playlist? = nil
+    // Drives the "Play / Add Entire Book/Album" buttons. Set false on every
+    // track change; set true once the silent probe confirms a multi-file item.
+    @Published var currentTrackIsMultiPart: Bool = false
+    // Screen-panel "Next: …" indicator while a book/album override queue is
+    // active; cleared when the queue drains or the channel changes.
+    @Published var overrideQueueTitle: String? = nil
 
     let audioPlayer: AudioPlayerService
 
@@ -39,6 +45,12 @@ final class PlayerViewModel: ObservableObject {
 
     // Look-ahead cache: pre-resolved IA audio URLs so track transitions are gap-free.
     private var prefetchedURLs: [String: URL] = [:]
+    // In-session multi-file probe cache, keyed by bare IA identifier.
+    //   key absent      → not yet probed this session
+    //   value .some(nil) → confirmed single-file (never probe again)
+    //   value [Track]    → confirmed multi-file, parts in part order
+    // Cleared on channel switch (IA item file lists are immutable per session).
+    private var itemPartsCache: [String: [Track]?] = [:]
     // Throttle spoken-word position saves to once every 5 s (onTimeUpdate fires 4×/s).
     private var lastPositionSaveTime: Double = -5
 
@@ -154,6 +166,11 @@ final class PlayerViewModel: ObservableObject {
         currentTrack = nil
         isPlaying = false
         playHistory = []
+        // A book/album override queue must never bleed into a new channel.
+        queueManager.clearOverrideQueue()
+        overrideQueueTitle = nil
+        currentTrackIsMultiPart = false
+        itemPartsCache = [:]
         // UC2: persist last-used channel so the app restores it after restart.
         UserDefaults.standard.set(channel.id, forKey: "lastChannelId")
         // UC6: track visited channels for Favorites (MRU, capped at 20).
@@ -353,6 +370,9 @@ final class PlayerViewModel: ObservableObject {
             isLoading = false
             return
         }
+        // The moment the last queued book/album part is pulled, the override
+        // queue is empty — drop the screen-panel "Next: …" indicator.
+        if !queueManager.hasOverrideQueue { overrideQueueTitle = nil }
         await playTrack(track, seekTo: nil)
     }
 
@@ -395,6 +415,9 @@ final class PlayerViewModel: ObservableObject {
     }
 
     private func playTrack(_ track: Track, seekTo: Double?, recordHistory: Bool = true) async {
+        // Hide the book/album buttons immediately; the probe re-enables them
+        // once it confirms this track belongs to a multi-file item.
+        currentTrackIsMultiPart = false
         // UC3: push current track onto history before replacing it.
         if recordHistory, let existing = currentTrack {
             playHistory.append(existing)
@@ -472,9 +495,115 @@ final class PlayerViewModel: ObservableObject {
                 Task { await prefetchNextURL(channel: channel) }
             }
             scheduleStallWatchdog(for: track, seekTo: seekTo)
+            probeCurrentTrack()
         } catch {
             await handleLoadFailure(track)
         }
+    }
+
+    // MARK: - Whole book/album
+
+    // Silent, async probe run at the end of playTrack. The button only
+    // appears after it resolves; it never blocks playback or shows a spinner.
+    private func probeCurrentTrack() {
+        guard let track = currentTrack, track.source == "internet_archive" else {
+            currentTrackIsMultiPart = false
+            return
+        }
+        let identifier = track.parentIdentifier ?? track.id
+        Task { [weak self] in
+            guard let self else { return }
+            let parts = await self.resolveItemParts(identifier: identifier)
+            // Stale-guard: the user may have skipped while the probe ran.
+            guard self.currentTrack?.id == track.id ||
+                  (track.parentIdentifier != nil &&
+                   self.currentTrack?.parentIdentifier == track.parentIdentifier)
+            else { return }
+            self.currentTrackIsMultiPart = (parts != nil)
+        }
+    }
+
+    // The central probe/cache method. Returns nil for single-file items,
+    // ordered parts for multi-file items. Network is hit at most once per
+    // identifier across all sessions (verdict persisted in the DB).
+    private func resolveItemParts(identifier: String) async -> [Track]? {
+        // 1. In-session cache (key present → definitive; nil value = single).
+        if let cached = itemPartsCache[identifier] { return cached }
+
+        // 2. DB-first: already-expanded parts win, no network needed.
+        let dbParts = await db.fetchTracks(forParentIdentifier: identifier)
+        if dbParts.count >= 2 {
+            let ordered = dbParts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+            itemPartsCache[identifier] = ordered
+            return ordered
+        }
+
+        // 3. Persisted single-file verdict on the item-level track.
+        if let itemTrack = await db.fetchTrack(id: identifier),
+           itemTrack.isMultiPart == false {
+            itemPartsCache.updateValue(nil, forKey: identifier)
+            return nil
+        }
+
+        // 4. Network probe (isMultiPart nil/true with parts evicted).
+        do {
+            let fetched = try await archiveService.fetchTracksForIdentifier(identifier)
+            if fetched.count <= 1 {
+                await db.setIsMultiPart(false, forTrackId: identifier)
+                itemPartsCache.updateValue(nil, forKey: identifier)
+                return nil
+            }
+            let stampTags = (currentChannel?.iaQueryEntry?.matchTags ?? [])
+                .map { Channel.stampToken($0) }
+            let stamped = fetched.map { $0.stamped(with: stampTags) }
+            await db.saveTracks(stamped)
+            await db.setIsMultiPart(true, forTrackId: identifier)
+            let ordered = stamped.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+            itemPartsCache[identifier] = ordered
+            return ordered
+        } catch {
+            // Network error: do NOT cache (absence = retry on next load).
+            return nil
+        }
+    }
+
+    // "Play Entire Book/Album": enqueue all parts after the current track.
+    // Current track keeps playing; the next advance picks up Part 1.
+    func playEntireItem(from track: Track) async {
+        let identifier = track.parentIdentifier ?? track.id
+        guard let parts = await resolveItemParts(identifier: identifier),
+              !parts.isEmpty else { return }
+        let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+        queueManager.enqueueItemTracks(ordered, channelId: currentChannel?.id ?? "")
+        overrideQueueTitle = prettifiedItemTitle(identifier: identifier, track: track)
+    }
+
+    // "Add Entire Book/Album to Playlist". playlistVM is passed in (no stored
+    // reference) to keep the view models decoupled and avoid a retain cycle.
+    func addEntireItemToPlaylist(
+        from track: Track, to playlist: Playlist, using playlistVM: PlaylistViewModel
+    ) async {
+        let identifier = track.parentIdentifier ?? track.id
+        guard let parts = await resolveItemParts(identifier: identifier),
+              !parts.isEmpty else { return }
+        await playlistVM.addTracks(parts, to: playlist)
+    }
+
+    private func prettifiedItemTitle(identifier: String, track: Track) -> String {
+        if track.parentIdentifier != nil {
+            let artist = track.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+            let pretty = prettify(identifier)
+            return artist.isEmpty || artist.lowercased() == "unknown"
+                ? pretty : "\(artist) – \(pretty)"
+        }
+        return track.title
+    }
+
+    private func prettify(_ identifier: String) -> String {
+        identifier
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .capitalized
     }
 
     // Runs `op` but throws if it doesn't finish within `seconds`.

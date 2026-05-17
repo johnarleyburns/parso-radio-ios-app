@@ -14,7 +14,9 @@ struct iPodView: View {
     @State private var showPlaylists = false
     @State private var showSearch = false
     @State private var showAddToPlaylist = false
+    @State private var showAddItemToPlaylist = false
     @State private var showMoreOptions = false
+    @State private var showFullMetadata = false
     @State private var isFavorite = false
 
     private var displayChannel: Channel {
@@ -109,6 +111,13 @@ struct iPodView: View {
                     .environmentObject(playlistVM)
             }
         }
+        .sheet(isPresented: $showAddItemToPlaylist) {
+            if let track = playerVM.currentTrack {
+                AddItemToPlaylistSheet(track: track)
+                    .environmentObject(playlistVM)
+                    .environmentObject(playerVM)
+            }
+        }
         .sheet(isPresented: $showMoreOptions) {
             combinedTrackSheet
         }
@@ -145,12 +154,21 @@ struct iPodView: View {
             )
 
             VStack(spacing: 0) {
-                // Channel / playlist name only (no subtitle).
+                // Channel / playlist name (+ book/album override-queue hint).
                 HStack {
-                    Text(playerVM.currentPlaylist?.name ?? displayChannel.name)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white.opacity(0.95))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(playerVM.currentPlaylist?.name ?? displayChannel.name)
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.white.opacity(0.95))
+                        if let queuedTitle = playerVM.overrideQueueTitle {
+                            Text("Next: \(queuedTitle)")
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.65))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                    }
                     Spacer()
                 }
                 .padding(.horizontal, 14)
@@ -317,7 +335,9 @@ struct iPodView: View {
     }
 
     // The scrub bar is gone — the click wheel arc IS the position display.
-    // Bottom control row: Favorites | Shuffle  Repeat | More options.
+    // Bottom control row: Favorites · elapsed | Shuffle Repeat | remaining · More.
+    // Elapsed/remaining text only appears once a duration is known (hidden for
+    // ambient loops and before the player reports a duration).
     private var scrubberRow: some View {
         HStack(spacing: 0) {
             Button { toggleFavorite() } label: {
@@ -327,6 +347,15 @@ struct iPodView: View {
             }
             .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
             .padding(.leading, 14)
+
+            if let dur = playerVM.trackDuration, dur > 0 {
+                Text(formatTime(playerVM.currentPosition))
+                    .font(.system(size: 11))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.6))
+                    .padding(.leading, 8)
+                    .accessibilityLabel("Elapsed time")
+            }
 
             Spacer()
 
@@ -347,6 +376,15 @@ struct iPodView: View {
             .padding(.trailing, 18)
 
             Spacer()
+
+            if let dur = playerVM.trackDuration, dur > 0 {
+                Text("-" + formatTime(max(0, dur - playerVM.currentPosition)))
+                    .font(.system(size: 11))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.6))
+                    .padding(.trailing, 8)
+                    .accessibilityLabel("Remaining time")
+            }
 
             Button { showMoreOptions = true } label: {
                 Image(systemName: "ellipsis.circle")
@@ -369,15 +407,37 @@ struct iPodView: View {
                         infoRow("Title", track.title)
                         if let a = cleaned(track.artist) { infoRow("Artist", a) }
                         if let c = cleaned(track.composer) { infoRow("Composer", c.capitalized) }
-                        if track.duration > 0 {
-                            infoRow("Duration", formatTime(track.duration))
+                        if let dur = trackInfoDuration(track) {
+                            infoRow("Duration", formatTime(dur))
                         }
                         if let date = track.bestDate {
                             infoRow(track.dateLabel,
                                     date.formatted(.dateTime.year().month().day()))
                         }
-                        infoRow("License", licenseName(track.license))
-                        infoRow("Source", sourceName(track.source))
+                        DisclosureGroup("Full Metadata", isExpanded: $showFullMetadata) {
+                            ForEach(fullMetadata(track), id: \.0) { pair in
+                                infoRow(pair.0, pair.1)
+                            }
+                        }
+                    }
+
+                    if playerVM.currentTrackIsMultiPart {
+                        Section(itemSectionTitle(track)) {
+                            Button {
+                                showMoreOptions = false
+                                Task { await playerVM.playEntireItem(from: track) }
+                            } label: {
+                                Label("Play Entire \(itemKindLabel(track))",
+                                      systemImage: "play.rectangle.fill")
+                            }
+                            Button {
+                                showMoreOptions = false
+                                showAddItemToPlaylist = true
+                            } label: {
+                                Label("Add Entire \(itemKindLabel(track)) to Playlist",
+                                      systemImage: "text.badge.plus")
+                            }
+                        }
                     }
                 }
 
@@ -430,6 +490,59 @@ struct iPodView: View {
         case "local":            return "My Files"
         default:                  return s
         }
+    }
+
+    // Prefer the live AVPlayer duration (accurate for IA tracks fetched with
+    // duration 0); fall back to the stored per-file duration.
+    private func trackInfoDuration(_ track: Track) -> Double? {
+        if let d = playerVM.trackDuration, d > 0 { return d }
+        return track.duration > 0 ? track.duration : nil
+    }
+
+    // "Book" for Audiobooks-category channels, "Album" for all other IA items.
+    private func itemKindLabel(_ track: Track) -> String {
+        playerVM.currentChannel?.category == "Audiobooks" ? "Book" : "Album"
+    }
+
+    private func itemSectionTitle(_ track: Track) -> String {
+        "This \(itemKindLabel(track))"
+    }
+
+    // Everything else, surfaced behind the "Full Metadata" disclosure so the
+    // summary stays scannable. Empty/placeholder values are omitted.
+    private func fullMetadata(_ track: Track) -> [(String, String)] {
+        var rows: [(String, String)] = []
+        func add(_ label: String, _ value: String?) {
+            guard let v = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !v.isEmpty, v.lowercased() != "unknown" else { return }
+            rows.append((label, v))
+        }
+        add("License", licenseName(track.license))
+        add("Source", sourceName(track.source))
+        add("Identifier", track.id)
+        if let part = track.partNumber, let total = track.totalParts, total > 1 {
+            add("Part", "\(part) of \(total)")
+        }
+        add("Item", track.parentIdentifier)
+        if let multi = track.isMultiPart {
+            add("Multi-part item", multi ? "Yes" : "No")
+        }
+        if !track.tags.isEmpty { add("Tags", track.tags.joined(separator: ", ")) }
+        if !track.instruments.isEmpty {
+            add("Instruments", track.instruments.joined(separator: ", "))
+        }
+        if track.rawCreator != track.artist { add("Raw creator", track.rawCreator) }
+        if let added = track.addedDate {
+            add("Added", added.formatted(.dateTime.year().month().day()))
+        }
+        if let rec = track.recordingDate {
+            add("Recorded", rec.formatted(.dateTime.year().month().day()))
+        }
+        add("Quality score", String(format: "%.2f", track.qualityScore))
+        add("Metadata confidence", String(format: "%.2f", track.metadataConfidence))
+        add("Stream URL", track.streamURL.absoluteString)
+        add("Local file", track.localFilePath)
+        return rows
     }
 
     // MARK: - Layout geometry

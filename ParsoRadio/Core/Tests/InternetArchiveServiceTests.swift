@@ -214,7 +214,8 @@ final class InternetArchiveServiceTests: XCTestCase {
             let json = """
             {"response":{"docs":[
               {"identifier":"beethoven-sym3","title":"Symphony No. 3",
-               "creator":"Ludwig van Beethoven","addeddate":"2023-01-10T12:00:00.000000"},
+               "creator":"Ludwig van Beethoven","addeddate":"2023-01-10T12:00:00.000000",
+               "collection":["opensource_audio","community"]},
               {"identifier":"beethoven-sym5","title":"Symphony No. 5",
                "creator":"Ludwig van Beethoven","addeddate":"2022-06-01T08:00:00.000000"}
             ]}}
@@ -230,6 +231,29 @@ final class InternetArchiveServiceTests: XCTestCase {
         XCTAssertEqual(groups[0].title, "Symphony No. 3")
         XCTAssertEqual(groups[0].creator, "Ludwig van Beethoven")
         XCTAssertNotNil(groups[0].addedDate)
+        XCTAssertEqual(groups[0].collection, "opensource_audio",
+            "search result must carry the first IA collection")
+        XCTAssertNil(groups[1].collection,
+            "absent collection must decode to nil, not crash")
+    }
+
+    func testSearchParsesCollectionFromStringForm() async throws {
+        // IA sometimes returns `collection` as a bare String, not an array.
+        MockURLProtocol.requestHandler = { _ in
+            let json = """
+            {"response":{"docs":[
+              {"identifier":"lv-1","title":"Pride and Prejudice",
+               "creator":"Jane Austen","collection":"librivoxaudio"}
+            ]}}
+            """
+            let data = json.data(using: .utf8)!
+            let response = HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+        let service = InternetArchiveService(session: session)
+        let groups = try await service.search(query: "austen", page: 0)
+        XCTAssertEqual(groups.count, 1)
+        XCTAssertEqual(groups[0].collection, "librivoxaudio")
     }
 
     func testSearchParsesRuntimeIntoDuration() async throws {

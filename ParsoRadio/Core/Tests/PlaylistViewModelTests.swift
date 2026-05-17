@@ -110,6 +110,29 @@ final class PlaylistViewModelTests: XCTestCase {
         XCTAssertTrue(after)
     }
 
+    // Bulk-add (whole book/album). INSERT OR IGNORE is idempotent, so re-adding
+    // an overlapping set must not inflate the count.
+    func testAddTracksBulkIsIdempotent() async throws {
+        await vm.createPlaylist(name: "Whole Book")
+        guard let pl = vm.playlists.first(where: { $0.name == "Whole Book" }) else {
+            XCTFail("Playlist not found"); return
+        }
+        let parts = (1...5).map { makeTrack(id: "bk/part\($0)") }
+
+        await vm.addTracks(parts, to: pl)
+        await vm.loadTracks(for: pl)
+        XCTAssertEqual(vm.currentPlaylistTracks.count, 5, "all 5 parts added")
+        XCTAssertEqual(vm.trackCount(for: pl), 5, "count reflects the bulk add")
+
+        // Re-add the same set plus one new part — only the new one counts.
+        await vm.addTracks(parts + [makeTrack(id: "bk/part6")], to: pl)
+        await vm.loadTracks(for: pl)
+        XCTAssertEqual(vm.currentPlaylistTracks.count, 6,
+            "re-adding existing parts must not duplicate rows (idempotent)")
+        XCTAssertEqual(vm.trackCount(for: pl), 6,
+            "count must be re-derived from the DB, not blindly incremented")
+    }
+
     // MARK: - Helpers
 
     private func makeTrack(id: String) -> Track {

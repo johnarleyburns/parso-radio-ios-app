@@ -31,6 +31,8 @@ final class DatabaseService {
     private let colTotalParts = Expression<Int?>("total_parts")
     private let colParentId   = Expression<String?>("parent_identifier")
     private let colArtworkURL = Expression<String?>("artwork_url")
+    // nil = not yet probed, false = single-file, true = multi-file (book/album)
+    private let colIsMultiPart = Expression<Bool?>("is_multi_part")
 
     // MARK: - Playback positions table
     private let positions    = Table("playback_positions")
@@ -135,7 +137,10 @@ final class DatabaseService {
         try? db.run("ALTER TABLE tracks ADD COLUMN total_parts  INTEGER")
         try? db.run("ALTER TABLE tracks ADD COLUMN parent_identifier TEXT")
         try? db.run("ALTER TABLE tracks ADD COLUMN artwork_url  TEXT")
+        // NULL = not probed, 0 = single-file, 1 = multi-file (book/album)
+        try? db.run("ALTER TABLE tracks ADD COLUMN is_multi_part INTEGER")
         try? db.run("CREATE INDEX IF NOT EXISTS idx_added_date ON tracks(added_date DESC)")
+        try? db.run("CREATE INDEX IF NOT EXISTS idx_parent_id ON tracks(parent_identifier)")
 
         // Enable FK enforcement
         try? db.run("PRAGMA foreign_keys = ON")
@@ -181,7 +186,8 @@ final class DatabaseService {
                         self.colPartNumber  <- t.partNumber,
                         self.colTotalParts  <- t.totalParts,
                         self.colParentId    <- t.parentIdentifier,
-                        self.colArtworkURL  <- t.artworkURLString
+                        self.colArtworkURL  <- t.artworkURLString,
+                        self.colIsMultiPart <- t.isMultiPart
                     )
                     try? self.db.run(insert)
                 }
@@ -235,6 +241,34 @@ final class DatabaseService {
             queue.async { [self] in
                 let row = (try? self.db.pluck(self.tracks.filter(self.colId == id)))
                 continuation.resume(returning: row.flatMap(self.rowToTrack))
+            }
+        }
+    }
+
+    // All previously-expanded parts of a multi-file IA item, in part order.
+    // Returns [] when the item has not been expanded in the DB yet — the
+    // caller must then probe the network.
+    func fetchTracks(forParentIdentifier parentId: String) async -> [Track] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let query = self.tracks
+                    .filter(self.colParentId == parentId)
+                    .order(self.colPartNumber.asc)
+                let result = (try? self.db.prepare(query))?
+                    .compactMap(self.rowToTrack) ?? []
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    // Persist the multi-file probe verdict so a track only ever hits the
+    // network once across all sessions. true→1, false→0, nil→NULL.
+    func setIsMultiPart(_ value: Bool?, forTrackId id: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let row = self.tracks.filter(self.colId == id)
+                try? self.db.run(row.update(self.colIsMultiPart <- value))
+                continuation.resume()
             }
         }
     }
@@ -588,7 +622,8 @@ final class DatabaseService {
             partNumber:         row[colPartNumber],
             totalParts:         row[colTotalParts],
             parentIdentifier:   row[colParentId],
-            artworkURLString:   row[colArtworkURL]
+            artworkURLString:   row[colArtworkURL],
+            isMultiPart:        row[colIsMultiPart]
         )
     }
 
