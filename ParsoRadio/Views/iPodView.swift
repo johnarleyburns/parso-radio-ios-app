@@ -71,14 +71,14 @@ struct iPodView: View {
         }
         .sheet(isPresented: $showMainMenu) {
             MainMenuView(
-                displayChannel: displayChannel,
-                onSelectChannel: {
+                onSelectChannel: { channel in
+                    pendingChannel = channel
                     showMainMenu = false
-                    showChannelSelector = true
+                    Task { await playerVM.load(channel: channel) }
                 },
-                onOpenPlaylists: {
+                onPlayPlaylist: { playlist in
                     showMainMenu = false
-                    showPlaylists = true
+                    Task { await playerVM.loadPlaylist(playlist) }
                 },
                 onOpenSearch: {
                     showMainMenu = false
@@ -89,6 +89,8 @@ struct iPodView: View {
                     showAbout = true
                 }
             )
+            .environmentObject(playlistVM)
+            .environmentObject(playerVM)
         }
         .sheet(isPresented: $showChannelSelector) {
             ChannelSelectorView(currentChannelId: displayChannel.id) { channel in
