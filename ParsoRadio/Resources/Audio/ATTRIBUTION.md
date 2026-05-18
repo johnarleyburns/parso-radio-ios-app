@@ -1,29 +1,35 @@
-# Ambient Loop Assets — offline-by-default, gapless
+# Ambient Loop Assets — bundled, offline, gapless
 
-Drop the three loop files here, named **exactly** by channel id. The app
-(`AmbientStaticService.bundledLoopURL` → `PlayerViewModel.playTrack`) prefers a
-bundled file over the network and, for PCM/lossless formats, loops it with no
-seam. Preferred order: `.caf` › `.wav` › `.aiff` › `.m4a` › `.aac` › `.mp3`.
+These WAV files ship in the app bundle. `AmbientStaticService.bundledLoopURL`
+→ `PlayerViewModel.playTrack` plays the local file (no network), and PCM WAV
+loops with no encoder-padding click. The Freesound HQ-mp3 preview is only a
+fallback if a file is ever missing.
 
-| Channel id              | Required file (any preferred ext) | Source (CC0, Freesound)                                   |
-|-------------------------|-----------------------------------|-----------------------------------------------------------|
-| `ambient-flowing-water` | `ambient-flowing-water.wav`/`.caf`| eardeer — https://freesound.org/people/eardeer/sounds/443869/   |
-| `ambient-rain`          | `ambient-rain.wav`/`.caf`         | svampen — https://freesound.org/people/svampen/sounds/334149/   |
-| `ambient-ocean`         | `ambient-ocean.wav`/`.caf`        | Nox_Sound — https://freesound.org/people/Nox_Sound/sounds/829629/ |
+| File                          | Source (CC0, Freesound)                                    |
+|-------------------------------|------------------------------------------------------------|
+| `ambient-flowing-water.wav`   | eardeer — https://freesound.org/people/eardeer/sounds/443869/   |
+| `ambient-rain.wav`            | svampen — https://freesound.org/people/svampen/sounds/334149/   |
+| `ambient-ocean.wav`           | Nox_Sound — https://freesound.org/people/Nox_Sound/sounds/829629/ |
 
-## Why these aren't auto-downloaded
+All three sources are CC0 (public domain).
 
-Freesound's public CDN only serves **lossy mp3/ogg previews**; the original
-WAV requires an authenticated OAuth2 API download. Streaming the mp3 preview
-(the current fallback) also re-introduces the ~26–52 ms LAME encoder
-delay/padding gap at every loop point, and needs the network.
+## How they were produced
 
-Committing the real WAV/CAF here is the only way to get **gapless** loops that
-work **offline from first launch**. Convert to CAF for best results, e.g.:
+Freesound's public CDN only serves lossy mp3/ogg previews (the original WAV
+needs an authenticated OAuth2 download). Each file here was made by decoding
+the CC0 HQ-mp3 preview to PCM (removing the MP3 encoder delay/padding that
+caused the loop click), capping length to ≤30 s, and applying a 0.75 s
+equal-power crossfade of the tail into the head so the buffer wraps onto
+itself **seamlessly** regardless of the source's own loop points. Output is
+16-bit PCM stereo @ 44.1 kHz.
+
+Regenerate with `/tmp/mkloops.py` (decode → central window → equal-power
+crossfade → WAV). To shrink further, convert to CAF — the resolver prefers
+`.caf` over `.wav`:
 
 ```
 afconvert -f caff -d LEI16@44100 ambient-rain.wav ambient-rain.caf
 ```
 
 XcodeGen bundles everything under `ParsoRadio/` automatically — no project
-edits needed once the files are added.
+edits needed.

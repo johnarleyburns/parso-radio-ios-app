@@ -31,11 +31,19 @@ final class AmbientStaticServiceTests: XCTestCase {
         }
     }
 
-    // No assets are bundled in the unit-test target, so the resolver must
-    // return nil → the streaming fallback path is taken. (When real WAV/CAF
-    // files are committed under Resources/Audio they are picked up instead.)
-    func testBundledLoopURLNilWhenNoAssetBundled() {
-        XCTAssertNil(AmbientStaticService.bundledLoopURL(forChannelId: "ambient-rain"))
+    // The seamless WAV loops are committed under Resources/Audio and bundled
+    // into the app (the test host), so the resolver must return a local
+    // file URL — that is the offline + gapless path. Unknown/empty → nil.
+    func testBundledLoopURLResolvesCommittedWavAssets() {
+        for id in ["ambient-flowing-water", "ambient-rain", "ambient-ocean"] {
+            guard let url = AmbientStaticService.bundledLoopURL(forChannelId: id) else {
+                XCTFail("\(id): a bundled loop asset must be found"); continue
+            }
+            XCTAssertTrue(url.isFileURL, "\(id): must resolve to a LOCAL file")
+            XCTAssertEqual(url.deletingPathExtension().lastPathComponent, id)
+            XCTAssertEqual(url.pathExtension.lowercased(), "wav")
+        }
+        XCTAssertNil(AmbientStaticService.bundledLoopURL(forChannelId: "nope-xyz"))
         XCTAssertNil(AmbientStaticService.bundledLoopURL(forChannelId: ""))
     }
 
