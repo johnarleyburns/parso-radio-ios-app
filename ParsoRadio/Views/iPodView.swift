@@ -240,7 +240,11 @@ struct iPodView: View {
             )
             .overlay {
                 if isAmbientLoop, let video = ambientVideoURL {
-                    LoopingVideoView(url: video)
+                    // Rainy Day: user prefers the right edge of the clip.
+                    LoopingVideoView(
+                        url: video,
+                        horizontalAnchor:
+                            playerVM.currentChannel?.id == "ambient-rain" ? 1.0 : 0.5)
                 } else if let art = playerVM.currentArtwork {
                     Image(uiImage: art)
                         .resizable()

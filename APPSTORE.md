@@ -1,187 +1,143 @@
-# App Store Submission Checklist — Parso Radio
+# App Store Submission Plan — Parso Radio
 
-## App Identity
+_Reviewed 2026-05-18. Source of truth for shipping v1._
+
+## App identity
 
 | Field | Value |
 |---|---|
 | App name | Parso Radio |
 | Bundle ID | `guru.parso.ios-radio-app` |
 | Team ID | `3264Y8YUGV` |
-| Version | 1.0.0 (build 1) |
-| Platform | iOS 17.0+ |
-| Device family | iPhone only (`TARGETED_DEVICE_FAMILY = 1`) |
-| Primary category | Music |
-| Secondary category | Entertainment |
-| Content rating | 4+ (no objectionable content) |
+| Platform | iOS 17.0+, iPhone only (`TARGETED_DEVICE_FAMILY = 1`) |
+| Primary / secondary category | Music / Entertainment |
+| Age rating | 4+ |
+| Price | Free |
 
----
+## Status summary
 
-## Assets Status
+Technically close to submittable. Build/sign/TestFlight pipeline is green;
+privacy posture is clean. One licensing bug was found and **fixed in code**
+(commit `e958daf`). Remaining work is mostly **manual App Store Connect tasks
+on a Mac**; screenshots are the only true blocker.
 
-### App Icon
-| Asset | Status | Location |
-|---|---|---|
-| 1024×1024 PNG (App Store icon) | **✓ EXISTS** | `ParsoRadio/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` |
+## Resolved during review
 
-The icon is 1024×1024, 8-bit RGB (no alpha), non-interlaced — correct format.
-The asset catalog (`Contents.json`) declares it as `"platform": "ios"` with `"size": "1024x1024"` — correct.
+- **Licensing (was a violation):** "Rainy Day" (Freesound svampen/334149) is
+  **CC BY 3.0**, not CC0; code shipped it labelled CC0. Fixed: track license
+  → `.ccBy`, added **About → Audio & Video Credits** (credits svampen + CC0
+  sources + Mixkit note), corrected `Resources/Audio/ATTRIBUTION.md`, updated
+  tests.
 
-### Screenshots — **ALL MISSING, MUST GENERATE**
+## Correct already (no action)
 
-App Store Connect requires at minimum **3 screenshots** for **iPhone 6.7"**.
-Since this is iPhone-only (`TARGETED_DEVICE_FAMILY = 1`), iPad screenshots are not required.
+- App icon: 1024×1024, 8-bit **RGB, no alpha** (alpha → auto-reject) ✓
+- `PrivacyInfo.xcprivacy`: `NSPrivacyTracking false`, no collected data,
+  UserDefaults reason `CA92.1` declared ✓
+- `ITSAppUsesNonExemptEncryption = false` (standard HTTPS only) ✓ — no
+  encryption documentation needed
+- App Transport Security: **no `http://` calls**; all sources HTTPS ✓
+- Background audio: `UIBackgroundModes: [audio]` declared and used ✓
+- Privacy policy `https://parso.guru/privacy` + support `https://parso.guru`
+  both return 200 ✓
+- EULA/Terms gate: `fullScreenCover` on `@AppStorage("tosAccepted")`, Apple
+  third-party-beneficiary clauses present ✓
 
-| Size | Device | Resolution | Required? | Status |
-|---|---|---|---|---|
-| 6.7" | iPhone 16 Pro Max / 15 Pro Max | 1290×2796 px | **YES** (min 3) | **MISSING** |
-| 6.5" | iPhone 11 Pro Max / 12 Pro Max | 1242×2688 or 1284×2778 px | Covered by 6.7" | — |
-| 5.5" | iPhone 8 Plus | 1242×2208 px | Optional | **MISSING** |
+## Code changes to make before submitting
 
-**How to generate screenshots:**
-1. Run the app in Xcode Simulator on `iPhone 16 Pro Max` (iOS 17+)
-2. Navigate to each screen and press `Cmd+S` (or Device → Screenshot)
-3. Alternatively use `xcrun simctl io booted screenshot screenshot.png`
+1. **Version number mismatch (do this).** `project.yml` ships
+   `MARKETING_VERSION = 2.0.0` but this is the first release. Set
+   `MARKETING_VERSION` to `1.0.0` (keep `CURRENT_PROJECT_VERSION = 1`). The
+   ASC version string must equal the uploaded build's value.
+2. **Unused background mode (recommended).** `UIBackgroundModes` also has
+   `fetch` and `BGTaskSchedulerPermittedIdentifiers` is set, but nothing
+   registers a `BGTask`. Remove `fetch` + the BG-task id (keep `audio`) to
+   avoid review questions.
+3. **iPad orientation key (optional).** iPhone-only build still has
+   `UISupportedInterfaceOrientations~ipad` in Info.plist — dead config,
+   harmless, optional cleanup.
+4. **Mixkit video license (decision, not code).** Confirm the Mixkit Free
+   License permits bundling the 3 ambient backdrop clips in a shipped app
+   before release. (CC0/CC-BY audio is already handled.)
 
-**Recommended screenshots to capture (3–5):**
-1. iPod click wheel on a playing channel (show the now-playing card with track info)
-2. Channel Selector sheet open (Favorites + Recently Played sections visible)
-3. Track Detail popup (showing license badge, source, audio controls)
-4. Terms of Service / EULA screen (required for App Store review compliance)
-5. About / Privacy Policy screen
+## Manual blockers (Mac + App Store Connect)
 
-**Reference mockup:** `visual-mockup.png` (root of repo) shows the intended visual style.
+1. **Screenshots — required, none exist.** ≥3 at iPhone 6.7" (1290×2796).
+   On `iPhone 16 Pro Max` sim (iOS 17+): wheel on a playing channel; main
+   menu/channel list; search with book/album results; Track Info sheet; an
+   ambient channel with looping video. `xcrun simctl io booted screenshot`.
+2. **Create the ASC record** (if absent): iOS, "Parso Radio", bundle id
+   `guru.parso.ios-radio-app`, SKU `parso-radio-1`.
+3. **Version metadata:** paste description/subtitle(≤30)/keywords(≤100)/
+   what's-new from "Listing copy" below; category Music / Entertainment.
+4. **App Privacy label:** "Data Not Collected" (matches manifest + policy);
+   no ATT.
+5. **Age-rating questionnaire:** all "None" → 4+.
+6. **Pricing/availability:** Free, all territories.
+7. **URLs:** privacy `https://parso.guru/privacy`, support `https://parso.guru`.
+8. **Upload build** (CI → TestFlight), select on version page, add reviewer
+   note, **Submit for Review**.
 
-### Code Signing — ✓ EXISTS
-| Asset | Status | Location |
-|---|---|---|
-| Distribution certificate (.p12) | **✓ EXISTS** | `../apple-certs/ios_distribution.p12` |
-| Distribution certificate (.cer) | **✓ EXISTS** | `../apple-certs/distribution.cer` |
-| Distribution certificate (.pem) | **✓ EXISTS** | `../apple-certs/distribution.pem` |
-| CSR | **✓ EXISTS** | `../apple-certs/ios_distribution.csr` |
-| App Store provisioning profile | **✓ EXISTS** | `Parso_Radio_App_Store.mobileprovision` (root of repo) |
-| P12 password | **✓ EXISTS** | `../apple-certs/p12_password.txt` |
+## Reviewer note
 
-These are also stored as GitHub Secrets (`CI_CERT`, `CI_CERT_PASSWORD`, `CI_PROFILE`, `CI_TEAM`) and used by the CI pipeline.
+> Parso Radio streams public-domain / Creative Commons audio from
+> archive.org and freemusicarchive.org. Network access is required; a brief
+> loading spinner may show on first launch while tracks are fetched. No
+> account, no tracking, no data collection.
 
-### Privacy Manifest — ✓ EXISTS
-`ParsoRadio/Resources/PrivacyInfo.xcprivacy` declares:
-- `NSPrivacyTracking: false`
-- No collected data types
-- UserDefaults API access for `CA92.1` (storing app settings)
+## Listing copy
 
----
+**Subtitle (≤30):** `Free classical, jazz & audiobooks`
 
-## App Store Connect Metadata
+**Keywords (≤100):**
+`classical,radio,music,free,audiobooks,jazz,librivox,public domain,lectures,ambient,offline`
 
-Fill these in at [App Store Connect → My Apps → Parso Radio → App Information / Version](https://appstoreconnect.apple.com).
+**Description:** channels overview (Classical / LibriVox audiobooks / Oxford
+lectures / FMA genres / ambient); emphasise "no ads, no subscriptions, no
+tracking; all public-domain or Creative Commons; source + license shown for
+every track; offline-friendly; resume where you left off". Update channel
+counts if the children's channels (see investigation) are added.
 
-### App Information (one-time, not per-version)
+**What's New (v1):** `First release of Parso Radio.`
 
-**App Name:** Parso Radio *(30 chars max)*
+## Pre-submission checklist
 
-**Subtitle:** Free Classical, Jazz & Audiobooks *(30 chars max — customize as desired)*
+- [ ] `MARKETING_VERSION` → 1.0.0; `APPSTORE.md`/build consistent
+- [ ] (rec) drop unused `fetch` background mode + BG-task id
+- [ ] Mixkit license confirmed for app bundling
+- [ ] CI green on the submitted commit (Unit + Integration + TestFlight)
+- [ ] ≥3 × 6.7" screenshots uploaded
+- [ ] ASC record created; metadata, keywords, what's-new filled
+- [ ] App Privacy = Data Not Collected; age rating 4+; price Free
+- [ ] Privacy/support URLs set; reviewer note added
+- [ ] Build selected on version page → Submit for Review
 
-**Privacy Policy URL:** `https://parso.guru/privacy` ✓ (live, returns 200)
+## CI / signing (reference)
 
-**Support URL:** `https://parso.guru`
+Workflow `.github/workflows/ios.yml`: build + unit tests + integration tests
++ archive/export/upload to TestFlight on every push to `main`. Secrets:
+`CI_CERT` (b64 .p12), `CI_CERT_PASSWORD`, `CI_PROFILE` (b64 .mobileprovision),
+`CI_TEAM` = `3264Y8YUGV`.
 
-### Version Information (per-version, 1.0.0)
+## Investigation: children's channels (2026-05-18, IA/FMA probed live)
 
-**Description** *(4000 chars max):*
-```
-Parso Radio is an iPod-inspired internet radio player for classical music, jazz, audiobooks, and philosophy lectures — all completely free.
-
-WHAT YOU GET
-• 84 curated channels spanning Classical, LibriVox Audiobooks, FMA (Free Music Archive), and Oxford Lectures
-• All content is 100% public domain or Creative Commons licensed — no ads, no subscriptions
-• iPod-style click wheel interface: tap MENU to pick a channel, tap the wheel to play/pause, skip, or go back
-• Offline-friendly: last channel and position restored automatically after restart
-• Spoken-word channels (audiobooks, lectures) resume exactly where you left off
-• No account, no sign-in, no tracking — ever
-
-CHANNEL HIGHLIGHTS
-Classical: Baroque, Romantic, Early Music, Symphony & Orchestra, Piano Classics, Chamber Music, Opera, and 20+ composers (Bach, Mozart, Beethoven, Chopin, and more)
-LibriVox: Science Fiction, Mystery, Romance, Historical Fiction, Philosophy, Poetry, and 16 more genres
-Oxford Lectures: Philosophy, Physics, Mathematics, History, and more from Oxford University podcasts
-FMA: Jazz, Blues, Ambient, Folk, Instrumental, World Music, and more
-
-PRIVACY
-Parso Radio collects no personal data whatsoever. Playback position is stored on-device only. No analytics, no tracking, no account required.
-
-LICENSES
-All streamed music is public domain or licensed under Creative Commons (CC0, CC BY, or Public Domain Mark). Source and license are shown for every track.
-```
-
-**Keywords** *(100 chars max, comma-separated):*
-```
-classical,radio,music,free,audiobooks,jazz,librivox,public domain,lectures,iPod,offline
-```
-
-**What's New in This Version:**
-```
-First release of Parso Radio.
-```
-
-**Age Rating:** 4+ (complete the questionnaire; no objectionable content)
-
-**Pricing:** Free
-
----
-
-## Pre-Submission Checklist
-
-### Build
-- [ ] CI pipeline green (check GitHub Actions)
-- [ ] Archive built with Release config via CI (`xcodebuild archive`)
-- [ ] IPA exported with `ExportOptions.plist` (method: app-store-connect)
-- [ ] Build uploaded to App Store Connect via `altool` or `xcrun altool` in CI
-
-### Required Before Submission
-- [ ] **Screenshots** — at minimum 3×iPhone 6.7" (1290×2796)
-- [x] **Privacy policy URL** — https://parso.guru/privacy ✓ (live, returns 200)
-- [ ] **Support URL** — parso.guru or similar
-- [ ] App description filled in App Store Connect
-- [ ] Keywords filled in
-- [ ] Age rating questionnaire completed
-- [ ] Pricing set to Free
-- [ ] Primary category: Music
-
-### App Review Notes (optional but recommended)
-> Parso Radio streams audio from archive.org and freemusicarchive.org. Network access is required to load tracks. The app may show a loading spinner for a few seconds on first launch while tracks are fetched. A valid audio stream is available on any network connection.
-
-### Common Rejection Reasons to Pre-empt
-| Risk | Status |
-|---|---|
-| Missing privacy policy URL | **✓ RESOLVED** — https://parso.guru/privacy (live) |
-| EULA/ToS gate not shown | **FIXED** — onChange moved to persistent ZStack (commit 713f78a) |
-| Encryption (ITSAppUsesNonExemptEncryption) | **Declared false** in project.yml — correct for HTTP streaming |
-| Background audio entitlement | **✓** — `UIBackgroundModes: [audio]` declared |
-| No local storage of PII | **✓** — PrivacyInfo.xcprivacy confirms no personal data |
-
----
-
-## GitHub Actions CI Pipeline
-
-The existing workflow (`.github/workflows/`) handles:
-1. Build & unit tests on every push to `main`
-2. Archive + export IPA (Release config)
-3. Upload to TestFlight via `altool`
-
-Required GitHub Secrets (set in repo Settings → Secrets):
-| Secret | Purpose |
-|---|---|
-| `CI_CERT` | Base64-encoded distribution.p12 |
-| `CI_CERT_PASSWORD` | P12 password (from `p12_password.txt`) |
-| `CI_PROFILE` | Base64-encoded .mobileprovision |
-| `CI_TEAM` | Team ID `3264Y8YUGV` |
-
----
-
-## Outstanding: No App Store Connect Record Yet?
-
-If you haven't created the app record in App Store Connect:
-1. Go to [appstoreconnect.apple.com](https://appstoreconnect.apple.com)
-2. My Apps → **+** → New App
-3. Platform: iOS, Name: Parso Radio, Bundle ID: `guru.parso.ios-radio-app`
-4. SKU: `parso-radio-1` (or any unique string)
-5. Fill in metadata as above, upload screenshots, then submit for review
+- **Children's audiobooks (LibriVox via IA): strongly feasible.**
+  `collection:librivoxaudio AND mediatype:audio AND (subject:"Juvenile
+  fiction" OR subject:"Children's Fiction" OR subject:"Juvenile literature"
+  OR subject:"Fairy tales")` → 130+ multi-chapter public-domain books
+  (Oz, Peter Pan, Secret Garden, Grimm, Andersen). Clean & 4+-safe; fits the
+  existing `lv-*` registry pattern.
+- **Children's songs (IA): feasible with curation.** Best safe anchor:
+  `collection:netlabels AND mediatype:audio AND (subject:"children's music"
+  OR subject:children OR subject:kids OR subject:"nursery rhymes")` (~98
+  curated CC netlabel kids tracks). Raw `subject:"Children's music"` (~494)
+  is broader but less predictable for a 4+ channel.
+- **Children's songs (FMA): NOT feasible.** Current FMA taxonomy has no
+  children's/kids genre (only Blues/Classical/Country/Electronic/
+  Experimental/Folk/Hip-Hop/Instrumental/International/Jazz/novelty/
+  Old-Time/Pop/Rock/Soul-RB/Spoken).
+- Recommended (pending go-ahead): add registry channels
+  `lv-childrens-books` (Audiobooks) and `childrens-songs` (Curated,
+  netlabels-anchored) to `ia_queries.json` with the existing
+  pure-Lucene + `sort=random` + `matchTags=[id]` pattern, plus channel-count
+  test updates.
