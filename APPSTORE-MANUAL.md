@@ -1,7 +1,7 @@
 # Parso Radio — Remaining Manual App Store Tasks
 
 Everything code/config-side from the review is now **done in the repo**
-(v1.0.0, `fetch` background mode removed, iPad enabled, all-CC0 audio,
+(v2.0.1, `fetch` background mode removed, iPad enabled, all-CC0 audio,
 Mixkit video license confirmed by owner, Parso-Radio privacy page live).
 The items below can only be done by you on a Mac + App Store Connect.
 
@@ -36,7 +36,12 @@ looping video backdrop.
 If not created: My Apps → ➕ → iOS, name **Parso Radio**, bundle id
 `guru.parso.ios-radio-app`, SKU `parso-radio-1`.
 
-## 3. Version metadata (v1.0.0)
+## 3. Version metadata (v2.0.1)
+
+> Note: the App Store Connect record already has **2.0.0** TestFlight builds
+> (≤ build 99). The marketing version cannot be lowered, so v1.0.0 is not
+> possible — we use **2.0.1**. New builds (build # = CI run number) will
+> appear above build 99.
 
 - **Subtitle (≤30):** `Free classical, jazz & audiobooks`
 - **Keywords (≤100):** `classical,radio,music,free,audiobooks,jazz,librivox,public domain,lectures,ambient,kids`
@@ -100,7 +105,8 @@ Review**.
 
 ## Done in code this batch (no action needed)
 
-- `MARKETING_VERSION` → 1.0.0
+- `MARKETING_VERSION` → 2.0.1 (1.0.0 was rejected by ASC as a downgrade from
+  the existing 2.0.0 builds — that was why TestFlight stalled at build 99)
 - Removed unused `fetch` background mode + `BGTaskSchedulerPermittedIdentifiers`
 - `TARGETED_DEVICE_FAMILY` → `1,2` (iPhone + iPad)
 - Rain audio → CC0 (speakwithanimals/525046); all ambient audio now CC0;

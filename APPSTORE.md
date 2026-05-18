@@ -45,10 +45,13 @@ on a Mac**; screenshots are the only true blocker.
 
 ## Code changes to make before submitting
 
-1. **Version number mismatch (do this).** `project.yml` ships
-   `MARKETING_VERSION = 2.0.0` but this is the first release. Set
-   `MARKETING_VERSION` to `1.0.0` (keep `CURRENT_PROJECT_VERSION = 1`). The
-   ASC version string must equal the uploaded build's value.
+1. **Version number — must stay ≥ 2.0.0 (RESOLVED, set to 2.0.1).**
+   App Store Connect already has **2.0.0** TestFlight builds (≤ build 99).
+   Lowering to 1.0.0 was a downgrade Apple rejects during processing — that
+   is why TestFlight stalled at build 99 while CI showed 100–103. The
+   marketing version cannot go backwards once uploaded; it is now **2.0.1**.
+   Build number = CI run number (auto-incrementing), so new builds appear
+   above 99.
 2. **Unused background mode (recommended).** `UIBackgroundModes` also has
    `fetch` and `BGTaskSchedulerPermittedIdentifiers` is set, but nothing
    registers a `BGTask`. Remove `fetch` + the BG-task id (keep `audio`) to
@@ -102,7 +105,7 @@ counts if the children's channels (see investigation) are added.
 
 ## Pre-submission checklist
 
-- [ ] `MARKETING_VERSION` → 1.0.0; `APPSTORE.md`/build consistent
+- [x] `MARKETING_VERSION` → 2.0.1 (≥ existing 2.0.0; 1.0.0 downgrade reverted)
 - [ ] (rec) drop unused `fetch` background mode + BG-task id
 - [ ] Mixkit license confirmed for app bundling
 - [ ] CI green on the submitted commit (Unit + Integration + TestFlight)
