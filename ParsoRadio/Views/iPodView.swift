@@ -30,6 +30,13 @@ struct iPodView: View {
         playerVM.currentChannel?.contentType == .ambientLoop
     }
 
+    // Bundled looping backdrop for the current ambient channel, if any.
+    private var ambientVideoURL: URL? {
+        guard isAmbientLoop else { return nil }
+        return AmbientStaticService.bundledVideoURL(
+            forChannelId: playerVM.currentChannel?.id ?? "")
+    }
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
@@ -58,7 +65,10 @@ struct iPodView: View {
                     ClickWheel(
                         isPlaying: playerVM.isPlaying,
                         currentTime: playerVM.currentPosition,
-                        duration: playerVM.trackDuration ?? 0,
+                        // Ambient loops: force 0 so the progress arc/thumb
+                        // band never appears (the bundled WAV has a finite
+                        // duration that would otherwise light it up).
+                        duration: isAmbientLoop ? 0 : (playerVM.trackDuration ?? 0),
                         transportEnabled: !isAmbientLoop,
                         onSeek: { playerVM.seek(to: $0) },
                         onScrubChanged: { playerVM.isScrubbing = $0 },
@@ -229,7 +239,9 @@ struct iPodView: View {
                 )
             )
             .overlay {
-                if let art = playerVM.currentArtwork {
+                if isAmbientLoop, let video = ambientVideoURL {
+                    LoopingVideoView(url: video)
+                } else if let art = playerVM.currentArtwork {
                     Image(uiImage: art)
                         .resizable()
                         .scaledToFill()

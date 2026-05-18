@@ -47,6 +47,20 @@ final class AmbientStaticServiceTests: XCTestCase {
         XCTAssertNil(AmbientStaticService.bundledLoopURL(forChannelId: ""))
     }
 
+    // The looping backdrop videos are committed and bundled into the app.
+    func testBundledVideoURLResolvesCommittedClips() {
+        for id in ["ambient-flowing-water", "ambient-rain", "ambient-ocean"] {
+            guard let url = AmbientStaticService.bundledVideoURL(forChannelId: id) else {
+                XCTFail("\(id): a bundled loop video must be found"); continue
+            }
+            XCTAssertTrue(url.isFileURL, "\(id): video must be a LOCAL file")
+            XCTAssertEqual(url.deletingPathExtension().lastPathComponent, id)
+            XCTAssertEqual(url.pathExtension.lowercased(), "mp4")
+        }
+        XCTAssertNil(AmbientStaticService.bundledVideoURL(forChannelId: "nope"))
+        XCTAssertNil(AmbientStaticService.bundledVideoURL(forChannelId: ""))
+    }
+
     func testAmbientLoopChannelsAreContentTypeLoop() {
         for id in ["ambient-flowing-water", "ambient-rain", "ambient-ocean"] {
             XCTAssertEqual(channel(id).contentType, .ambientLoop,

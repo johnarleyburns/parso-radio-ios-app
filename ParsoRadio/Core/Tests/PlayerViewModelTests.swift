@@ -546,6 +546,68 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertEqual(vm.currentTrack?.id, order[2].id)
     }
 
+    // MARK: - Playlist resume (last position survives, exact offset)
+
+    func testPlaylistKeyIsNamespaced() {
+        XCTAssertEqual(PlayerViewModel.playlistKey("abc"), "playlist:abc",
+            "playlist position key must be namespaced so it can't collide "
+            + "with a real channel id")
+    }
+
+    func testPlaylistPositionIsPersistedOnPlay() async throws {
+        vm.shuffleMode = false
+        let pl = try await seedPlaylist(["r1", "r2", "r3"])
+        let order = await db.fetchTracks(forPlaylist: pl.id)
+        await vm.loadPlaylist(pl)
+        // playTrack's playlist branch records the spot immediately.
+        let saved = await db.loadPosition(channelId: PlayerViewModel.playlistKey(pl.id))
+        XCTAssertEqual(saved?.trackId, order[0].id,
+            "starting a playlist must persist its current track for Resume")
+    }
+
+    func testSavedPlaylistResumeReturnsTrackAndOffset() async throws {
+        let pl = try await seedPlaylist(["a", "b", "c"])
+        let order = await db.fetchTracks(forPlaylist: pl.id)
+        await db.savePosition(channelId: PlayerViewModel.playlistKey(pl.id),
+                              trackId: order[1].id, seconds: 742)
+
+        let r = await vm.savedPlaylistResume(pl)
+        XCTAssertEqual(r?.track.id, order[1].id)
+        XCTAssertEqual(r?.seconds ?? 0, 742, accuracy: 0.001)
+
+        // Saved track no longer in the playlist → no stale resume.
+        await db.savePosition(channelId: PlayerViewModel.playlistKey(pl.id),
+                              trackId: "deleted-track", seconds: 10)
+        let gone = await vm.savedPlaylistResume(pl)
+        XCTAssertNil(gone, "a removed track must not offer a resume point")
+    }
+
+    func testResumePlaylistRestoresTrackIndexAndOffset() async throws {
+        vm.shuffleMode = false
+        let pl = try await seedPlaylist(["x1", "x2", "x3", "x4"])
+        let order = await db.fetchTracks(forPlaylist: pl.id)
+        await db.savePosition(channelId: PlayerViewModel.playlistKey(pl.id),
+                              trackId: order[2].id, seconds: 305)
+
+        await vm.resumePlaylist(pl)
+
+        XCTAssertEqual(vm.currentPlaylist?.id, pl.id)
+        XCTAssertEqual(vm.currentTrack?.id, order[2].id,
+            "resume must start at the saved track")
+        XCTAssertEqual(vm.playlistIndex, 2, "cursor must point at the saved track")
+        XCTAssertEqual(vm.currentPosition, 305, accuracy: 0.001,
+            "resume must seek to the exact saved offset")
+    }
+
+    func testResumePlaylistWithoutSavedPositionPlaysFromTop() async throws {
+        vm.shuffleMode = false
+        let pl = try await seedPlaylist(["t1", "t2"])
+        let order = await db.fetchTracks(forPlaylist: pl.id)
+        await vm.resumePlaylist(pl)   // nothing saved yet
+        XCTAssertEqual(vm.currentTrack?.id, order[0].id,
+            "no saved spot → resume falls back to play-from-top")
+    }
+
     // MARK: - Whole book/album (Add to Playlist)
 
     private func makeBookPart(parent: String, part: Int) -> Track {

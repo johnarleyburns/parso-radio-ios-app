@@ -37,6 +37,18 @@ final class AmbientStaticService {
         return nil
     }
 
+    // Looping background video for an ambient-loop channel, bundled at
+    // Resources/Video/<channelId>.<ext>. nil → fall back to static artwork.
+    static func bundledVideoURL(forChannelId id: String) -> URL? {
+        guard !id.isEmpty else { return nil }
+        for ext in ["mp4", "mov", "m4v"] {
+            if let url = Bundle.main.url(forResource: id, withExtension: ext) {
+                return url
+            }
+        }
+        return nil
+    }
+
     // MARK: - Track builders
 
     private func npsTrack(_ file: String, title: String) -> Track {

@@ -7,9 +7,39 @@ struct PlaylistDetailView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
     @State private var editMode: EditMode = .inactive
+    // Where the user left off in THIS playlist (track still present + offset).
+    @State private var resume: (track: Track, seconds: Double)? = nil
 
     var body: some View {
         List {
+            if let r = resume {
+                Section {
+                    Button {
+                        Task {
+                            await playerVM.resumePlaylist(playlist)
+                            dismissAll?()
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "play.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(Color.accentColor)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Resume").font(.body).fontWeight(.semibold)
+                                Text("“\(r.track.title)” · \(clock(r.seconds))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                } footer: {
+                    Text("Picks up exactly where you stopped — including the offset within a chapter.")
+                }
+            }
+
             Section {
                 HStack(spacing: 12) {
                     Button {
@@ -67,7 +97,12 @@ struct PlaylistDetailView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
-                        if let date = track.displayDate {
+                        if track.id == resume?.track.id {
+                            Label("Last played · \(clock(resume?.seconds ?? 0))",
+                                  systemImage: "bookmark.fill")
+                                .font(.caption2)
+                                .foregroundStyle(Color.accentColor)
+                        } else if let date = track.displayDate {
                             Text(date.formatted(.dateTime.year().month().day()))
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
@@ -121,6 +156,18 @@ struct PlaylistDetailView: View {
                 }
             }
         }
-        .task { await playlistVM.loadTracks(for: playlist) }
+        .task {
+            await playlistVM.loadTracks(for: playlist)
+            resume = await playerVM.savedPlaylistResume(playlist)
+        }
+    }
+
+    private func clock(_ s: Double) -> String {
+        guard s.isFinite, s >= 0 else { return "0:00" }
+        let t = Int(s)
+        let h = t / 3600, m = (t % 3600) / 60, sec = t % 60
+        return h > 0
+            ? String(format: "%d:%02d:%02d", h, m, sec)
+            : String(format: "%d:%02d", m, sec)
     }
 }

@@ -152,6 +152,17 @@ final class PlayerViewModel: ObservableObject {
                         trackId: track.id,
                         seconds: seconds
                     )
+                } else if let playlist = self.currentPlaylist,
+                          let track = self.currentTrack,
+                          seconds - self.lastPositionSaveTime >= 5.0 {
+                    // Resume support: keep the playlist's track + offset
+                    // current (critical for long multi-part audiobooks).
+                    self.lastPositionSaveTime = seconds
+                    await self.db.savePosition(
+                        channelId: Self.playlistKey(playlist.id),
+                        trackId: track.id,
+                        seconds: seconds
+                    )
                 }
             }
         }
@@ -490,6 +501,15 @@ final class PlayerViewModel: ObservableObject {
                     await db.savePosition(channelId: channel.id, trackId: track.id, seconds: 0)
                 }
                 Task { await prefetchNextURL(channel: channel) }
+            } else if let playlist = currentPlaylist {
+                // Record the playlist's current spot immediately on every
+                // track change so Resume survives a force-quit (the throttled
+                // onTimeUpdate save then keeps the offset fresh while playing).
+                await db.savePosition(
+                    channelId: Self.playlistKey(playlist.id),
+                    trackId: track.id,
+                    seconds: seekTo ?? 0
+                )
             }
             scheduleStallWatchdog(for: track, seekTo: seekTo)
             probeCurrentTrack()
@@ -719,7 +739,14 @@ final class PlayerViewModel: ObservableObject {
         loadingMessage = nil
     }
 
-    func loadPlaylist(_ playlist: Playlist, startingAt track: Track? = nil) async {
+    // Per-playlist position is stored in the same positions table as
+    // channels, namespaced so it can never collide with a real channel id
+    // (channel ids contain no ':').
+    static func playlistKey(_ playlistId: String) -> String { "playlist:\(playlistId)" }
+
+    func loadPlaylist(_ playlist: Playlist,
+                       startingAt track: Track? = nil,
+                       seekTo: Double = 0) async {
         beginTransition(pre: track)
         currentPlaylist = playlist
         currentChannel = nil
@@ -736,7 +763,26 @@ final class PlayerViewModel: ObservableObject {
         // recordHistory:false — currentTrack here is still the previously-playing
         // CHANNEL track. Pushing it into playHistory is exactly why "back" on the
         // first playlist track used to jump to a track not in the playlist.
-        await playTrack(startTrack, seekTo: 0, recordHistory: false)
+        await playTrack(startTrack, seekTo: seekTo, recordHistory: false)
+    }
+
+    // The saved spot in a playlist (track still present + offset), or nil.
+    func savedPlaylistResume(_ playlist: Playlist) async -> (track: Track, seconds: Double)? {
+        guard let saved = await db.loadPosition(channelId: Self.playlistKey(playlist.id))
+        else { return nil }
+        let tracks = await db.fetchTracks(forPlaylist: playlist.id)
+        guard let track = tracks.first(where: { $0.id == saved.trackId }) else { return nil }
+        return (track, saved.seconds)
+    }
+
+    // Resume a playlist exactly where the user left off (the saved track at
+    // its saved offset). Falls back to a normal play-from-top if nothing saved.
+    func resumePlaylist(_ playlist: Playlist) async {
+        if let resume = await savedPlaylistResume(playlist) {
+            await loadPlaylist(playlist, startingAt: resume.track, seekTo: resume.seconds)
+        } else {
+            await loadPlaylist(playlist)
+        }
     }
 
     // MARK: - Book navigation (Librivox)
