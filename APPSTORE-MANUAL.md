@@ -71,19 +71,32 @@ CI auto-archives + uploads to TestFlight on every green `main` push. On the
 version page: select the build, paste the reviewer note below, **Submit for
 Review**.
 
-> Reviewer note: Parso Radio streams public-domain / Creative Commons audio
-> from archive.org, freemusicarchive.org and freesound.org. Network access is
-> required; a brief loading spinner may show on first launch while tracks are
-> fetched. No account, no tracking, no data collection.
+> Reviewer note: Parso Radio streams only public-domain / Creative Commons
+> audio from archive.org, freemusicarchive.org and freesound.org; it hosts no
+> content itself. Source + license are shown for every track. A copyright /
+> DMCA reporting mechanism is in-app at **About → Copyright & DMCA**
+> (info@parso.guru). Network access is required; a brief loading spinner may
+> show on first launch. No account, no tracking, no data collection.
+
+### Apple guideline coverage (IP / third-party content)
+
+- **5.2 (Intellectual Property):** only PD/CC content; per-track source +
+  license shown; in-app DMCA takedown path (About → Copyright & DMCA) with
+  the §512(c)(3) notice elements + counter-notice.
+- **1.2 (Safety / reporting):** users can report objectionable or infringing
+  content by email from the About screen; we investigate and disable links
+  to verified material.
+- **1.5 (Developer info):** developer contact (info@parso.guru) is published
+  in-app and in the listing.
 
 ## 8. One owner decision still open
 
-- **Pre-vetted Children's Songs channel (optional follow-up).** A safe
-  LibriVox `childrens-songs` channel ships now. If you want produced kids
-  *music* (not nursery-rhyme readings), say the word and I'll generate a
-  netlabels candidate list (title / creator / license / link, by downloads)
-  for you to personally approve/deny; approved IDs become a bundled
-  pre-vetted channel.
+- **Pre-vetted Children's Songs channel (optional follow-up).** The shipping
+  `childrens-songs` channel is the safe IA **78rpm nursery-rhyme** records +
+  curated `subject:"kids music"` tag (PBS/Nick Jr./Disney/indie comps). A
+  netlabels candidate list for an additional hand-vetted channel is in
+  `childrens-songs-candidates.csv` (clickable `stream_url`, `approved (Y/N)`
+  column) — pending your manual approval pass; only `Y` rows get added.
 
 ## Done in code this batch (no action needed)
 

@@ -20,6 +20,12 @@ struct AboutView: View {
 
                     Divider()
 
+                    copyright
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 24)
+
+                    Divider()
+
                     privacyPolicy
                         .padding(.horizontal, 20)
                         .padding(.vertical, 24)
@@ -114,6 +120,42 @@ struct AboutView: View {
                 Link("Source", destination: URL(string: url)!)
                     .font(.caption)
             }
+        }
+    }
+
+    // MARK: - Copyright / DMCA
+
+    private var copyright: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Copyright & DMCA")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                Spacer()
+                Link("Report", destination: URL(string:
+                    "mailto:info@parso.guru?subject=DMCA%20%2F%20Copyright%20Report")!)
+                    .font(.subheadline)
+            }
+
+            policySection(
+                title: "We host nothing",
+                body: "Parso Radio does not upload, host, or store any audio. It only streams works that the source repositories — the Internet Archive, the Free Music Archive, and Freesound — publish as public domain or under Creative Commons licenses. The source and license are shown for every track."
+            )
+
+            policySection(
+                title: "Reporting infringing content",
+                body: "If you are a rights holder (or authorized to act for one) and believe a track reachable through the App infringes your copyright, email info@parso.guru with the subject \"DMCA / Copyright Report\" and include:\n\n1. Identification of the copyrighted work you claim is infringed.\n2. The track title and/or source identifier shown in the App (and the channel/search it appeared in) so we can locate it.\n3. Your name, address, phone, and email.\n4. A statement that you have a good-faith belief the use is not authorized by the rights holder, its agent, or the law.\n5. A statement, made under penalty of perjury, that the information in your notice is accurate and that you are the copyright owner or authorized to act on the owner's behalf.\n6. Your physical or electronic signature."
+            )
+
+            policySection(
+                title: "Our process",
+                body: "We investigate every properly submitted report promptly. If infringement is verified, we disable the link to that material in the App as soon as practicable and may exclude the offending source item. Sources that repeatedly surface infringing material may be removed entirely. If you believe content was disabled in error, you may submit a counter-notice to the same address and we will review it."
+            )
+
+            policySection(
+                title: "Contact",
+                body: "Copyright agent: Parso Consulting — info@parso.guru. We aim to acknowledge valid notices within a few business days."
+            )
         }
     }
 
