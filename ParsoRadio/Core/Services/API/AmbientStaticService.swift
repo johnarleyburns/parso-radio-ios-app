@@ -8,15 +8,20 @@ final class AmbientStaticService {
     func fetchTracks(channel: Channel) -> [Track] {
         switch channel.id {
         case "ambient-yellowstone":    return yellowstoneTracks
-        // Loop-authored CC0 sources (user-selected) to avoid the seam click.
+        // User-selected loop-authored Freesound sources. eardeer/443869 and
+        // Nox_Sound/829629 are CC0; svampen/334149 is CC BY 3.0 (attribution
+        // required — surfaced via the track License/Artist + About credits).
         case "ambient-flowing-water":  return [loopTrack("443869", "443/443869_2155630-hq.mp3",
                                                           title: "Flowing Water", artist: "eardeer",
+                                                          license: .cc0,
                                                           channelId: "ambient-flowing-water")]
         case "ambient-rain":           return [loopTrack("334149", "334/334149_5910095-hq.mp3",
                                                           title: "Rainy Day", artist: "svampen",
+                                                          license: .ccBy,
                                                           channelId: "ambient-rain")]
         case "ambient-ocean":          return [loopTrack("829629", "829/829629_9250976-hq.mp3",
                                                           title: "Ocean Waves", artist: "Nox_Sound",
+                                                          license: .cc0,
                                                           channelId: "ambient-ocean")]
         default: return []
         }
@@ -72,7 +77,9 @@ final class AmbientStaticService {
         )
     }
 
-    private func loopTrack(_ id: String, _ cdnPath: String, title: String, artist: String, channelId: String) -> Track {
+    private func loopTrack(_ id: String, _ cdnPath: String, title: String,
+                           artist: String, license: LicenseType,
+                           channelId: String) -> Track {
         Track(
             id: "freesound-\(id)",
             source: "freesound",
@@ -82,7 +89,7 @@ final class AmbientStaticService {
             streamURL: URL(string: "https://cdn.freesound.org/previews/\(cdnPath)")!,
             downloadURL: nil,
             localFilePath: nil,
-            license: .cc0,
+            license: license,
             tags: [channelId],
             qualityScore: 1.0,
             rawCreator: artist,

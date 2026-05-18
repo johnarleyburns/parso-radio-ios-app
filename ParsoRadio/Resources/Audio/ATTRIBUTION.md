@@ -5,13 +5,20 @@ These WAV files ship in the app bundle. `AmbientStaticService.bundledLoopURL`
 loops with no encoder-padding click. The Freesound HQ-mp3 preview is only a
 fallback if a file is ever missing.
 
-| File                          | Source (CC0, Freesound)                                    |
-|-------------------------------|------------------------------------------------------------|
-| `ambient-flowing-water.wav`   | eardeer — https://freesound.org/people/eardeer/sounds/443869/   |
-| `ambient-rain.wav`            | svampen — https://freesound.org/people/svampen/sounds/334149/   |
-| `ambient-ocean.wav`           | Nox_Sound — https://freesound.org/people/Nox_Sound/sounds/829629/ |
+| File                          | Author / License | Source (Freesound)                              |
+|-------------------------------|------------------|-------------------------------------------------|
+| `ambient-flowing-water.wav`   | eardeer · **CC0**     | https://freesound.org/people/eardeer/sounds/443869/   |
+| `ambient-rain.wav`            | svampen · **CC BY 3.0** | https://freesound.org/people/svampen/sounds/334149/ |
+| `ambient-ocean.wav`           | Nox_Sound · **CC0**   | https://freesound.org/people/Nox_Sound/sounds/829629/ |
 
-All three sources are CC0 (public domain).
+eardeer/443869 and Nox_Sound/829629 are CC0 (public domain). **svampen/334149
+is CC BY 3.0 — attribution is required** and is provided in-app via the track
+License/Artist metadata and the About → Audio & Video Credits screen. If you
+swap this source, keep the attribution or pick a CC0 replacement.
+
+Background videos (`Resources/Video/ambient-*.mp4`) are Mixkit clips used
+under the Mixkit Free License — confirm the license still permits bundling in
+a shipped app before release.
 
 ## How they were produced
 

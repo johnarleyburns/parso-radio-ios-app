@@ -14,6 +14,12 @@ struct AboutView: View {
 
                     Divider()
 
+                    credits
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 24)
+
+                    Divider()
+
                     privacyPolicy
                         .padding(.horizontal, 20)
                         .padding(.vertical, 24)
@@ -62,6 +68,51 @@ struct AboutView: View {
                 Link("© 2026 Parso Consulting", destination: URL(string: "https://www.parso.guru")!)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Credits / attribution
+
+    private var credits: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Audio & Video Credits")
+                .font(.title3)
+                .fontWeight(.bold)
+
+            Text("Ambient loops and backdrops are used under the licenses below.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            creditRow(title: "Rainy Day", author: "svampen",
+                      license: "CC BY 3.0",
+                      url: "https://freesound.org/people/svampen/sounds/334149/")
+            creditRow(title: "Flowing Water", author: "eardeer",
+                      license: "CC0 (Public Domain)",
+                      url: "https://freesound.org/people/eardeer/sounds/443869/")
+            creditRow(title: "Ocean Waves", author: "Nox_Sound",
+                      license: "CC0 (Public Domain)",
+                      url: "https://freesound.org/people/Nox_Sound/sounds/829629/")
+
+            Text("Ambient background videos provided by Mixkit (Mixkit Free License). All streamed music and audiobooks are public-domain or Creative Commons licensed; the source and license are shown for every track.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func creditRow(title: String, author: String,
+                           license: String, url: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(title) — \(author)")
+                .font(.footnote)
+                .fontWeight(.semibold)
+            HStack(spacing: 6) {
+                Text(license)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Link("Source", destination: URL(string: url)!)
+                    .font(.caption)
             }
         }
     }

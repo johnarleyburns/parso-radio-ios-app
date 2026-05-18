@@ -9,13 +9,15 @@ final class AmbientStaticServiceTests: XCTestCase {
         Channel.defaults.first { $0.id == id }!
     }
 
-    func testLoopSourcesAreTheUserSelectedCC0Sounds() {
-        let cases: [(id: String, title: String, artist: String, sid: String, url: String)] = [
-            ("ambient-flowing-water", "Flowing Water", "eardeer", "443869",
+    func testLoopSourcesAndLicensesAreCorrect() {
+        // svampen/334149 is CC BY 3.0 (attribution required) — the others CC0.
+        let cases: [(id: String, title: String, artist: String, sid: String,
+                     license: LicenseType, url: String)] = [
+            ("ambient-flowing-water", "Flowing Water", "eardeer", "443869", .cc0,
              "https://cdn.freesound.org/previews/443/443869_2155630-hq.mp3"),
-            ("ambient-rain", "Rainy Day", "svampen", "334149",
+            ("ambient-rain", "Rainy Day", "svampen", "334149", .ccBy,
              "https://cdn.freesound.org/previews/334/334149_5910095-hq.mp3"),
-            ("ambient-ocean", "Ocean Waves", "Nox_Sound", "829629",
+            ("ambient-ocean", "Ocean Waves", "Nox_Sound", "829629", .cc0,
              "https://cdn.freesound.org/previews/829/829629_9250976-hq.mp3"),
         ]
         for c in cases {
@@ -24,7 +26,8 @@ final class AmbientStaticServiceTests: XCTestCase {
             let t = tracks[0]
             XCTAssertEqual(t.title, c.title)
             XCTAssertEqual(t.artist, c.artist)
-            XCTAssertEqual(t.license, .cc0, "loop sources must be CC0")
+            XCTAssertEqual(t.license, c.license,
+                "\(c.id): license must match the Freesound source")
             XCTAssertEqual(t.id, "freesound-\(c.sid)")
             XCTAssertEqual(t.streamURL.absoluteString, c.url,
                 "\(c.id): streams the chosen sound's HQ preview as fallback")
