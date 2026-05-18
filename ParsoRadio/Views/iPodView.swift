@@ -471,6 +471,18 @@ struct iPodView: View {
                                     Label("Add \(itemKindLabel(track)) to Playlist",
                                           systemImage: "text.badge.plus")
                                 }
+                                Button {
+                                    showMoreOptions = false
+                                    let nm = playerVM.itemDisplayName(for: track)
+                                    Task {
+                                        await playerVM.addEntireItemToNewPlaylist(
+                                            from: track, named: nm, using: playlistVM)
+                                    }
+                                } label: {
+                                    Label(
+                                        "Add \(itemKindLabel(track)) to New Playlist “\(shortName(playerVM.itemDisplayName(for: track)))”",
+                                        systemImage: "rectangle.stack.badge.plus")
+                                }
                             }
                         }
                     }
@@ -525,6 +537,11 @@ struct iPodView: View {
 
     // "Book" for Audiobooks-category channels or LibriVox/audiobook items;
     // "Album" otherwise.
+    // Keep long book/album titles from blowing out the menu label.
+    private func shortName(_ s: String, max: Int = 26) -> String {
+        s.count > max ? String(s.prefix(max - 1)) + "…" : s
+    }
+
     private func itemKindLabel(_ track: Track) -> String {
         if playerVM.currentChannel?.category == "Audiobooks" { return "Book" }
         let hay = (track.parentIdentifier ?? track.id).lowercased()

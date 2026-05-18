@@ -684,6 +684,40 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertFalse(PlayerViewModel.partsAreClean([]))
     }
 
+    func testAddEntireItemToNewPlaylistCreatesNamedPlaylistInOrder() async throws {
+        let plVM = PlaylistViewModel(db: db)
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        vm.currentChannel = channel
+        let parts = (1...3).map { makeBookPart(parent: "the_odyssey", part: $0) }
+        await db.saveTracks(parts.shuffled())
+
+        let created = await vm.addEntireItemToNewPlaylist(
+            from: parts[0], named: "The Odyssey", using: plVM)
+
+        XCTAssertEqual(created?.name, "The Odyssey",
+            "a new playlist named after the book must be created")
+        await plVM.loadPlaylists()
+        XCTAssertTrue(plVM.playlists.contains { $0.name == "The Odyssey" })
+        let inPl = await db.fetchTracks(forPlaylist: created!.id)
+        XCTAssertEqual(inPl.map(\.id),
+                       ["the_odyssey/part1.mp3", "the_odyssey/part2.mp3",
+                        "the_odyssey/part3.mp3"],
+            "every part added to the new playlist, in book order")
+
+        // Empty/blank name falls back rather than creating a nameless playlist.
+        let fallback = await vm.addEntireItemToNewPlaylist(
+            from: parts[0], named: "   ", using: plVM)
+        XCTAssertEqual(fallback?.name, "New Playlist")
+    }
+
+    func testItemDisplayNamePrettifiesIdentifier() {
+        let part = makeBookPart(parent: "laws_plato-hi_res", part: 1)
+        XCTAssertEqual(vm.itemDisplayName(for: part), "Laws Plato Hi Res")
+        let single = makeFMATrack(id: "x", tags: [])
+        XCTAssertEqual(vm.itemDisplayName(for: single), single.title,
+            "no parent → fall back to the track title")
+    }
+
     // MARK: - Helpers
 
     private func makeIATrack(id: String, tags: [String]) -> Track {

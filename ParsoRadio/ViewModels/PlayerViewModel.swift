@@ -615,6 +615,36 @@ final class PlayerViewModel: ObservableObject {
         await playlistVM.addTracks(ordered, to: playlist)
     }
 
+    // One-tap: create a playlist named after the book/album and add every
+    // part to it in order. Smoother than the picker for a fresh shelf.
+    @discardableResult
+    func addEntireItemToNewPlaylist(
+        from track: Track, named rawName: String, using playlistVM: PlaylistViewModel
+    ) async -> Playlist? {
+        let identifier = track.parentIdentifier ?? track.id
+        guard let parts = await resolveItemParts(identifier: identifier),
+              !parts.isEmpty else { return nil }
+        let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let playlist = await playlistVM.createPlaylist(
+            name: trimmed.isEmpty ? "New Playlist" : trimmed)
+        await playlistVM.addTracks(ordered, to: playlist)
+        return playlist
+    }
+
+    // Friendly book/album name for a part track: the IA item id prettified
+    // (underscores/dashes → spaces, capitalised), else the track title.
+    func itemDisplayName(for track: Track) -> String {
+        guard let parent = track.parentIdentifier, !parent.isEmpty else {
+            return track.title
+        }
+        let pretty = parent
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+        return pretty.isEmpty ? track.title : pretty.capitalized
+    }
+
     // Runs `op` but throws if it doesn't finish within `seconds`.
     private func withTimeout<T: Sendable>(
         _ seconds: Double, _ op: @escaping @Sendable () async throws -> T

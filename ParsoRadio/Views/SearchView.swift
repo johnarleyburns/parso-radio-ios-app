@@ -86,8 +86,17 @@ struct SearchView: View {
                 }
                 Button("Add to Playlist") { showAddToPlaylist = searchTrack(group) }
                 if let kind = searchVM.itemKinds[group.id], kind != .track {
-                    Button("Add \(kind == .book ? "Book" : "Album") to Playlist") {
+                    let label = kind == .book ? "Book" : "Album"
+                    Button("Add \(label) to Playlist") {
                         showAddItemToPlaylist = group
+                    }
+                    Button("Add \(label) to New Playlist “\(shortTitle(group.title))”") {
+                        Task {
+                            await playerVM.addEntireItemToNewPlaylist(
+                                from: searchTrack(group),
+                                named: group.title,
+                                using: playlistVM)
+                        }
                     }
                 }
                 Button("Cancel", role: .cancel) {}
@@ -211,6 +220,10 @@ struct SearchView: View {
         case .track: return "music.note"            // a single track
         case nil:    return "waveform"              // not yet classified
         }
+    }
+
+    private func shortTitle(_ s: String, max: Int = 24) -> String {
+        s.count > max ? String(s.prefix(max - 1)) + "…" : s
     }
 
     private func kindLabel(_ kind: SearchViewModel.ItemKind) -> String {
