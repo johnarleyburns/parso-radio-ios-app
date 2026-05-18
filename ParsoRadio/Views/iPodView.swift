@@ -181,6 +181,10 @@ struct iPodView: View {
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundStyle(.white.opacity(0.95))
+                        .contentShape(Rectangle())
+                        // Tapping the playlist/channel name opens the menu
+                        // (not track info — that's the rest of the panel / •••).
+                        .onTapGesture { showMainMenu = true }
                     Spacer()
                 }
                 .padding(.horizontal, 14)
@@ -700,9 +704,11 @@ struct ClickWheel: View {
     // Seek-wheel inputs (duration == 0 ⇒ pure transport, no seeking/arc).
     var currentTime: Double = 0
     var duration: Double = 0
-    // Ambient-loop channels have a single forever-repeating track: no
-    // back/forward/play and no seeking — only MENU stays active.
+    // Ambient-loop channels: no back/forward and no seeking, but play/pause
+    // stays so the loop can be paused. transportEnabled gates back/forward
+    // (+ seek); playPauseEnabled gates the bottom play/pause; MENU is always on.
     var transportEnabled: Bool = true
+    var playPauseEnabled: Bool = true
     var onSeek: (Double) -> Void = { _ in }
     var onScrubChanged: (Bool) -> Void = { _ in }
     let onMenu:      () -> Void
@@ -775,7 +781,9 @@ struct ClickWheel: View {
                         .foregroundStyle(.primary)
                         .offset(x: midRing)
                         .allowsHitTesting(false)
+                }
 
+                if playPauseEnabled {
                     // Play/Pause (bottom)
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 18, weight: .medium))
@@ -798,14 +806,10 @@ struct ClickWheel: View {
                         guard dist <= outerR, dist > innerR else { return }
 
                         tapTrigger += 1
-                        if !transportEnabled {
-                            // Ambient loop: only the MENU sector responds.
-                            if abs(dy) >= abs(dx), dy < 0 { onMenu() }
-                            return
-                        }
                         if abs(dy) >= abs(dx) {
-                            if dy < 0 { onMenu() } else { onPlayPause() }
-                        } else {
+                            if dy < 0 { onMenu() }
+                            else if playPauseEnabled { onPlayPause() }
+                        } else if transportEnabled {
                             if dx < 0 { onBack() } else { onForward() }
                         }
                     }

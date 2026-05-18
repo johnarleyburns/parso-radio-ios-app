@@ -7,26 +7,17 @@ fallback if a file is ever missing.
 
 | File                          | Author / License | Source (Freesound)                              |
 |-------------------------------|------------------|-------------------------------------------------|
-| `ambient-flowing-water.wav`   | eardeer · **CC0**     | https://freesound.org/people/eardeer/sounds/443869/   |
-| `ambient-rain.wav`            | svampen · **CC BY 3.0** | https://freesound.org/people/svampen/sounds/334149/ |
-| `ambient-ocean.wav`           | Nox_Sound · **CC0**   | https://freesound.org/people/Nox_Sound/sounds/829629/ |
+| `ambient-flowing-water.wav`   | eardeer · **CC0**          | https://freesound.org/people/eardeer/sounds/443869/        |
+| `ambient-rain.wav`            | speakwithanimals · **CC0** | https://freesound.org/people/speakwithanimals/sounds/525046/ |
+| `ambient-ocean.wav`           | Nox_Sound · **CC0**        | https://freesound.org/people/Nox_Sound/sounds/829629/      |
 
-eardeer/443869 and Nox_Sound/829629 are CC0 (public domain).
-
-> ⚠️ **OUTSTANDING — rain AUDIO is still CC BY 3.0.** `ambient-rain.wav` is
-> derived from svampen/334149 (CC BY 3.0); the previously-used rain source
-> DWOBoyle/136971 is CC BY 4.0 — so there is no drop-in CC0 rain audio. To
-> make the app **all-CC0**, a CC0 rain sound must be chosen to regenerate
-> `ambient-rain.wav` and reset its license to `.cc0`. Until then attribution
-> for svampen is required (shown via track License/Artist + About → Credits).
+**All three ambient loop sounds are CC0 (public domain)** — no attribution
+is legally required (credits are still shown in-app as good practice).
 
 ### Background videos (`Resources/Video/ambient-*.mp4`)
 
-| File | License |
-|---|---|
-| `ambient-rain.mp4` | **CC0** (user-supplied `100925-video-720.mp4`) |
-| `ambient-flowing-water.mp4` | Mixkit Free License — confirm before release |
-| `ambient-ocean.mp4` | Mixkit Free License — confirm before release |
+All three are Mixkit clips under the Mixkit Free License; license compliance
+for bundling in this app was verified by the project owner (2026-05-18).
 
 ## How they were produced
 

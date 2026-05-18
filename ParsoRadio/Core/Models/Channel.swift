@@ -376,6 +376,15 @@ extension Channel {
             tags: ["78rpm", "shellac"],
             preferredSource: "internet_archive"
         ),
+        // Children's Songs: LibriVox nursery rhymes / Mother Goose / lullabies
+        // — anchored to librivoxaudio so it is safe-by-construction for 4+
+        // (a netlabels "children" query returned profane noise releases).
+        Channel(
+            id: "childrens-songs", name: "Children's Songs", category: "Curated",
+            icon: "music.note.house.fill",
+            tags: ["childrens-songs"],
+            preferredSource: "internet_archive"
+        ),
 
         // MARK: Audiobooks — LibriVox via pure-Lucene IA registry
         // Each channel is a single curl-verified
@@ -455,6 +464,11 @@ extension Channel {
         Channel(
             id: "lv-poetry", name: "Poetry", category: "Audiobooks",
             icon: "text.quote", tags: ["lv-poetry"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "lv-childrens-books", name: "Children's Books", category: "Audiobooks",
+            icon: "books.vertical.fill", tags: ["lv-childrens-books"],
             contentType: .spokenWord, preferredSource: "internet_archive"
         ),
         Channel(

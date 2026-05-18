@@ -8,16 +8,15 @@ final class AmbientStaticService {
     func fetchTracks(channel: Channel) -> [Track] {
         switch channel.id {
         case "ambient-yellowstone":    return yellowstoneTracks
-        // User-selected loop-authored Freesound sources. eardeer/443869 and
-        // Nox_Sound/829629 are CC0; svampen/334149 is CC BY 3.0 (attribution
-        // required — surfaced via the track License/Artist + About credits).
+        // User-selected loop-authored Freesound sources — ALL CC0 (public
+        // domain): eardeer/443869, speakwithanimals/525046, Nox_Sound/829629.
         case "ambient-flowing-water":  return [loopTrack("443869", "443/443869_2155630-hq.mp3",
                                                           title: "Flowing Water", artist: "eardeer",
                                                           license: .cc0,
                                                           channelId: "ambient-flowing-water")]
-        case "ambient-rain":           return [loopTrack("334149", "334/334149_5910095-hq.mp3",
-                                                          title: "Rainy Day", artist: "svampen",
-                                                          license: .ccBy,
+        case "ambient-rain":           return [loopTrack("525046", "525/525046_10637780-hq.mp3",
+                                                          title: "Rainy Day", artist: "speakwithanimals",
+                                                          license: .cc0,
                                                           channelId: "ambient-rain")]
         case "ambient-ocean":          return [loopTrack("829629", "829/829629_9250976-hq.mp3",
                                                           title: "Ocean Waves", artist: "Nox_Sound",

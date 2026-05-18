@@ -80,13 +80,13 @@ struct AboutView: View {
                 .font(.title3)
                 .fontWeight(.bold)
 
-            Text("Ambient loops and backdrops are used under the licenses below.")
+            Text("All ambient loop sounds are CC0 (public domain).")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
-            creditRow(title: "Rainy Day", author: "svampen",
-                      license: "CC BY 3.0",
-                      url: "https://freesound.org/people/svampen/sounds/334149/")
+            creditRow(title: "Rainy Day", author: "speakwithanimals",
+                      license: "CC0 (Public Domain)",
+                      url: "https://freesound.org/people/speakwithanimals/sounds/525046/")
             creditRow(title: "Flowing Water", author: "eardeer",
                       license: "CC0 (Public Domain)",
                       url: "https://freesound.org/people/eardeer/sounds/443869/")
@@ -126,7 +126,7 @@ struct AboutView: View {
                     .font(.title3)
                     .fontWeight(.bold)
                 Spacer()
-                Link("View Online", destination: URL(string: "https://parso.guru/privacy")!)
+                Link("View Online", destination: URL(string: "https://parso.guru/parso-radio-privacy")!)
                     .font(.subheadline)
             }
 

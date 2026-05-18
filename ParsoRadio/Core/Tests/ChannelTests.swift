@@ -4,9 +4,9 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 14 Contemporary + 18 Lectures + 4 News + 4 Ambient + 9 Curated
-        // + 21 Audiobooks (LibriVox) = 70.
-        XCTAssertEqual(Channel.defaults.count, 70)
+        // 14 Contemporary + 18 Lectures + 4 News + 4 Ambient + 10 Curated
+        // + 22 Audiobooks (LibriVox) = 72.
+        XCTAssertEqual(Channel.defaults.count, 72)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {
@@ -29,7 +29,7 @@ final class ChannelTests: XCTestCase {
 
     func testAudiobooksAreTwentyOneLibriVoxRegistryChannels() {
         let ab = Channel.defaults.filter { $0.category == "Audiobooks" }
-        XCTAssertEqual(ab.count, 21, "Expected 21 LibriVox Audiobooks channels")
+        XCTAssertEqual(ab.count, 22, "Expected 22 LibriVox Audiobooks channels")
         for ch in ab {
             XCTAssertEqual(ch.contentType, .spokenWord,
                 "Audiobook '\(ch.id)' must be .spokenWord (position persistence)")
@@ -48,15 +48,34 @@ final class ChannelTests: XCTestCase {
         XCTAssertNotNil(ch?.iaQueryEntry, "Spanish Guitar must be registry-backed (pure-Lucene)")
     }
 
+    func testChildrensChannelsAreRegistryBackedAndSafe() {
+        let books = Channel.defaults.first { $0.id == "lv-childrens-books" }
+        XCTAssertEqual(books?.category, "Audiobooks")
+        XCTAssertEqual(books?.contentType, .spokenWord)
+        XCTAssertTrue(books?.iaQueryEntry?.iaQuery.contains("collection:librivoxaudio") ?? false,
+            "Children's Books must be LibriVox-sourced")
+
+        let songs = Channel.defaults.first { $0.id == "childrens-songs" }
+        XCTAssertEqual(songs?.category, "Curated")
+        // Safety: anchored to LibriVox (public-domain volunteer readings), NOT
+        // a netlabels "children" query, which returned profane noise releases.
+        let q = songs?.iaQueryEntry?.iaQuery ?? ""
+        XCTAssertTrue(q.contains("collection:librivoxaudio"),
+            "Children's Songs MUST be LibriVox-anchored for 4+ content safety")
+        XCTAssertFalse(q.contains("netlabels"),
+            "Children's Songs must NOT use the unsafe netlabels source")
+        XCTAssertEqual(songs?.iaQueryEntry?.matchTags, ["childrens-songs"])
+    }
+
     func testCuratedChannelsAreRegistryBacked() {
         let channels = Channel.defaults.filter { $0.category == "Curated" }
-        XCTAssertEqual(channels.count, 9,
-            "Expected 9 Curated channels (Lofi removed — it was just noise)")
+        XCTAssertEqual(channels.count, 10,
+            "Expected 10 Curated channels (Lofi removed; Children's Songs added)")
         let ids = Set(channels.map(\.id))
         XCTAssertEqual(ids, [
             "spanish-guitar", "chamber-music", "historical-voices",
             "symphony-orchestra", "piano-hour", "tribal-works", "cafe-lento",
-            "netlabels", "rpm-78"
+            "netlabels", "rpm-78", "childrens-songs"
         ])
         // Every Curated channel must be pure-Lucene registry-backed, and its
         // matchTag stamp must equal its own id (the isolation contract).

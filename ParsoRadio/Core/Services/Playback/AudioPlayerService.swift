@@ -59,7 +59,13 @@ final class AudioPlayerService: ObservableObject {
             player = queuePlayer
             playerLooper = AVPlayerLooper(player: queuePlayer, templateItem: item)
         } else {
-            player = AVPlayer(playerItem: item)
+            // Poor-connectivity resilience: buffer well ahead so brief signal
+            // drops don't audibly stall, and let AVPlayer wait to rebuffer
+            // rather than playing into an empty buffer.
+            item.preferredForwardBufferDuration = 90
+            let p = AVPlayer(playerItem: item)
+            p.automaticallyWaitsToMinimizeStalling = true
+            player = p
             endObserver = NotificationCenter.default.addObserver(
                 forName: .AVPlayerItemDidPlayToEndTime,
                 object: item,

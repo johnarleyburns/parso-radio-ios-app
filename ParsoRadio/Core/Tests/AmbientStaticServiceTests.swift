@@ -10,13 +10,13 @@ final class AmbientStaticServiceTests: XCTestCase {
     }
 
     func testLoopSourcesAndLicensesAreCorrect() {
-        // svampen/334149 is CC BY 3.0 (attribution required) — the others CC0.
+        // All three ambient loop sources are CC0 (public domain).
         let cases: [(id: String, title: String, artist: String, sid: String,
                      license: LicenseType, url: String)] = [
             ("ambient-flowing-water", "Flowing Water", "eardeer", "443869", .cc0,
              "https://cdn.freesound.org/previews/443/443869_2155630-hq.mp3"),
-            ("ambient-rain", "Rainy Day", "svampen", "334149", .ccBy,
-             "https://cdn.freesound.org/previews/334/334149_5910095-hq.mp3"),
+            ("ambient-rain", "Rainy Day", "speakwithanimals", "525046", .cc0,
+             "https://cdn.freesound.org/previews/525/525046_10637780-hq.mp3"),
             ("ambient-ocean", "Ocean Waves", "Nox_Sound", "829629", .cc0,
              "https://cdn.freesound.org/previews/829/829629_9250976-hq.mp3"),
         ]

@@ -208,5 +208,19 @@
     "matchTags": [
       "rpm-78"
     ]
+  },
+  {
+    "channelId": "lv-childrens-books",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Juvenile fiction\" OR subject:\"Children's Fiction\" OR subject:\"Juvenile literature\" OR subject:\"Fairy tales\")",
+    "matchTags": [
+      "lv-childrens-books"
+    ]
+  },
+  {
+    "channelId": "childrens-songs",
+    "iaQuery": "collection:librivoxaudio AND (subject:\"Nursery rhymes\" OR subject:\"Children's songs\" OR title:\"Mother Goose\" OR title:\"nursery rhyme\" OR title:\"Songs of Childhood\" OR subject:\"Lullabies\")",
+    "matchTags": [
+      "childrens-songs"
+    ]
   }
 ]

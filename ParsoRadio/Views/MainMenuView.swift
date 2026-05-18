@@ -30,20 +30,38 @@ struct MainMenuView: View {
 
     @ViewBuilder
     private func playlistRow(_ playlist: Playlist) -> some View {
-        // Push the playlist detail (play/shuffle/add/edit), not straight to playback.
-        NavigationLink {
-            PlaylistDetailView(playlist: playlist, dismissAll: dismissAll)
-                .environmentObject(playlistVM)
-                .environmentObject(playerVM)
-                .environmentObject(offlineService)
-        } label: {
-            HStack {
-                Label(playlist.name,
-                      systemImage: playlist.isFavorites ? "heart.fill" : "music.note.list")
-                Spacer()
-                Text("\(playlistVM.trackCount(for: playlist))")
-                    .font(.caption).foregroundStyle(.secondary)
+        HStack(spacing: 8) {
+            // Tapping the playlist RESUMES by default (exact saved spot, or
+            // from the top if nothing saved) and returns to the player.
+            Button {
+                Task {
+                    await playerVM.resumePlaylist(playlist)
+                    dismissAll()
+                }
+            } label: {
+                HStack {
+                    Label(playlist.name,
+                          systemImage: playlist.isFavorites ? "heart.fill" : "music.note.list")
+                    Spacer()
+                    Text("\(playlistVM.trackCount(for: playlist))")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+
+            // Explicit path to play-from-top / shuffle / edit / add.
+            NavigationLink {
+                PlaylistDetailView(playlist: playlist, dismissAll: dismissAll)
+                    .environmentObject(playlistVM)
+                    .environmentObject(playerVM)
+                    .environmentObject(offlineService)
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .fixedSize()
         }
     }
 
