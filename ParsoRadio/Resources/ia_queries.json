@@ -218,7 +218,7 @@
   },
   {
     "channelId": "childrens-songs",
-    "iaQuery": "collection:librivoxaudio AND (subject:\"Nursery rhymes\" OR subject:\"Children's songs\" OR title:\"Mother Goose\" OR title:\"nursery rhyme\" OR title:\"Songs of Childhood\" OR subject:\"Lullabies\")",
+    "iaQuery": "mediatype:audio AND NOT collection:librivoxaudio AND NOT subject:audiobooks AND NOT subject:audiobook AND NOT title:audiobook AND NOT title:book AND NOT title:books AND NOT title:interview AND NOT identifier:TheKerplunksInterviewwithDaveORama AND ((collection:78rpm AND (title:\"nursery rhyme\" OR title:\"nursery rhymes\" OR title:\"Mother Goose\" OR title:\"Baa Baa Black Sheep\" OR title:\"Little Bo Peep\" OR title:\"Little Miss Muffet\" OR title:\"Hickory Dickory Dock\" OR title:\"Farmer in the Dell\" OR title:\"Mary Had a Little Lamb\" OR title:\"Twinkle Twinkle\" OR title:\"Sing a Song of Sixpence\" OR title:\"Three Little Kittens\" OR title:\"Old MacDonald\" OR title:\"This Old Man\" OR title:\"Pop Goes the Weasel\" OR title:\"Hey Diddle Diddle\" OR title:\"Jack and Jill\" OR title:\"Humpty Dumpty\" OR title:\"Itsy Bitsy Spider\" OR title:\"Rock-a-bye Baby\" OR title:\"Ride a Cock Horse\" OR title:\"Pat-a-Cake\" OR title:\"Pussy Cat\" OR title:\"Old King Cole\" OR title:\"Wee Willie Winkie\" OR title:\"Georgie Porgie\" OR title:\"Ring Around the Rosie\" OR title:\"Row Row Row Your Boat\" OR title:\"London Bridge\")) OR subject:\"kids music\")",
     "matchTags": [
       "childrens-songs"
     ]

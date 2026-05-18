@@ -376,9 +376,11 @@ extension Channel {
             tags: ["78rpm", "shellac"],
             preferredSource: "internet_archive"
         ),
-        // Children's Songs: LibriVox nursery rhymes / Mother Goose / lullabies
-        // — anchored to librivoxaudio so it is safe-by-construction for 4+
-        // (a netlabels "children" query returned profane noise releases).
+        // Children's Songs: two safe arms — vintage 78rpm nursery-rhyme
+        // records (phrase-title matched) + the curated subject:"kids music"
+        // tag (PBS/Nick Jr./Disney/indie kids comps). netlabels excluded
+        // (profane releases); LibriVox/audiobooks/books excluded so it stays
+        // MUSIC, not spoken-word.
         Channel(
             id: "childrens-songs", name: "Children's Songs", category: "Curated",
             icon: "music.note.house.fill",

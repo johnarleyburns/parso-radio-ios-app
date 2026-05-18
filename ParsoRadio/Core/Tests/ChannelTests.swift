@@ -57,13 +57,20 @@ final class ChannelTests: XCTestCase {
 
         let songs = Channel.defaults.first { $0.id == "childrens-songs" }
         XCTAssertEqual(songs?.category, "Curated")
-        // Safety: anchored to LibriVox (public-domain volunteer readings), NOT
-        // a netlabels "children" query, which returned profane noise releases.
+        // Safety: curated IA 78rpm collection only — NOT the unsafe netlabels
+        // source (profane releases), and NOT LibriVox/audiobooks (keeps it
+        // MUSIC, not spoken-word).
         let q = songs?.iaQueryEntry?.iaQuery ?? ""
-        XCTAssertTrue(q.contains("collection:librivoxaudio"),
-            "Children's Songs MUST be LibriVox-anchored for 4+ content safety")
+        XCTAssertTrue(q.contains("collection:78rpm"),
+            "Children's Songs must include the curated 78rpm arm")
+        XCTAssertTrue(q.contains("subject:\"kids music\""),
+            "Children's Songs must include the curated kids-music tag arm")
         XCTAssertFalse(q.contains("netlabels"),
             "Children's Songs must NOT use the unsafe netlabels source")
+        XCTAssertTrue(q.contains("NOT collection:librivoxaudio"),
+            "Children's Songs must exclude LibriVox so it stays music, not audiobooks")
+        XCTAssertTrue(q.contains("NOT title:book"),
+            "Children's Songs must exclude book/audiobook items")
         XCTAssertEqual(songs?.iaQueryEntry?.matchTags, ["childrens-songs"])
     }
 

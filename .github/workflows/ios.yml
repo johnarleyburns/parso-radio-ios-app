@@ -7,6 +7,11 @@ on:
     types: [created]
   workflow_dispatch:
 
+# Run the @v4 JS actions (checkout/cache/upload-artifact) on Node 24 so the
+# Node 20 deprecation notice goes away without risky action-major bumps.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # ─── Run tests before building ────────────────────────────────────────────
   test:
