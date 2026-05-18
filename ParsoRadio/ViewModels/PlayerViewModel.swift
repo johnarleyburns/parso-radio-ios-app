@@ -428,10 +428,18 @@ final class PlayerViewModel: ObservableObject {
         currentTrack = track
         // Pre-set duration from track metadata so scrubber renders before AVPlayer buffers.
         trackDuration = track.duration > 0 ? track.duration : nil
-        // Load artwork asynchronously so playback starts without waiting
+        // Clear the previous track's artwork IMMEDIATELY so a track with no
+        // image never shows the prior track's picture. The procedural
+        // visualizer fills the gap until/unless real art resolves.
+        currentArtwork = nil
+        artworkDominantColor = .accentColor
+        // Load artwork asynchronously so playback starts without waiting.
         Task { [weak self] in
             guard let self else { return }
             let art = await ArtworkService.shared.artwork(for: track)
+            // Stale-guard: a slow fetch for a track the user already skipped
+            // past must NOT overwrite the current track's (cleared) artwork.
+            guard self.currentTrack?.id == track.id else { return }
             self.currentArtwork = art
             if let art {
                 let uiColor = ArtworkService.shared.dominantColor(from: art)

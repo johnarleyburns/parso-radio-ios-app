@@ -254,9 +254,10 @@ struct iPodView: View {
                         .resizable()
                         .scaledToFill()
                 } else {
-                    Image(systemName: displayChannel.icon)
-                        .font(.system(size: 48, weight: .ultraLight))
-                        .foregroundStyle(.white.opacity(0.3))
+                    // No artwork → per-track procedural visualizer (seeded by
+                    // the track so it always changes; never a stale image).
+                    ProceduralVisualizerView(
+                        seed: playerVM.currentTrack?.id ?? displayChannel.id)
                 }
             }
             .clipped()
