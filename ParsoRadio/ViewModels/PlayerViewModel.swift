@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import UIKit
 import MediaPlayer
+import AVFoundation
 
 @MainActor
 final class PlayerViewModel: ObservableObject {
@@ -67,11 +68,6 @@ final class PlayerViewModel: ObservableObject {
     private let loadTimeout: Double = 10
     private let maxConsecutiveLoadFailures = 8
     private var consecutiveLoadFailures = 0
-    // minTrackDuration enforcement (e.g. Children's Songs): skip each
-    // too-short track once; cap consecutive skips so an all-short channel
-    // can't loop forever.
-    private var shortSkippedTrackId: String?
-    private var consecutiveShortSkips = 0
 
     init(
         db: DatabaseService,
@@ -145,27 +141,8 @@ final class PlayerViewModel: ObservableObject {
                 guard let self, !self.isScrubbing else { return }
                 self.currentPosition = seconds
                 self.trackDuration = self.audioPlayer.duration
-
-                // Channel minimum-duration gate (no item-level runtime in IA,
-                // so enforced once the player reports the real duration).
-                if let ch = self.currentChannel,
-                   let minDur = ch.minTrackDuration,
-                   let track = self.currentTrack,
-                   let d = self.audioPlayer.duration, d > 0 {
-                    if d < minDur {
-                        if self.shortSkippedTrackId != track.id,
-                           !self.isSkipping, !self.isLoading {
-                            self.shortSkippedTrackId = track.id
-                            self.consecutiveShortSkips += 1
-                            if self.consecutiveShortSkips <= self.maxConsecutiveLoadFailures {
-                                self.skip()
-                            }
-                        }
-                        return
-                    } else {
-                        self.consecutiveShortSkips = 0
-                    }
-                }
+                // (minTrackDuration is enforced invisibly in advanceToNext via
+                // assetDuration pre-screening, before the track is revealed.)
                 // Persist position for spoken-word channels so the user can resume.
                 // Throttled: write DB at most once every 5 s (timer fires 4×/s).
                 if let channel = self.currentChannel,
@@ -287,10 +264,36 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
+        let saved = await db.loadPosition(channelId: channel.id)
+
+        // NEWS: on re-entry, if a NEWER episode than the one last played has
+        // appeared in the feed, jump straight to the newest and play it,
+        // ignoring the saved position. (News only; only when newer arrived.)
+        if channel.feedURL != nil, !fetched.isEmpty {
+            let newest = fetched.max {
+                ($0.bestDate ?? .distantPast) < ($1.bestDate ?? .distantPast)
+            }
+            let savedTrack = saved.flatMap { s in
+                fetched.first { $0.id == s.trackId }
+            }
+            let savedDate = savedTrack?.bestDate ?? .distantPast
+            if let newest,
+               newest.id != saved?.trackId,
+               (newest.bestDate ?? .distantPast) > savedDate {
+                await db.clearPosition(channelId: channel.id)
+                await db.recordPlayed(channelId: channel.id, trackId: newest.id)
+                loadingMessage = "Loading the latest…"
+                await playTrack(newest, seekTo: nil)
+                if !autoPlay && isPlaying { audioPlayer.pause(); isPlaying = false }
+                isLoading = false
+                loadingMessage = nil
+                return
+            }
+        }
+
         // Resume the last-played track for all channel types.
         // Spoken-word resumes at exact position; music restarts the same track from the beginning.
-        if let saved = await db.loadPosition(channelId: channel.id),
-           let track = await db.fetchTrack(id: saved.trackId) {
+        if let saved, let track = await db.fetchTrack(id: saved.trackId) {
             loadingMessage = "Resuming \"\(track.title)\"…"
             let seekTo: Double? = channel.contentType == .spokenWord ? saved.seconds : nil
             await playTrack(track, seekTo: seekTo)
@@ -392,7 +395,7 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
-        guard let track = await queueManager.nextTrack(channel: channel, shuffleMode: shuffleMode) else {
+        guard var track = await queueManager.nextTrack(channel: channel, shuffleMode: shuffleMode) else {
             currentTrack = nil
             isPlaying = false
             if errorMessage == nil {
@@ -401,7 +404,50 @@ final class PlayerViewModel: ObservableObject {
             isLoading = false
             return
         }
+
+        // minTrackDuration channels (Children's Songs): screen candidates by
+        // their real duration BEFORE revealing anything. Too-short tracks stay
+        // COMPLETELY invisible — the screen shows only the loading spinner
+        // (currentTrack nil) until a track ≥ the minimum is found.
+        if let minDur = channel.minTrackDuration {
+            currentTrack = nil
+            currentArtwork = nil
+            isPlaying = false
+            isLoading = true
+            loadingMessage = "Finding a track…"
+            var tries = 0
+            while tries < maxConsecutiveLoadFailures {
+                let d = await assetDuration(for: track)
+                if let d, d >= minDur { break }
+                tries += 1
+                guard let next = await queueManager.nextTrack(
+                    channel: channel, shuffleMode: shuffleMode) else { break }
+                track = next
+            }
+        }
         await playTrack(track, seekTo: nil)
+    }
+
+    // Resolve a track's playable URL and read its duration WITHOUT starting
+    // audible playback (used to pre-screen min-duration channels silently).
+    private func assetDuration(for track: Track) async -> Double? {
+        let url: URL
+        if track.id.contains("/") {
+            url = track.streamURL
+        } else if track.source == "internet_archive" {
+            let svc = archiveService
+            let identifier = track.id
+            guard let resolved = try? await withTimeout(loadTimeout, {
+                try await svc.resolveAudioURL(for: identifier)
+            }) else { return nil }
+            url = resolved
+        } else {
+            url = track.streamURL
+        }
+        let asset = AVURLAsset(url: url)
+        guard let dur = try? await asset.load(.duration) else { return nil }
+        let secs = CMTimeGetSeconds(dur)
+        return secs.isFinite && secs > 0 ? secs : nil
     }
 
     private func advancePlaylist() async {
