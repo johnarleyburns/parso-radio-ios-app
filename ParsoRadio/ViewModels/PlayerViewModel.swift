@@ -63,8 +63,11 @@ final class PlayerViewModel: ObservableObject {
     var playlistIndex: Int = 0
     // Guards against double-advance when skip() fires onTrackFinished before the Task runs.
     private var isSkipping = false
-    // A track has 10 s to start; on failure/timeout we auto-skip to the next.
-    // Capped so a channel where everything fails doesn't loop forever.
+    // We auto-skip ONLY on a true failure: the stream URL can't be resolved
+    // within loadTimeout (no network response), or the AVPlayerItem reports
+    // .failed (dead URL / 404 / undecodable). A merely-slow connection is NOT
+    // skipped — AVPlayer waits and rebuffers. Capped so a channel where every
+    // track is genuinely unplayable doesn't loop forever.
     private let loadTimeout: Double = 10
     private let maxConsecutiveLoadFailures = 8
     private var consecutiveLoadFailures = 0
@@ -167,6 +170,18 @@ final class PlayerViewModel: ObservableObject {
                         seconds: seconds
                     )
                 }
+            }
+        }
+
+        // A genuinely unplayable asset (dead URL / 404 / decode error) — NOT a
+        // slow connection. Skip past it, same cap as a resolve timeout.
+        audioPlayer.onLoadFailed = { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      let track = self.currentTrack,
+                      self.currentChannel?.contentType != .ambientLoop
+                else { return }
+                await self.handleLoadFailure(track)
             }
         }
     }
@@ -382,11 +397,17 @@ final class PlayerViewModel: ObservableObject {
 
         // Assert a background task so iOS doesn't kill the network call that
         // resolves the next track URL when the app is backgrounded.
-        var bgTask = UIBackgroundTaskIdentifier.invalid
+        // nonisolated(unsafe): the expiration handler must see the real task
+        // id, so it has to be captured-then-mutated. Begin/end and the handler
+        // all run on the main actor, so the access is in fact serialized.
+        nonisolated(unsafe) var bgTask = UIBackgroundTaskIdentifier.invalid
         bgTask = UIApplication.shared.beginBackgroundTask(withName: "advance-track") {
             UIApplication.shared.endBackgroundTask(bgTask)
+            bgTask = .invalid
         }
-        defer { UIApplication.shared.endBackgroundTask(bgTask) }
+        defer {
+            if bgTask != .invalid { UIApplication.shared.endBackgroundTask(bgTask) }
+        }
 
         // Librivox sequential multi-part: advance to next part before random pick
         if let current = currentTrack, current.parentIdentifier != nil {
@@ -566,10 +587,14 @@ final class PlayerViewModel: ObservableObject {
             } else {
                 url = track.streamURL
             }
-            audioPlayer.play(url: url, track: track, looping: currentChannel?.contentType == .ambientLoop)
-            if let seconds = seekTo, seconds > 0 {
-                audioPlayer.seek(to: seconds)
-                currentPosition = seconds
+            let resumeAt = max(seekTo ?? 0, 0)
+            audioPlayer.play(url: url, track: track,
+                             looping: currentChannel?.contentType == .ambientLoop,
+                             startAt: resumeAt)
+            if resumeAt > 0 {
+                // Show the resume position in the UI immediately; AudioPlayer
+                // applies the actual seek once the item is .readyToPlay.
+                currentPosition = resumeAt
             }
             isPlaying = true
             isLoading = false
@@ -592,7 +617,6 @@ final class PlayerViewModel: ObservableObject {
                     seconds: seekTo ?? 0
                 )
             }
-            scheduleStallWatchdog(for: track, seekTo: seekTo)
             probeCurrentTrack()
         } catch {
             await handleLoadFailure(track)
@@ -743,24 +767,7 @@ final class PlayerViewModel: ObservableObject {
         }
     }
 
-    // A track that resolved but never actually starts (AVPlayer stalls on a
-    // dead/slow URL) must not silently hang the channel. After loadTimeout,
-    // if we're still on this track and no audio has progressed, auto-skip.
-    private func scheduleStallWatchdog(for track: Track, seekTo: Double?) {
-        if currentChannel?.contentType == .ambientLoop { return }  // engine loop: no position updates
-        let resumed = (seekTo ?? 0) > 0
-        Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64((self?.loadTimeout ?? 10) * 1_000_000_000))
-            guard let self else { return }
-            guard self.currentTrack?.id == track.id,
-                  self.isPlaying,
-                  !resumed,
-                  self.currentPosition < 0.5 else { return }
-            await self.handleLoadFailure(track)
-        }
-    }
-
-    // Failure/timeout/stall: auto-advance to the next track instead of
+    // Failure/timeout: auto-advance to the next track instead of
     // dead-ending. Capped so a channel where everything fails stops cleanly.
     private func handleLoadFailure(_ track: Track) async {
         consecutiveLoadFailures += 1

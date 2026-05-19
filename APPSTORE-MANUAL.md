@@ -94,15 +94,6 @@ Review**.
 - **1.5 (Developer info):** developer contact (info@parso.guru) is published
   in-app and in the listing.
 
-## 8. One owner decision still open
-
-- **Pre-vetted Children's Songs channel (optional follow-up).** The shipping
-  `childrens-songs` channel is the safe IA **78rpm nursery-rhyme** records +
-  curated `subject:"kids music"` tag (PBS/Nick Jr./Disney/indie comps). A
-  netlabels candidate list for an additional hand-vetted channel is in
-  `childrens-songs-candidates.csv` (clickable `stream_url`, `approved (Y/N)`
-  column) — pending your manual approval pass; only `Y` rows get added.
-
 ## Done in code this batch (no action needed)
 
 - `MARKETING_VERSION` → 2.0.1 (1.0.0 was rejected by ASC as a downgrade from

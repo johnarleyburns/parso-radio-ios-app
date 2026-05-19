@@ -12,45 +12,24 @@ struct PlaylistDetailView: View {
 
     var body: some View {
         List {
-            if let r = resume {
-                Section {
+            Section {
+                HStack(spacing: 12) {
+                    // Play ALWAYS resumes if a saved spot exists (exact track +
+                    // offset), otherwise plays from the top. The user scrubs
+                    // manually if they don't like where it resumes.
                     Button {
                         Task {
                             await playerVM.resumePlaylist(playlist)
                             dismissAll?()
                         }
                     } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "play.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(Color.accentColor)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Resume").font(.body).fontWeight(.semibold)
-                                Text("“\(r.track.title)” · \(clock(r.seconds))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            Spacer()
-                        }
-                    }
-                    .foregroundStyle(.primary)
-                } footer: {
-                    Text("Picks up exactly where you stopped — including the offset within a chapter.")
-                }
-            }
-
-            Section {
-                HStack(spacing: 12) {
-                    Button {
-                        Task {
-                            await playerVM.loadPlaylist(playlist)
-                            dismissAll?()
-                        }
-                    } label: {
-                        Label("Play", systemImage: "play.fill")
+                        Label(resume == nil ? "Play" : "Resume",
+                              systemImage: "play.fill")
                     }
                     .buttonStyle(.bordered)
+                    .accessibilityHint(resume == nil
+                        ? "Plays this playlist from the beginning"
+                        : "Resumes “\(resume!.track.title)” at \(clock(resume!.seconds))")
 
                     Button {
                         playerVM.shuffleMode = true
@@ -62,6 +41,7 @@ struct PlaylistDetailView: View {
                         Label("Shuffle", systemImage: "shuffle")
                     }
                     .buttonStyle(.bordered)
+                    .accessibilityHint("Plays this playlist in shuffled order from the start")
 
                     Spacer()
 
@@ -81,6 +61,7 @@ struct PlaylistDetailView: View {
                         } label: {
                             Image(systemName: "arrow.down.circle")
                         }
+                        .accessibilityLabel("Download playlist for offline")
                     }
                 }
                 .padding(.vertical, 4)
@@ -113,6 +94,7 @@ struct PlaylistDetailView: View {
                         Image(systemName: "arrow.down.circle.fill")
                             .font(.caption)
                             .foregroundStyle(.green)
+                            .accessibilityLabel("Downloaded")
                     }
                 }
                 .contentShape(Rectangle())
@@ -122,6 +104,9 @@ struct PlaylistDetailView: View {
                         dismissAll?()
                     }
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("Plays the playlist starting from this track")
             }
             .onMove { indices, newOffset in
                 var tracks = playlistVM.currentPlaylistTracks

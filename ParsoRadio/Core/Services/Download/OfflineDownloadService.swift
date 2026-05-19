@@ -16,7 +16,9 @@ final class OfflineDownloadService: ObservableObject {
     private let downloadManager: DownloadManager
     private var activeTasks: [String: Task<Void, Never>] = [:]
 
-    static let trackLimit = 100
+    // nonisolated: referenced from nonisolated default-argument expressions
+    // (makeOffline limit:). A plain immutable Int is trivially concurrency-safe.
+    nonisolated static let trackLimit = 100
 
     init(db: DatabaseService, downloadManager: DownloadManager) {
         self.db = db

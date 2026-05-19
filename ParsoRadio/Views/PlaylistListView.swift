@@ -27,6 +27,7 @@ struct PlaylistListView: View {
                                     Image(systemName: "heart.fill")
                                         .foregroundStyle(.red)
                                         .font(.caption)
+                                        .accessibilityHidden(true)
                                 }
                                 Text(playlist.name)
                                     .font(.body)
@@ -63,6 +64,7 @@ struct PlaylistListView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityLabel("New Playlist")
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }

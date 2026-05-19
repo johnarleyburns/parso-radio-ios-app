@@ -190,6 +190,11 @@ struct iPodView: View {
                         // Tapping the playlist/channel name opens the menu
                         // (not track info — that's the rest of the panel / •••).
                         .onTapGesture { showMainMenu = true }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel(
+                            "Now playing from \(playerVM.currentPlaylist?.name ?? playerVM.currentChannel?.name ?? "nothing")")
+                        .accessibilityHint("Opens the menu to pick a channel or playlist")
+                        .accessibilityAction { showMainMenu = true }
                     Spacer()
                 }
                 .padding(.horizontal, 14)
@@ -257,6 +262,9 @@ struct iPodView: View {
                     }
                 )
         }
+        // Sighted-only convenience layer; every action it offers is also a
+        // VoiceOver custom action on the wheel + the adjustable progress bar.
+        .accessibilityHidden(true)
     }
 
     private var artworkBackground: some View {
@@ -299,6 +307,8 @@ struct iPodView: View {
             }
             .clipped()
             .animation(.easeInOut(duration: 0.8), value: playerVM.currentTrack?.id)
+            // Purely decorative (album art / ambient video / visualizer).
+            .accessibilityHidden(true)
     }
 
     @ViewBuilder
@@ -347,6 +357,9 @@ struct iPodView: View {
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
+        // One spoken element: "Title, Artist, Part 2 of 5" rather than four
+        // separate VoiceOver stops.
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
@@ -436,7 +449,8 @@ struct iPodView: View {
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.6))
                         .padding(.leading, 8)
-                        .accessibilityLabel("Elapsed time")
+                        // The progress bar below carries the spoken position.
+                        .accessibilityHidden(true)
                 }
 
                 Spacer()
@@ -447,7 +461,7 @@ struct iPodView: View {
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.6))
                         .padding(.trailing, 8)
-                        .accessibilityLabel("Remaining time")
+                        .accessibilityHidden(true)
                 }
 
                 Button { showMoreOptions = true } label: {
@@ -500,6 +514,22 @@ struct iPodView: View {
             )
         }
         .frame(height: 16)
+        // VoiceOver: a real adjustable "slider" — swipe up/down seeks ±15 s.
+        .accessibilityElement()
+        .accessibilityLabel("Playback position")
+        .accessibilityValue(
+            "\(formatTime(playerVM.currentPosition)) of \(formatTime(duration)), \(formatTime(max(0, duration - playerVM.currentPosition))) remaining")
+        .accessibilityHint("Swipe up or down to seek by 15 seconds")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                playerVM.seek(to: min(duration, playerVM.currentPosition + 15))
+            case .decrement:
+                playerVM.seek(to: max(0, playerVM.currentPosition - 15))
+            @unknown default:
+                break
+            }
+        }
     }
 
     // MARK: - Combined Track Info + Options sheet
@@ -576,6 +606,7 @@ struct iPodView: View {
             Spacer()
             Text(value).multilineTextAlignment(.trailing)
         }
+        .accessibilityElement(children: .combine)
     }
 
     private func licenseName(_ l: LicenseType) -> String {
@@ -880,11 +911,33 @@ struct ClickWheel: View {
             )
             .onAppear { seekVM.onAppear() }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Playback Controls")
+            .accessibilityLabel("Playback controls")
+            .accessibilityValue(isPlaying ? "Playing" : "Paused")
+            .accessibilityHint(duration > 0
+                ? "Swipe up or down to seek by 15 seconds. Use the rotor actions for menu, skip and repeat."
+                : "Use the rotor actions for menu and play or pause.")
             .accessibilityAction(.default) { onPlayPause() }
-            .accessibilityAction(named: "Menu — Open Menu") { onMenu() }
-            .accessibilityAction(named: "Back") { onBack() }
-            .accessibilityAction(named: "Forward") { onForward() }
+            .accessibilityActions {
+                Button(isPlaying ? "Pause" : "Play") { onPlayPause() }
+                Button("Open Menu") { onMenu() }
+                if transportEnabled {
+                    Button("Next Track") { onForward() }
+                    Button("Previous Track") { onBack() }
+                }
+                if repeatEnabled {
+                    Button(repeatOn ? "Turn Off Repeat One" : "Repeat This Track") {
+                        onRepeatToggle()
+                    }
+                }
+            }
+            .accessibilityAdjustableAction { direction in
+                guard duration > 0 else { return }
+                switch direction {
+                case .increment: onSeek(min(duration, currentTime + 15))
+                case .decrement: onSeek(max(0, currentTime - 15))
+                @unknown default: break
+                }
+            }
         }
     }
 }

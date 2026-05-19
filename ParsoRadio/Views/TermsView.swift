@@ -70,6 +70,7 @@ struct TermsView: View {
                     Image(systemName: "dot.radiowaves.left.and.right")
                         .font(.system(size: 24, weight: .medium))
                         .foregroundStyle(.white)
+                        .accessibilityHidden(true)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -182,6 +183,7 @@ You represent that you are not located in a country subject to a U.S. Government
                         .font(.title3)
                         .foregroundStyle(termsAgreed ? Color.accentColor : Color(.systemGray))
                         .animation(.easeInOut(duration: 0.15), value: termsAgreed)
+                        .accessibilityHidden(true)
                     Text("I have read and agree to the Terms of Service and End User License Agreement.")
                         .font(.footnote)
                         .foregroundStyle(.primary)
@@ -190,6 +192,8 @@ You represent that you are not located in a country subject to a U.S. Government
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityAddTraits(.isToggle)
+            .accessibilityValue(termsAgreed ? "Checked" : "Not checked")
 
             Button {
                 UserDefaults.standard.set(true, forKey: "tosAccepted")

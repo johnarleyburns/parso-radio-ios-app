@@ -57,6 +57,7 @@ struct AboutView: View {
                 Image(systemName: "dot.radiowaves.left.and.right")
                     .font(.system(size: 30, weight: .medium))
                     .foregroundStyle(.white)
+                    .accessibilityHidden(true)
             }
 
             VStack(alignment: .leading, spacing: 4) {

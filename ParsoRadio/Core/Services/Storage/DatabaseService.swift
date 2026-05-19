@@ -1,7 +1,11 @@
 import Foundation
 import SQLite
 
-final class DatabaseService {
+// @unchecked Sendable: every database access is funnelled through the private
+// serial `queue` below, so the otherwise non-Sendable SQLite `Connection` is
+// only ever touched from one thread at a time. This is what lets the async
+// wrappers capture `self` in their @Sendable continuation closures safely.
+final class DatabaseService: @unchecked Sendable {
     private let db: Connection
     private let queue = DispatchQueue(label: "guru.parso.db", qos: .utility)
 
@@ -132,21 +136,21 @@ final class DatabaseService {
         try db.run("CREATE INDEX IF NOT EXISTS idx_ph_channel ON track_play_history(channel_id, played_at DESC)")
 
         // Idempotent column migrations — try? silently ignores duplicate-column errors
-        try? db.run("ALTER TABLE tracks ADD COLUMN added_date   REAL")
-        try? db.run("ALTER TABLE tracks ADD COLUMN is_local     INTEGER NOT NULL DEFAULT 0")
-        try? db.run("ALTER TABLE tracks ADD COLUMN part_number  INTEGER")
-        try? db.run("ALTER TABLE tracks ADD COLUMN total_parts  INTEGER")
-        try? db.run("ALTER TABLE tracks ADD COLUMN parent_identifier TEXT")
-        try? db.run("ALTER TABLE tracks ADD COLUMN artwork_url  TEXT")
+        _ = try? db.run("ALTER TABLE tracks ADD COLUMN added_date   REAL")
+        _ = try? db.run("ALTER TABLE tracks ADD COLUMN is_local     INTEGER NOT NULL DEFAULT 0")
+        _ = try? db.run("ALTER TABLE tracks ADD COLUMN part_number  INTEGER")
+        _ = try? db.run("ALTER TABLE tracks ADD COLUMN total_parts  INTEGER")
+        _ = try? db.run("ALTER TABLE tracks ADD COLUMN parent_identifier TEXT")
+        _ = try? db.run("ALTER TABLE tracks ADD COLUMN artwork_url  TEXT")
         // NULL = not probed, 0 = single-file, 1 = multi-file (book/album)
-        try? db.run("ALTER TABLE tracks ADD COLUMN is_multi_part INTEGER")
-        try? db.run("CREATE INDEX IF NOT EXISTS idx_added_date ON tracks(added_date DESC)")
-        try? db.run("CREATE INDEX IF NOT EXISTS idx_parent_id ON tracks(parent_identifier)")
+        _ = try? db.run("ALTER TABLE tracks ADD COLUMN is_multi_part INTEGER")
+        _ = try? db.run("CREATE INDEX IF NOT EXISTS idx_added_date ON tracks(added_date DESC)")
+        _ = try? db.run("CREATE INDEX IF NOT EXISTS idx_parent_id ON tracks(parent_identifier)")
 
         // User-defined playlist ordering. Backfill legacy rows deterministically
         // by creation time so NULLs never sort ahead of explicitly-ordered ones.
-        try? db.run("ALTER TABLE playlists ADD COLUMN sort_order INTEGER")
-        try? db.run("""
+        _ = try? db.run("ALTER TABLE playlists ADD COLUMN sort_order INTEGER")
+        _ = try? db.run("""
             UPDATE playlists SET sort_order = (
                 SELECT COUNT(*) FROM playlists p2
                 WHERE p2.created_at <= playlists.created_at
@@ -154,12 +158,12 @@ final class DatabaseService {
         """)
 
         // Enable FK enforcement
-        try? db.run("PRAGMA foreign_keys = ON")
+        _ = try? db.run("PRAGMA foreign_keys = ON")
 
         // Seed Favorites playlist if playlists table is empty
         if (try? db.scalar(playlists.count)) == 0 {
             let fav = Playlist.new(name: "Favorites", isFavorites: true)
-            try? db.run(playlists.insert(
+            _ = try? db.run(playlists.insert(
                 colPlaylistId   <- fav.id,
                 colPlaylistName <- fav.name,
                 colCreatedAt    <- fav.createdAt.timeIntervalSince1970,
@@ -200,7 +204,7 @@ final class DatabaseService {
                         self.colArtworkURL  <- t.artworkURLString,
                         self.colIsMultiPart <- t.isMultiPart
                     )
-                    try? self.db.run(insert)
+                    _ = try? self.db.run(insert)
                 }
                 continuation.resume()
             }
@@ -211,7 +215,7 @@ final class DatabaseService {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
                 let row = self.tracks.filter(self.colId == trackID)
-                try? self.db.run(row.update(self.colLocalPath <- localPath))
+                _ = try? self.db.run(row.update(self.colLocalPath <- localPath))
                 continuation.resume()
             }
         }
@@ -278,7 +282,7 @@ final class DatabaseService {
     func deleteTracks(forParentIdentifier parentId: String) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
-                try? self.db.run(
+                _ = try? self.db.run(
                     self.tracks.filter(self.colParentId == parentId).delete())
                 continuation.resume()
             }
@@ -291,7 +295,7 @@ final class DatabaseService {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
                 let row = self.tracks.filter(self.colId == id)
-                try? self.db.run(row.update(self.colIsMultiPart <- value))
+                _ = try? self.db.run(row.update(self.colIsMultiPart <- value))
                 continuation.resume()
             }
         }
@@ -322,10 +326,10 @@ final class DatabaseService {
                     .filter(self.colFetchedAt < cutoff)
                     .filter(self.colIsLocal == false)
                     .filter(self.colLocalPath == nil)
-                try? self.db.run(safeToDelete.delete())
+                _ = try? self.db.run(safeToDelete.delete())
                 // Also clean up old play history
                 let historyCutoff = Date().timeIntervalSince1970 - Double(days) * 86400
-                try? self.db.run(self.playHistory.filter(self.colPHPlayedAt < historyCutoff).delete())
+                _ = try? self.db.run(self.playHistory.filter(self.colPHPlayedAt < historyCutoff).delete())
                 continuation.resume()
             }
         }
@@ -350,7 +354,7 @@ final class DatabaseService {
                     self.colTrackId   <- trackId,
                     self.colPosSecs   <- seconds
                 )
-                try? self.db.run(upsert)
+                _ = try? self.db.run(upsert)
                 continuation.resume()
             }
         }
@@ -372,7 +376,7 @@ final class DatabaseService {
     func clearPosition(channelId: String) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
-                try? self.db.run(self.positions.filter(self.colChannelId == channelId).delete())
+                _ = try? self.db.run(self.positions.filter(self.colChannelId == channelId).delete())
                 continuation.resume()
             }
         }
@@ -446,7 +450,7 @@ final class DatabaseService {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
                 let row = self.playlists.filter(self.colPlaylistId == id)
-                try? self.db.run(row.update(
+                _ = try? self.db.run(row.update(
                     self.colPlaylistName <- name,
                     self.colUpdatedAt    <- Date().timeIntervalSince1970
                 ))
@@ -459,8 +463,8 @@ final class DatabaseService {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
                 // Remove playlist_tracks first (FK cascade not guaranteed in all SQLite builds)
-                try? self.db.run(self.playlistTracks.filter(self.colPTPlaylistId == id).delete())
-                try? self.db.run(self.playlists.filter(self.colPlaylistId == id).delete())
+                _ = try? self.db.run(self.playlistTracks.filter(self.colPTPlaylistId == id).delete())
+                _ = try? self.db.run(self.playlists.filter(self.colPlaylistId == id).delete())
                 continuation.resume()
             }
         }
@@ -486,7 +490,7 @@ final class DatabaseService {
                     addedAt:    Date()
                 )
                 // UNIQUE(playlist_id, track_id) — ignore if already present
-                try? self.db.run(self.playlistTracks.insert(or: .ignore,
+                _ = try? self.db.run(self.playlistTracks.insert(or: .ignore,
                     self.colPTId         <- pt.id,
                     self.colPTPlaylistId <- pt.playlistId,
                     self.colPTTrackId    <- pt.trackId,
@@ -533,7 +537,7 @@ final class DatabaseService {
             queue.async { [self] in
                 let row = self.playlistTracks
                     .filter(self.colPTPlaylistId == playlistId && self.colPTTrackId == trackId)
-                try? self.db.run(row.delete())
+                _ = try? self.db.run(row.delete())
                 continuation.resume()
             }
         }
@@ -592,7 +596,7 @@ final class DatabaseService {
     func recordPlayed(channelId: String, trackId: String) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
-                try? self.db.run(self.playHistory.insert(or: .replace,
+                _ = try? self.db.run(self.playHistory.insert(or: .replace,
                     self.colPHChannelId <- channelId,
                     self.colPHTrackId   <- trackId,
                     self.colPHPlayedAt  <- Date().timeIntervalSince1970
@@ -620,7 +624,7 @@ final class DatabaseService {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
                 let cutoff = Date().timeIntervalSince1970 - Double(days) * 86400
-                try? self.db.run(self.playHistory.filter(self.colPHPlayedAt < cutoff).delete())
+                _ = try? self.db.run(self.playHistory.filter(self.colPHPlayedAt < cutoff).delete())
                 continuation.resume()
             }
         }

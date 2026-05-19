@@ -49,6 +49,9 @@ struct MainMenuView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(playlist.name), \(playlistVM.trackCount(for: playlist)) tracks")
+            .accessibilityHint("Resumes where you left off, or plays from the start")
 
             // Explicit path to play-from-top / shuffle / edit / add.
             NavigationLink {
@@ -62,6 +65,8 @@ struct MainMenuView: View {
             }
             .buttonStyle(.plain)
             .fixedSize()
+            .accessibilityLabel("\(playlist.name) options")
+            .accessibilityHint("Opens the playlist to play from the top, shuffle, or edit")
         }
     }
 

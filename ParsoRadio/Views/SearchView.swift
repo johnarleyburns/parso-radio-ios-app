@@ -24,17 +24,19 @@ struct SearchView: View {
             VStack(spacing: 0) {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                     TextField("Search music, audiobooks…", text: $searchVM.query)
                         .focused($searchFocused)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .submitLabel(.search)
-                        .onChange(of: searchVM.query) { _ in searchVM.searchChanged() }
+                        .onChange(of: searchVM.query) { searchVM.searchChanged() }
                     if !searchVM.query.isEmpty {
                         Button { searchVM.query = "" } label: {
                             Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Clear search")
                     }
                 }
                 .padding(10)
@@ -155,6 +157,7 @@ struct SearchView: View {
                         .font(.system(size: 18))
                         .foregroundStyle(.secondary)
                         .frame(width: 26)
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(group.title)
                             .font(.body).fontWeight(.medium).lineLimit(2)
@@ -199,9 +202,16 @@ struct SearchView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.accentColor)
+                    // The whole row is one actionable element below; this
+                    // duplicate would just be noise for VoiceOver.
+                    .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture { selectedResult = group }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("Opens actions: play, or add to a playlist")
+                .accessibilityAction { selectedResult = group }
                 .task { searchVM.loadItemInfo(group) }
             }
 
