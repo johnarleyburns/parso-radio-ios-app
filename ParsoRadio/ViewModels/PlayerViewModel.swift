@@ -173,17 +173,6 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
-        // A genuinely unplayable asset (dead URL / 404 / decode error) — NOT a
-        // slow connection. Skip past it, same cap as a resolve timeout.
-        audioPlayer.onLoadFailed = { [weak self] in
-            Task { @MainActor [weak self] in
-                guard let self,
-                      let track = self.currentTrack,
-                      self.currentChannel?.contentType != .ambientLoop
-                else { return }
-                await self.handleLoadFailure(track)
-            }
-        }
     }
 
     func load(channel: Channel, autoPlay: Bool = true) async {

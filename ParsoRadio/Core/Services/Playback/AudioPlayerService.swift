@@ -16,11 +16,6 @@ final class AudioPlayerService: ObservableObject {
     // Fired every 0.25 s while playing. PlayerViewModel uses this to update the UI
     // progress display (smooth motion). DB position saves are throttled separately.
     var onTimeUpdate: ((Double) -> Void)?
-    // Fired ONLY on a genuine asset failure (dead URL, 404, decode error) —
-    // i.e. AVPlayerItem.status == .failed. Slow buffering on a poor connection
-    // is NOT a failure: AVPlayer keeps waiting/rebuffering and never reports
-    // .failed, so this never fires for a merely-slow stream.
-    var onLoadFailed: (() -> Void)?
 
     var currentTime: Double {
         guard let t = player?.currentTime(), t.isNumeric else { return 0 }
@@ -39,7 +34,6 @@ final class AudioPlayerService: ObservableObject {
     private var interruptionObserver: (any NSObjectProtocol)?
     private var routeChangeObserver: (any NSObjectProtocol)?
     private var statusObserver: NSKeyValueObservation?
-    private var failedToEndObserver: (any NSObjectProtocol)?
     // Resume offset waiting to be applied once the item is .readyToPlay.
     private var pendingStartSeek: Double = 0
 
@@ -95,27 +89,14 @@ final class AudioPlayerService: ObservableObject {
                     self?.handleTrackFinished()
                 }
             }
-            // .failed → genuinely unplayable asset (dead URL / 404 / decode
-            // error); a slow connection never reaches .failed (AVPlayer waits
-            // & rebuffers). .readyToPlay → safe to apply the deferred resume
-            // seek, THEN start playback (so a long audiobook never audibly
-            // starts at 0:00 and jumps).
+            // .readyToPlay → safe to apply the deferred resume seek, THEN
+            // start playback (so a long audiobook never audibly starts at
+            // 0:00 and jumps). Per the user spec we deliberately do NOT skip
+            // on .failed here — only a true 10 s resolve-timeout (in
+            // PlayerViewModel.playTrack) auto-skips a track.
             statusObserver = item.observe(\.status, options: [.new, .initial]) { [weak self] item, _ in
-                switch item.status {
-                case .failed:
-                    Task { @MainActor [weak self] in self?.onLoadFailed?() }
-                case .readyToPlay:
-                    Task { @MainActor [weak self] in self?.applyPendingStartSeekAndPlay() }
-                default:
-                    break
-                }
-            }
-            failedToEndObserver = NotificationCenter.default.addObserver(
-                forName: .AVPlayerItemFailedToPlayToEndTime,
-                object: item,
-                queue: .main
-            ) { [weak self] _ in
-                Task { @MainActor [weak self] in self?.onLoadFailed?() }
+                guard item.status == .readyToPlay else { return }
+                Task { @MainActor [weak self] in self?.applyPendingStartSeekAndPlay() }
             }
         }
 
@@ -362,10 +343,6 @@ final class AudioPlayerService: ObservableObject {
         statusObserver?.invalidate()
         statusObserver = nil
         pendingStartSeek = 0
-        if let obs = failedToEndObserver {
-            NotificationCenter.default.removeObserver(obs)
-            failedToEndObserver = nil
-        }
         player = nil
     }
 }
