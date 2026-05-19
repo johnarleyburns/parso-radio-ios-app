@@ -195,9 +195,10 @@ final class PlayerViewModel: ObservableObject {
         currentPosition = 0
         trackDuration = nil
 
-        do {
-            let fetched: [Track]
+        // Hoisted so the post-fetch resume / News-newest logic can see it.
+        var fetched: [Track] = []
 
+        do {
             if channel.feedURL != nil {
                 // News/podcast channels: fetch from RSS feed via PodcastRSSService.
                 fetched = try await podcastService.fetchTracks(channel: channel)

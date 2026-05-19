@@ -18,6 +18,9 @@ struct iPodView: View {
     @State private var showMoreOptions = false
     @State private var showFullMetadata = false
     @State private var isFavorite = false
+    // Non-nil while the user is dragging the progress bar (overrides the
+    // player position so the bar follows the finger).
+    @State private var scrubFraction: Double? = nil
 
     private var displayChannel: Channel {
         playerVM.currentChannel ?? pendingChannel
@@ -65,11 +68,13 @@ struct iPodView: View {
                     ClickWheel(
                         isPlaying: playerVM.isPlaying,
                         currentTime: playerVM.currentPosition,
-                        // Ambient loops: force 0 so the progress arc/thumb
-                        // band never appears (the bundled WAV has a finite
-                        // duration that would otherwise light it up).
                         duration: isAmbientLoop ? 0 : (playerVM.trackDuration ?? 0),
                         transportEnabled: !isAmbientLoop,
+                        // Repeat-One phantom toggle: real tracks only, never
+                        // ambient loops (which already repeat).
+                        repeatEnabled: !isAmbientLoop && playerVM.currentTrack != nil,
+                        repeatOn: playerVM.repeatMode == .one,
+                        onRepeatToggle: { playerVM.toggleRepeat() },
                         onSeek: { playerVM.seek(to: $0) },
                         onScrubChanged: { playerVM.isScrubbing = $0 },
                         onMenu:      { showMainMenu = true },
@@ -210,17 +215,47 @@ struct iPodView: View {
                     .padding(.bottom, 12)
             }
         }
+        .overlay { centerTapZones }
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
-        .onTapGesture {
-            if playerVM.currentTrack != nil { showMoreOptions = true }
-        }
         .contextMenu {
             if playerVM.currentTrack != nil, !isAmbientLoop {
                 Button { showAddToPlaylist = true } label: {
                     Label("Add to Playlist", systemImage: "plus.circle")
                 }
             }
+        }
+    }
+
+    // Central band of the track box → tap zones: left third seek −10 s,
+    // right third seek +10 s, centre third play/pause. Sized to the middle
+    // ~50% so it never covers the top-left title (→ menu) or the bottom
+    // controls/progress bar, which keep their own gestures.
+    private var centerTapZones: some View {
+        GeometryReader { g in
+            let w = max(g.size.width, 1)
+            let h = g.size.height
+            Color.clear
+                .contentShape(Rectangle())
+                .frame(width: w, height: max(0, h * 0.50))
+                .position(x: w / 2, y: h * 0.52)
+                .gesture(
+                    SpatialTapGesture().onEnded { v in
+                        guard playerVM.currentTrack != nil else { return }
+                        let x = v.location.x
+                        if x < w / 3 {
+                            if playerVM.trackDuration != nil {
+                                playerVM.seek(to: max(0, playerVM.currentPosition - 10))
+                            }
+                        } else if x > 2 * w / 3 {
+                            if let d = playerVM.trackDuration {
+                                playerVM.seek(to: min(d, playerVM.currentPosition + 10))
+                            }
+                        } else {
+                            playerVM.togglePlayPause()
+                        }
+                    }
+                )
         }
     }
 
@@ -306,8 +341,8 @@ struct iPodView: View {
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.65))
             }
-
-            licenseRow(track.license, source: track.source)
+            // License/source intentionally NOT shown here — only in the
+            // Track Info popup — to keep the main track box uncluttered.
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.horizontal, 14)
@@ -383,62 +418,88 @@ struct iPodView: View {
     }
 
     private var fullScrubberRow: some View {
-        HStack(spacing: 0) {
-            Button { toggleFavorite() } label: {
-                Image(systemName: isFavorite ? "heart.fill" : "heart")
-                    .font(.system(size: 16))
-                    .foregroundStyle(isFavorite ? .red : .white.opacity(0.7))
+        // Shuffle/Repeat removed: shuffle is playlist-only (use the playlist
+        // screen); repeat-one is the wheel's center phantom button.
+        VStack(spacing: 6) {
+            HStack(spacing: 0) {
+                Button { toggleFavorite() } label: {
+                    Image(systemName: isFavorite ? "heart.fill" : "heart")
+                        .font(.system(size: 16))
+                        .foregroundStyle(isFavorite ? .red : .white.opacity(0.7))
+                }
+                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+                .padding(.leading, 14)
+
+                if let dur = playerVM.trackDuration, dur > 0 {
+                    Text(formatTime(playerVM.currentPosition))
+                        .font(.system(size: 11))
+                        .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.6))
+                        .padding(.leading, 8)
+                        .accessibilityLabel("Elapsed time")
+                }
+
+                Spacer()
+
+                if let dur = playerVM.trackDuration, dur > 0 {
+                    Text("-" + formatTime(max(0, dur - playerVM.currentPosition)))
+                        .font(.system(size: 11))
+                        .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.6))
+                        .padding(.trailing, 8)
+                        .accessibilityLabel("Remaining time")
+                }
+
+                Button { showMoreOptions = true } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                .accessibilityLabel("More Options")
+                .padding(.trailing, 14)
             }
-            .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-            .padding(.leading, 14)
 
             if let dur = playerVM.trackDuration, dur > 0 {
-                Text(formatTime(playerVM.currentPosition))
-                    .font(.system(size: 11))
-                    .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.6))
-                    .padding(.leading, 8)
-                    .accessibilityLabel("Elapsed time")
+                progressBar(duration: dur)
+                    .padding(.horizontal, 14)
             }
-
-            Spacer()
-
-            Button { playerVM.toggleShuffle() } label: {
-                Image(systemName: "shuffle")
-                    .font(.system(size: 16))
-                    .foregroundStyle(playerVM.shuffleMode ? .white : .white.opacity(0.4))
-            }
-            .accessibilityLabel(playerVM.shuffleMode ? "Shuffle On" : "Shuffle Off")
-            .padding(.horizontal, 18)
-
-            Button { playerVM.toggleRepeat() } label: {
-                Image(systemName: playerVM.repeatMode == .off ? "repeat" : "repeat.1")
-                    .font(.system(size: 16))
-                    .foregroundStyle(playerVM.repeatMode == .off ? .white.opacity(0.4) : .white)
-            }
-            .accessibilityLabel(playerVM.repeatMode == .off ? "Repeat Off" : "Repeat One")
-            .padding(.trailing, 18)
-
-            Spacer()
-
-            if let dur = playerVM.trackDuration, dur > 0 {
-                Text("-" + formatTime(max(0, dur - playerVM.currentPosition)))
-                    .font(.system(size: 11))
-                    .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.6))
-                    .padding(.trailing, 8)
-                    .accessibilityLabel("Remaining time")
-            }
-
-            Button { showMoreOptions = true } label: {
-                Image(systemName: "ellipsis.circle")
-                    .font(.system(size: 16))
-                    .foregroundStyle(.white.opacity(0.7))
-            }
-            .accessibilityLabel("More Options")
-            .padding(.trailing, 14)
         }
         .padding(.vertical, 4)
+    }
+
+    // Draggable elapsed-progress bar (common music-UI placement: bottom of
+    // the track box). Tap or drag anywhere to seek.
+    private func progressBar(duration: Double) -> some View {
+        GeometryReader { geo in
+            let w = max(geo.size.width, 1)
+            let frac = scrubFraction
+                ?? min(max(playerVM.currentPosition / duration, 0), 1)
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.18)).frame(height: 4)
+                Capsule().fill(.white.opacity(0.85))
+                    .frame(width: w * CGFloat(frac), height: 4)
+                Circle().fill(.white).frame(width: 12, height: 12)
+                    .offset(x: min(max(w * CGFloat(frac), 0), w) - 6)
+            }
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { v in
+                        playerVM.isScrubbing = true
+                        let f = min(max(Double(v.location.x / w), 0), 1)
+                        scrubFraction = f
+                        playerVM.currentPosition = f * duration
+                    }
+                    .onEnded { v in
+                        let f = min(max(Double(v.location.x / w), 0), 1)
+                        playerVM.seek(to: f * duration)
+                        scrubFraction = nil
+                        playerVM.isScrubbing = false
+                    }
+            )
+        }
+        .frame(height: 16)
     }
 
     // MARK: - Combined Track Info + Options sheet
@@ -640,36 +701,6 @@ struct iPodView: View {
         }
     }
 
-    @ViewBuilder
-    private func licenseRow(_ license: LicenseType, source: String) -> some View {
-        HStack(spacing: 4) {
-            switch license {
-            case .cc0:          screenBadge("CC0")
-            case .ccBy:         screenBadge("CC BY")
-            case .publicDomain: screenBadge("PD")
-            case .rejected:     EmptyView()
-            }
-            switch source {
-            case "musopen":         screenBadge("Musopen")
-            case "oxford_lectures": screenBadge("Oxford")
-            case "podcast":         screenBadge("Podcast")
-            case "nps":             screenBadge("NPS")
-            default:                screenBadge("Archive.org")
-            }
-        }
-    }
-
-    private func screenBadge(_ text: String) -> some View {
-        Text(text)
-            .font(.caption2)
-            .fontWeight(.medium)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(.white.opacity(0.15))
-            .foregroundStyle(.white.opacity(0.85))
-            .clipShape(Capsule())
-    }
-
     private func formatTime(_ s: Double) -> String {
         guard s.isFinite, s >= 0 else { return "0:00" }
         let t = Int(s)
@@ -712,6 +743,11 @@ struct ClickWheel: View {
     // (+ seek); playPauseEnabled gates the bottom play/pause; MENU is always on.
     var transportEnabled: Bool = true
     var playPauseEnabled: Bool = true
+    // "Phantom" repeat-one toggle in the wheel's center. Never enabled for
+    // ambient loops (they already repeat). The glyph only shows when on.
+    var repeatEnabled: Bool = false
+    var repeatOn: Bool = false
+    var onRepeatToggle: () -> Void = {}
     var onSeek: (Double) -> Void = { _ in }
     var onScrubChanged: (Bool) -> Void = { _ in }
     let onMenu:      () -> Void
@@ -729,39 +765,28 @@ struct ClickWheel: View {
             let outerR  = size / 2
             let innerR  = size * 0.225
             let midRing = (outerR + innerR) / 2
-            let arcR    = (outerR + midRing) / 2
-            let fraction = duration > 0 ? min(max(currentTime / duration, 0), 1) : 0
-            let thumbA  = angle(for: currentTime, duration: duration)
 
             ZStack {
-                // Outer ring — flat metallic
+                // Outer ring — flat metallic. (The elapsed-progress arc/thumb
+                // was removed — progress lives on the track box's bar now.)
                 Circle()
                     .fill(Color(.secondarySystemGroupedBackground))
                     .shadow(color: .black.opacity(0.35), radius: 6, y: 3)
 
-                // Progress arc + thumb (only when the track has a duration).
-                if duration > 0 {
-                    Circle()
-                        .trim(from: 0, to: fraction)
-                        .stroke(Color.accentColor,
-                                style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .frame(width: arcR * 2, height: arcR * 2)
-                        .allowsHitTesting(false)
-
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 16, height: 16)
-                        .shadow(radius: 3)
-                        .offset(x: arcR * cos(thumbA), y: arcR * sin(thumbA))
-                        .allowsHitTesting(false)
-                }
-
-                // Center button
+                // Center — also the phantom Repeat-One toggle. The glyph only
+                // appears while repeat is engaged ("selected"); tapping the
+                // center again clears it and the glyph vanishes.
                 Circle()
                     .fill(Color(.systemBackground))
                     .frame(width: innerR * 2, height: innerR * 2)
                     .allowsHitTesting(false)
+
+                if repeatEnabled && repeatOn {
+                    Image(systemName: "repeat.1")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .allowsHitTesting(false)
+                }
 
                 // MENU icon (top)
                 Image(systemName: "line.3.horizontal")
@@ -806,7 +831,15 @@ struct ClickWheel: View {
                         let dy = value.location.y - center.y
                         let dist = sqrt(dx * dx + dy * dy)
 
-                        guard dist <= outerR, dist > innerR else { return }
+                        guard dist <= outerR else { return }
+                        // Center = phantom Repeat-One toggle.
+                        if dist <= innerR {
+                            if repeatEnabled {
+                                tapTrigger += 1
+                                onRepeatToggle()
+                            }
+                            return
+                        }
 
                         tapTrigger += 1
                         if abs(dy) >= abs(dx) {
