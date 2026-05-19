@@ -279,6 +279,16 @@ jobs:
       - name: Set Build Number
         run: xcrun agvtool new-version -all ${{ github.run_number }}
 
+      - name: Compute Marketing Version
+        # Auto-increment the marketing version every push: run #104 → 2.0.1,
+        # #105 → 2.0.2, … (monotonic; never below the 2.0.0 already on ASC).
+        run: |
+          set -eo pipefail
+          PATCH=$(( ${{ github.run_number }} - 103 ))
+          if [ "$PATCH" -lt 1 ]; then PATCH=1; fi
+          echo "MKT_VERSION=2.0.$PATCH" >> "$GITHUB_ENV"
+          echo "Marketing version: 2.0.$PATCH (build ${{ github.run_number }})"
+
       - name: Archive
         env:
           TEAM_ID: ${{ secrets.TEAM_ID }}
@@ -291,6 +301,7 @@ jobs:
             -destination "generic/platform=iOS" \
             -archivePath ./build/ParsoMusic.xcarchive \
             ARCHS=arm64 \
+            MARKETING_VERSION="$MKT_VERSION" \
             IPHONEOS_DEPLOYMENT_TARGET=17.0 \
             CI_TEAM="$TEAM_ID" \
             CI_CERT="Apple Distribution" \

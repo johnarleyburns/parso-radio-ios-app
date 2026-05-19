@@ -83,8 +83,12 @@ final class QueueManager {
         }
 
         let recent = recents(channel.id)
+        // Only a book/album's FIRST track is eligible in a channel: a
+        // multi-part item plays its opening track and the user adds the whole
+        // book to a playlist if they want it — the channel never cycles
+        // through one book's chapters.
         var pool = await db.fetchTracks(forChannel: channel)
-            .filter { !recent.contains($0.id) }
+            .filter { !recent.contains($0.id) && ($0.partNumber ?? 1) <= 1 }
 
         // Expand pool if thin (composer channels only — never touches the
         // isolation of curated/registry channels, which have no composers).
@@ -106,6 +110,7 @@ final class QueueManager {
         if pool.isEmpty {
             recentByChannel[channel.id] = []
             pool = await db.fetchTracks(forChannel: channel)
+                .filter { ($0.partNumber ?? 1) <= 1 }
         }
         guard !pool.isEmpty else { return nil }
 

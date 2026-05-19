@@ -23,13 +23,18 @@ struct Channel: Codable, Identifiable, Hashable {
     // News/podcast channels: RSS feed URL; nil for IA/FMA channels.
     let feedURL: String?
     var isDownloaded: Bool
+    // If set, a track shorter than this many seconds is auto-skipped (used by
+    // Children's Songs to drop sub-minute noise clips — IA exposes no
+    // item-level runtime, so this is enforced once the player knows duration).
+    let minTrackDuration: Double?
 
     init(
         id: String, name: String, category: String, icon: String,
         composers: [String] = [], instruments: [String] = [], tags: [String] = [],
         excludeTags: [String] = [],
         contentType: ContentType = .music, spokenWordCollections: [String] = [],
-        preferredSource: String? = nil, feedURL: String? = nil, isDownloaded: Bool = false
+        preferredSource: String? = nil, feedURL: String? = nil,
+        isDownloaded: Bool = false, minTrackDuration: Double? = nil
     ) {
         self.id = id; self.name = name; self.category = category; self.icon = icon
         self.composers = composers; self.instruments = instruments; self.tags = tags
@@ -37,6 +42,7 @@ struct Channel: Codable, Identifiable, Hashable {
         self.contentType = contentType; self.spokenWordCollections = spokenWordCollections
         self.preferredSource = preferredSource; self.feedURL = feedURL
         self.isDownloaded = isDownloaded
+        self.minTrackDuration = minTrackDuration
     }
 
     var iaQueryEntry: IAQueryEntry? { IAQueryRegistry.shared.entry(for: id) }
@@ -385,7 +391,26 @@ extension Channel {
             id: "childrens-songs", name: "Children's Songs", category: "Curated",
             icon: "music.note.house.fill",
             tags: ["childrens-songs"],
-            preferredSource: "internet_archive"
+            preferredSource: "internet_archive",
+            minTrackDuration: 60   // drop sub-minute noise clips
+        ),
+        // Curated book channels — explicit author/work allowlists (LibriVox,
+        // English). Like all book channels they play a book's FIRST track;
+        // the user adds the whole book to a playlist if they want it.
+        Channel(
+            id: "ancient-greece", name: "Ancient Greece", category: "Curated",
+            icon: "building.columns", tags: ["ancient-greece"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "great-books", name: "Great Books", category: "Curated",
+            icon: "books.vertical", tags: ["great-books"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
+        ),
+        Channel(
+            id: "greater-books", name: "Greater Books", category: "Curated",
+            icon: "text.book.closed", tags: ["greater-books"],
+            contentType: .spokenWord, preferredSource: "internet_archive"
         ),
 
         // MARK: Audiobooks — LibriVox via pure-Lucene IA registry
@@ -469,8 +494,8 @@ extension Channel {
             contentType: .spokenWord, preferredSource: "internet_archive"
         ),
         Channel(
-            id: "lv-childrens-books", name: "Children's Books", category: "Audiobooks",
-            icon: "books.vertical.fill", tags: ["lv-childrens-books"],
+            id: "childrens-books", name: "Children's Books", category: "Curated",
+            icon: "books.vertical.fill", tags: ["childrens-books"],
             contentType: .spokenWord, preferredSource: "internet_archive"
         ),
         Channel(

@@ -7,6 +7,7 @@ import SwiftUI
 // the image always changes when the track changes — never a stale picture).
 struct ProceduralVisualizerView: View {
     let seed: String
+    var isPlaying: Bool = true
 
     // Stable djb2 hash → [0,1) base hue (NOT String.hashValue, which is
     // process-randomised and would differ every launch).
@@ -19,7 +20,8 @@ struct ProceduralVisualizerView: View {
 
     var body: some View {
         let h = baseHue
-        TimelineView(.animation) { ctx in
+        // Freeze the animation while audio is paused.
+        TimelineView(.animation(minimumInterval: nil, paused: !isPlaying)) { ctx in
             let t = ctx.date.timeIntervalSinceReferenceDate
             Canvas { gc, size in
                 let maxD = max(size.width, size.height)

@@ -10,6 +10,7 @@ import AVFoundation
 struct LoopingVideoView: UIViewRepresentable {
     let url: URL
     var horizontalAnchor: CGFloat = 0.5
+    var isPlaying: Bool = true
 
     func makeUIView(context: Context) -> LoopingPlayerUIView {
         LoopingPlayerUIView(url: url, horizontalAnchor: horizontalAnchor)
@@ -18,6 +19,7 @@ struct LoopingVideoView: UIViewRepresentable {
     func updateUIView(_ uiView: LoopingPlayerUIView, context: Context) {
         uiView.horizontalAnchor = horizontalAnchor
         uiView.update(url: url)
+        uiView.setPlaying(isPlaying)
     }
 
     static func dismantleUIView(_ uiView: LoopingPlayerUIView, coordinator: ()) {
@@ -58,6 +60,16 @@ final class LoopingPlayerUIView: UIView {
         guard url != currentURL else { return }
         teardown()
         setup(url: url)
+    }
+
+    // Mirror audio play/pause so the backdrop freezes when paused.
+    func setPlaying(_ playing: Bool) {
+        guard let qp = queuePlayer else { return }
+        if playing {
+            if qp.timeControlStatus != .playing { qp.play() }
+        } else {
+            qp.pause()
+        }
     }
 
     private func setup(url: URL) {

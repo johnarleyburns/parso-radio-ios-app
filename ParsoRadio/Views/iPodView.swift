@@ -248,7 +248,8 @@ struct iPodView: View {
                     LoopingVideoView(
                         url: video,
                         horizontalAnchor:
-                            playerVM.currentChannel?.id == "ambient-rain" ? 1.0 : 0.5)
+                            playerVM.currentChannel?.id == "ambient-rain" ? 1.0 : 0.5,
+                        isPlaying: playerVM.isPlaying)
                 } else if let art = playerVM.currentArtwork {
                     Image(uiImage: art)
                         .resizable()
@@ -257,7 +258,8 @@ struct iPodView: View {
                     // No artwork → per-track procedural visualizer (seeded by
                     // the track so it always changes; never a stale image).
                     ProceduralVisualizerView(
-                        seed: playerVM.currentTrack?.id ?? displayChannel.id)
+                        seed: playerVM.currentTrack?.id ?? displayChannel.id,
+                        isPlaying: playerVM.isPlaying)
                 }
             }
             .clipped()

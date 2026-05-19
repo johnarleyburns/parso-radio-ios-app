@@ -67,6 +67,11 @@ final class PlayerViewModel: ObservableObject {
     private let loadTimeout: Double = 10
     private let maxConsecutiveLoadFailures = 8
     private var consecutiveLoadFailures = 0
+    // minTrackDuration enforcement (e.g. Children's Songs): skip each
+    // too-short track once; cap consecutive skips so an all-short channel
+    // can't loop forever.
+    private var shortSkippedTrackId: String?
+    private var consecutiveShortSkips = 0
 
     init(
         db: DatabaseService,
@@ -140,6 +145,27 @@ final class PlayerViewModel: ObservableObject {
                 guard let self, !self.isScrubbing else { return }
                 self.currentPosition = seconds
                 self.trackDuration = self.audioPlayer.duration
+
+                // Channel minimum-duration gate (no item-level runtime in IA,
+                // so enforced once the player reports the real duration).
+                if let ch = self.currentChannel,
+                   let minDur = ch.minTrackDuration,
+                   let track = self.currentTrack,
+                   let d = self.audioPlayer.duration, d > 0 {
+                    if d < minDur {
+                        if self.shortSkippedTrackId != track.id,
+                           !self.isSkipping, !self.isLoading {
+                            self.shortSkippedTrackId = track.id
+                            self.consecutiveShortSkips += 1
+                            if self.consecutiveShortSkips <= self.maxConsecutiveLoadFailures {
+                                self.skip()
+                            }
+                        }
+                        return
+                    } else {
+                        self.consecutiveShortSkips = 0
+                    }
+                }
                 // Persist position for spoken-word channels so the user can resume.
                 // Throttled: write DB at most once every 5 s (timer fires 4×/s).
                 if let channel = self.currentChannel,
@@ -580,15 +606,16 @@ final class PlayerViewModel: ObservableObject {
                 itemPartsCache.updateValue(nil, forKey: identifier)
                 return nil
             }
-            let stampTags = (currentChannel?.iaQueryEntry?.matchTags ?? [])
-                .map { Channel.stampToken($0) }
-            let stamped = fetched.map { $0.stamped(with: stampTags) }
-            // Purge any stale rows (old mixed-format extraction) so the DB
-            // holds ONLY this clean single-format set going forward.
+            // Do NOT stamp probed chapters with the channel's matchTag: that
+            // is what made every chapter join the channel pool, so skipping a
+            // LibriVox channel cycled through one book's chapters. Unstamped
+            // parts are still saved (retrievable by parent_identifier) and
+            // added to playlists, but never match a channel → the channel
+            // only ever offers the book's first track.
             await db.deleteTracks(forParentIdentifier: identifier)
-            await db.saveTracks(stamped)
+            await db.saveTracks(fetched)
             await db.setIsMultiPart(true, forTrackId: identifier)
-            let ordered = stamped.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+            let ordered = fetched.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
             itemPartsCache[identifier] = ordered
             return ordered
         } catch {
