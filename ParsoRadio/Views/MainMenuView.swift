@@ -11,6 +11,7 @@ struct MainMenuView: View {
 
     @State private var showSearch = false
     @State private var showAbout = false
+    @State private var recentlyPlayed: [Track] = []
 
     // Fixed section order (item 1). Alphabetical WITHIN each (item 9).
     private static let categoryOrder = [
@@ -81,6 +82,37 @@ struct MainMenuView: View {
                             .font(.body).padding(.vertical, 2)
                     }
                     .foregroundStyle(.primary)
+                }
+
+                if !recentlyPlayed.isEmpty {
+                    Section("Recently Played") {
+                        ForEach(recentlyPlayed.prefix(20)) { track in
+                            Button {
+                                Task {
+                                    await playerVM.playRecentTrack(track)
+                                    dismissAll()
+                                }
+                            } label: {
+                                HStack(spacing: 10) {
+                                    ArtworkThumbnail(track: track, size: 36)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(track.title)
+                                            .font(.body)
+                                            .lineLimit(1)
+                                        Text(track.artist)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                    Spacer()
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .foregroundStyle(.primary)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityHint("Plays this track")
+                        }
+                    }
                 }
 
                 // Persisted order (Favorites pinned first, then user order).
@@ -157,6 +189,58 @@ struct MainMenuView: View {
             .sheet(isPresented: $showAbout) {
                 AboutView()
             }
+            .safeAreaInset(edge: .bottom) {
+                if playerVM.currentTrack != nil {
+                    miniPlayer
+                }
+            }
+            .task {
+                recentlyPlayed = await playerVM.recentlyPlayedTracks(limit: 30)
+            }
+        }
+    }
+
+    // MARK: - Mini-player (sticky bottom bar)
+
+    @ViewBuilder
+    private var miniPlayer: some View {
+        if let track = playerVM.currentTrack {
+            HStack(spacing: 12) {
+                ArtworkThumbnail(track: track, size: 40)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(track.title)
+                        .font(.subheadline).fontWeight(.semibold)
+                        .lineLimit(1)
+                    Text(track.artist)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer()
+                Button {
+                    playerVM.togglePlayPause()
+                } label: {
+                    Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 22))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(playerVM.isPlaying ? "Pause" : "Play")
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(.thinMaterial)
+            .overlay(Rectangle()
+                .frame(height: 0.5)
+                .foregroundStyle(.separator),
+                     alignment: .top)
+            .contentShape(Rectangle())
+            .onTapGesture { dismissAll() }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(
+                "Mini player: \(track.title) by \(track.artist), \(playerVM.isPlaying ? "playing" : "paused")")
+            .accessibilityHint("Tap to return to the player screen")
         }
     }
 }

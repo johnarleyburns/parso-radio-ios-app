@@ -4,6 +4,10 @@ struct iPodView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showChapters = false
+    @State private var sleepTimerNow: Date = Date()
+    private static let sleepTimerOptions: [Int] = [15, 30, 45, 60]
     @State private var pendingChannel: Channel = {
         let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "spanish-guitar"
         return Channel.defaults.first { $0.id == lastId } ?? Channel.defaults[0]
@@ -251,6 +255,9 @@ struct iPodView: View {
         .overlay { centerTapZones }
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
+        // Dynamic Type clamp — respect the user's text-size setting but keep
+        // the track box layout coherent at the extreme sizes.
+        .dynamicTypeSize(.medium ... .accessibility2)
         .contextMenu {
             if playerVM.currentTrack != nil, !isAmbientLoop {
                 Button { showAddToPlaylist = true } label: {
@@ -334,7 +341,8 @@ struct iPodView: View {
                 }
             }
             .clipped()
-            .animation(.easeInOut(duration: 0.8), value: playerVM.currentTrack?.id)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.8),
+                       value: playerVM.currentTrack?.id)
             // Purely decorative (album art / ambient video / visualizer).
             .accessibilityHidden(true)
     }
@@ -595,9 +603,38 @@ struct iPodView: View {
                         }
                     }
 
-                    // Ambient loops are info-only: no playlist actions.
+                    // Playback controls / output (skip for ambient loops —
+                    // a single forever-looping track has nothing to speed up).
                     if !isAmbientLoop {
+                        Section("Playback") {
+                            playbackSpeedRow
+                            sleepTimerRow
+                            if playerVM.currentTrackIsMultiPart {
+                                NavigationLink {
+                                    ChapterListView(onDismiss: { showMoreOptions = false })
+                                        .environmentObject(playerVM)
+                                } label: {
+                                    Label("Chapter List", systemImage: "list.number")
+                                }
+                            }
+                            HStack {
+                                Label("AirPlay", systemImage: "airplayaudio")
+                                Spacer()
+                                AirPlayButton()
+                                    .frame(width: 32, height: 32)
+                                    .accessibilityLabel("AirPlay")
+                            }
+                        }
+
+                        bookmarksSection(for: track)
+
                         Section {
+                            if let shareURL = shareURL(for: track) {
+                                ShareLink(item: shareURL,
+                                          message: Text(track.title)) {
+                                    Label("Share Track", systemImage: "square.and.arrow.up")
+                                }
+                            }
                             Button {
                                 showMoreOptions = false
                                 showAddToPlaylist = true
@@ -646,6 +683,127 @@ struct iPodView: View {
             Text(value).multilineTextAlignment(.trailing)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - More Options helper rows
+
+    private var playbackSpeedRow: some View {
+        Picker(selection: Binding(
+            get: { playerVM.playbackRate },
+            set: { playerVM.setPlaybackRate($0) }
+        )) {
+            ForEach(PlayerViewModel.playbackRateOptions, id: \.self) { r in
+                Text(rateLabel(r)).tag(r)
+            }
+        } label: {
+            Label("Speed", systemImage: "speedometer")
+        }
+        .pickerStyle(.menu)
+        .accessibilityHint("Sets the playback speed from half normal to double speed")
+    }
+
+    private func rateLabel(_ r: Double) -> String {
+        // 1× displays as "1×" not "1.0×".
+        if r.truncatingRemainder(dividingBy: 1) == 0 {
+            return "\(Int(r))×"
+        }
+        return String(format: "%g×", r)
+    }
+
+    @ViewBuilder
+    private var sleepTimerRow: some View {
+        let active = playerVM.isSleepTimerActive
+        Menu {
+            ForEach(Self.sleepTimerOptions, id: \.self) { mins in
+                Button("\(mins) minutes") { playerVM.startSleepTimer(minutes: mins) }
+            }
+            Button("End of Track") { playerVM.setSleepAtEndOfTrack(true) }
+            if active {
+                Divider()
+                Button(role: .destructive) {
+                    playerVM.cancelSleepTimer()
+                } label: { Text("Cancel Sleep Timer") }
+            }
+        } label: {
+            HStack {
+                Label("Sleep Timer", systemImage: active ? "moon.fill" : "moon")
+                Spacer()
+                Text(sleepTimerStatus)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        // Tick the local clock once a second while a timer is active so the
+        // countdown label refreshes without a publisher.
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now in
+            sleepTimerNow = now
+        }
+        .accessibilityLabel("Sleep timer, currently \(sleepTimerStatus)")
+        .accessibilityHint("Choose a duration or end-of-track to pause playback automatically")
+    }
+
+    private var sleepTimerStatus: String {
+        if playerVM.sleepAtEndOfTrack { return "End of Track" }
+        if let ends = playerVM.sleepTimerEndsAt {
+            let remaining = max(0, ends.timeIntervalSince(sleepTimerNow))
+            return formatTime(remaining)
+        }
+        return "Off"
+    }
+
+    @ViewBuilder
+    private func bookmarksSection(for track: Track) -> some View {
+        Section("Bookmarks") {
+            Button {
+                Task { await playerVM.addBookmarkAtCurrentPosition() }
+            } label: {
+                Label("Bookmark This Spot (\(formatTime(playerVM.currentPosition)))",
+                      systemImage: "bookmark")
+            }
+            .disabled(track.id != playerVM.currentTrack?.id)
+
+            if playerVM.bookmarksForCurrentTrack.isEmpty {
+                Text("No bookmarks for this track yet.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(playerVM.bookmarksForCurrentTrack) { bm in
+                    HStack {
+                        Image(systemName: "bookmark.fill")
+                            .foregroundStyle(Color.accentColor)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(bm.label ?? formatTime(bm.positionSeconds))
+                                .font(.body)
+                            if bm.label != nil {
+                                Text(formatTime(bm.positionSeconds))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { playerVM.seekToBookmark(bm) }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            Task { await playerVM.deleteBookmark(bm) }
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint("Seeks to this bookmark")
+                }
+            }
+        }
+    }
+
+    /// Public-facing URL for the share sheet. Logic lives in
+    /// `ShareURLBuilder` so it's directly unit-testable.
+    private func shareURL(for track: Track) -> URL? {
+        ShareURLBuilder.url(for: track)
     }
 
     private func licenseName(_ l: LicenseType) -> String {

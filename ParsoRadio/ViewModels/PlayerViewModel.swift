@@ -29,6 +29,17 @@ final class PlayerViewModel: ObservableObject {
     // track change; set true once the silent probe confirms a multi-file item.
     @Published var currentTrackIsMultiPart: Bool = false
 
+    // Sleep timer: non-nil endsAt → a Task is counting down to pause(); the
+    // "End of Track" flag stops at the next natural onTrackFinished.
+    @Published var sleepTimerEndsAt: Date? = nil
+    @Published var sleepAtEndOfTrack: Bool = false
+    private var sleepTimerTask: Task<Void, Never>? = nil
+
+    // Bookmarks for the currently-playing track. Reloaded on track change.
+    @Published var bookmarksForCurrentTrack: [Bookmark] = []
+    // Mirrors audioPlayer.playbackRate (Float) as a Double for SwiftUI bindings.
+    @Published var playbackRate: Double
+
     let audioPlayer: AudioPlayerService
 
     private let db: DatabaseService
@@ -92,6 +103,7 @@ final class PlayerViewModel: ObservableObject {
         self.queueManager = queueManager
         self.audioPlayer = audioPlayer
         self.downloadManager = downloadManager
+        self.playbackRate = Double(audioPlayer.playbackRate)
 
         // Evict stale tracks on launch if DB is large (>5 000 rows, older than 30 days).
         Task { [weak self] in
@@ -123,6 +135,14 @@ final class PlayerViewModel: ObservableObject {
                 guard let self else { return }
                 // skip() already scheduled an advance; ignore the finish notification.
                 if self.isSkipping { self.isSkipping = false; return }
+                // Sleep timer "End of Track" — stop here instead of advancing.
+                if self.sleepAtEndOfTrack {
+                    self.sleepAtEndOfTrack = false
+                    self.sleepTimerEndsAt = nil
+                    self.audioPlayer.pause()
+                    self.isPlaying = false
+                    return
+                }
                 // Ambient loop channels: seek back to the beginning instead of advancing.
                 if let channel = self.currentChannel, channel.contentType == .ambientLoop {
                     self.audioPlayer.seek(to: 0)
@@ -193,6 +213,9 @@ final class PlayerViewModel: ObservableObject {
         UserDefaults.standard.set(visited, forKey: "visitedChannelIds")
 
         currentChannel = channel
+        // Lock-screen controls follow the content: spoken-word channels get
+        // ±15 s skip buttons; music channels get next/prev track.
+        audioPlayer.setContentMode(channel.contentType == .spokenWord ? .spokenWord : .music)
         isLoading = true
         loadingMessage = "Finding tracks…"
         errorMessage = nil
@@ -508,7 +531,18 @@ final class PlayerViewModel: ObservableObject {
             playHistory.append(existing)
             if playHistory.count > historyLimit { playHistory.removeFirst() }
         }
+        // Reload bookmarks for the new track (replaced below).
+        bookmarksForCurrentTrack = []
         currentTrack = track
+        Task { [weak self, id = track.id] in
+            guard let self else { return }
+            let bms = await self.db.fetchBookmarks(forTrack: id)
+            await MainActor.run {
+                if self.currentTrack?.id == id {
+                    self.bookmarksForCurrentTrack = bms
+                }
+            }
+        }
         // Pre-set duration from track metadata so scrubber renders before AVPlayer buffers.
         trackDuration = track.duration > 0 ? track.duration : nil
         // Clear the previous track's artwork IMMEDIATELY so a track with no
@@ -907,5 +941,107 @@ final class PlayerViewModel: ObservableObject {
         if let first = await queueManager.firstPartOfPreviousBook(before: current, channel: channel) {
             await playTrack(first, seekTo: 0, recordHistory: true)
         }
+    }
+
+    // MARK: - Variable playback speed
+
+    /// Allowed values for the speed picker (0.5×–2×).
+    static let playbackRateOptions: [Double] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+
+    func setPlaybackRate(_ rate: Double) {
+        let clamped = min(max(rate, 0.5), 2.0)
+        playbackRate = clamped
+        audioPlayer.setPlaybackRate(Float(clamped))
+    }
+
+    // MARK: - Sleep timer
+
+    /// Start a countdown that pauses playback after `minutes` minutes. Replaces
+    /// any active timer. `0` cancels.
+    func startSleepTimer(minutes: Int) {
+        cancelSleepTimer()
+        guard minutes > 0 else { return }
+        let endsAt = Date().addingTimeInterval(TimeInterval(minutes) * 60)
+        sleepTimerEndsAt = endsAt
+        sleepTimerTask = Task { [weak self] in
+            let interval = endsAt.timeIntervalSinceNow
+            if interval > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+            }
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.audioPlayer.pause()
+                self.isPlaying = false
+                self.sleepTimerEndsAt = nil
+                self.sleepTimerTask = nil
+            }
+        }
+    }
+
+    /// Schedule a pause at the natural end of the currently-playing track.
+    /// Replaces any countdown-based timer.
+    func setSleepAtEndOfTrack(_ on: Bool) {
+        cancelSleepTimer()
+        sleepAtEndOfTrack = on
+    }
+
+    func cancelSleepTimer() {
+        sleepTimerTask?.cancel()
+        sleepTimerTask = nil
+        sleepTimerEndsAt = nil
+        sleepAtEndOfTrack = false
+    }
+
+    /// True iff any sleep mode is engaged.
+    var isSleepTimerActive: Bool {
+        sleepTimerEndsAt != nil || sleepAtEndOfTrack
+    }
+
+    // MARK: - Bookmarks
+
+    /// Bookmark the current playback position. No-op if nothing's playing.
+    func addBookmarkAtCurrentPosition(label: String? = nil) async {
+        guard let track = currentTrack else { return }
+        let bm = Bookmark.new(trackId: track.id,
+                              positionSeconds: currentPosition,
+                              label: label)
+        await db.saveBookmark(bm)
+        bookmarksForCurrentTrack = await db.fetchBookmarks(forTrack: track.id)
+    }
+
+    func deleteBookmark(_ bookmark: Bookmark) async {
+        await db.deleteBookmark(id: bookmark.id)
+        if let id = currentTrack?.id, id == bookmark.trackId {
+            bookmarksForCurrentTrack = await db.fetchBookmarks(forTrack: id)
+        }
+    }
+
+    /// Seek to a bookmarked position within the currently-playing track.
+    func seekToBookmark(_ bookmark: Bookmark) {
+        guard currentTrack?.id == bookmark.trackId else { return }
+        seek(to: bookmark.positionSeconds)
+    }
+
+    // MARK: - Recently played
+
+    func recentlyPlayedTracks(limit: Int = 30) async -> [Track] {
+        await db.fetchRecentlyPlayedTracks(limit: limit)
+    }
+
+    /// Play a track straight from the Recently Played list. Looks up the
+    /// last channel it was played in so the rotation context matches.
+    func playRecentTrack(_ track: Track) async {
+        await playTrack(track, seekTo: nil)
+    }
+
+    // MARK: - Chapters (multi-part items)
+
+    /// Ordered chapters of the currently-playing multi-part item, or nil if
+    /// the current item is single-file or there's nothing playing.
+    func fetchCurrentItemChapters() async -> [Track]? {
+        guard let track = currentTrack else { return nil }
+        let identifier = track.parentIdentifier ?? track.id
+        return await resolveItemParts(identifier: identifier)
     }
 }

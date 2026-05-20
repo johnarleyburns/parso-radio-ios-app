@@ -67,6 +67,14 @@ final class DatabaseService: @unchecked Sendable {
     private let colPHTrackId     = Expression<String>("track_id")
     private let colPHPlayedAt    = Expression<Double>("played_at")
 
+    // MARK: - Bookmarks table (within-track timestamps)
+    private let bookmarks         = Table("bookmarks")
+    private let colBMId           = Expression<String>("id")
+    private let colBMTrackId      = Expression<String>("track_id")
+    private let colBMPositionSecs = Expression<Double>("position_seconds")
+    private let colBMLabel        = Expression<String?>("label")
+    private let colBMCreatedAt    = Expression<Double>("created_at")
+
     init(path: String? = nil) throws {
         if let path {
             db = try Connection(path)
@@ -134,6 +142,18 @@ final class DatabaseService: @unchecked Sendable {
             t.primaryKey(colPHChannelId, colPHTrackId)
         })
         try db.run("CREATE INDEX IF NOT EXISTS idx_ph_channel ON track_play_history(channel_id, played_at DESC)")
+        try db.run("CREATE INDEX IF NOT EXISTS idx_ph_played_at ON track_play_history(played_at DESC)")
+
+        // Bookmarks: within-track timestamps, distinct from per-channel/playlist
+        // positions. Many bookmarks per track, identified by UUID.
+        try db.run(bookmarks.create(ifNotExists: true) { t in
+            t.column(colBMId,           primaryKey: true)
+            t.column(colBMTrackId)
+            t.column(colBMPositionSecs)
+            t.column(colBMLabel)
+            t.column(colBMCreatedAt)
+        })
+        try db.run("CREATE INDEX IF NOT EXISTS idx_bm_track ON bookmarks(track_id, position_seconds)")
 
         // Idempotent column migrations — try? silently ignores duplicate-column errors
         _ = try? db.run("ALTER TABLE tracks ADD COLUMN added_date   REAL")
@@ -643,6 +663,99 @@ final class DatabaseService: @unchecked Sendable {
                 let track = (try? self.db.pluck(self.tracks.filter(self.colId == trackId)))
                     .flatMap(self.rowToTrack)
                 continuation.resume(returning: track)
+            }
+        }
+    }
+
+    /// Newest plays first, deduped to one entry per track_id. Used by the
+    /// "Recently Played" section in the main menu.
+    func fetchRecentlyPlayedTracks(limit: Int = 30) async -> [Track] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                // playHistory has composite PK (channel_id, track_id), so the
+                // same track played in two channels appears twice — dedupe by
+                // taking MAX(played_at) per track_id.
+                let sql = """
+                    SELECT t.* FROM tracks t
+                    INNER JOIN (
+                        SELECT track_id, MAX(played_at) AS last_at
+                        FROM track_play_history
+                        GROUP BY track_id
+                    ) ph ON ph.track_id = t.id
+                    ORDER BY ph.last_at DESC
+                    LIMIT ?
+                """
+                var out: [Track] = []
+                if let rows = try? self.db.prepare(sql, limit) {
+                    for r in rows {
+                        // SQLite.swift Statement rows are arrays of bindings —
+                        // round-trip through tracks.filter for type-safe decode.
+                        if let id = r[0] as? String,
+                           let row = try? self.db.pluck(self.tracks.filter(self.colId == id)),
+                           let track = self.rowToTrack(row) {
+                            out.append(track)
+                        }
+                    }
+                }
+                continuation.resume(returning: out)
+            }
+        }
+    }
+
+    // MARK: - Bookmarks
+
+    func saveBookmark(_ bookmark: Bookmark) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? self.db.run(self.bookmarks.insert(or: .replace,
+                    self.colBMId           <- bookmark.id,
+                    self.colBMTrackId      <- bookmark.trackId,
+                    self.colBMPositionSecs <- bookmark.positionSeconds,
+                    self.colBMLabel        <- bookmark.label,
+                    self.colBMCreatedAt    <- bookmark.createdAt.timeIntervalSince1970
+                ))
+                continuation.resume()
+            }
+        }
+    }
+
+    func fetchBookmarks(forTrack trackId: String) async -> [Bookmark] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                var out: [Bookmark] = []
+                let query = self.bookmarks
+                    .filter(self.colBMTrackId == trackId)
+                    .order(self.colBMPositionSecs.asc)
+                if let rows = try? self.db.prepare(query) {
+                    for row in rows {
+                        out.append(Bookmark(
+                            id: row[self.colBMId],
+                            trackId: row[self.colBMTrackId],
+                            positionSeconds: row[self.colBMPositionSecs],
+                            label: row[self.colBMLabel],
+                            createdAt: Date(timeIntervalSince1970: row[self.colBMCreatedAt])
+                        ))
+                    }
+                }
+                continuation.resume(returning: out)
+            }
+        }
+    }
+
+    func deleteBookmark(id: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? self.db.run(self.bookmarks.filter(self.colBMId == id).delete())
+                continuation.resume()
+            }
+        }
+    }
+
+    func deleteAllBookmarks(forTrack trackId: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? self.db.run(self.bookmarks.filter(self.colBMTrackId == trackId).delete())
+                continuation.resume()
             }
         }
     }
