@@ -40,6 +40,28 @@ struct iPodView: View {
             forChannelId: playerVM.currentChannel?.id ?? "")
     }
 
+    // The same SF Symbol the main menu/channel-selector list uses for this
+    // source, so the top-left label of the track box is unambiguous.
+    private var titleIcon: String? {
+        if let pl = playerVM.currentPlaylist {
+            return pl.isFavorites ? "heart.fill" : "music.note.list"
+        }
+        return playerVM.currentChannel?.icon
+    }
+
+    private var titleText: String {
+        playerVM.currentPlaylist?.name ?? playerVM.currentChannel?.name ?? ""
+    }
+
+    // Two sizes only on the main page (per spec): one larger bold for the
+    // playlist/channel name and track title; one smaller regular for artist,
+    // part, date and time labels.
+    private static let mainBoldSize: CGFloat = 19
+    private static let mainRegularSize: CGFloat = 14
+    // Brand dark blue (matches the wheel's old progress arc) — used for the
+    // elapsed-progress fill on the dark scrim.
+    private static let progressBlue = Color(red: 0.18, green: 0.42, blue: 0.95)
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
@@ -180,23 +202,29 @@ struct iPodView: View {
                 // Playlist or channel name only. NO stale fallback to the
                 // last-selected channel: a search-result/standalone play has
                 // neither, so the label stays blank until real content shows.
-                HStack {
-                    Text(playerVM.currentPlaylist?.name
-                         ?? playerVM.currentChannel?.name ?? "")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white.opacity(0.95))
-                        .contentShape(Rectangle())
-                        // Tapping the playlist/channel name opens the menu
-                        // (not track info — that's the rest of the panel / •••).
-                        .onTapGesture { showMainMenu = true }
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityLabel(
-                            "Now playing from \(playerVM.currentPlaylist?.name ?? playerVM.currentChannel?.name ?? "nothing")")
-                        .accessibilityHint("Opens the menu to pick a channel or playlist")
-                        .accessibilityAction { showMainMenu = true }
+                HStack(spacing: 8) {
+                    if let icon = titleIcon {
+                        Image(systemName: icon)
+                            .font(.system(size: Self.mainBoldSize,
+                                           weight: .semibold))
+                    }
+                    Text(titleText)
+                        .font(.system(size: Self.mainBoldSize,
+                                       weight: .semibold))
+                        .lineLimit(1)
                     Spacer()
                 }
+                .foregroundStyle(.white.opacity(0.95))
+                .contentShape(Rectangle())
+                // Tapping the playlist/channel name opens the menu
+                // (not track info — that's the rest of the panel / •••).
+                .onTapGesture { showMainMenu = true }
+                .accessibilityElement(children: .ignore)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel(
+                    "Now playing from \(titleText.isEmpty ? "nothing" : titleText)")
+                .accessibilityHint("Opens the menu to pick a channel or playlist")
+                .accessibilityAction { showMainMenu = true }
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
 
@@ -316,15 +344,15 @@ struct iPodView: View {
         VStack(alignment: .trailing, spacing: 5) {
             if playerVM.isLoading, let msg = playerVM.loadingMessage {
                 HStack(spacing: 6) {
-                    ProgressView().scaleEffect(0.7).tint(.white)
+                    ProgressView().scaleEffect(0.8).tint(.white)
                     Text(msg)
-                        .font(.caption2)
+                        .font(.system(size: Self.mainRegularSize))
                         .foregroundStyle(.white.opacity(0.8))
                 }
             }
 
             Text(track.title)
-                .font(.system(size: 17, weight: .bold))
+                .font(.system(size: Self.mainBoldSize, weight: .bold))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.trailing)
                 .lineLimit(2)
@@ -332,15 +360,15 @@ struct iPodView: View {
 
             if let artist = cleaned(track.artist) {
                 Text(artist)
-                    .font(.system(size: 14))
+                    .font(.system(size: Self.mainRegularSize))
                     .foregroundStyle(.white.opacity(0.8))
                     .lineLimit(1)
             }
 
             if let part = track.partNumber, let total = track.totalParts, total > 1 {
                 Text("Part \(part) of \(total)")
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.65))
+                    .font(.system(size: Self.mainRegularSize))
+                    .foregroundStyle(.white.opacity(0.7))
             }
 
             // News episodes: show the publish date on the now-playing line
@@ -348,8 +376,8 @@ struct iPodView: View {
             if playerVM.currentChannel?.preferredSource == "podcast",
                let date = track.bestDate {
                 Text(date.formatted(.dateTime.year().month().day()))
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.65))
+                    .font(.system(size: Self.mainRegularSize))
+                    .foregroundStyle(.white.opacity(0.7))
             }
             // License/source intentionally NOT shown here — only in the
             // Track Info popup — to keep the main track box uncluttered.
@@ -367,7 +395,7 @@ struct iPodView: View {
         HStack(spacing: 8) {
             ProgressView().tint(.white)
             Text(playerVM.loadingMessage ?? "Loading…")
-                .font(.caption)
+                .font(.system(size: Self.mainRegularSize))
                 .foregroundStyle(.white.opacity(0.8))
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
@@ -379,7 +407,7 @@ struct iPodView: View {
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 8) {
             Text(message)
-                .font(.caption)
+                .font(.system(size: Self.mainRegularSize))
                 .foregroundStyle(.white.opacity(0.85))
                 .multilineTextAlignment(.trailing)
             Button("Try Again") {
@@ -387,7 +415,7 @@ struct iPodView: View {
                     Task { await playerVM.load(channel: ch) }
                 }
             }
-            .font(.caption)
+            .font(.system(size: Self.mainRegularSize))
             .buttonStyle(.bordered)
             .tint(.white)
         }
@@ -399,7 +427,7 @@ struct iPodView: View {
     @ViewBuilder
     private var idleView: some View {
         Text("Tap \(Image(systemName: "line.3.horizontal")) to select a channel")
-            .font(.caption)
+            .font(.system(size: Self.mainRegularSize))
             .foregroundStyle(.white.opacity(0.7))
             .multilineTextAlignment(.trailing)
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -418,37 +446,42 @@ struct iPodView: View {
                 Spacer()
                 Button { showMoreOptions = true } label: {
                     Image(systemName: "info.circle")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(.system(size: 22))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Track Info")
-                .padding(.trailing, 14)
+                .padding(.trailing, 8)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 2)
         } else {
             fullScrubberRow
         }
     }
 
+    // Apple HIG: tap targets ≥ 44×44 pt. The heart and ••• used to be 16 pt
+    // glyphs in roughly 24 pt tap zones — easy to miss, especially with the
+    // progress bar right below. They are now 22 pt glyphs in 44×44 buttons.
     private var fullScrubberRow: some View {
-        // Shuffle/Repeat removed: shuffle is playlist-only (use the playlist
-        // screen); repeat-one is the wheel's center phantom button.
         VStack(spacing: 6) {
             HStack(spacing: 0) {
                 Button { toggleFavorite() } label: {
                     Image(systemName: isFavorite ? "heart.fill" : "heart")
-                        .font(.system(size: 16))
-                        .foregroundStyle(isFavorite ? .red : .white.opacity(0.7))
+                        .font(.system(size: 22))
+                        .foregroundStyle(isFavorite ? .red : .white.opacity(0.8))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-                .padding(.leading, 14)
+                .padding(.leading, 8)
 
                 if let dur = playerVM.trackDuration, dur > 0 {
                     Text(formatTime(playerVM.currentPosition))
-                        .font(.system(size: 11))
+                        .font(.system(size: Self.mainRegularSize))
                         .monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.6))
-                        .padding(.leading, 8)
+                        .foregroundStyle(.white.opacity(0.75))
+                        .padding(.leading, 6)
                         // The progress bar below carries the spoken position.
                         .accessibilityHidden(true)
                 }
@@ -457,20 +490,22 @@ struct iPodView: View {
 
                 if let dur = playerVM.trackDuration, dur > 0 {
                     Text("-" + formatTime(max(0, dur - playerVM.currentPosition)))
-                        .font(.system(size: 11))
+                        .font(.system(size: Self.mainRegularSize))
                         .monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.6))
-                        .padding(.trailing, 8)
+                        .foregroundStyle(.white.opacity(0.75))
+                        .padding(.trailing, 6)
                         .accessibilityHidden(true)
                 }
 
                 Button { showMoreOptions = true } label: {
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(.system(size: 22))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel("More Options")
-                .padding(.trailing, 14)
+                .padding(.trailing, 8)
             }
 
             if let dur = playerVM.trackDuration, dur > 0 {
@@ -478,22 +513,26 @@ struct iPodView: View {
                     .padding(.horizontal, 14)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
 
     // Draggable elapsed-progress bar (common music-UI placement: bottom of
-    // the track box). Tap or drag anywhere to seek.
+    // the track box). Tap or drag anywhere to seek. Dark-blue fill matches
+    // the wheel's old progress arc and is distinct from the smaller controls
+    // above so the user knows where the scrubbing surface starts.
     private func progressBar(duration: Double) -> some View {
         GeometryReader { geo in
             let w = max(geo.size.width, 1)
             let frac = scrubFraction
                 ?? min(max(playerVM.currentPosition / duration, 0), 1)
             ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.18)).frame(height: 4)
-                Capsule().fill(.white.opacity(0.85))
-                    .frame(width: w * CGFloat(frac), height: 4)
-                Circle().fill(.white).frame(width: 12, height: 12)
-                    .offset(x: min(max(w * CGFloat(frac), 0), w) - 6)
+                Capsule().fill(.white.opacity(0.18)).frame(height: 5)
+                Capsule().fill(Self.progressBlue)
+                    .frame(width: w * CGFloat(frac), height: 5)
+                Circle().fill(.white)
+                    .overlay(Circle().stroke(Self.progressBlue, lineWidth: 2))
+                    .frame(width: 14, height: 14)
+                    .offset(x: min(max(w * CGFloat(frac), 0), w) - 7)
             }
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
