@@ -34,14 +34,15 @@ final class BookmarkDatabaseTests: XCTestCase {
         db = try DatabaseService(path: ":memory:")
     }
 
-    func testSaveAndFetchBookmark() async {
+    func testSaveAndFetchBookmark() async throws {
         let bm = Bookmark.new(trackId: "trk1", positionSeconds: 42, label: "spot")
         await db.saveBookmark(bm)
         let loaded = await db.fetchBookmarks(forTrack: "trk1")
         XCTAssertEqual(loaded.count, 1)
-        XCTAssertEqual(loaded.first?.id, bm.id)
-        XCTAssertEqual(loaded.first?.positionSeconds, 42, accuracy: 0.0001)
-        XCTAssertEqual(loaded.first?.label, "spot")
+        let first = try XCTUnwrap(loaded.first)
+        XCTAssertEqual(first.id, bm.id)
+        XCTAssertEqual(first.positionSeconds, 42, accuracy: 0.0001)
+        XCTAssertEqual(first.label, "spot")
     }
 
     func testFetchBookmarksIsScopedByTrack() async {
@@ -83,8 +84,10 @@ final class BookmarkDatabaseTests: XCTestCase {
         await db.saveBookmark(Bookmark.new(trackId: "z", positionSeconds: 3))
         await db.saveBookmark(Bookmark.new(trackId: "other", positionSeconds: 99))
         await db.deleteAllBookmarks(forTrack: "z")
-        XCTAssertTrue(await db.fetchBookmarks(forTrack: "z").isEmpty)
-        XCTAssertEqual(await db.fetchBookmarks(forTrack: "other").count, 1,
+        let zLeft = await db.fetchBookmarks(forTrack: "z")
+        let otherLeft = await db.fetchBookmarks(forTrack: "other")
+        XCTAssertTrue(zLeft.isEmpty)
+        XCTAssertEqual(otherLeft.count, 1,
                        "deleteAllBookmarks must be scoped to one track.")
     }
 }
@@ -108,13 +111,14 @@ final class BookmarkViewModelTests: XCTestCase {
         )
     }
 
-    func testAddBookmarkAtCurrentPosition() async {
+    func testAddBookmarkAtCurrentPosition() async throws {
         vm.currentTrack = makeTrack(id: "bm-trk")
         vm.currentPosition = 90
         await vm.addBookmarkAtCurrentPosition(label: "Cliffhanger")
         XCTAssertEqual(vm.bookmarksForCurrentTrack.count, 1)
-        XCTAssertEqual(vm.bookmarksForCurrentTrack.first?.positionSeconds, 90, accuracy: 0.001)
-        XCTAssertEqual(vm.bookmarksForCurrentTrack.first?.label, "Cliffhanger")
+        let bm = try XCTUnwrap(vm.bookmarksForCurrentTrack.first)
+        XCTAssertEqual(bm.positionSeconds, 90, accuracy: 0.001)
+        XCTAssertEqual(bm.label, "Cliffhanger")
     }
 
     func testAddBookmarkNoopWhenNothingPlaying() async {
