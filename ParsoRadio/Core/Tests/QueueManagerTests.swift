@@ -113,22 +113,22 @@ final class QueueManagerTests: XCTestCase {
     // (forcing the exhausted-loop path) must NEVER surface another channel's
     // tracks, and one channel's play history must not shrink another's pool.
     func testCuratedChannelsDoNotLeakAcrossEachOther() async throws {
-        let sg = Channel.defaults.first { $0.id == "spanish-guitar" }!
+        let sg = Channel.defaults.first { $0.id == "classical-guitar" }!
         let cm = Channel.defaults.first { $0.id == "chamber-music" }!
         var all: [Track] = []
-        for i in 1...5 { all.append(makeStamped(id: "sg-\(i)", stamp: "spanish-guitar")) }
+        for i in 1...5 { all.append(makeStamped(id: "sg-\(i)", stamp: "classical-guitar")) }
         for i in 1...5 { all.append(makeStamped(id: "cm-\(i)", stamp: "chamber-music")) }
         await db.saveTracks(all)
 
-        // Drain Spanish Guitar far past its 5-track pool to force the
+        // Drain Classical Guitar far past its 5-track pool to force the
         // exhausted -> reset -> re-fetch loop. It must only ever return its
         // own stamped tracks.
         for _ in 0..<30 {
             guard let t = await queue.nextTrack(channel: sg, shuffleMode: false) else {
-                XCTFail("Spanish Guitar pool should loop, not run dry"); return
+                XCTFail("Classical Guitar pool should loop, not run dry"); return
             }
             XCTAssertTrue(t.id.hasPrefix("sg-"),
-                "Spanish Guitar leaked a non-spanish-guitar track: \(t.id)")
+                "Classical Guitar leaked a non-classical-guitar track: \(t.id)")
         }
         // Chamber Music's pool must be its full 5 — NOT shrunk by Spanish
         // Guitar's per-channel history.
@@ -139,7 +139,7 @@ final class QueueManagerTests: XCTestCase {
             cmSeen.insert(t.id)
         }
         XCTAssertEqual(cmSeen.count, 5,
-            "Chamber Music pool must be independent of Spanish Guitar history")
+            "Chamber Music pool must be independent of Classical Guitar history")
     }
 
     // Item 7: confirmed album/book items are weighted higher so they surface

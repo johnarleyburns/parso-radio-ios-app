@@ -1098,7 +1098,11 @@ final class PlayerViewModel: ObservableObject {
         guard currentChannel?.contentType != .ambientLoop else { return }
         let pos = currentPosition
         guard pos > 5 else { return }
-        if let dur = trackDuration, dur > 0, pos > dur - 5 { return }
+        // Prefer the live AVPlayer duration (accurate after readyToPlay); fall
+        // back to the Track's stored duration when the player hasn't reported
+        // one yet (tests, very first playTrack call, etc.).
+        let dur = (trackDuration ?? 0) > 0 ? (trackDuration ?? 0) : track.duration
+        if dur > 0, pos > dur - 5 { return }
         let trackId = track.id
         Task { [db] in
             await db.saveAutosaveBookmark(trackId: trackId, positionSeconds: pos)

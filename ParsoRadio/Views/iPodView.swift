@@ -9,7 +9,7 @@ struct iPodView: View {
     @State private var sleepTimerNow: Date = Date()
     private static let sleepTimerOptions: [Int] = [15, 30, 45, 60]
     @State private var pendingChannel: Channel = {
-        let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "spanish-guitar"
+        let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "classical-guitar"
         return Channel.defaults.first { $0.id == lastId } ?? Channel.defaults[0]
     }()
     @State private var showChannelSelector = false
