@@ -67,6 +67,44 @@ final class RecentlyPlayedTests: XCTestCase {
         XCTAssertEqual(two.map(\.id), ["trk-4", "trk-3"])
     }
 
+    func testDeleteSingleTrackFromHistory() async throws {
+        let a = makeTrack(id: "del-a")
+        let b = makeTrack(id: "del-b")
+        await db.saveTracks([a, b])
+        await db.recordPlayed(channelId: "ch", trackId: a.id)
+        try await Task.sleep(nanoseconds: 20_000_000)
+        await db.recordPlayed(channelId: "ch", trackId: b.id)
+
+        await db.deletePlayHistory(trackId: a.id)
+        let recents = await db.fetchRecentlyPlayedTracks()
+        XCTAssertEqual(recents.map(\.id), [b.id],
+            "deletePlayHistory must remove a single track's history rows.")
+    }
+
+    func testDeleteRemovesAcrossAllChannels() async throws {
+        let shared = makeTrack(id: "cross")
+        await db.saveTracks([shared])
+        await db.recordPlayed(channelId: "ch-a", trackId: shared.id)
+        try await Task.sleep(nanoseconds: 10_000_000)
+        await db.recordPlayed(channelId: "ch-b", trackId: shared.id)
+        await db.deletePlayHistory(trackId: shared.id)
+        let crossRecents = await db.fetchRecentlyPlayedTracks()
+        XCTAssertTrue(crossRecents.isEmpty,
+            "deletePlayHistory must remove every channel's row for the track.")
+    }
+
+    func testClearAllPlayHistory() async throws {
+        for i in 0..<3 {
+            let t = makeTrack(id: "clr-\(i)")
+            await db.saveTracks([t])
+            await db.recordPlayed(channelId: "c", trackId: t.id)
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
+        await db.clearAllPlayHistory()
+        let afterClear = await db.fetchRecentlyPlayedTracks()
+        XCTAssertTrue(afterClear.isEmpty)
+    }
+
     private func makeTrack(id: String) -> Track {
         Track(
             id: id, source: "fma",

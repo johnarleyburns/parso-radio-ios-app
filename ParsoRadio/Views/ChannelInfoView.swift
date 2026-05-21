@@ -1,0 +1,111 @@
+import SwiftUI
+
+/// "About this channel" — shown when the user taps the channel name on the
+/// player. Surfaces the user-facing summary plus the technical knobs that
+/// determine what the channel plays (category, content type, source).
+struct ChannelInfoView: View {
+    let channel: Channel
+    var onDismiss: (() -> Void)? = nil
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    HStack(spacing: 14) {
+                        Image(systemName: channel.icon)
+                            .font(.system(size: 32, weight: .semibold))
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 44, height: 44)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(channel.name)
+                                .font(.title3).fontWeight(.semibold)
+                            Text(channel.category)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    .accessibilityElement(children: .combine)
+                }
+
+                Section("About") {
+                    Text(channel.summary ?? channel.detailDescription
+                         .ifEmpty(fallback: "A curated channel within Parso Radio."))
+                        .font(.body)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Section("Details") {
+                    infoRow("Category",     channel.category)
+                    infoRow("Content type", channel.contentType.displayName)
+                    infoRow("Source",       channel.sourceName)
+                    if channel.iaQueryEntry != nil {
+                        infoRow("Discovery", "Pure Internet Archive search")
+                    } else if let feed = channel.feedURL {
+                        infoRow("Feed", feed)
+                    }
+                    if let minDur = channel.minTrackDuration {
+                        infoRow("Min duration",
+                                "\(Int(minDur)) seconds (shorter tracks are skipped)")
+                    }
+                }
+
+                Section("Licensing") {
+                    Text(
+                        "Parso Radio plays only public-domain and Creative Commons "
+                        + "content. Per-track license is shown in the Track Info popup."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Channel Info")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { onDismiss?() }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func infoRow(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).foregroundStyle(.secondary)
+            Spacer()
+            Text(value).multilineTextAlignment(.trailing)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private extension ContentType {
+    var displayName: String {
+        switch self {
+        case .music:       return "Music"
+        case .spokenWord:  return "Spoken word"
+        case .ambientLoop: return "Ambient loop"
+        }
+    }
+}
+
+private extension Channel {
+    var sourceName: String {
+        switch preferredSource {
+        case "internet_archive": return "Internet Archive"
+        case "fma":              return "Free Music Archive"
+        case "oxford_lectures":  return "Oxford University"
+        case "podcast":          return "Podcast RSS"
+        case "freesound":        return "Freesound"
+        case "ambient":          return "Bundled ambient asset"
+        case .some(let s):       return s
+        case .none:              return "Mixed"
+        }
+    }
+}
+
+private extension String {
+    func ifEmpty(fallback: String) -> String { isEmpty ? fallback : self }
+}

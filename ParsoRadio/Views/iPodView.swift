@@ -22,6 +22,9 @@ struct iPodView: View {
     @State private var showMoreOptions = false
     @State private var showFullMetadata = false
     @State private var isFavorite = false
+    // Title-tap navigation: one of these is true at a time.
+    @State private var showChannelInfo = false
+    @State private var showActivePlaylist = false
     // Non-nil while the user is dragging the progress bar (overrides the
     // player position so the bar follows the finger).
     @State private var scrubFraction: Double? = nil
@@ -170,6 +173,27 @@ struct iPodView: View {
         .sheet(isPresented: $showMoreOptions) {
             combinedTrackSheet
         }
+        .sheet(isPresented: $showChannelInfo) {
+            if let ch = playerVM.currentChannel {
+                ChannelInfoView(channel: ch, onDismiss: { showChannelInfo = false })
+            }
+        }
+        .sheet(isPresented: $showActivePlaylist) {
+            if let pl = playerVM.currentPlaylist {
+                NavigationStack {
+                    PlaylistDetailView(playlist: pl,
+                                       dismissAll: { showActivePlaylist = false })
+                        .environmentObject(playlistVM)
+                        .environmentObject(playerVM)
+                        .environmentObject(offlineService)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Done") { showActivePlaylist = false }
+                            }
+                        }
+                }
+            }
+        }
         .onChange(of: playerVM.currentTrack?.id) { _, _ in
             refreshFavoriteState()
         }
@@ -220,15 +244,18 @@ struct iPodView: View {
                 }
                 .foregroundStyle(.white.opacity(0.95))
                 .contentShape(Rectangle())
-                // Tapping the playlist/channel name opens the menu
-                // (not track info — that's the rest of the panel / •••).
-                .onTapGesture { showMainMenu = true }
+                // Title tap goes DIRECTLY to the source — playlist detail
+                // for a playlist, channel info for a channel. Use the wheel's
+                // MENU button to get to the full menu.
+                .onTapGesture { openTitleDestination() }
                 .accessibilityElement(children: .ignore)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityLabel(
                     "Now playing from \(titleText.isEmpty ? "nothing" : titleText)")
-                .accessibilityHint("Opens the menu to pick a channel or playlist")
-                .accessibilityAction { showMainMenu = true }
+                .accessibilityHint(playerVM.currentPlaylist != nil
+                    ? "Opens this playlist"
+                    : "Opens channel information")
+                .accessibilityAction { openTitleDestination() }
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
 
@@ -454,7 +481,7 @@ struct iPodView: View {
                 Spacer()
                 Button { showMoreOptions = true } label: {
                     Image(systemName: "info.circle")
-                        .font(.system(size: 22))
+                        .font(.system(size: ClickWheel.iconSize))
                         .foregroundStyle(.white.opacity(0.8))
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
@@ -476,7 +503,7 @@ struct iPodView: View {
             HStack(spacing: 0) {
                 Button { toggleFavorite() } label: {
                     Image(systemName: isFavorite ? "heart.fill" : "heart")
-                        .font(.system(size: 22))
+                        .font(.system(size: ClickWheel.iconSize))
                         .foregroundStyle(isFavorite ? .red : .white.opacity(0.8))
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
@@ -507,7 +534,7 @@ struct iPodView: View {
 
                 Button { showMoreOptions = true } label: {
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 22))
+                        .font(.system(size: ClickWheel.iconSize))
                         .foregroundStyle(.white.opacity(0.8))
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
@@ -909,6 +936,18 @@ struct iPodView: View {
 
     // MARK: - Helpers
 
+    // Where the upper-left title tap should go. Playlist → playlist detail,
+    // channel → channel info, nothing-playing → main menu (still useful).
+    private func openTitleDestination() {
+        if playerVM.currentPlaylist != nil {
+            showActivePlaylist = true
+        } else if playerVM.currentChannel != nil {
+            showChannelInfo = true
+        } else {
+            showMainMenu = true
+        }
+    }
+
     // Treats empty / "Unknown" (case-insensitive) placeholder values as
     // absent so the UI shows nothing rather than the word "Unknown".
     private func cleaned(_ value: String?) -> String? {
@@ -962,6 +1001,12 @@ struct iPodView: View {
 // MARK: - Click Wheel
 
 struct ClickWheel: View {
+    // Single source of truth for icon point size on the main screen. The
+    // wheel quadrants, repeat-one centre glyph, heart and ••• all use this
+    // so they stay uniform (matches the user spec "ALL icons must be the
+    // same size").
+    static let iconSize: CGFloat = 22
+
     let isPlaying: Bool
     // Seek-wheel inputs (duration == 0 ⇒ pure transport, no seeking/arc).
     var currentTime: Double = 0
@@ -1009,16 +1054,19 @@ struct ClickWheel: View {
                     .frame(width: innerR * 2, height: innerR * 2)
                     .allowsHitTesting(false)
 
+                // Every main-screen icon (wheel quadrants, repeat-one centre,
+                // heart and ••• below) shares one point size so the visual
+                // weight stays balanced.
                 if repeatEnabled && repeatOn {
                     Image(systemName: "repeat.1")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: ClickWheel.iconSize, weight: .semibold))
                         .foregroundStyle(Color.accentColor)
                         .allowsHitTesting(false)
                 }
 
                 // MENU icon (top)
                 Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: ClickWheel.iconSize, weight: .medium))
                     .foregroundStyle(.primary)
                     .offset(y: -midRing)
                     .allowsHitTesting(false)
@@ -1026,14 +1074,14 @@ struct ClickWheel: View {
                 if transportEnabled {
                     // Back (left)
                     Image(systemName: "backward.fill")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.system(size: ClickWheel.iconSize, weight: .medium))
                         .foregroundStyle(.primary)
                         .offset(x: -midRing)
                         .allowsHitTesting(false)
 
                     // Forward (right)
                     Image(systemName: "forward.fill")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.system(size: ClickWheel.iconSize, weight: .medium))
                         .foregroundStyle(.primary)
                         .offset(x: midRing)
                         .allowsHitTesting(false)
@@ -1042,7 +1090,7 @@ struct ClickWheel: View {
                 if playPauseEnabled {
                     // Play/Pause (bottom)
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.system(size: ClickWheel.iconSize, weight: .medium))
                         .foregroundStyle(.primary)
                         .offset(y: midRing)
                         .allowsHitTesting(false)

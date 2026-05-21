@@ -27,6 +27,9 @@ struct Channel: Codable, Identifiable, Hashable {
     // Children's Songs to drop sub-minute noise clips — IA exposes no
     // item-level runtime, so this is enforced once the player knows duration).
     let minTrackDuration: Double?
+    // Short user-facing blurb for ChannelInfoView. Falls back to
+    // `detailDescription` (derived from composers / instruments / tags) when nil.
+    let summary: String?
 
     init(
         id: String, name: String, category: String, icon: String,
@@ -34,7 +37,8 @@ struct Channel: Codable, Identifiable, Hashable {
         excludeTags: [String] = [],
         contentType: ContentType = .music, spokenWordCollections: [String] = [],
         preferredSource: String? = nil, feedURL: String? = nil,
-        isDownloaded: Bool = false, minTrackDuration: Double? = nil
+        isDownloaded: Bool = false, minTrackDuration: Double? = nil,
+        summary: String? = nil
     ) {
         self.id = id; self.name = name; self.category = category; self.icon = icon
         self.composers = composers; self.instruments = instruments; self.tags = tags
@@ -43,6 +47,7 @@ struct Channel: Codable, Identifiable, Hashable {
         self.preferredSource = preferredSource; self.feedURL = feedURL
         self.isDownloaded = isDownloaded
         self.minTrackDuration = minTrackDuration
+        self.summary = summary
     }
 
     var iaQueryEntry: IAQueryEntry? { IAQueryRegistry.shared.entry(for: id) }
@@ -308,10 +313,11 @@ extension Channel {
         // matchTags is the per-channel isolation stamp injected at fetch time.
         // `tags` here only feed detailDescription/UI — matching uses the stamp.
         Channel(
-            id: "spanish-guitar", name: "Spanish Guitar", category: "Curated",
+            id: "classical-guitar", name: "Classical Guitar", category: "Curated",
             icon: "guitars",
-            tags: ["spanish guitar", "classical guitar", "flamenco"],
-            preferredSource: "internet_archive"
+            tags: ["classical-guitar"],
+            preferredSource: "internet_archive",
+            summary: "Solo classical guitar (and lute) — Segovia, Tárrega, Sor, Bream, Williams, Villa-Lobos, Barrios — plus Spanish & flamenco-style instrumental works. Strictly instrumental; folk, vocal, and electronic styles excluded."
         ),
         // Chamber Music: curl-verified 2026-05-15 — 919 items; canonical
         // ensembles (Budapest/Quartetto Italiano), Trout Quintet, Beethoven
@@ -381,6 +387,18 @@ extension Channel {
             icon: "opticaldisc",
             tags: ["78rpm", "shellac"],
             preferredSource: "internet_archive"
+        ),
+        // Religious Music: sacred/liturgical music across faiths (Christian
+        // sacred choral, Gregorian chant, hymns, spirituals; Hindu bhajan &
+        // kirtan; Sufi qawwali; Jewish cantorial; Buddhist chant). Sermons
+        // and lectures explicitly excluded — music only. Curl-verified
+        // 2026-05-21 — 3,606 items.
+        Channel(
+            id: "religious-music", name: "Religious Music", category: "Curated",
+            icon: "music.quarternote.3",
+            tags: ["religious-music"],
+            preferredSource: "internet_archive",
+            summary: "Sacred and devotional music across faiths — Gregorian chant, Christian sacred choral works, hymns and spirituals, Hindu bhajan and kirtan, Sufi qawwali, Jewish cantorial, Buddhist chant. Music only; sermons and lectures are excluded."
         ),
         // Children's Songs: two safe arms — vintage 78rpm nursery-rhyme
         // records (phrase-title matched) + the curated subject:"kids music"

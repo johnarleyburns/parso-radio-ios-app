@@ -90,12 +90,7 @@ struct PlaylistDetailView: View {
                         }
                     }
                     Spacer()
-                    if track.localFilePath != nil {
-                        Image(systemName: "arrow.down.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.green)
-                            .accessibilityLabel("Downloaded")
-                    }
+                    trackDownloadControl(track)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -154,5 +149,41 @@ struct PlaylistDetailView: View {
         return h > 0
             ? String(format: "%d:%02d:%02d", h, m, sec)
             : String(format: "%d:%02d", m, sec)
+    }
+
+    /// Trailing-edge per-track download UI. Three states: in-progress
+    /// (spinner), downloaded (green checkmark, taps removes), not downloaded
+    /// (arrow.down.circle button, taps starts a single-track download).
+    @ViewBuilder
+    private func trackDownloadControl(_ track: Track) -> some View {
+        if offlineService.activeDownloads[track.id] != nil {
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 28, height: 28)
+                .accessibilityLabel("Downloading")
+        } else if track.localFilePath != nil {
+            Button {
+                Task { await offlineService.removeOffline(track: track) }
+            } label: {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(.green)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Downloaded — tap to remove")
+        } else if track.downloadURL != nil {
+            Button {
+                Task { await offlineService.makeOffline(track: track) }
+            } label: {
+                Image(systemName: "arrow.down.circle")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Download for offline")
+        } else {
+            // No downloadURL (e.g. stream-only source) — show nothing.
+            EmptyView()
+        }
     }
 }

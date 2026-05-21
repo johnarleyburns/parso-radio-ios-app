@@ -74,6 +74,7 @@ final class DatabaseService: @unchecked Sendable {
     private let colBMPositionSecs = Expression<Double>("position_seconds")
     private let colBMLabel        = Expression<String?>("label")
     private let colBMCreatedAt    = Expression<Double>("created_at")
+    private let colBMIsAutosave   = Expression<Bool>("is_autosave")
 
     init(path: String? = nil) throws {
         if let path {
@@ -145,7 +146,8 @@ final class DatabaseService: @unchecked Sendable {
         try db.run("CREATE INDEX IF NOT EXISTS idx_ph_played_at ON track_play_history(played_at DESC)")
 
         // Bookmarks: within-track timestamps, distinct from per-channel/playlist
-        // positions. Many bookmarks per track, identified by UUID.
+        // positions. Many user bookmarks per track + one auto-save per track
+        // (is_autosave=1, deterministic id `autosave:<trackId>`).
         try db.run(bookmarks.create(ifNotExists: true) { t in
             t.column(colBMId,           primaryKey: true)
             t.column(colBMTrackId)
@@ -154,6 +156,8 @@ final class DatabaseService: @unchecked Sendable {
             t.column(colBMCreatedAt)
         })
         try db.run("CREATE INDEX IF NOT EXISTS idx_bm_track ON bookmarks(track_id, position_seconds)")
+        // Idempotent migration for the autosave flag — older DB rows default to 0.
+        _ = try? db.run("ALTER TABLE bookmarks ADD COLUMN is_autosave INTEGER NOT NULL DEFAULT 0")
 
         // Idempotent column migrations — try? silently ignores duplicate-column errors
         _ = try? db.run("ALTER TABLE tracks ADD COLUMN added_date   REAL")
@@ -640,6 +644,27 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
+    /// User-initiated delete of every play-history row for `trackId`
+    /// (removes it from the Recently Played list across every channel).
+    func deletePlayHistory(trackId: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? self.db.run(self.playHistory.filter(self.colPHTrackId == trackId).delete())
+                continuation.resume()
+            }
+        }
+    }
+
+    /// "Clear All" on Recently Played — wipes the entire history table.
+    func clearAllPlayHistory() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? self.db.run(self.playHistory.delete())
+                continuation.resume()
+            }
+        }
+    }
+
     func evictOldPlayHistory(olderThanDays days: Int = 30) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
@@ -712,29 +737,25 @@ final class DatabaseService: @unchecked Sendable {
                     self.colBMTrackId      <- bookmark.trackId,
                     self.colBMPositionSecs <- bookmark.positionSeconds,
                     self.colBMLabel        <- bookmark.label,
-                    self.colBMCreatedAt    <- bookmark.createdAt.timeIntervalSince1970
+                    self.colBMCreatedAt    <- bookmark.createdAt.timeIntervalSince1970,
+                    self.colBMIsAutosave   <- bookmark.isAutosave
                 ))
                 continuation.resume()
             }
         }
     }
 
+    /// User-visible bookmarks only (excludes the autosave row).
     func fetchBookmarks(forTrack trackId: String) async -> [Bookmark] {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
                 var out: [Bookmark] = []
                 let query = self.bookmarks
-                    .filter(self.colBMTrackId == trackId)
+                    .filter(self.colBMTrackId == trackId && self.colBMIsAutosave == false)
                     .order(self.colBMPositionSecs.asc)
                 if let rows = try? self.db.prepare(query) {
                     for row in rows {
-                        out.append(Bookmark(
-                            id: row[self.colBMId],
-                            trackId: row[self.colBMTrackId],
-                            positionSeconds: row[self.colBMPositionSecs],
-                            label: row[self.colBMLabel],
-                            createdAt: Date(timeIntervalSince1970: row[self.colBMCreatedAt])
-                        ))
+                        out.append(self.rowToBookmark(row))
                     }
                 }
                 continuation.resume(returning: out)
@@ -758,6 +779,58 @@ final class DatabaseService: @unchecked Sendable {
                 continuation.resume()
             }
         }
+    }
+
+    /// Insert-or-replace the single autosave bookmark for `trackId`.
+    /// Deterministic id means we never accumulate stale autosaves.
+    func saveAutosaveBookmark(trackId: String, positionSeconds: Double,
+                              createdAt: Date = Date()) async {
+        let bm = Bookmark.autosave(
+            trackId: trackId,
+            positionSeconds: positionSeconds,
+            createdAt: createdAt
+        )
+        await saveBookmark(bm)
+    }
+
+    /// Returns the autosave bookmark for the track, if any. The autosave is
+    /// what `playTrack` consults when it loads a track with no explicit seek
+    /// offset, so the user resumes where they left off across app launches.
+    func fetchAutosaveBookmark(forTrack trackId: String) async -> Bookmark? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Bookmark?, Never>) in
+            queue.async { [self] in
+                let query = self.bookmarks
+                    .filter(self.colBMTrackId == trackId && self.colBMIsAutosave == true)
+                    .limit(1)
+                if let row = try? self.db.pluck(query) {
+                    continuation.resume(returning: self.rowToBookmark(row))
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+
+    func deleteAutosaveBookmark(forTrack trackId: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? self.db.run(self.bookmarks
+                    .filter(self.colBMTrackId == trackId && self.colBMIsAutosave == true)
+                    .delete())
+                continuation.resume()
+            }
+        }
+    }
+
+    private func rowToBookmark(_ row: Row) -> Bookmark {
+        Bookmark(
+            id: row[self.colBMId],
+            trackId: row[self.colBMTrackId],
+            positionSeconds: row[self.colBMPositionSecs],
+            label: row[self.colBMLabel],
+            createdAt: Date(timeIntervalSince1970: row[self.colBMCreatedAt]),
+            isAutosave: row[self.colBMIsAutosave]
+        )
     }
 
     func offlineTrackCount(forChannel channel: Channel) async -> Int {

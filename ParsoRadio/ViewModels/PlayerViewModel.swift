@@ -120,6 +120,8 @@ final class PlayerViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 UserDefaults.standard.set(self.isPlaying, forKey: "wasPlayingOnQuit")
+                // Safety-net: never lose the user's spot — autosave on resign.
+                self.saveAutosaveForCurrentTrack()
             }
         }
 
@@ -150,6 +152,11 @@ final class PlayerViewModel: ObservableObject {
                     self.isPlaying = true
                     self.currentPosition = 0
                     return
+                }
+                // Natural finish — the track played to its end. Drop the
+                // autosave so future revisits start at zero (they've heard it).
+                if let finishedId = self.currentTrack?.id {
+                    self.deleteAutosaveForTrack(finishedId)
                 }
                 // Natural finish: clear saved position so the next track starts fresh.
                 if let channel = self.currentChannel, channel.contentType == .spokenWord {
@@ -196,6 +203,9 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func load(channel: Channel, autoPlay: Bool = true) async {
+        // Safety-net autosave for the outgoing track (channel switch is one
+        // of the "lose your spot" scenarios).
+        saveAutosaveForCurrentTrack()
         // UC5: stop any currently playing audio immediately so old track doesn't bleed into new channel.
         audioPlayer.skip()
         currentTrack = nil
@@ -341,6 +351,10 @@ final class PlayerViewModel: ObservableObject {
 
     func togglePlayPause() {
         if audioPlayer.isPlaying {
+            // Capture the spot BEFORE telling the player to pause — once the
+            // user is paused the position will not advance, but if they exit
+            // the app right after a pause we still want the latest offset.
+            saveAutosaveForCurrentTrack()
             audioPlayer.pause()
             isPlaying = false
         } else if currentTrack != nil {
@@ -356,6 +370,9 @@ final class PlayerViewModel: ObservableObject {
             currentPosition = 0
             return
         }
+        // Save autosave for the outgoing track — user pressed next, didn't
+        // finish naturally, so their spot might still matter.
+        saveAutosaveForCurrentTrack()
         isSkipping = true
         audioPlayer.skip()
         isPlaying = false
@@ -391,6 +408,7 @@ final class PlayerViewModel: ObservableObject {
             audioPlayer.seek(to: 0)
             currentPosition = 0
         } else {
+            saveAutosaveForCurrentTrack()
             Task { await playPreviousTrack() }
         }
     }
@@ -610,7 +628,17 @@ final class PlayerViewModel: ObservableObject {
             } else {
                 url = track.streamURL
             }
-            let resumeAt = max(seekTo ?? 0, 0)
+            // Auto-resume from the safety-net autosave when no explicit
+            // offset was provided AND we're not running an ambient loop.
+            // This is what makes "never lose your spot" work across app
+            // restarts and cross-channel listening.
+            var effectiveSeek = seekTo ?? 0
+            if seekTo == nil,
+               currentChannel?.contentType != .ambientLoop,
+               let auto = await db.fetchAutosaveBookmark(forTrack: track.id) {
+                effectiveSeek = auto.positionSeconds
+            }
+            let resumeAt = max(effectiveSeek, 0)
             audioPlayer.play(url: url, track: track,
                              looping: currentChannel?.contentType == .ambientLoop,
                              startAt: resumeAt)
@@ -889,6 +917,8 @@ final class PlayerViewModel: ObservableObject {
     func loadPlaylist(_ playlist: Playlist,
                        startingAt track: Track? = nil,
                        seekTo: Double = 0) async {
+        // Save the outgoing track's spot before switching context.
+        saveAutosaveForCurrentTrack()
         beginTransition(pre: track)
         currentPlaylist = playlist
         currentChannel = nil
@@ -1035,6 +1065,17 @@ final class PlayerViewModel: ObservableObject {
         await playTrack(track, seekTo: nil)
     }
 
+    /// Remove a single track from Recently Played (every channel it was
+    /// played in). The track itself stays in the local DB for playback.
+    func removeFromRecentlyPlayed(_ track: Track) async {
+        await db.deletePlayHistory(trackId: track.id)
+    }
+
+    /// Clear the entire Recently Played list.
+    func clearRecentlyPlayed() async {
+        await db.clearAllPlayHistory()
+    }
+
     // MARK: - Chapters (multi-part items)
 
     /// Ordered chapters of the currently-playing multi-part item, or nil if
@@ -1043,5 +1084,36 @@ final class PlayerViewModel: ObservableObject {
         guard let track = currentTrack else { return nil }
         let identifier = track.parentIdentifier ?? track.id
         return await resolveItemParts(identifier: identifier)
+    }
+
+    // MARK: - Autosave bookmark (never lose position)
+
+    /// Write the safety-net autosave for the currently-playing track.
+    /// Fires-and-forgets a DB write so the call site stays synchronous.
+    /// No-op when: nothing is playing, it's an ambient loop, the user has
+    /// barely started (<5 s), or they're within 5 s of the end (a natural
+    /// finish is about to delete it anyway).
+    func saveAutosaveForCurrentTrack() {
+        guard let track = currentTrack else { return }
+        guard currentChannel?.contentType != .ambientLoop else { return }
+        let pos = currentPosition
+        guard pos > 5 else { return }
+        if let dur = trackDuration, dur > 0, pos > dur - 5 { return }
+        let trackId = track.id
+        Task { [db] in
+            await db.saveAutosaveBookmark(trackId: trackId, positionSeconds: pos)
+        }
+    }
+
+    /// Delete the autosave for `trackId` (e.g. on natural completion).
+    func deleteAutosaveForTrack(_ trackId: String) {
+        Task { [db] in
+            await db.deleteAutosaveBookmark(forTrack: trackId)
+        }
+    }
+
+    /// Lookup helper for playTrack — returns the autosave offset if any.
+    func autosavePosition(forTrack trackId: String) async -> Double? {
+        await db.fetchAutosaveBookmark(forTrack: trackId)?.positionSeconds
     }
 }

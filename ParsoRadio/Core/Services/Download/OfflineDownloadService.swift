@@ -45,6 +45,25 @@ final class OfflineDownloadService: ObservableObject {
         await startDownloadJob(id: jobId, tracks: toDownload, label: playlist.name)
     }
 
+    /// Download a single track for offline playback. The progress dictionary
+    /// is keyed by the track id so views can show a per-row spinner. Idempotent
+    /// when the track is already on disk.
+    func makeOffline(track: Track) async {
+        let id = track.id
+        guard activeTasks[id] == nil else { return }
+        guard track.localFilePath == nil else { return }
+        guard track.downloadURL != nil else { return }
+        await startDownloadJob(id: id, tracks: [track], label: track.title)
+    }
+
+    /// Remove the downloaded file for a single track and clear its DB pointer.
+    func removeOffline(track: Track) async {
+        if let path = track.localFilePath {
+            try? FileManager.default.removeItem(atPath: path)
+        }
+        await db.markDownloaded(trackID: track.id, localPath: "")
+    }
+
     func removeOffline(channel: Channel) async {
         cancel(jobId: channel.id)
         let tracks = await db.fetchTracks(forChannel: channel)
