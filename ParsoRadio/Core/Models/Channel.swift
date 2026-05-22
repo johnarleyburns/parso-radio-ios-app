@@ -92,6 +92,27 @@ struct Channel: Codable, Identifiable, Hashable {
         }
         return parts.joined(separator: " · ")
     }
+
+    /// A complete, user-facing sentence describing the channel for
+    /// ChannelInfoView. Uses the hand-written `summary` when present, else a
+    /// per-category template so EVERY channel reads as a real sentence.
+    var infoSentence: String {
+        if let s = summary, !s.isEmpty { return s }
+        switch category {
+        case "Contemporary":
+            return "\(name) from the Free Music Archive — Creative Commons recordings by independent artists."
+        case "Lectures":
+            return "\(name): lectures and talks from the University of Oxford's public podcast series."
+        case "News":
+            return "The latest episodes from \(name) — refreshed to the newest item each time you tune in."
+        case "Audiobooks":
+            return "\(name) audiobooks read by LibriVox volunteers — public-domain literature, a new book each time."
+        case "Ambient":
+            return "A continuous \(name.lowercased()) soundscape for focus, relaxation, or sleep."
+        default:
+            return "A hand-curated Internet Archive channel of \(name) recordings."
+        }
+    }
 }
 
 extension Channel {
@@ -326,7 +347,8 @@ extension Channel {
             id: "chamber-music", name: "Chamber Music", category: "Curated",
             icon: "music.quarternote.3",
             tags: ["chamber music", "string quartet", "piano trio"],
-            preferredSource: "internet_archive"
+            preferredSource: "internet_archive",
+            summary: "Intimate ensemble music — string quartets, piano trios and quintets by Beethoven, Brahms, Mozart, Schubert, Dvořák and more. No jazz, AI tracks, or radio noise."
         ),
         // Historical Voices: curl-verified 2026-05-15 — 2716 items; Pacifica
         // Radio Archives + Freedom Archives interviews/public-affairs (Sontag,
@@ -335,7 +357,8 @@ extension Channel {
             id: "historical-voices", name: "Historical Voices", category: "Curated",
             icon: "mic",
             tags: ["interview", "public affairs", "history"],
-            preferredSource: "internet_archive"
+            preferredSource: "internet_archive",
+            summary: "Archival interviews and public-affairs recordings from the Pacifica Radio and Freedom Archives — civil-rights, Vietnam-era and 20th-century cultural voices."
         ),
         // Symphony Orchestra: curl-verified 2026-05-15 — 889 items; orchestral
         // symphonies/concertos/overtures (Beethoven, Mahler, Shostakovich,
@@ -344,7 +367,8 @@ extension Channel {
             id: "symphony-orchestra", name: "Symphony Orchestra", category: "Curated",
             icon: "music.note.list",
             tags: ["symphony", "orchestra", "concerto"],
-            preferredSource: "internet_archive"
+            preferredSource: "internet_archive",
+            summary: "Full-orchestra symphonies, concertos and overtures — Beethoven, Mahler, Shostakovich and the great conductors. Chamber, vocal, jazz and soundtrack works are excluded."
         ),
         // Piano Hour: curl-verified 2026-05-15 — 1192 items; solo piano
         // (sonatas, nocturnes, études, Chopin/Liszt/Debussy/Beethoven);
@@ -353,7 +377,8 @@ extension Channel {
             id: "piano-hour", name: "Piano Hour", category: "Curated",
             icon: "pianokeys",
             tags: ["piano", "piano sonata", "nocturne"],
-            preferredSource: "internet_archive"
+            preferredSource: "internet_archive",
+            summary: "Solo piano — sonatas, nocturnes and études from Chopin, Liszt, Debussy and Beethoven. Jazz, ragtime, orchestral and vocal works are excluded."
         ),
         // Tribal Works: curl-verified 2026-05-15 — 2324 items; ethnomusicology
         // / world traditional & field recordings (gamelan, West-African,
@@ -362,7 +387,8 @@ extension Channel {
             id: "tribal-works", name: "Tribal Works", category: "Curated",
             icon: "globe",
             tags: ["ethnomusicology", "world music", "field recording"],
-            preferredSource: "internet_archive"
+            preferredSource: "internet_archive",
+            summary: "Traditional and Indigenous music from around the world — gamelan, West-African, Native American and ethnographic field recordings. New-age and ambient remixes are excluded."
         ),
         // Café Lento: curl-verified 2026-05-15 — 882 items; mellow bossa /
         // cool & chamber jazz / solo guitar (Laurindo Almeida, Bill Evans,
@@ -371,7 +397,8 @@ extension Channel {
             id: "cafe-lento", name: "Café Lento", category: "Curated",
             icon: "cup.and.saucer",
             tags: ["bossa nova", "cool jazz", "lounge"],
-            preferredSource: "internet_archive"
+            preferredSource: "internet_archive",
+            summary: "Mellow café listening — bossa nova, cool and chamber jazz, and soft solo guitar (Laurindo Almeida, Bill Evans, André Previn). Bebop, rock and big-band are excluded."
         ),
         // Netlabels: the entire IA netlabels collection, randomized
         // (curl-verified 2026-05-16 — 78,120 audio items).
@@ -379,14 +406,16 @@ extension Channel {
             id: "netlabels", name: "Netlabels", category: "Curated",
             icon: "dot.radiowaves.left.and.right",
             tags: ["netlabels"],
-            preferredSource: "internet_archive"
+            preferredSource: "internet_archive",
+            summary: "The Internet Archive's vast Netlabels collection — free, Creative-Commons releases from independent net-labels spanning every electronic and indie genre, shuffled."
         ),
         // 78 RPM: the entire IA 78rpm collection, randomized (309,347 items).
         Channel(
             id: "rpm-78", name: "78 RPM", category: "Curated",
             icon: "opticaldisc",
             tags: ["78rpm", "shellac"],
-            preferredSource: "internet_archive"
+            preferredSource: "internet_archive",
+            summary: "Crackle and charm from the shellac era — the Internet Archive's enormous 78 RPM collection of early-20th-century recordings, shuffled."
         ),
         // Religious Music: sacred/liturgical music across faiths (Christian
         // sacred choral, Gregorian chant, hymns, spirituals; Hindu bhajan &
@@ -410,7 +439,8 @@ extension Channel {
             icon: "music.note.house.fill",
             tags: ["childrens-songs"],
             preferredSource: "internet_archive",
-            minTrackDuration: 60   // drop sub-minute noise clips
+            minTrackDuration: 60,   // drop sub-minute noise clips
+            summary: "Family-friendly children's music — vintage nursery-rhyme 78s and curated kids' compilations. Content is filtered for a young audience."
         ),
         // Curated book channels — explicit author/work allowlists (LibriVox,
         // English). Like all book channels they play a book's FIRST track;
@@ -418,17 +448,20 @@ extension Channel {
         Channel(
             id: "ancient-greece", name: "Ancient Greece", category: "Curated",
             icon: "building.columns", tags: ["ancient-greece"],
-            contentType: .spokenWord, preferredSource: "internet_archive"
+            contentType: .spokenWord, preferredSource: "internet_archive",
+            summary: "LibriVox readings of ancient Greek literature and philosophy — Homer, Plato, the tragedians and more, in English and Greek. Plays the first part of each work."
         ),
         Channel(
             id: "great-books", name: "Great Books", category: "Curated",
             icon: "books.vertical", tags: ["great-books"],
-            contentType: .spokenWord, preferredSource: "internet_archive"
+            contentType: .spokenWord, preferredSource: "internet_archive",
+            summary: "LibriVox recordings from the Great Books canon — the foundational works of philosophy, science and literature. Plays a book's first part; add the whole book to a playlist to continue."
         ),
         Channel(
             id: "greater-books", name: "Greater Books", category: "Curated",
             icon: "text.book.closed", tags: ["greater-books"],
-            contentType: .spokenWord, preferredSource: "internet_archive"
+            contentType: .spokenWord, preferredSource: "internet_archive",
+            summary: "A broader literary canon (the greaterbooks.com list) read by LibriVox volunteers — the world's essential novels, plays and poetry. Plays each work's first part."
         ),
 
         // MARK: Audiobooks — LibriVox via pure-Lucene IA registry
@@ -514,7 +547,8 @@ extension Channel {
         Channel(
             id: "childrens-books", name: "Children's Books", category: "Curated",
             icon: "books.vertical.fill", tags: ["childrens-books"],
-            contentType: .spokenWord, preferredSource: "internet_archive"
+            contentType: .spokenWord, preferredSource: "internet_archive",
+            summary: "Classic children's stories and fairy tales read aloud by LibriVox volunteers. Plays the first part of each book; add the whole book to a playlist to keep going."
         ),
         Channel(
             id: "lv-philosophy-mind", name: "Philosophy & Mind", category: "Audiobooks",

@@ -125,6 +125,20 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
+        // Returning to the app: the system / another app may have paused us
+        // while backgrounded without notifying. Resync so the wheel shows the
+        // correct play vs. pause icon.
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.audioPlayer.syncPlaybackState()
+                self.isPlaying = self.audioPlayer.isPlaying
+            }
+        }
+
         audioPlayer.onPreviousTrack = { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -549,6 +563,10 @@ final class PlayerViewModel: ObservableObject {
             playHistory.append(existing)
             if playHistory.count > historyLimit { playHistory.removeFirst() }
         }
+        // Defensive: a new track always starts un-scrubbed (a drag gesture
+        // interrupted by a transition could otherwise leave this stuck true,
+        // freezing the progress bar).
+        isScrubbing = false
         // Reload bookmarks for the new track (replaced below).
         bookmarksForCurrentTrack = []
         currentTrack = track

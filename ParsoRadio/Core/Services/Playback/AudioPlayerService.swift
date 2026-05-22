@@ -233,6 +233,20 @@ final class AudioPlayerService: ObservableObject {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
+    /// Re-read the REAL player state. The system or another app can pause us
+    /// while backgrounded (and AVPlayer doesn't always notify), which left the
+    /// UI showing a "pause" icon on a track that was actually paused. Call on
+    /// app foreground to resync.
+    func syncPlaybackState() {
+        guard let player else {
+            if isPlaying { isPlaying = false }
+            return
+        }
+        let playing = player.timeControlStatus == .playing
+            || player.timeControlStatus == .waitingToPlayAtSpecifiedRate
+        if isPlaying != playing { isPlaying = playing }
+    }
+
     // MARK: - Audio session observers
 
     private func setupAudioSessionObservers() {

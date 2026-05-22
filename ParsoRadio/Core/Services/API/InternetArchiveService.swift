@@ -270,8 +270,37 @@ struct InternetArchiveService {
     // `title:(a b)` ANDs the words within ONE field and misses most hits
     // (e.g. "Tarrega Guitar" → 2 vs 36).
     func search(query: String, page: Int) async throws -> [SearchViewModel.ResultGroup] {
-        let q = "(\(query)) AND mediatype:audio"
+        let q = Self.buildSearchQuery(rawInput: query)
         return try await searchGroups(query: q, page: page)
+    }
+
+    /// Turn a free-text search like "tarrega guitar" into a Solr query whose
+    /// scoring matches archive.org's own web search. Each whitespace-separated
+    /// token must match somewhere — in title, creator, or subject — but the
+    /// match doesn't have to be in the same field for every token. This is
+    /// what archive.org/search?query= does in its frontend, and it's what
+    /// makes "tarrega guitar" surface Tárrega guitar recordings instead of
+    /// "any recent upload that contains the word tarrega OR guitar".
+    ///
+    /// Notes:
+    /// - We do NOT pass the raw query into Solr's default field — that field
+    ///   parser does OR-of-tokens and was the root cause of the pop-music
+    ///   pollution the user reported.
+    /// - We do NOT apply `sort[]=addeddate desc` (caller drops it) so IA's
+    ///   relevance scoring wins.
+    /// - Boosts: title:^4 / creator:^3 / subject:^1 so "Tárrega Recuerdos"
+    ///   wins over "Top 100 Songs mentioning Tárrega".
+    static func buildSearchQuery(rawInput: String) -> String {
+        let tokens = rawInput
+            .split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+            .filter { !$0.isEmpty }
+        guard !tokens.isEmpty else { return "mediatype:audio" }
+        let perToken = tokens.map { tok -> String in
+            let esc = tok.replacingOccurrences(of: "\"", with: "")
+            return "(title:\"\(esc)\"^4 OR creator:\"\(esc)\"^3 OR subject:\"\(esc)\"^1)"
+        }.joined(separator: " AND ")
+        return "mediatype:audio AND \(perToken)"
     }
 
     // IA search docs carry no runtime or file count. One metadata GET yields
@@ -423,7 +452,11 @@ struct InternetArchiveService {
             URLQueryItem(name: "output",  value: "json"),
             URLQueryItem(name: "rows",    value: "20"),
             URLQueryItem(name: "start",   value: "\(page * 20)"),
-            URLQueryItem(name: "sort[]",  value: "addeddate desc"),
+            // NO sort override → IA returns results in Solr's relevance order
+            // (this is what archive.org/search itself does). Previously we
+            // sorted by addeddate desc, which buried any old well-loved
+            // recording under whatever happened to be uploaded yesterday and
+            // happened to mention one of the search tokens.
         ]
         let (data, _) = try await session.data(from: components.url!)
         let response = try JSONDecoder().decode(IASearchResponse.self, from: data)

@@ -197,6 +197,18 @@ struct iPodView: View {
         .onChange(of: playerVM.currentTrack?.id) { _, _ in
             refreshFavoriteState()
         }
+        // A drag-to-seek gesture interrupted by a sheet presentation can leave
+        // isScrubbing stuck true, which freezes the progress bar / elapsed time
+        // until the next track. Clear it whenever a sheet closes.
+        .onChange(of: showMoreOptions) { _, shown in
+            if !shown { playerVM.isScrubbing = false }
+        }
+        .onChange(of: showChannelInfo) { _, shown in
+            if !shown { playerVM.isScrubbing = false }
+        }
+        .onChange(of: showActivePlaylist) { _, shown in
+            if !shown { playerVM.isScrubbing = false }
+        }
         .task {
             await playlistVM.loadPlaylists()
             let wasPlaying = UserDefaults.standard.bool(forKey: "wasPlayingOnQuit")
@@ -280,6 +292,9 @@ struct iPodView: View {
             }
         }
         .overlay { centerTapZones }
+        // Unmistakable loading indicator centred on the screen while a track
+        // is resolving/buffering (the small inline spinner was easy to miss).
+        .overlay { if playerVM.isLoading { loadingOverlay } }
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
         // Dynamic Type clamp — respect the user's text-size setting but keep
@@ -423,6 +438,26 @@ struct iPodView: View {
         // One spoken element: "Title, Artist, Part 2 of 5" rather than four
         // separate VoiceOver stops.
         .accessibilityElement(children: .combine)
+    }
+
+    // Centered, high-visibility loading state shown over the whole track box.
+    private var loadingOverlay: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.large)
+                .tint(.white)
+            Text(playerVM.loadingMessage ?? "Loading…")
+                .font(.system(size: Self.mainRegularSize, weight: .medium))
+                .foregroundStyle(.white)
+        }
+        .padding(22)
+        .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 16))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.15))
+        .allowsHitTesting(false)
+        .transition(.opacity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(playerVM.loadingMessage ?? "Loading")
     }
 
     @ViewBuilder
@@ -641,7 +676,8 @@ struct iPodView: View {
                                     ChapterListView(onDismiss: { showMoreOptions = false })
                                         .environmentObject(playerVM)
                                 } label: {
-                                    Label("Chapter List", systemImage: "list.number")
+                                    Label(usesChapterTerminology ? "Chapter List" : "Track List",
+                                          systemImage: "list.number")
                                 }
                             }
                             HStack {
@@ -693,7 +729,7 @@ struct iPodView: View {
                     }
                 }
             }
-            .navigationTitle("Track")
+            .navigationTitle(usesChapterTerminology ? "Chapter Info" : "Track Info")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -867,6 +903,14 @@ struct iPodView: View {
     // Keep long book/album titles from blowing out the menu label.
     private func shortName(_ s: String, max: Int = 26) -> String {
         s.count > max ? String(s.prefix(max - 1)) + "…" : s
+    }
+
+    // Books, book channels, lecture channels, and playlists built from books
+    // use "Chapter" terminology; everything else uses "Track".
+    private var usesChapterTerminology: Bool {
+        if playerVM.currentChannel?.category == "Lectures" { return true }
+        guard let t = playerVM.currentTrack else { return false }
+        return itemKindLabel(t) == "Book"
     }
 
     private func itemKindLabel(_ track: Track) -> String {

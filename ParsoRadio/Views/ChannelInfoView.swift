@@ -30,8 +30,7 @@ struct ChannelInfoView: View {
                 }
 
                 Section("About") {
-                    Text(channel.summary ?? channel.detailDescription
-                         .ifEmpty(fallback: "A curated channel within Parso Radio."))
+                    Text(channel.infoSentence)
                         .font(.body)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -106,6 +105,3 @@ private extension Channel {
     }
 }
 
-private extension String {
-    func ifEmpty(fallback: String) -> String { isEmpty ? fallback : self }
-}

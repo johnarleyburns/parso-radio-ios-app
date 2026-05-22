@@ -16,7 +16,7 @@ struct MainMenuView: View {
     // Includes special keys "recently-played" and "playlists" plus each
     // category string.
     @State private var expanded: Set<String> = []
-    @State private var editingRecents: Bool = false
+    @State private var editMode: EditMode = .inactive
 
     // Fixed section order. Alphabetical WITHIN each.
     private static let categoryOrder = [
@@ -84,6 +84,11 @@ struct MainMenuView: View {
                         if expanded.contains("playlists") {
                             ForEach(favorites) { pl in playlistRow(pl) }
                             ForEach(others) { pl in playlistRow(pl) }
+                                .onMove { indices, newOffset in
+                                    var reordered = others
+                                    reordered.move(fromOffsets: indices, toOffset: newOffset)
+                                    Task { await playlistVM.reorderPlaylists(reordered) }
+                                }
                                 .onDelete { indices in
                                     let toDelete = indices.map { others[$0] }
                                     Task {
@@ -121,11 +126,19 @@ struct MainMenuView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            // Collapsed sections shouldn't leave big gaps between headers.
+            .listSectionSpacing(.compact)
+            .environment(\.editMode, $editMode)
             .navigationTitle("Parso Music")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
+                }
+                // Standard Edit affordance: reorder / delete playlists and
+                // delete Recently Played rows. (Swipe-to-delete also works.)
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    EditButton()
                 }
             }
             .sheet(isPresented: $showSearch) {
@@ -157,29 +170,35 @@ struct MainMenuView: View {
     private func collapsibleHeader(id: String, title: String,
                                    trailing: AnyView? = nil) -> some View {
         let isOpen = expanded.contains(id)
-        Button {
-            withAnimation(.easeInOut(duration: 0.18)) {
-                if isOpen { expanded.remove(id) } else { expanded.insert(id) }
+        HStack(spacing: 8) {
+            // Only the title + chevron toggle; trailing controls are SIBLINGS
+            // (not children) so their taps aren't swallowed by the toggle —
+            // that nesting was why the trash/Edit buttons "did nothing".
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    if isOpen { expanded.remove(id) } else { expanded.insert(id) }
+                }
+            } label: {
+                HStack {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .textCase(nil)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
             }
-        } label: {
-            HStack {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .textCase(nil)
-                Spacer()
-                if let trailing { trailing }
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .rotationEffect(.degrees(isOpen ? 90 : 0))
-            }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityLabel("\(title), \(isOpen ? "expanded" : "collapsed")")
+            .accessibilityHint("Double tap to \(isOpen ? "collapse" : "expand")")
+
+            if let trailing { trailing }
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(.isHeader)
-        .accessibilityLabel("\(title), \(isOpen ? "expanded" : "collapsed")")
-        .accessibilityHint("Double tap to \(isOpen ? "collapse" : "expand")")
     }
 
     // MARK: - Recently Played (collapsible + editable)
@@ -192,25 +211,18 @@ struct MainMenuView: View {
                 title: "Recently Played",
                 trailing: AnyView(
                     Group {
-                        if expanded.contains("recently-played") {
-                            HStack(spacing: 12) {
-                                Button(editingRecents ? "Done" : "Edit") {
-                                    editingRecents.toggle()
+                        if expanded.contains("recently-played"), !recentlyPlayed.isEmpty {
+                            Button(role: .destructive) {
+                                Task {
+                                    await playerVM.clearRecentlyPlayed()
+                                    recentlyPlayed = []
                                 }
-                                .font(.caption)
-                                Button(role: .destructive) {
-                                    Task {
-                                        await playerVM.clearRecentlyPlayed()
-                                        recentlyPlayed = []
-                                        editingRecents = false
-                                    }
-                                } label: {
-                                    Image(systemName: "trash")
-                                }
-                                .font(.caption)
-                                .disabled(recentlyPlayed.isEmpty)
-                                .accessibilityLabel("Clear all Recently Played")
+                            } label: {
+                                Image(systemName: "trash")
                             }
+                            .buttonStyle(.borderless)
+                            .font(.callout)
+                            .accessibilityLabel("Clear all Recently Played")
                         }
                     }
                 )
@@ -233,7 +245,6 @@ struct MainMenuView: View {
     @ViewBuilder
     private func recentRow(_ track: Track) -> some View {
         Button {
-            guard !editingRecents else { return }
             Task {
                 await playerVM.playRecentTrack(track)
                 dismissAll()
