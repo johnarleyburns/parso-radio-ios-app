@@ -172,12 +172,12 @@ final class DatabaseServicePlaylistTests: XCTestCase {
         await db.addTrack(t1, toPlaylist: playlist.id)
         await db.addTrack(t2, toPlaylist: playlist.id)
 
-        // Reverse order: ro-2 first, ro-1 second (index 0 < 1, DESC gives ro-1 first after setTrackOrder)
+        // setTrackOrder must persist EXACTLY the order given (the prior bug
+        // reversed it: it wrote ascending sort_order against a DESC fetch).
         await db.setTrackOrder(["ro-2", "ro-1"], inPlaylist: playlist.id)
         let tracks = await db.fetchTracks(forPlaylist: playlist.id)
-        // sort_order 0 for ro-2, 1 for ro-1 → DESC gives ro-1 first
-        XCTAssertEqual(tracks[0].id, "ro-1")
-        XCTAssertEqual(tracks[1].id, "ro-2")
+        XCTAssertEqual(tracks.map(\.id), ["ro-2", "ro-1"],
+            "Reordered playlist must read back in the exact order set, not reversed.")
     }
 
     // MARK: - Play history
