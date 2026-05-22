@@ -338,7 +338,7 @@ extension Channel {
             icon: "guitars",
             tags: ["classical-guitar"],
             preferredSource: "internet_archive",
-            summary: "Solo classical guitar (and lute) — Segovia, Tárrega, Sor, Bream, Williams, Villa-Lobos, Barrios — plus Spanish & flamenco-style instrumental works. Strictly instrumental; folk, vocal, and electronic styles excluded."
+            summary: "Spanish classical & flamenco guitar — Segovia, Yepes, the Romeros, Sainz de la Maza, Bream, Tárrega, Sabicas, Montoya and Paco de Lucía, plus the Spanish repertoire (Recuerdos de la Alhambra, Concierto de Aranjuez, Asturias). Solo guitar focused; orchestral, piano, vocal, lute and folk excluded."
         ),
         // Chamber Music: curl-verified 2026-05-15 — 919 items; canonical
         // ensembles (Budapest/Quartetto Italiano), Trout Quintet, Beethoven

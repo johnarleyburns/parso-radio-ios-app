@@ -416,6 +416,22 @@ final class PlayerViewModel: ObservableObject {
         currentPosition = seconds
     }
 
+    /// Relative seek within the track, clamped to [0, duration]. Used by the
+    /// wheel's single-tap (±10 s) and press-and-hold scrub.
+    func seekBy(_ delta: Double) {
+        let target = max(0, currentPosition + delta)
+        let cap = (trackDuration ?? 0) > 0 ? trackDuration : (currentTrack.map { $0.duration > 0 ? $0.duration : nil } ?? nil)
+        seek(to: cap.map { min(target, $0) } ?? target)
+    }
+
+    /// Always jump to the previous track (the wheel's double-tap-back), using
+    /// channel history or the playlist cursor — never just a restart-in-place
+    /// unless there's genuinely nothing before the current track.
+    func goToPreviousTrack() async {
+        saveAutosaveForCurrentTrack()
+        await playPreviousTrack()
+    }
+
     func back() {
         // Uniform for all channel types: restart current track if well into it; previous track if near start.
         if currentPosition > 3 {
@@ -439,6 +455,18 @@ final class PlayerViewModel: ObservableObject {
         }
         guard let channel = currentChannel else { return }
 
+        // Record the OUTGOING track in channel history NOW, before any code
+        // path (e.g. min-duration screening) nils currentTrack. This is what
+        // makes double-tap-back reliably return the previous track instead of
+        // a fresh random pick. Deduped + capped. Subsequent playTrack calls in
+        // this method pass recordHistory:false so we don't double-record.
+        if let outgoing = currentTrack {
+            if playHistory.last?.id != outgoing.id {
+                playHistory.append(outgoing)
+                if playHistory.count > historyLimit { playHistory.removeFirst() }
+            }
+        }
+
         // Assert a background task so iOS doesn't kill the network call that
         // resolves the next track URL when the app is backgrounded.
         // nonisolated(unsafe): the expiration handler must see the real task
@@ -456,7 +484,7 @@ final class PlayerViewModel: ObservableObject {
         // Librivox sequential multi-part: advance to next part before random pick
         if let current = currentTrack, current.parentIdentifier != nil {
             if let nextPart = await queueManager.nextPart(after: current, channel: channel) {
-                await playTrack(nextPart, seekTo: nil)
+                await playTrack(nextPart, seekTo: nil, recordHistory: false)
                 return
             }
         }
@@ -491,7 +519,7 @@ final class PlayerViewModel: ObservableObject {
                 track = next
             }
         }
-        await playTrack(track, seekTo: nil)
+        await playTrack(track, seekTo: nil, recordHistory: false)
     }
 
     // Resolve a track's playable URL and read its duration WITHOUT starting

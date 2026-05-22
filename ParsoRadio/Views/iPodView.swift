@@ -21,7 +21,6 @@ struct iPodView: View {
     @State private var showAddItemToPlaylist = false
     @State private var showMoreOptions = false
     @State private var showFullMetadata = false
-    @State private var isFavorite = false
     // Title-tap navigation: one of these is true at a time.
     @State private var showChannelInfo = false
     @State private var showActivePlaylist = false
@@ -99,17 +98,14 @@ struct iPodView: View {
                         currentTime: playerVM.currentPosition,
                         duration: isAmbientLoop ? 0 : (playerVM.trackDuration ?? 0),
                         transportEnabled: !isAmbientLoop,
-                        // Repeat-One phantom toggle: real tracks only, never
-                        // ambient loops (which already repeat).
-                        repeatEnabled: !isAmbientLoop && playerVM.currentTrack != nil,
-                        repeatOn: playerVM.repeatMode == .one,
-                        onRepeatToggle: { playerVM.toggleRepeat() },
                         onSeek: { playerVM.seek(to: $0) },
+                        onSeekBy: { playerVM.seekBy($0) },
                         onScrubChanged: { playerVM.isScrubbing = $0 },
-                        onMenu:      { showMainMenu = true },
-                        onBack:      { playerVM.back() },
-                        onForward:   { playerVM.skip() },
-                        onPlayPause: { playerVM.togglePlayPause() }
+                        onMenu:        { showMainMenu = true },
+                        onPrevTrack:   { Task { await playerVM.goToPreviousTrack() } },
+                        onNextTrack:   { playerVM.skip() },
+                        onPlayPause:   { playerVM.togglePlayPause() },
+                        onCenter:      { if playerVM.currentTrack != nil { showMoreOptions = true } }
                     )
                     .frame(width: wheelDiameter(geo), height: wheelDiameter(geo))
 
@@ -193,9 +189,6 @@ struct iPodView: View {
                         }
                 }
             }
-        }
-        .onChange(of: playerVM.currentTrack?.id) { _, _ in
-            refreshFavoriteState()
         }
         // A drag-to-seek gesture interrupted by a sheet presentation can leave
         // isScrubbing stuck true, which freezes the progress bar / elapsed time
@@ -291,7 +284,19 @@ struct iPodView: View {
                     .padding(.bottom, 12)
             }
         }
-        .overlay { centerTapZones }
+        // Repeat-One indicator (top-right) — shown only while "Repeat Track"
+        // is engaged from Track Info. No control here; toggled in the sheet.
+        .overlay(alignment: .topTrailing) {
+            if playerVM.repeatMode == .one, !isAmbientLoop, playerVM.currentTrack != nil {
+                Image(systemName: "repeat.1")
+                    .font(.system(size: Self.mainRegularSize, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(8)
+                    .background(.black.opacity(0.35), in: Circle())
+                    .padding(12)
+                    .accessibilityLabel("Repeat track is on")
+            }
+        }
         // Unmistakable loading indicator centred on the screen while a track
         // is resolving/buffering (the small inline spinner was easy to miss).
         .overlay { if playerVM.isLoading { loadingOverlay } }
@@ -307,41 +312,6 @@ struct iPodView: View {
                 }
             }
         }
-    }
-
-    // Central band of the track box → tap zones: left third seek −10 s,
-    // right third seek +10 s, centre third play/pause. Sized to the middle
-    // ~50% so it never covers the top-left title (→ menu) or the bottom
-    // controls/progress bar, which keep their own gestures.
-    private var centerTapZones: some View {
-        GeometryReader { g in
-            let w = max(g.size.width, 1)
-            let h = g.size.height
-            Color.clear
-                .contentShape(Rectangle())
-                .frame(width: w, height: max(0, h * 0.50))
-                .position(x: w / 2, y: h * 0.52)
-                .gesture(
-                    SpatialTapGesture().onEnded { v in
-                        guard playerVM.currentTrack != nil else { return }
-                        let x = v.location.x
-                        if x < w / 3 {
-                            if playerVM.trackDuration != nil {
-                                playerVM.seek(to: max(0, playerVM.currentPosition - 10))
-                            }
-                        } else if x > 2 * w / 3 {
-                            if let d = playerVM.trackDuration {
-                                playerVM.seek(to: min(d, playerVM.currentPosition + 10))
-                            }
-                        } else {
-                            playerVM.togglePlayPause()
-                        }
-                    }
-                )
-        }
-        // Sighted-only convenience layer; every action it offers is also a
-        // VoiceOver custom action on the wheel + the adjustable progress bar.
-        .accessibilityHidden(true)
     }
 
     private var artworkBackground: some View {
@@ -505,85 +475,35 @@ struct iPodView: View {
             .padding(.bottom, 8)
     }
 
-    // The scrub bar is gone — the click wheel arc IS the position display.
-    // Bottom control row: Favorites · elapsed | Shuffle Repeat | remaining · More.
-    // Ambient-loop channels collapse this to just the info (•••) button —
-    // a single forever-repeating track has nothing to favorite/shuffle/seek.
+    // The track box now carries ONLY the position display: elapsed / remaining
+    // times + a draggable progress bar. Favorites, the ••• info button and the
+    // tap zones were removed — transport + track-info live on the wheel
+    // (wheel centre = Track Info; ±10 / track-skip / scrub on the sides).
     @ViewBuilder
     private var scrubberRow: some View {
         if isAmbientLoop {
-            HStack(spacing: 0) {
-                Spacer()
-                Button { showMoreOptions = true } label: {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: ClickWheel.iconSize))
-                        .foregroundStyle(.white.opacity(0.8))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Track Info")
-                .padding(.trailing, 8)
-            }
-            .padding(.vertical, 2)
-        } else {
-            fullScrubberRow
-        }
-    }
-
-    // Apple HIG: tap targets ≥ 44×44 pt. The heart and ••• used to be 16 pt
-    // glyphs in roughly 24 pt tap zones — easy to miss, especially with the
-    // progress bar right below. They are now 22 pt glyphs in 44×44 buttons.
-    private var fullScrubberRow: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 0) {
-                Button { toggleFavorite() } label: {
-                    Image(systemName: isFavorite ? "heart.fill" : "heart")
-                        .font(.system(size: ClickWheel.iconSize))
-                        .foregroundStyle(isFavorite ? .red : .white.opacity(0.8))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-                .padding(.leading, 8)
-
-                if let dur = playerVM.trackDuration, dur > 0 {
+            EmptyView()                       // a forever loop has nothing to scrub
+        } else if let dur = playerVM.trackDuration, dur > 0 {
+            VStack(spacing: 6) {
+                HStack(spacing: 0) {
                     Text(formatTime(playerVM.currentPosition))
                         .font(.system(size: Self.mainRegularSize))
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.75))
-                        .padding(.leading, 6)
-                        // The progress bar below carries the spoken position.
                         .accessibilityHidden(true)
-                }
-
-                Spacer()
-
-                if let dur = playerVM.trackDuration, dur > 0 {
+                    Spacer()
                     Text("-" + formatTime(max(0, dur - playerVM.currentPosition)))
                         .font(.system(size: Self.mainRegularSize))
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.75))
-                        .padding(.trailing, 6)
                         .accessibilityHidden(true)
                 }
-
-                Button { showMoreOptions = true } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.system(size: ClickWheel.iconSize))
-                        .foregroundStyle(.white.opacity(0.8))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("More Options")
-                .padding(.trailing, 8)
-            }
-
-            if let dur = playerVM.trackDuration, dur > 0 {
+                .padding(.horizontal, 14)
                 progressBar(duration: dur)
                     .padding(.horizontal, 14)
             }
+            .padding(.vertical, 2)
         }
-        .padding(.vertical, 2)
     }
 
     // Draggable elapsed-progress bar (common music-UI placement: bottom of
@@ -671,6 +591,15 @@ struct iPodView: View {
                         Section("Playback") {
                             playbackSpeedRow
                             sleepTimerRow
+                            Toggle(isOn: Binding(
+                                get: { playerVM.repeatMode == .one },
+                                set: { on in
+                                    if (playerVM.repeatMode == .one) != on { playerVM.toggleRepeat() }
+                                }
+                            )) {
+                                Label("Repeat Track", systemImage: "repeat.1")
+                            }
+                            .accessibilityHint("When on, a repeat icon shows on the player and the track loops")
                             if playerVM.currentTrackIsMultiPart {
                                 NavigationLink {
                                     ChapterListView(onDismiss: { showMoreOptions = false })
@@ -1019,215 +948,230 @@ struct iPodView: View {
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec) : String(format: "%d:%02d", m, sec)
     }
 
-    // MARK: - Favorites helpers
-
-    private func refreshFavoriteState() {
-        guard let track = playerVM.currentTrack else {
-            isFavorite = false
-            return
-        }
-        Task {
-            let fav = await playlistVM.isInFavorites(track)
-            await MainActor.run { isFavorite = fav }
-        }
-    }
-
-    private func toggleFavorite() {
-        guard let track = playerVM.currentTrack else { return }
-        Task {
-            await playlistVM.toggleFavorite(track)
-            let fav = await playlistVM.isInFavorites(track)
-            await MainActor.run { isFavorite = fav }
-        }
-    }
 }
 
 // MARK: - Click Wheel
 
 struct ClickWheel: View {
-    // Single source of truth for icon point size on the main screen. The
-    // wheel quadrants, repeat-one centre glyph, heart and ••• all use this
-    // so they stay uniform (matches the user spec "ALL icons must be the
-    // same size").
+    // Single source of truth for icon point size on the main screen.
     static let iconSize: CGFloat = 22
 
     let isPlaying: Bool
-    // Seek-wheel inputs (duration == 0 ⇒ pure transport, no seeking/arc).
     var currentTime: Double = 0
     var duration: Double = 0
     // Ambient-loop channels: no back/forward and no seeking, but play/pause
-    // stays so the loop can be paused. transportEnabled gates back/forward
-    // (+ seek); playPauseEnabled gates the bottom play/pause; MENU is always on.
+    // stays so the loop can be paused.
     var transportEnabled: Bool = true
     var playPauseEnabled: Bool = true
-    // "Phantom" repeat-one toggle in the wheel's center. Never enabled for
-    // ambient loops (they already repeat). The glyph only shows when on.
-    var repeatEnabled: Bool = false
-    var repeatOn: Bool = false
-    var onRepeatToggle: () -> Void = {}
-    var onSeek: (Double) -> Void = { _ in }
+    var onSeek: (Double) -> Void = { _ in }       // absolute (hold-scrub)
+    var onSeekBy: (Double) -> Void = { _ in }     // relative ±10 (single tap)
     var onScrubChanged: (Bool) -> Void = { _ in }
     let onMenu:      () -> Void
-    let onBack:      () -> Void
-    let onForward:   () -> Void
+    let onPrevTrack: () -> Void                    // double-tap back
+    let onNextTrack: () -> Void                    // double-tap forward
     let onPlayPause: () -> Void
+    let onCenter:    () -> Void                    // centre tap → Track Info
 
     @State private var tapTrigger = 0
-    @State private var isDragging = false
-    @StateObject private var seekVM = SeekWheelViewModel()
 
     var body: some View {
         GeometryReader { geo in
             let size    = min(geo.size.width, geo.size.height)
-            let outerR  = size / 2
             let innerR  = size * 0.225
+            let outerR  = size / 2
             let midRing = (outerR + innerR) / 2
 
             ZStack {
-                // Outer ring — flat metallic. (The elapsed-progress arc/thumb
-                // was removed — progress lives on the track box's bar now.)
+                // Outer ring.
                 Circle()
                     .fill(Color(.secondarySystemGroupedBackground))
                     .shadow(color: .black.opacity(0.35), radius: 6, y: 3)
-
-                // Center — also the phantom Repeat-One toggle. The glyph only
-                // appears while repeat is engaged ("selected"); tapping the
-                // center again clears it and the glyph vanishes.
+                // Centre well (now opens Track Info — no repeat glyph).
                 Circle()
                     .fill(Color(.systemBackground))
                     .frame(width: innerR * 2, height: innerR * 2)
                     .allowsHitTesting(false)
 
-                // Every main-screen icon (wheel quadrants, repeat-one centre,
-                // heart and ••• below) shares one point size so the visual
-                // weight stays balanced.
-                if repeatEnabled && repeatOn {
-                    Image(systemName: "repeat.1")
-                        .font(.system(size: ClickWheel.iconSize, weight: .semibold))
-                        .foregroundStyle(Color.accentColor)
-                        .allowsHitTesting(false)
-                }
-
-                // MENU icon (top)
+                // MENU (top)
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: ClickWheel.iconSize, weight: .medium))
                     .foregroundStyle(.primary)
-                    .offset(y: -midRing)
-                    .allowsHitTesting(false)
-
+                    .offset(y: -midRing).allowsHitTesting(false)
                 if transportEnabled {
-                    // Back (left)
                     Image(systemName: "backward.fill")
                         .font(.system(size: ClickWheel.iconSize, weight: .medium))
                         .foregroundStyle(.primary)
-                        .offset(x: -midRing)
-                        .allowsHitTesting(false)
-
-                    // Forward (right)
+                        .offset(x: -midRing).allowsHitTesting(false)
                     Image(systemName: "forward.fill")
                         .font(.system(size: ClickWheel.iconSize, weight: .medium))
                         .foregroundStyle(.primary)
-                        .offset(x: midRing)
-                        .allowsHitTesting(false)
+                        .offset(x: midRing).allowsHitTesting(false)
                 }
-
                 if playPauseEnabled {
-                    // Play/Pause (bottom)
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: ClickWheel.iconSize, weight: .medium))
                         .foregroundStyle(.primary)
-                        .offset(y: midRing)
-                        .allowsHitTesting(false)
+                        .offset(y: midRing).allowsHitTesting(false)
                 }
+
+                // Hit grid: 3×3 of equal cells over the wheel. Centre column
+                // top=MENU, centre=Track Info, bottom=Play/Pause; left/right
+                // columns are the back/forward regions (tap/double-tap/hold).
+                hitGrid(cell: size / 3)
             }
             .frame(width: size, height: size)
-            .contentShape(Circle())
             .sensoryFeedback(.impact(weight: .light), trigger: tapTrigger)
-            .gesture(
-                SpatialTapGesture()
-                    .onEnded { value in
-                        let center = CGPoint(x: size / 2, y: size / 2)
-                        let dx = value.location.x - center.x
-                        let dy = value.location.y - center.y
-                        let dist = sqrt(dx * dx + dy * dy)
-
-                        guard dist <= outerR else { return }
-                        // Center = phantom Repeat-One toggle.
-                        if dist <= innerR {
-                            if repeatEnabled {
-                                tapTrigger += 1
-                                onRepeatToggle()
-                            }
-                            return
-                        }
-
-                        tapTrigger += 1
-                        if abs(dy) >= abs(dx) {
-                            if dy < 0 { onMenu() }
-                            else if playPauseEnabled { onPlayPause() }
-                        } else if transportEnabled {
-                            if dx < 0 { onBack() } else { onForward() }
-                        }
-                    }
-            )
-            // Drag-to-seek. minimumDistance:12 so quick taps still hit the
-            // transport SpatialTapGesture; .simultaneousGesture so it doesn't
-            // block parent gestures. Only active when the track has duration.
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 12, coordinateSpace: .local)
-                    .onChanged { value in
-                        guard duration > 0 else { return }
-                        if !isDragging {
-                            isDragging = true
-                            seekVM.duration = duration
-                            seekVM.currentTime = currentTime
-                            seekVM.onSeek = onSeek
-                            onScrubChanged(true)
-                        } else {
-                            seekVM.duration = duration
-                        }
-                        seekVM.handleDrag(
-                            location: value.location,
-                            center: CGPoint(x: size / 2, y: size / 2)
-                        )
-                    }
-                    .onEnded { _ in
-                        guard isDragging else { return }
-                        seekVM.handleDragEnded()
-                        onScrubChanged(false)
-                        isDragging = false
-                    }
-            )
-            .onAppear { seekVM.onAppear() }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Playback controls")
             .accessibilityValue(isPlaying ? "Playing" : "Paused")
             .accessibilityHint(duration > 0
-                ? "Swipe up or down to seek by 15 seconds. Use the rotor actions for menu, skip and repeat."
-                : "Use the rotor actions for menu and play or pause.")
+                ? "Swipe up or down to seek by 15 seconds. Use the rotor for menu, track skip and track info."
+                : "Use the rotor for menu and play or pause.")
             .accessibilityAction(.default) { onPlayPause() }
             .accessibilityActions {
                 Button(isPlaying ? "Pause" : "Play") { onPlayPause() }
                 Button("Open Menu") { onMenu() }
+                Button("Track Info") { onCenter() }
                 if transportEnabled {
-                    Button("Next Track") { onForward() }
-                    Button("Previous Track") { onBack() }
-                }
-                if repeatEnabled {
-                    Button(repeatOn ? "Turn Off Repeat One" : "Repeat This Track") {
-                        onRepeatToggle()
-                    }
+                    Button("Next Track") { onNextTrack() }
+                    Button("Previous Track") { onPrevTrack() }
                 }
             }
             .accessibilityAdjustableAction { direction in
                 guard duration > 0 else { return }
                 switch direction {
-                case .increment: onSeek(min(duration, currentTime + 15))
-                case .decrement: onSeek(max(0, currentTime - 15))
+                case .increment: onSeekBy(15)
+                case .decrement: onSeekBy(-15)
                 @unknown default: break
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func hitGrid(cell: CGFloat) -> some View {
+        let tap = { tapTrigger += 1 }
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Color.clear.frame(width: cell, height: cell)            // corner
+                tapCell { onMenu() }                                     // MENU
+                Color.clear.frame(width: cell, height: cell)            // corner
+            }
+            HStack(spacing: 0) {
+                WheelSideRegion(direction: -1, enabled: transportEnabled,
+                                currentTime: currentTime, duration: duration,
+                                onSeekBy: onSeekBy, onSeek: onSeek,
+                                onScrubChanged: onScrubChanged,
+                                onTrackSkip: onPrevTrack, haptic: tap)
+                    .frame(width: cell, height: cell)
+                tapCell { onCenter() }                                   // Track Info
+                WheelSideRegion(direction: 1, enabled: transportEnabled,
+                                currentTime: currentTime, duration: duration,
+                                onSeekBy: onSeekBy, onSeek: onSeek,
+                                onScrubChanged: onScrubChanged,
+                                onTrackSkip: onNextTrack, haptic: tap)
+                    .frame(width: cell, height: cell)
+            }
+            HStack(spacing: 0) {
+                Color.clear.frame(width: cell, height: cell)            // corner
+                tapCell { if playPauseEnabled { onPlayPause() } }        // Play/Pause
+                Color.clear.frame(width: cell, height: cell)            // corner
+            }
+        }
+    }
+
+    private func tapCell(_ action: @escaping () -> Void) -> some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture { tapTrigger += 1; action() }
+    }
+}
+
+// One back/forward wheel region: single tap = seek ±10 s, double tap = skip
+// track, press-and-hold = continuous scrub within the track that accelerates
+// the longer it's held (classic-iPod feel).
+private struct WheelSideRegion: View {
+    let direction: Int          // -1 back, +1 forward
+    let enabled: Bool
+    let currentTime: Double
+    let duration: Double
+    let onSeekBy: (Double) -> Void
+    let onSeek: (Double) -> Void
+    let onScrubChanged: (Bool) -> Void
+    let onTrackSkip: () -> Void
+    let haptic: () -> Void
+
+    @State private var pressStart: Date? = nil
+    @State private var didLongPress = false
+    @State private var lastTapDate: Date? = nil
+    @State private var pendingSingleTap: DispatchWorkItem? = nil
+    @State private var scrubTimer: Timer? = nil
+    @State private var scrubPos: Double = 0
+    @State private var scrubStep: Double = 0
+
+    var body: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard enabled, pressStart == nil else { return }
+                        let start = Date()
+                        pressStart = start
+                        // Promote to a hold if still pressed after 0.35 s.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            if pressStart == start, !didLongPress {
+                                didLongPress = true
+                                beginScrub()
+                            }
+                        }
+                    }
+                    .onEnded { _ in
+                        guard enabled else { return }
+                        let wasLong = didLongPress
+                        pressStart = nil
+                        if wasLong { endScrub(); didLongPress = false }
+                        else { registerTap() }
+                    }
+            )
+    }
+
+    private func registerTap() {
+        haptic()
+        if let last = lastTapDate, Date().timeIntervalSince(last) < 0.3 {
+            // Double tap → skip a whole track.
+            pendingSingleTap?.cancel(); pendingSingleTap = nil
+            lastTapDate = nil
+            onTrackSkip()
+        } else {
+            // Defer the single-tap ±10 s seek by the double-tap window.
+            lastTapDate = Date()
+            let work = DispatchWorkItem {
+                onSeekBy(Double(direction) * 10)
+                lastTapDate = nil
+            }
+            pendingSingleTap = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32, execute: work)
+        }
+    }
+
+    private func beginScrub() {
+        guard duration > 0 else { return }
+        haptic()
+        scrubPos = currentTime
+        scrubStep = 3
+        onScrubChanged(true)
+        scrubTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
+            scrubPos = min(max(scrubPos + Double(direction) * scrubStep, 0), duration)
+            onSeek(scrubPos)
+            scrubStep = min(scrubStep * 1.25, 30)   // accelerate, capped
+        }
+    }
+
+    private func endScrub() {
+        scrubTimer?.invalidate(); scrubTimer = nil
+        onSeek(scrubPos)
+        onScrubChanged(false)
     }
 }
 

@@ -590,11 +590,16 @@ final class DatabaseService: @unchecked Sendable {
     func setTrackOrder(_ trackIds: [String], inPlaylist playlistId: String) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
+                // fetchTracks(forPlaylist:) reads ORDER BY sort_order DESC, so
+                // the FIRST displayed track must get the HIGHEST sort_order.
+                // Writing ascending here (sort_order = index) silently reversed
+                // the playlist on every reorder — the critical bug this fixes.
+                let n = trackIds.count
                 try? self.db.transaction {
                     for (index, trackId) in trackIds.enumerated() {
                         let row = self.playlistTracks
                             .filter(self.colPTPlaylistId == playlistId && self.colPTTrackId == trackId)
-                        try self.db.run(row.update(self.colPTSortOrder <- index))
+                        try self.db.run(row.update(self.colPTSortOrder <- (n - index)))
                     }
                 }
                 continuation.resume()

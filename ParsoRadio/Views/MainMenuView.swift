@@ -9,7 +9,6 @@ struct MainMenuView: View {
     @EnvironmentObject var offlineService: OfflineDownloadService
     @Environment(\.dismiss) private var dismiss
 
-    @State private var showSearch = false
     @State private var showAbout = false
     @State private var recentlyPlayed: [Track] = []
     // Section IDs currently expanded. Empty = all collapsed (the default).
@@ -17,6 +16,10 @@ struct MainMenuView: View {
     // category string.
     @State private var expanded: Set<String> = []
     @State private var editMode: EditMode = .inactive
+    // Inline search (no separate screen). While searchText is non-empty the
+    // menu sections are hidden and IA results render in their place.
+    @StateObject private var searchVM = SearchViewModel()
+    @State private var searchText = ""
 
     // Fixed section order. Alphabetical WITHIN each.
     private static let categoryOrder = [
@@ -58,71 +61,17 @@ struct MainMenuView: View {
         .accessibilityHint("Opens this playlist")
     }
 
+    private var isSearching: Bool {
+        !searchText.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    Button {
-                        showSearch = true
-                    } label: {
-                        Label("Search", systemImage: "magnifyingglass")
-                            .font(.body).padding(.vertical, 2)
-                    }
-                    .foregroundStyle(.primary)
-                }
-
-                if !recentlyPlayed.isEmpty {
-                    recentlyPlayedSection
-                }
-
-                // Persisted order (Favorites pinned first, then user order).
-                let favorites = playlistVM.playlists.filter { $0.isFavorites }
-                let others    = playlistVM.playlists.filter { !$0.isFavorites }
-                if !playlistVM.playlists.isEmpty {
-                    Section {
-                        collapsibleHeader(id: "playlists", title: "Playlists")
-                        if expanded.contains("playlists") {
-                            ForEach(favorites) { pl in playlistRow(pl) }
-                            ForEach(others) { pl in playlistRow(pl) }
-                                .onMove { indices, newOffset in
-                                    var reordered = others
-                                    reordered.move(fromOffsets: indices, toOffset: newOffset)
-                                    Task { await playlistVM.reorderPlaylists(reordered) }
-                                }
-                                .onDelete { indices in
-                                    let toDelete = indices.map { others[$0] }
-                                    Task {
-                                        for pl in toDelete { await playlistVM.deletePlaylist(pl) }
-                                    }
-                                }
-                        }
-                    }
-                }
-
-                ForEach(Self.orderedCategories(), id: \.self) { category in
-                    Section {
-                        collapsibleHeader(id: category, title: category)
-                        if expanded.contains(category) {
-                            ForEach(channels(in: category)) { channel in
-                                Button {
-                                    onSelectChannel(channel)
-                                } label: {
-                                    Label(channel.name, systemImage: channel.icon)
-                                }
-                                .foregroundStyle(.primary)
-                            }
-                        }
-                    }
-                }
-
-                Section {
-                    Button {
-                        showAbout = true
-                    } label: {
-                        Label("About", systemImage: "info.circle")
-                            .font(.body).padding(.vertical, 2)
-                    }
-                    .foregroundStyle(.primary)
+                if isSearching {
+                    searchResultsContent
+                } else {
+                    menuContent
                 }
             }
             .listStyle(.insetGrouped)
@@ -131,20 +80,26 @@ struct MainMenuView: View {
             .environment(\.editMode, $editMode)
             .navigationTitle("Parso Music")
             .navigationBarTitleDisplayMode(.inline)
+            // Inline search per Apple HIG — results replace the menu in place,
+            // no separate screen.
+            .searchable(text: $searchText,
+                        placement: .navigationBarDrawer(displayMode: .always),
+                        prompt: "Search music, audiobooks, lectures…")
+            .onChange(of: searchText) { _, newValue in
+                searchVM.query = newValue
+                searchVM.searchChanged()
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
                 }
                 // Standard Edit affordance: reorder / delete playlists and
                 // delete Recently Played rows. (Swipe-to-delete also works.)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
+                if !isSearching {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        EditButton()
+                    }
                 }
-            }
-            .sheet(isPresented: $showSearch) {
-                SearchView(dismissAll: dismissAll)
-                    .environmentObject(playlistVM)
-                    .environmentObject(playerVM)
             }
             .sheet(isPresented: $showAbout) {
                 AboutView()
@@ -156,6 +111,107 @@ struct MainMenuView: View {
             }
             .task {
                 recentlyPlayed = await playerVM.recentlyPlayedTracks(limit: 30)
+            }
+        }
+    }
+
+    // MARK: - Menu content (recents + playlists + categories + about)
+
+    @ViewBuilder
+    private var menuContent: some View {
+        if !recentlyPlayed.isEmpty {
+            recentlyPlayedSection
+        }
+
+        let favorites = playlistVM.playlists.filter { $0.isFavorites }
+        let others    = playlistVM.playlists.filter { !$0.isFavorites }
+        if !playlistVM.playlists.isEmpty {
+            Section {
+                collapsibleHeader(id: "playlists", title: "Playlists")
+                if expanded.contains("playlists") {
+                    ForEach(favorites) { pl in playlistRow(pl) }
+                    ForEach(others) { pl in playlistRow(pl) }
+                        .onMove { indices, newOffset in
+                            var reordered = others
+                            reordered.move(fromOffsets: indices, toOffset: newOffset)
+                            Task { await playlistVM.reorderPlaylists(reordered) }
+                        }
+                        .onDelete { indices in
+                            let toDelete = indices.map { others[$0] }
+                            Task {
+                                for pl in toDelete { await playlistVM.deletePlaylist(pl) }
+                            }
+                        }
+                }
+            }
+        }
+
+        ForEach(Self.orderedCategories(), id: \.self) { category in
+            Section {
+                collapsibleHeader(id: category, title: category)
+                if expanded.contains(category) {
+                    ForEach(channels(in: category)) { channel in
+                        Button {
+                            onSelectChannel(channel)
+                        } label: {
+                            Label(channel.name, systemImage: channel.icon)
+                        }
+                        .foregroundStyle(.primary)
+                    }
+                }
+            }
+        }
+
+        Section {
+            Button {
+                showAbout = true
+            } label: {
+                Label("About", systemImage: "info.circle")
+                    .font(.body).padding(.vertical, 2)
+            }
+            .foregroundStyle(.primary)
+        }
+    }
+
+    // MARK: - Inline search results
+
+    @ViewBuilder
+    private var searchResultsContent: some View {
+        if searchVM.isSearching && searchVM.results.isEmpty {
+            Section {
+                HStack { Spacer(); ProgressView(); Spacer() }
+            }
+        } else if searchVM.results.isEmpty {
+            Section {
+                ContentUnavailableView.search(text: searchText)
+            }
+        } else {
+            Section("Results") {
+                ForEach(searchVM.results) { group in
+                    Button {
+                        Task {
+                            await playerVM.playSearchResult(group)
+                            dismissAll()
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "music.note")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 24)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(group.title).font(.body).lineLimit(2)
+                                Text(group.creator).font(.caption)
+                                    .foregroundStyle(.secondary).lineLimit(1)
+                            }
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .foregroundStyle(.primary)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityHint("Plays this result")
+                }
             }
         }
     }
