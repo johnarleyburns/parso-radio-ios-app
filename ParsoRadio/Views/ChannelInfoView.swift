@@ -5,68 +5,62 @@ import SwiftUI
 /// determine what the channel plays (category, content type, source).
 struct ChannelInfoView: View {
     let channel: Channel
-    var onDismiss: (() -> Void)? = nil
 
+    // Pushed inside the Main Menu's navigation stack — the standard back
+    // chevron returns to the menu list (no own NavigationStack / Done button).
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    HStack(spacing: 14) {
-                        Image(systemName: channel.icon)
-                            .font(.system(size: 32, weight: .semibold))
-                            .foregroundStyle(Color.accentColor)
-                            .frame(width: 44, height: 44)
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(channel.name)
-                                .font(.title3).fontWeight(.semibold)
-                            Text(channel.category)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                    .accessibilityElement(children: .combine)
-                }
-
-                Section("About") {
-                    Text(channel.infoSentence)
-                        .font(.body)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Section("Details") {
-                    infoRow("Category",     channel.category)
-                    infoRow("Content type", channel.contentType.displayName)
-                    infoRow("Source",       channel.sourceName)
-                    if channel.iaQueryEntry != nil {
-                        infoRow("Discovery", "Pure Internet Archive search")
-                    } else if let feed = channel.feedURL {
-                        infoRow("Feed", feed)
-                    }
-                    if let minDur = channel.minTrackDuration {
-                        infoRow("Min duration",
-                                "\(Int(minDur)) seconds (shorter tracks are skipped)")
+        List {
+            Section {
+                HStack(spacing: 14) {
+                    Image(systemName: channel.icon)
+                        .font(.system(size: 32, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 44, height: 44)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(channel.name)
+                            .font(.title3).fontWeight(.semibold)
+                        Text(channel.category)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
                 }
+                .padding(.vertical, 4)
+                .accessibilityElement(children: .combine)
+            }
 
-                Section("Licensing") {
-                    Text(
-                        "Parso Radio plays only public-domain and Creative Commons "
-                        + "content. Per-track license is shown in the Track Info popup."
-                    )
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            Section("About") {
+                Text(channel.infoSentence)
+                    .font(.body)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Section("Details") {
+                infoRow("Category",     channel.category)
+                infoRow("Content type", channel.contentType.displayName)
+                infoRow("Source",       channel.sourceName)
+                if channel.iaQueryEntry != nil {
+                    infoRow("Discovery", "Pure Internet Archive search")
+                } else if let feed = channel.feedURL {
+                    infoRow("Feed", feed)
+                }
+                if let minDur = channel.minTrackDuration {
+                    infoRow("Min duration",
+                            "\(Int(minDur)) seconds (shorter tracks are skipped)")
                 }
             }
-            .navigationTitle("Channel Info")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { onDismiss?() }
-                }
+
+            Section("Licensing") {
+                Text(
+                    "Parso Radio plays only public-domain and Creative Commons "
+                    + "content. Per-track license is shown in the Track Info popup."
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
         }
+        .navigationTitle("Channel Info")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     @ViewBuilder

@@ -1,6 +1,15 @@
 import SwiftUI
 
+// Pushed destinations within the Main Menu's navigation stack. Reaching a
+// playlist / channel-info this way means the standard back chevron returns to
+// the menu list — the "back to main menu" the wheel-MENU navigation needs.
+enum MenuRoute: Hashable {
+    case playlist(Playlist)
+    case channelInfo(Channel)
+}
+
 struct MainMenuView: View {
+    var initialRoute: MenuRoute? = nil
     let onSelectChannel: (Channel) -> Void
     let dismissAll: () -> Void          // close the whole menu (back to player)
 
@@ -11,15 +20,16 @@ struct MainMenuView: View {
 
     @State private var showAbout = false
     @State private var recentlyPlayed: [Track] = []
+    @State private var path: [MenuRoute] = []
     // Section IDs currently expanded. Empty = all collapsed (the default).
-    // Includes special keys "recently-played" and "playlists" plus each
-    // category string.
     @State private var expanded: Set<String> = []
     @State private var editMode: EditMode = .inactive
-    // Inline search (no separate screen). While searchText is non-empty the
-    // menu sections are hidden and IA results render in their place.
+    // Inline search. searchActive (iOS 17 isPresented) is true the moment the
+    // field is focused, so the menu sections hide immediately on focus. Search
+    // runs only on submit (Return / Search key), not as you type.
     @StateObject private var searchVM = SearchViewModel()
     @State private var searchText = ""
+    @State private var searchActive = false
 
     // Fixed section order. Alphabetical WITHIN each.
     private static let categoryOrder = [
@@ -37,16 +47,11 @@ struct MainMenuView: View {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    // A playlist row ALWAYS opens the playlist detail (never starts playing).
-    // Play / Resume / Shuffle live inside the detail screen.
+    // A playlist row ALWAYS opens the playlist detail (never starts playing),
+    // pushed via the navigation path so the back chevron returns here.
     @ViewBuilder
     private func playlistRow(_ playlist: Playlist) -> some View {
-        NavigationLink {
-            PlaylistDetailView(playlist: playlist, dismissAll: dismissAll)
-                .environmentObject(playlistVM)
-                .environmentObject(playerVM)
-                .environmentObject(offlineService)
-        } label: {
+        NavigationLink(value: MenuRoute.playlist(playlist)) {
             HStack {
                 Label(playlist.name,
                       systemImage: playlist.isFavorites ? "heart.fill" : "music.note.list")
@@ -61,14 +66,10 @@ struct MainMenuView: View {
         .accessibilityHint("Opens this playlist")
     }
 
-    private var isSearching: Bool {
-        !searchText.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
-                if isSearching {
+                if searchActive {
                     searchResultsContent
                 } else {
                     menuContent
@@ -80,14 +81,33 @@ struct MainMenuView: View {
             .environment(\.editMode, $editMode)
             .navigationTitle("Parso Music")
             .navigationBarTitleDisplayMode(.inline)
-            // Inline search per Apple HIG — results replace the menu in place,
-            // no separate screen.
+            .navigationDestination(for: MenuRoute.self) { route in
+                switch route {
+                case .playlist(let pl):
+                    PlaylistDetailView(playlist: pl, dismissAll: dismissAll)
+                        .environmentObject(playlistVM)
+                        .environmentObject(playerVM)
+                        .environmentObject(offlineService)
+                case .channelInfo(let ch):
+                    ChannelInfoView(channel: ch)
+                }
+            }
+            // Inline search per Apple HIG. isPresented hides the menu on focus;
+            // results appear only after the user submits.
             .searchable(text: $searchText,
+                        isPresented: $searchActive,
                         placement: .navigationBarDrawer(displayMode: .always),
                         prompt: "Search music, audiobooks, lectures…")
-            .onChange(of: searchText) { _, newValue in
-                searchVM.query = newValue
+            .onSubmit(of: .search) {
+                searchVM.query = searchText
                 searchVM.searchChanged()
+            }
+            .onChange(of: searchActive) { _, active in
+                if !active {
+                    searchText = ""
+                    searchVM.query = ""
+                    searchVM.results = []
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -95,7 +115,7 @@ struct MainMenuView: View {
                 }
                 // Standard Edit affordance: reorder / delete playlists and
                 // delete Recently Played rows. (Swipe-to-delete also works.)
-                if !isSearching {
+                if !searchActive {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         EditButton()
                     }
@@ -111,6 +131,7 @@ struct MainMenuView: View {
             }
             .task {
                 recentlyPlayed = await playerVM.recentlyPlayedTracks(limit: 30)
+                if let initialRoute, path.isEmpty { path = [initialRoute] }
             }
         }
     }
@@ -119,9 +140,7 @@ struct MainMenuView: View {
 
     @ViewBuilder
     private var menuContent: some View {
-        if !recentlyPlayed.isEmpty {
-            recentlyPlayedSection
-        }
+        recentlyPlayedSection            // always shown (placeholder when empty)
 
         let favorites = playlistVM.playlists.filter { $0.isFavorites }
         let others    = playlistVM.playlists.filter { !$0.isFavorites }
@@ -148,7 +167,8 @@ struct MainMenuView: View {
 
         ForEach(Self.orderedCategories(), id: \.self) { category in
             Section {
-                collapsibleHeader(id: category, title: category)
+                collapsibleHeader(id: category, title: category,
+                                  icon: Self.categoryIcon(category))
                 if expanded.contains(category) {
                     ForEach(channels(in: category)) { channel in
                         Button {
@@ -224,18 +244,25 @@ struct MainMenuView: View {
     /// of the list rows, which gives consistent tap behaviour on iPhone/iPad.
     @ViewBuilder
     private func collapsibleHeader(id: String, title: String,
+                                   icon: String? = nil,
                                    trailing: AnyView? = nil) -> some View {
         let isOpen = expanded.contains(id)
         HStack(spacing: 8) {
-            // Only the title + chevron toggle; trailing controls are SIBLINGS
-            // (not children) so their taps aren't swallowed by the toggle —
-            // that nesting was why the trash/Edit buttons "did nothing".
+            // Only the icon + title + chevron toggle; trailing controls are
+            // SIBLINGS (not children) so their taps aren't swallowed.
             Button {
                 withAnimation(.easeInOut(duration: 0.18)) {
                     if isOpen { expanded.remove(id) } else { expanded.insert(id) }
                 }
             } label: {
-                HStack {
+                HStack(spacing: 8) {
+                    if let icon {
+                        Image(systemName: icon)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 22)
+                            .accessibilityHidden(true)
+                    }
                     Text(title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
@@ -257,6 +284,19 @@ struct MainMenuView: View {
         }
     }
 
+    // SF Symbol per menu category.
+    static func categoryIcon(_ category: String) -> String {
+        switch category {
+        case "Curated":      return "star"
+        case "Ambient":      return "leaf"
+        case "News":         return "newspaper"
+        case "Contemporary": return "guitars"
+        case "Audiobooks":   return "book"
+        case "Lectures":     return "graduationcap"
+        default:             return "music.note.list"
+        }
+    }
+
     // MARK: - Recently Played (collapsible + editable)
 
     @ViewBuilder
@@ -265,6 +305,7 @@ struct MainMenuView: View {
             collapsibleHeader(
                 id: "recently-played",
                 title: "Recently Played",
+                icon: "clock.arrow.circlepath",
                 trailing: AnyView(
                     Group {
                         if expanded.contains("recently-played"), !recentlyPlayed.isEmpty {
@@ -284,14 +325,20 @@ struct MainMenuView: View {
                 )
             )
             if expanded.contains("recently-played") {
-                ForEach(recentlyPlayed.prefix(20)) { track in
-                    recentRow(track)
-                }
-                .onDelete { indices in
-                    let toRemove = indices.map { recentlyPlayed[$0] }
-                    Task {
-                        for t in toRemove { await playerVM.removeFromRecentlyPlayed(t) }
-                        recentlyPlayed = await playerVM.recentlyPlayedTracks(limit: 30)
+                if recentlyPlayed.isEmpty {
+                    Text("Nothing played yet.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(recentlyPlayed.prefix(20)) { track in
+                        recentRow(track)
+                    }
+                    .onDelete { indices in
+                        let toRemove = indices.map { recentlyPlayed[$0] }
+                        Task {
+                            for t in toRemove { await playerVM.removeFromRecentlyPlayed(t) }
+                            recentlyPlayed = await playerVM.recentlyPlayedTracks(limit: 30)
+                        }
                     }
                 }
             }

@@ -293,14 +293,23 @@ struct InternetArchiveService {
     static func buildSearchQuery(rawInput: String) -> String {
         let tokens = rawInput
             .split { !$0.isLetter && !$0.isNumber }
-            .map(String.init)
+            .map { $0.replacingOccurrences(of: "\"", with: "") }
             .filter { !$0.isEmpty }
         guard !tokens.isEmpty else { return "mediatype:audio" }
-        let perToken = tokens.map { tok -> String in
-            let esc = tok.replacingOccurrences(of: "\"", with: "")
-            return "(title:\"\(esc)\"^4 OR creator:\"\(esc)\"^3 OR subject:\"\(esc)\"^1)"
+        // Each token must match somewhere (title/creator/subject), AND'd.
+        let perToken = tokens.map {
+            "(title:\"\($0)\"^4 OR creator:\"\($0)\"^3 OR subject:\"\($0)\"^1)"
         }.joined(separator: " AND ")
-        return "mediatype:audio AND \(perToken)"
+        // ANCHOR: at least one token must hit title or creator. This is what
+        // keeps keyword-stuffed talk-radio items (e.g. Alan Watt, whose huge
+        // subject lists otherwise match any words) out of the results while
+        // still letting a token match purely in subject when another token
+        // anchors the item (e.g. "tarrega guitar" → Tárrega in the title,
+        // guitar in the subject).
+        let anchor = tokens.map {
+            "title:\"\($0)\" OR creator:\"\($0)\""
+        }.joined(separator: " OR ")
+        return "mediatype:audio AND \(perToken) AND (\(anchor))"
     }
 
     // IA search docs carry no runtime or file count. One metadata GET yields

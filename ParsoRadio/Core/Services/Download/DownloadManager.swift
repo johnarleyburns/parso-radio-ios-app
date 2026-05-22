@@ -14,21 +14,29 @@ final class DownloadManager {
         self.db = db
     }
 
-    func download(track: Track) async {
+    func download(track: Track, onProgress: (@Sendable (Double) -> Void)? = nil) async {
         let dest = fileStorage.localURL(for: track.id)
         if FileManager.default.fileExists(atPath: dest.path) {
             await db.markDownloaded(trackID: track.id, localPath: dest.path)
+            onProgress?(1.0)
             return
         }
 
         guard let url = track.downloadURL else { return }
 
         do {
-            let (tmpURL, _) = try await session.download(from: url)
+            let tmpURL: URL
+            if let onProgress {
+                let delegate = DownloadProgressDelegate(onProgress: onProgress)
+                (tmpURL, _) = try await session.download(from: url, delegate: delegate)
+            } else {
+                (tmpURL, _) = try await session.download(from: url)
+            }
             let dir = dest.deletingLastPathComponent()
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             try? FileManager.default.moveItem(at: tmpURL, to: dest)
             await db.markDownloaded(trackID: track.id, localPath: dest.path)
+            onProgress?(1.0)
         } catch {
             // Download failed — track remains stream-only
         }
@@ -43,4 +51,27 @@ final class DownloadManager {
             }
         }
     }
+}
+
+/// Reports byte-level progress for a single download. URLSession's
+/// `download(from:delegate:)` async API delivers the file itself; this
+/// delegate is only used for the incremental `didWriteData` callbacks.
+private final class DownloadProgressDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    private let onProgress: @Sendable (Double) -> Void
+    init(onProgress: @escaping @Sendable (Double) -> Void) { self.onProgress = onProgress }
+
+    func urlSession(_ session: URLSession,
+                    downloadTask: URLSessionDownloadTask,
+                    didWriteData bytesWritten: Int64,
+                    totalBytesWritten: Int64,
+                    totalBytesExpectedToWrite: Int64) {
+        guard totalBytesExpectedToWrite > 0 else { return }
+        onProgress(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+    }
+
+    // Required by the protocol; the async download API handles file delivery,
+    // so there's nothing to do here.
+    func urlSession(_ session: URLSession,
+                    downloadTask: URLSessionDownloadTask,
+                    didFinishDownloadingTo location: URL) {}
 }

@@ -17,11 +17,20 @@ final class SearchQueryTests: XCTestCase {
 
     func testMultipleTokensAreAndedTogether() {
         let q = InternetArchiveService.buildSearchQuery(rawInput: "tarrega guitar")
-        // Two field-groups joined by AND (so BOTH words must appear somewhere).
-        let andCount = q.components(separatedBy: ") AND (").count - 1
-        XCTAssertEqual(andCount, 1, "Two tokens must produce exactly one AND join between groups.")
         XCTAssertTrue(q.contains("title:\"guitar\""))
         XCTAssertTrue(q.contains("title:\"tarrega\""))
+        // Both tokens AND'd, plus a trailing anchor group → 2 " AND (" joins.
+        let andCount = q.components(separatedBy: ") AND (").count - 1
+        XCTAssertEqual(andCount, 2,
+            "Two tokens + the title/creator anchor produce two AND joins.")
+    }
+
+    func testHasTitleCreatorAnchor() {
+        // The anchor (at least one token in title/creator) is what keeps
+        // keyword-stuffed talk-radio items out of the results.
+        let q = InternetArchiveService.buildSearchQuery(rawInput: "plato laws")
+        XCTAssertTrue(q.hasSuffix("AND (title:\"plato\" OR creator:\"plato\" OR title:\"laws\" OR creator:\"laws\")"),
+            "Query must end with a title/creator anchor over all tokens. Got: \(q)")
     }
 
     func testTitleAndCreatorAreBoostedOverSubject() {

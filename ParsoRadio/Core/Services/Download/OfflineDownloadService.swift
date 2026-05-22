@@ -11,6 +11,10 @@ final class OfflineDownloadService: ObservableObject {
     }
 
     @Published var activeDownloads: [String: DownloadProgress] = [:]
+    // Per-track download fraction (0...1) while a track is downloading; the
+    // key is removed once the file is on disk. Powers the playlist row's
+    // circular progress indicator.
+    @Published var trackProgress: [String: Double] = [:]
 
     private let db: DatabaseService
     private let downloadManager: DownloadManager
@@ -121,9 +125,14 @@ final class OfflineDownloadService: ObservableObject {
         let task = Task { [weak self] in
             for track in tracks {
                 guard !Task.isCancelled else { break }
-                await self?.downloadManager.download(track: track)
+                let trackId = track.id
+                await MainActor.run { self?.trackProgress[trackId] = 0 }
+                await self?.downloadManager.download(track: track) { fraction in
+                    Task { @MainActor in self?.trackProgress[trackId] = fraction }
+                }
                 guard !Task.isCancelled else { break }
                 await MainActor.run {
+                    self?.trackProgress[trackId] = nil          // done → row reads localFilePath
                     self?.activeDownloads[id]?.completed += 1
                 }
             }

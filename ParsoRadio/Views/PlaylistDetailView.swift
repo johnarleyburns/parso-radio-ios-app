@@ -12,6 +12,15 @@ struct PlaylistDetailView: View {
 
     var body: some View {
         List {
+            // The nav title is the generic "Playlist"; the actual name reads
+            // large here for legibility.
+            Section {
+                Text(playlist.name)
+                    .font(.title2).fontWeight(.bold)
+                    .lineLimit(3)
+                    .accessibilityAddTraits(.isHeader)
+            }
+
             Section {
                 HStack(spacing: 12) {
                     // Play ALWAYS resumes if a saved spot exists (exact track +
@@ -32,16 +41,15 @@ struct PlaylistDetailView: View {
                         : "Resumes “\(resume!.track.title)” at \(clock(resume!.seconds))")
 
                     Button {
-                        playerVM.shuffleMode = true
                         Task {
-                            await playerVM.loadPlaylist(playlist)
+                            await playerVM.shufflePlaylist(playlist)
                             dismissAll?()
                         }
                     } label: {
                         Label("Shuffle", systemImage: "shuffle")
                     }
                     .buttonStyle(.bordered)
-                    .accessibilityHint("Plays this playlist in shuffled order from the start")
+                    .accessibilityHint("Plays this playlist in random order, starting on a random track")
 
                     Spacer()
 
@@ -65,6 +73,16 @@ struct PlaylistDetailView: View {
                     }
                 }
                 .padding(.vertical, 4)
+            }
+
+            Section {
+                NavigationLink {
+                    AddTracksView(playlist: playlist, db: playlistVM.db)
+                        .environmentObject(playlistVM)
+                        .environmentObject(playerVM)
+                } label: {
+                    Label("Add to Playlist…", systemImage: "plus.circle")
+                }
             }
 
             ForEach(playlistVM.currentPlaylistTracks) { track in
@@ -119,21 +137,12 @@ struct PlaylistDetailView: View {
                 }
             }
         }
-        .navigationTitle(playlist.name)
+        .navigationTitle("Playlist")
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.editMode, $editMode)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 EditButton()
-            }
-            ToolbarItem(placement: .navigationBarLeading) {
-                NavigationLink {
-                    AddTracksView(playlist: playlist, db: playlistVM.db)
-                        .environmentObject(playlistVM)
-                        .environmentObject(playerVM)
-                } label: {
-                    Label("Add", systemImage: "plus")
-                }
             }
         }
         .task {
@@ -156,18 +165,29 @@ struct PlaylistDetailView: View {
     /// (arrow.down.circle button, taps starts a single-track download).
     @ViewBuilder
     private func trackDownloadControl(_ track: Track) -> some View {
-        if offlineService.activeDownloads[track.id] != nil {
-            ProgressView()
-                .controlSize(.small)
-                .frame(width: 28, height: 28)
-                .accessibilityLabel("Downloading")
+        if let fraction = offlineService.trackProgress[track.id] {
+            // Downloading: blue circular determinate ring with %.
+            ZStack {
+                Circle()
+                    .stroke(Color.blue.opacity(0.25), lineWidth: 3)
+                Circle()
+                    .trim(from: 0, to: max(0.02, fraction))
+                    .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Text("\(Int(fraction * 100))")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.blue)
+            }
+            .frame(width: 28, height: 28)
+            .animation(.linear(duration: 0.2), value: fraction)
+            .accessibilityLabel("Downloading \(Int(fraction * 100)) percent")
         } else if track.localFilePath != nil {
             Button {
                 Task { await offlineService.removeOffline(track: track) }
             } label: {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title3)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(.blue)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Downloaded — tap to remove")

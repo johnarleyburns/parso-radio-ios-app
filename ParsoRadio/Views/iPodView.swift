@@ -21,9 +21,10 @@ struct iPodView: View {
     @State private var showAddItemToPlaylist = false
     @State private var showMoreOptions = false
     @State private var showFullMetadata = false
-    // Title-tap navigation: one of these is true at a time.
-    @State private var showChannelInfo = false
-    @State private var showActivePlaylist = false
+    @State private var isCurrentTrackFavorite = false
+    // Wheel MENU opens the Main Menu sheet, optionally pre-navigated to the
+    // current playlist or channel-info (single tap); double tap = root menu.
+    @State private var menuRoute: MenuRoute? = nil
     // Non-nil while the user is dragging the progress bar (overrides the
     // player position so the bar follows the finger).
     @State private var scrubFraction: Double? = nil
@@ -101,7 +102,8 @@ struct iPodView: View {
                         onSeek: { playerVM.seek(to: $0) },
                         onSeekBy: { playerVM.seekBy($0) },
                         onScrubChanged: { playerVM.isScrubbing = $0 },
-                        onMenu:        { showMainMenu = true },
+                        onMenu:        { openMenu(contextual: true) },
+                        onMenuRoot:    { openMenu(contextual: false) },
                         onPrevTrack:   { Task { await playerVM.goToPreviousTrack() } },
                         onNextTrack:   { playerVM.skip() },
                         onPlayPause:   { playerVM.togglePlayPause() },
@@ -121,6 +123,7 @@ struct iPodView: View {
         }
         .sheet(isPresented: $showMainMenu) {
             MainMenuView(
+                initialRoute: menuRoute,
                 onSelectChannel: { channel in
                     pendingChannel = channel
                     showMainMenu = false
@@ -169,37 +172,13 @@ struct iPodView: View {
         .sheet(isPresented: $showMoreOptions) {
             combinedTrackSheet
         }
-        .sheet(isPresented: $showChannelInfo) {
-            if let ch = playerVM.currentChannel {
-                ChannelInfoView(channel: ch, onDismiss: { showChannelInfo = false })
-            }
-        }
-        .sheet(isPresented: $showActivePlaylist) {
-            if let pl = playerVM.currentPlaylist {
-                NavigationStack {
-                    PlaylistDetailView(playlist: pl,
-                                       dismissAll: { showActivePlaylist = false })
-                        .environmentObject(playlistVM)
-                        .environmentObject(playerVM)
-                        .environmentObject(offlineService)
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("Done") { showActivePlaylist = false }
-                            }
-                        }
-                }
-            }
-        }
         // A drag-to-seek gesture interrupted by a sheet presentation can leave
         // isScrubbing stuck true, which freezes the progress bar / elapsed time
         // until the next track. Clear it whenever a sheet closes.
         .onChange(of: showMoreOptions) { _, shown in
             if !shown { playerVM.isScrubbing = false }
         }
-        .onChange(of: showChannelInfo) { _, shown in
-            if !shown { playerVM.isScrubbing = false }
-        }
-        .onChange(of: showActivePlaylist) { _, shown in
+        .onChange(of: showMainMenu) { _, shown in
             if !shown { playerVM.isScrubbing = false }
         }
         .task {
@@ -248,19 +227,10 @@ struct iPodView: View {
                     Spacer()
                 }
                 .foregroundStyle(.white.opacity(0.95))
-                .contentShape(Rectangle())
-                // Title tap goes DIRECTLY to the source — playlist detail
-                // for a playlist, channel info for a channel. Use the wheel's
-                // MENU button to get to the full menu.
-                .onTapGesture { openTitleDestination() }
+                // Label only — navigation moved to the wheel MENU button.
                 .accessibilityElement(children: .ignore)
-                .accessibilityAddTraits(.isButton)
                 .accessibilityLabel(
                     "Now playing from \(titleText.isEmpty ? "nothing" : titleText)")
-                .accessibilityHint(playerVM.currentPlaylist != nil
-                    ? "Opens this playlist"
-                    : "Opens channel information")
-                .accessibilityAction { openTitleDestination() }
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
 
@@ -621,6 +591,16 @@ struct iPodView: View {
                         bookmarksSection(for: track)
 
                         Section {
+                            Button {
+                                Task {
+                                    await playlistVM.toggleFavorite(track)
+                                    isCurrentTrackFavorite = await playlistVM.isInFavorites(track)
+                                }
+                            } label: {
+                                Label(isCurrentTrackFavorite ? "Remove from Favorites" : "Add to Favorites",
+                                      systemImage: isCurrentTrackFavorite ? "heart.fill" : "heart")
+                                    .foregroundStyle(isCurrentTrackFavorite ? Color.red : Color.accentColor)
+                            }
                             if let shareURL = shareURL(for: track) {
                                 ShareLink(item: shareURL,
                                           message: Text(track.title)) {
@@ -663,6 +643,11 @@ struct iPodView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { showMoreOptions = false }
+                }
+            }
+            .task(id: playerVM.currentTrack?.id) {
+                if let t = playerVM.currentTrack {
+                    isCurrentTrackFavorite = await playlistVM.isInFavorites(t)
                 }
             }
         }
@@ -909,16 +894,19 @@ struct iPodView: View {
 
     // MARK: - Helpers
 
-    // Where the upper-left title tap should go. Playlist → playlist detail,
-    // channel → channel info, nothing-playing → main menu (still useful).
-    private func openTitleDestination() {
-        if playerVM.currentPlaylist != nil {
-            showActivePlaylist = true
-        } else if playerVM.currentChannel != nil {
-            showChannelInfo = true
+    // Wheel MENU: single tap (contextual) opens the Main Menu pre-navigated to
+    // the current playlist / channel-info; double tap (contextual:false) opens
+    // the Main Menu root. The back chevron on those pushed screens returns to
+    // the menu list.
+    private func openMenu(contextual: Bool) {
+        if contextual, let pl = playerVM.currentPlaylist {
+            menuRoute = .playlist(pl)
+        } else if contextual, let ch = playerVM.currentChannel {
+            menuRoute = .channelInfo(ch)
         } else {
-            showMainMenu = true
+            menuRoute = nil
         }
+        showMainMenu = true
     }
 
     // Treats empty / "Unknown" (case-insensitive) placeholder values as
@@ -966,7 +954,8 @@ struct ClickWheel: View {
     var onSeek: (Double) -> Void = { _ in }       // absolute (hold-scrub)
     var onSeekBy: (Double) -> Void = { _ in }     // relative ±10 (single tap)
     var onScrubChanged: (Bool) -> Void = { _ in }
-    let onMenu:      () -> Void
+    let onMenu:      () -> Void                    // single tap → context dest
+    var onMenuRoot:  () -> Void = {}               // double tap → Main Menu
     let onPrevTrack: () -> Void                    // double-tap back
     let onNextTrack: () -> Void                    // double-tap forward
     let onPlayPause: () -> Void
@@ -1008,7 +997,8 @@ struct ClickWheel: View {
                         .offset(x: midRing).allowsHitTesting(false)
                 }
                 if playPauseEnabled {
-                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                    // Fixed combined glyph — never swaps between play and pause.
+                    Image(systemName: "playpause.fill")
                         .font(.system(size: ClickWheel.iconSize, weight: .medium))
                         .foregroundStyle(.primary)
                         .offset(y: midRing).allowsHitTesting(false)
@@ -1030,7 +1020,8 @@ struct ClickWheel: View {
             .accessibilityAction(.default) { onPlayPause() }
             .accessibilityActions {
                 Button(isPlaying ? "Pause" : "Play") { onPlayPause() }
-                Button("Open Menu") { onMenu() }
+                Button("Open") { onMenu() }
+                Button("Main Menu") { onMenuRoot() }
                 Button("Track Info") { onCenter() }
                 if transportEnabled {
                     Button("Next Track") { onNextTrack() }
@@ -1054,7 +1045,8 @@ struct ClickWheel: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 Color.clear.frame(width: cell, height: cell)            // corner
-                tapCell { onMenu() }                                     // MENU
+                WheelMenuRegion(onSingle: onMenu, onDouble: onMenuRoot, haptic: tap)
+                    .frame(width: cell, height: cell)                    // MENU
                 Color.clear.frame(width: cell, height: cell)            // corner
             }
             HStack(spacing: 0) {
@@ -1172,6 +1164,33 @@ private struct WheelSideRegion: View {
         scrubTimer?.invalidate(); scrubTimer = nil
         onSeek(scrubPos)
         onScrubChanged(false)
+    }
+}
+
+// The wheel MENU region: single tap → contextual destination (playlist /
+// channel info), double tap → straight to the Main Menu.
+private struct WheelMenuRegion: View {
+    let onSingle: () -> Void
+    let onDouble: () -> Void
+    let haptic: () -> Void
+    @State private var lastTap: Date? = nil
+    @State private var pending: DispatchWorkItem? = nil
+
+    var body: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture {
+                haptic()
+                if let last = lastTap, Date().timeIntervalSince(last) < 0.3 {
+                    pending?.cancel(); pending = nil; lastTap = nil
+                    onDouble()
+                } else {
+                    lastTap = Date()
+                    let work = DispatchWorkItem { onSingle(); lastTap = nil }
+                    pending = work
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.32, execute: work)
+                }
+            }
     }
 }
 

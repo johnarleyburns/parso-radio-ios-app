@@ -699,6 +699,16 @@ final class PlayerViewModel: ObservableObject {
             errorMessage = nil
             consecutiveLoadFailures = 0
 
+            // Record EVERY real track in Recently Played — channels, playlists,
+            // search picks, first-of-channel. (Ambient loops are excluded.)
+            if currentChannel?.contentType != .ambientLoop {
+                let ctx = currentChannel?.id
+                    ?? currentPlaylist.map { Self.playlistKey($0.id) }
+                    ?? "direct"
+                let trackId = track.id
+                Task { [db] in await db.recordPlayed(channelId: ctx, trackId: trackId) }
+            }
+
             if let channel = currentChannel {
                 if channel.contentType != .spokenWord {
                     await db.savePosition(channelId: channel.id, trackId: track.id, seconds: 0)
@@ -991,6 +1001,15 @@ final class PlayerViewModel: ObservableObject {
         let tracks = await db.fetchTracks(forPlaylist: playlist.id)
         guard let track = tracks.first(where: { $0.id == saved.trackId }) else { return nil }
         return (track, saved.seconds)
+    }
+
+    // Shuffle: start on a RANDOM track and continue in random order (advance
+    // already picks randomly while shuffleMode is on). Previously this called
+    // loadPlaylist, which always started on the first track.
+    func shufflePlaylist(_ playlist: Playlist) async {
+        shuffleMode = true
+        let tracks = await db.fetchTracks(forPlaylist: playlist.id)
+        await loadPlaylist(playlist, startingAt: tracks.randomElement())
     }
 
     // Resume a playlist exactly where the user left off (the saved track at
