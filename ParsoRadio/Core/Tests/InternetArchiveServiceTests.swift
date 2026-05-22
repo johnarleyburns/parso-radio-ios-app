@@ -380,7 +380,7 @@ final class InternetArchiveServiceTests: XCTestCase {
         XCTAssertEqual(info?.duration ?? 0, 180, accuracy: 0.01)  // 60 + 120
     }
 
-    func testSearchUsesGeneralDefaultFieldQuery() async throws {
+    func testSearchUsesRelevanceRankedPerTokenQuery() async throws {
         var captured: URL?
         MockURLProtocol.requestHandler = { req in
             captured = req.url
@@ -392,13 +392,21 @@ final class InternetArchiveServiceTests: XCTestCase {
         _ = try await service.search(query: "tarrega guitar", page: 0)
         // Decode so the assertion is independent of %20/+ encoding.
         let q = (captured?.query ?? "").removingPercentEncoding ?? ""
-        XCTAssertTrue(q.contains("(tarrega guitar) AND mediatype:audio")
-                   || q.contains("(tarrega+guitar)+AND+mediatype:audio"),
-            "search must use the broad default-field form, got: \(q)")
-        XCTAssertFalse(q.contains("title:("),
-            "must NOT field-scope the query (that ANDs words within one field)")
-        XCTAssertFalse(q.contains("creator:("),
-            "must NOT field-scope the query")
+        // New contract: every token must match, each expanded across
+        // title/creator/subject (boosted), AND'd together, and ranked by IA
+        // relevance (NO addeddate sort override — that buried good results).
+        XCTAssertTrue(q.contains("mediatype:audio"))
+        XCTAssertTrue(q.contains("title:\"tarrega\""), "token must expand into title field")
+        XCTAssertTrue(q.contains("title:\"guitar\""))
+        XCTAssertTrue(q.contains(") AND ("),
+            "the two tokens must be AND'd so both words must appear")
+        XCTAssertFalse(q.contains("title:(") || q.contains("creator:("),
+            "must NOT field-scope multiple words into one field")
+        // No sort override at all → IA returns Solr relevance order. (We still
+        // request addeddate as a RETURNED field via fl[], so assert on the
+        // sort parameter specifically, not the substring "addeddate".)
+        XCTAssertFalse(q.contains("sort"),
+            "search must rank by relevance — no sort override")
     }
 
     func testFetchTracksForIdentifierSingleFileHasNoPartInfo() async throws {
