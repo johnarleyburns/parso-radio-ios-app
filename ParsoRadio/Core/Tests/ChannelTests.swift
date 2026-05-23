@@ -42,25 +42,26 @@ final class ChannelTests: XCTestCase {
     }
 
     func testSpanishGuitarChannelInCurated() {
-        // Strict, guitar-only: famous guitarists (all-guitar catalogues),
-        // explicit guitar-title phrases, and top guitar composers GATED to a
-        // guitar title. No loose subject:"classical guitar" arm (that leaked
-        // non-guitar like "Joy Bells by Cliff Friend").
+        // Roster-driven: a curated list of MASTER guitarists (whose IA
+        // catalogues are professional, all-guitar recordings). The broad
+        // subject:"classical guitar" / title:"classical guitar" arms were
+        // dropped because they flooded the channel with amateur home
+        // recordings and buried the masters.
         let ch = Channel.defaults.first { $0.id == "spanish-guitar" }
         XCTAssertNotNil(ch, "Guitar channel must exist in Curated category")
         XCTAssertEqual(ch?.category, "Curated")
         XCTAssertEqual(ch?.name, "Classical Guitar")
         let q = ch?.iaQueryEntry?.iaQuery ?? ""
         XCTAssertTrue(q.contains("creator:\"Andrés Segovia\"")
-            && q.contains("creator:\"Julian Bream\""),
-            "Must match the renowned guitarists")
-        XCTAssertTrue(q.contains("subject:\"classical guitar\"")
-            && q.contains("title:\"classical guitar\""),
-            "Must match classical-guitar subject + title")
-        XCTAssertTrue(q.contains("subject:orchestra") && q.contains("subject:piano")
-            && q.contains("subject:vocal") && q.contains("subject:interview")
-            && q.contains("subject:electronic"),
-            "Must exclude orchestral / piano / vocal / interview / electronic works")
+            && q.contains("creator:\"Julian Bream\"")
+            && q.contains("creator:Sabicas")
+            && q.contains("creator:\"Laurindo Almeida\""),
+            "Must match the master guitarists' catalogues")
+        XCTAssertFalse(q.contains("subject:\"classical guitar\""),
+            "The broad amateur-leaking subject arm must be gone")
+        XCTAssertTrue(q.contains("subject:interview") && q.contains("subject:talk")
+            && q.contains("subject:lecture") && q.contains("title:interview"),
+            "Must still exclude interviews / talks / lectures")
         XCTAssertEqual(ch?.iaQueryEntry?.matchTags, ["spanish-guitar"])
     }
 

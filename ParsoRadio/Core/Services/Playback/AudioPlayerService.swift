@@ -321,12 +321,41 @@ final class AudioPlayerService: ObservableObject {
             let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue)
         else { return }
 
-        // When the previous output device becomes unavailable (headphones unplugged,
-        // Bluetooth lost), iOS pauses audio automatically. Mirror that in our state.
+        // The previous output device became unavailable (headphones unplugged,
+        // Bluetooth/AirPods lost). iOS pauses automatically; mirror that.
         if reason == .oldDeviceUnavailable {
-            isPlaying = false
-            MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 0.0
+            pauseForRouteFallback()
+            return
         }
+
+        // Defensive catch-all: AirPods can briefly drop and the audio route
+        // silently FALLS BACK to the built-in speaker while the system still
+        // shows them "connected" — the user then hears the phone speaker. If a
+        // route change leaves us on the built-in speaker while we were playing
+        // through something else, pause instead of blasting the speaker.
+        if isPlaying, currentOutputIsBuiltInSpeaker(),
+           previousRouteHadExternalOutput(info) {
+            pauseForRouteFallback()
+        }
+    }
+
+    private func pauseForRouteFallback() {
+        player?.pause()
+        isPlaying = false
+        MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 0.0
+    }
+
+    private func currentOutputIsBuiltInSpeaker() -> Bool {
+        AVAudioSession.sharedInstance().currentRoute.outputs
+            .contains { $0.portType == .builtInSpeaker }
+    }
+
+    private func previousRouteHadExternalOutput(_ info: [AnyHashable: Any]) -> Bool {
+        guard let prev = info[AVAudioSessionRouteChangePreviousRouteKey]
+                as? AVAudioSessionRouteDescription else { return false }
+        // Headphones, Bluetooth A2DP, AirPlay, USB, car — anything but the
+        // phone's own speaker counts as "was playing somewhere external".
+        return prev.outputs.contains { $0.portType != .builtInSpeaker }
     }
 
     // MARK: - Now Playing Info

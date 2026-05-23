@@ -114,7 +114,7 @@ struct iPodView: View {
                         transportEnabled: !isAmbientLoop,
                         onSeek: { playerVM.seek(to: $0) },
                         onSeekBy: { playerVM.seekBy($0) },
-                        onScrubChanged: { playerVM.isScrubbing = $0 },
+                        onScrubChanged: { playerVM.setScrubbing($0) },
                         onMenu:        { openMenu(contextual: true) },
                         onMenuRoot:    { openMenu(contextual: false) },
                         onPrevTrack:   { Task { await playerVM.goToPreviousTrack() } },
@@ -543,7 +543,7 @@ struct iPodView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { v in
-                        playerVM.isScrubbing = true
+                        playerVM.setScrubbing(true)
                         let f = min(max(Double(v.location.x / w), 0), 1)
                         scrubFraction = f
                         playerVM.currentPosition = f * duration
@@ -552,7 +552,7 @@ struct iPodView: View {
                         let f = min(max(Double(v.location.x / w), 0), 1)
                         playerVM.seek(to: f * duration)
                         scrubFraction = nil
-                        playerVM.isScrubbing = false
+                        playerVM.setScrubbing(false)
                     }
             )
         }
@@ -958,6 +958,9 @@ struct iPodView: View {
     // the Main Menu root. The back chevron on those pushed screens returns to
     // the menu list.
     private func openMenu(contextual: Bool) {
+        // Leaving the player screen → save the EXACT current spot so the
+        // playlist/channel resume marker reflects where the user actually is.
+        playerVM.saveCurrentSpot()
         if contextual, let pl = playerVM.currentPlaylist {
             menuRoute = .playlist(pl)
         } else if contextual, let ch = playerVM.currentChannel {
@@ -1088,12 +1091,12 @@ struct ClickWheel: View {
                         if !isDragging {
                             isDragging = true
                             seekVM.currentTime = currentTime
-                            seekVM.duration = duration
                             seekVM.onSeek = onSeek
-                            onScrubChanged(true)
-                        } else {
-                            seekVM.duration = duration
                         }
+                        seekVM.duration = duration
+                        // Stamp scrub activity on EVERY move so the self-healing
+                        // guard knows the drag is still live.
+                        onScrubChanged(true)
                         seekVM.handleDrag(location: value.location, center: center)
                     }
                     .onEnded { _ in

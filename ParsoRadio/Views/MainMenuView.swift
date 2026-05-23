@@ -8,6 +8,7 @@ enum MenuRoute: Hashable {
     case channelInfo(Channel)
     case channelList(String)   // a category → its Channels screen
     case playlists             // the Playlists library screen
+    case recentlyPlayed        // the Recently Played history screen
 }
 
 struct MainMenuView: View {
@@ -90,6 +91,9 @@ struct MainMenuView: View {
                         .environmentObject(playlistVM)
                         .environmentObject(playerVM)
                         .environmentObject(offlineService)
+                case .recentlyPlayed:
+                    RecentlyPlayedScreen(dismissAll: dismissAll)
+                        .environmentObject(playerVM)
                 }
             }
             // Inline search per Apple HIG. isPresented hides the menu on focus;
@@ -132,11 +136,19 @@ struct MainMenuView: View {
 
     @ViewBuilder
     private var menuContent: some View {
-        recentlyPlayedSection            // always shown (placeholder when empty)
-
         // Library: simple drill-down rows (HIG) — tap pushes the matching
         // screen; the back chevron returns here.
         Section("Library") {
+            NavigationLink(value: MenuRoute.recentlyPlayed) {
+                HStack {
+                    Label("Recently Played", systemImage: "clock.arrow.circlepath")
+                    Spacer()
+                    if !recentlyPlayed.isEmpty {
+                        Text("\(recentlyPlayed.count)")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
             NavigationLink(value: MenuRoute.playlists) {
                 HStack {
                     Label("Playlists", systemImage: "music.note.list")
@@ -241,86 +253,6 @@ struct MainMenuView: View {
         case "Lectures":     return "graduationcap"
         default:             return "music.note.list"
         }
-    }
-
-    // MARK: - Recently Played (collapsible + editable)
-
-    @ViewBuilder
-    private var recentlyPlayedSection: some View {
-        Section {
-            if recentlyPlayed.isEmpty {
-                Text("Nothing played yet.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(recentlyPlayed.prefix(8)) { track in
-                    recentRow(track)
-                }
-                .onDelete { indices in
-                    let recents = Array(recentlyPlayed.prefix(8))
-                    let toRemove = indices.map { recents[$0] }
-                    Task {
-                        for t in toRemove { await playerVM.removeFromRecentlyPlayed(t) }
-                        recentlyPlayed = await playerVM.recentlyPlayedTracks(limit: 30)
-                    }
-                }
-            }
-        } header: {
-            HStack {
-                Label("Recently Played", systemImage: "clock.arrow.circlepath")
-                    .textCase(nil)
-                Spacer()
-                if !recentlyPlayed.isEmpty {
-                    Button(role: .destructive) {
-                        Task {
-                            await playerVM.clearRecentlyPlayed()
-                            recentlyPlayed = []
-                        }
-                    } label: {
-                        Text("Clear")
-                    }
-                    .font(.caption)
-                    .textCase(nil)
-                    .accessibilityLabel("Clear all Recently Played")
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func recentRow(_ track: Track) -> some View {
-        Button {
-            Task {
-                await playerVM.playRecentTrack(track)
-                dismissAll()
-            }
-        } label: {
-            HStack(spacing: 10) {
-                ArtworkThumbnail(track: track, size: 36)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(track.title)
-                        .font(.body)
-                        .lineLimit(1)
-                    Text(track.artist)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Spacer()
-            }
-            .contentShape(Rectangle())
-        }
-        .foregroundStyle(.primary)
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                Task {
-                    await playerVM.removeFromRecentlyPlayed(track)
-                    recentlyPlayed = await playerVM.recentlyPlayedTracks(limit: 30)
-                }
-            } label: { Label("Remove", systemImage: "trash") }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityHint("Plays this track")
     }
 
     // MARK: - Mini-player (sticky bottom bar)

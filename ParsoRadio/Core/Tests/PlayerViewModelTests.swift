@@ -863,6 +863,41 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertFalse(vm.isPlaying, "autoPlay:false must restore paused")
     }
 
+    // saveCurrentSpot must write the EXACT current offset as the PLAYLIST resume
+    // point — this is what makes leaving the player (menu/background) or pausing
+    // resume precisely instead of at 0:00.
+    func testSaveCurrentSpotPersistsExactPlaylistPosition() async throws {
+        clearSessionDefaults()
+        let pl = try await seedPlaylist(["sc1", "sc2", "sc3"])
+        let order = await db.fetchTracks(forPlaylist: pl.id)
+        vm.currentChannel = nil
+        vm.currentPlaylist = pl
+        vm.currentTrack = order[1]
+        vm.currentPosition = 137.5
+
+        vm.saveCurrentSpot()
+        try await Task.sleep(nanoseconds: 400_000_000)   // let the fire-and-forget DB write land
+
+        let saved = await db.loadPosition(channelId: PlayerViewModel.playlistKey(pl.id))
+        XCTAssertEqual(saved?.trackId, order[1].id,
+            "leaving must save the CURRENT track as the playlist resume point")
+        XCTAssertEqual(saved?.seconds ?? 0, 137.5, accuracy: 0.5,
+            "leaving must save the EXACT offset, not 0:00")
+    }
+
+    // saveCurrentSpot is a no-op for ambient loops (their position is meaningless).
+    func testSaveCurrentSpotSkipsAmbient() async throws {
+        let ambient = Channel.defaults.first { $0.contentType == .ambientLoop }!
+        vm.currentChannel = ambient
+        vm.currentPlaylist = nil
+        vm.currentTrack = makeFMATrack(id: "amb-spot", tags: [])
+        vm.currentPosition = 50
+        vm.saveCurrentSpot()
+        try await Task.sleep(nanoseconds: 200_000_000)
+        let saved = await db.loadPosition(channelId: ambient.id)
+        XCTAssertNil(saved, "ambient loops must not record a resume position")
+    }
+
     // MARK: - Shuffle is per-context (#shuffle: reset on every context switch)
 
     // Switching channels ALWAYS resets shuffle OFF — set synchronously in load()'s
@@ -927,16 +962,18 @@ final class IAQueryRegistryTests: XCTestCase {
         let entry = IAQueryRegistry.shared.entry(for: "spanish-guitar")
         XCTAssertNotNil(entry, "IAQueryRegistry must load the spanish-guitar entry from ia_queries.json")
         XCTAssertFalse(entry?.iaQuery.isEmpty ?? true, "iaQuery must not be empty")
-        XCTAssertTrue(entry?.iaQuery.contains("title:\"classical guitar\"") ?? false,
-            "iaQuery must match explicit guitar-title phrases")
+        // Roster-driven: master guitarists, no broad amateur-leaking subject arm.
         XCTAssertTrue(entry?.iaQuery.contains("Julian Bream") ?? false
-                       && entry?.iaQuery.contains("Andrés Segovia") ?? false,
-            "iaQuery must match the renowned guitarists")
-        // Guitar-focused: exclude interviews / electronic / non-guitar works.
-        for excluded in ["subject:interview", "subject:orchestra", "subject:piano",
-                         "subject:violin", "subject:vocal", "subject:electronic"] {
+                       && entry?.iaQuery.contains("Andrés Segovia") ?? false
+                       && entry?.iaQuery.contains("Sabicas") ?? false
+                       && entry?.iaQuery.contains("Laurindo Almeida") ?? false,
+            "iaQuery must match the master guitarists")
+        XCTAssertFalse(entry?.iaQuery.contains("subject:\"classical guitar\"") ?? true,
+            "the broad amateur-leaking subject arm must be gone")
+        // Still excludes spoken content.
+        for excluded in ["subject:interview", "subject:talk", "subject:lecture", "title:interview"] {
             XCTAssertTrue(entry?.iaQuery.contains(excluded) ?? false,
-                "iaQuery must exclude '\(excluded)' to stay guitar-focused")
+                "iaQuery must exclude '\(excluded)' to keep out spoken content")
         }
     }
 

@@ -50,6 +50,9 @@ final class PlayerViewModel: ObservableObject {
     private let ambientService: AmbientStaticService
     private let queueManager: QueueManager
     private let downloadManager: DownloadManager
+    // Resolves the deterministic on-disk path for a downloaded track so
+    // playback prefers a local file over re-streaming from the Internet Archive.
+    private let fileStorage = FileStorageService()
     var currentChannel: Channel?
 
     // Look-ahead cache: pre-resolved IA audio URLs so track transitions are gap-free.
@@ -62,6 +65,11 @@ final class PlayerViewModel: ObservableObject {
     private var itemPartsCache: [String: [Track]?] = [:]
     // Throttle spoken-word position saves to once every 5 s (onTimeUpdate fires 4×/s).
     private var lastPositionSaveTime: Double = -5
+    // Timestamp of the most recent scrub movement. The scrub guard in
+    // onTimeUpdate auto-expires off this so an interrupted drag (whose .onEnded
+    // never fired) can't latch isScrubbing true and freeze the timer / strand
+    // "Buffering…".
+    private var lastScrubActivity: Date = .distantPast
 
     // UC3: track history for backward navigation (most-recent last, cap historyLimit).
     var playHistory: [Track] = []
@@ -120,10 +128,10 @@ final class PlayerViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 UserDefaults.standard.set(self.isPlaying, forKey: "wasPlayingOnQuit")
-                // Safety-net: never lose the user's spot — autosave + session
-                // snapshot on resign (covers backgrounding and app updates).
-                self.saveAutosaveForCurrentTrack()
-                self.persistSession(position: self.currentPosition)
+                // Safety-net: never lose the user's spot — save the EXACT
+                // playlist/channel resume point + autosave + session snapshot on
+                // resign (covers backgrounding and app updates).
+                self.saveCurrentSpot()
             }
         }
 
@@ -184,14 +192,26 @@ final class PlayerViewModel: ObservableObject {
 
         audioPlayer.onTimeUpdate = { [weak self] seconds in
             Task { @MainActor [weak self] in
-                guard let self, !self.isScrubbing else { return }
+                guard let self else { return }
                 // The first time tick PAST zero means audio is genuinely
-                // progressing — only NOW hide the loading indicator. (The
+                // progressing — hide the loading indicator. This MUST run even
+                // while isScrubbing: an interrupted wheel drag could otherwise
+                // strand "Buffering…" on a track that is actually playing. (The
                 // observer can fire once at 0 before playback actually starts,
                 // so the >0.1 guard avoids clearing too early.)
                 if self.isLoading, seconds > 0.1 {
                     self.isLoading = false
                     self.loadingMessage = nil
+                }
+                // Self-healing scrub guard: while the user is ACTIVELY scrubbing
+                // (recent movement) the scrub owns currentPosition, so skip the
+                // player's reported time. But if the gesture's .onEnded never
+                // fired (cancelled by a sheet / track change / re-render) the
+                // flag would latch and freeze the timer forever — so it expires
+                // shortly after the last scrub movement.
+                if self.isScrubbing {
+                    if Date().timeIntervalSince(self.lastScrubActivity) < 0.6 { return }
+                    self.isScrubbing = false
                 }
                 self.currentPosition = seconds
                 self.trackDuration = self.audioPlayer.duration
@@ -218,6 +238,35 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
+    }
+
+    // Set from the scrub gestures (wheel ring drag + progress slider). Stamps
+    // the activity time so the self-healing guard in onTimeUpdate knows the
+    // drag is still live; when set false it releases immediately.
+    func setScrubbing(_ active: Bool) {
+        if active { lastScrubActivity = Date() }
+        if isScrubbing != active { isScrubbing = active }   // avoid redundant publishes
+    }
+
+    /// Persist the EXACT current spot for the active context. Call this whenever
+    /// the user leaves the player (opens the menu, backgrounds the app) or
+    /// pauses, so the resume marker is always the precise track + offset — never
+    /// the stale throttled value or 0:00. Writes the context position
+    /// (playlist/channel), the per-track autosave, and the global session.
+    func saveCurrentSpot() {
+        guard let track = currentTrack,
+              currentChannel?.contentType != .ambientLoop else { return }
+        let pos = currentPosition
+        let trackId = track.id
+        if let playlist = currentPlaylist {
+            let key = Self.playlistKey(playlist.id)
+            Task { [db] in await db.savePosition(channelId: key, trackId: trackId, seconds: pos) }
+        } else if let channel = currentChannel {
+            let cid = channel.id
+            Task { [db] in await db.savePosition(channelId: cid, trackId: trackId, seconds: pos) }
+        }
+        saveAutosaveForCurrentTrack()
+        persistSession(position: pos)
     }
 
     func load(channel: Channel, autoPlay: Bool = true) async {
@@ -385,11 +434,11 @@ final class PlayerViewModel: ObservableObject {
 
     func togglePlayPause() {
         if audioPlayer.isPlaying {
-            // Capture the spot BEFORE telling the player to pause — once the
-            // user is paused the position will not advance, but if they exit
-            // the app right after a pause we still want the latest offset.
-            saveAutosaveForCurrentTrack()
-            persistSession(position: currentPosition)
+            // Capture the EXACT spot BEFORE telling the player to pause — once
+            // the user is paused the position will not advance, but if they exit
+            // the app right after a pause we still want the latest offset saved
+            // as the playlist/channel resume point.
+            saveCurrentSpot()
             audioPlayer.pause()
             isPlaying = false
         } else if currentTrack != nil {
@@ -616,6 +665,11 @@ final class PlayerViewModel: ObservableObject {
         // interrupted by a transition could otherwise leave this stuck true,
         // freezing the progress bar).
         isScrubbing = false
+        // Reset the position-save throttle per track: it tracks the LAST track's
+        // elapsed seconds, so without this a new track's early position wouldn't
+        // be persisted until it passed the previous track's offset (leaving the
+        // resume marker stuck at 0:00 if the user left early).
+        lastPositionSaveTime = -5
         // Reload bookmarks for the new track (replaced below).
         bookmarksForCurrentTrack = []
         currentTrack = track
@@ -669,6 +723,13 @@ final class PlayerViewModel: ObservableObject {
             } else if let localPath = track.localFilePath,
                       FileManager.default.fileExists(atPath: localPath) {
                 url = URL(fileURLWithPath: localPath)   // offline-downloaded track
+            } else if case let downloaded = fileStorage.localURL(for: track.id),
+                      FileManager.default.fileExists(atPath: downloaded.path) {
+                // Downloaded earlier (or prefetched ahead) but the in-memory
+                // Track carries no localFilePath — play the file on disk instead
+                // of re-streaming. Faster, works offline, and spares the
+                // Internet Archive needless bandwidth.
+                url = downloaded
             } else if track.source == "internet_archive" {
                 if let cached = prefetchedURLs.removeValue(forKey: track.id) {
                     url = cached
