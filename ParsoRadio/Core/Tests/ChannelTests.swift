@@ -63,7 +63,7 @@ final class ChannelTests: XCTestCase {
             && q.contains("subject:vocal"),
             "Must exclude orchestral / piano / vocal works")
         XCTAssertEqual(ch?.iaQueryEntry?.matchTags, ["spanish-guitar"])
-        XCTAssertNil(Channel.defaults.first { $0.id == "spanish-guitar" },
+        XCTAssertNil(Channel.defaults.first { $0.id == "classical-guitar" },
             "Old classical-guitar id should be retired in favor of spanish-guitar")
     }
 

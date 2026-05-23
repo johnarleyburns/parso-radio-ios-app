@@ -766,24 +766,26 @@ final class PlayerViewModelTests: XCTestCase {
 // IAQueryRegistry: bundle JSON loads and matchTags act as an isolation stamp.
 final class IAQueryRegistryTests: XCTestCase {
 
-    func testIAQueryRegistryLoadsClassicalGuitar() {
+    func testIAQueryRegistryLoadsSpanishGuitar() {
         let entry = IAQueryRegistry.shared.entry(for: "spanish-guitar")
-        XCTAssertNotNil(entry, "IAQueryRegistry must load the classical-guitar entry from ia_queries.json")
+        XCTAssertNotNil(entry, "IAQueryRegistry must load the spanish-guitar entry from ia_queries.json")
         XCTAssertFalse(entry?.iaQuery.isEmpty ?? true, "iaQuery must not be empty")
-        XCTAssertTrue(entry?.iaQuery.contains("classical guitar") ?? false,
-            "iaQuery must include the 'classical guitar' subject")
+        XCTAssertTrue(entry?.iaQuery.contains("title:\"classical guitar\"") ?? false,
+            "iaQuery must match explicit guitar-title phrases")
         XCTAssertTrue(entry?.iaQuery.contains("Julian Bream") ?? false
-                       || entry?.iaQuery.contains("Heitor Villa-Lobos") ?? false,
-            "iaQuery should include the broadened composers beyond the Spanish-only list")
-        // Curated query must exclude the noise genres the user reported.
-        for excluded in ["subject:electronic", "subject:dance", "subject:blues",
-                         "subject:folk", "subject:vocal"] {
+                       && entry?.iaQuery.contains("Andrés Segovia") ?? false,
+            "iaQuery must match the renowned guitarists")
+        // Strict guitar-only: no loose subject arm; exclude non-guitar works.
+        XCTAssertFalse(entry?.iaQuery.contains("subject:\"classical guitar\"") ?? true,
+            "Must NOT use the loose subject arm that leaked non-guitar items")
+        for excluded in ["subject:orchestra", "subject:piano", "subject:violin",
+                         "subject:vocal", "subject:electronic"] {
             XCTAssertTrue(entry?.iaQuery.contains(excluded) ?? false,
-                "iaQuery must exclude '\(excluded)' to keep the channel instrumental classical")
+                "iaQuery must exclude '\(excluded)' to stay guitar-focused")
         }
     }
 
-    func testClassicalGuitarMatchTagsAreAnIsolationStamp() {
+    func testSpanishGuitarMatchTagsAreAnIsolationStamp() {
         let entry = IAQueryRegistry.shared.entry(for: "spanish-guitar")
         XCTAssertNotNil(entry)
         // matchTags are STAMPED onto every fetched track (not expected to overlap
