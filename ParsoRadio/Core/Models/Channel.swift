@@ -334,11 +334,11 @@ extension Channel {
         // matchTags is the per-channel isolation stamp injected at fetch time.
         // `tags` here only feed detailDescription/UI — matching uses the stamp.
         Channel(
-            id: "classical-guitar", name: "Classical Guitar", category: "Curated",
+            id: "spanish-guitar", name: "Spanish Guitar", category: "Curated",
             icon: "guitars",
-            tags: ["classical-guitar"],
+            tags: ["spanish-guitar"],
             preferredSource: "internet_archive",
-            summary: "Spanish classical & flamenco guitar — Segovia, Yepes, the Romeros, Sainz de la Maza, Bream, Tárrega, Sabicas, Montoya and Paco de Lucía, plus the Spanish repertoire (Recuerdos de la Alhambra, Concierto de Aranjuez, Asturias). Solo guitar focused; orchestral, piano, vocal, lute and folk excluded."
+            summary: "Spanish & classical guitar — the great guitarists (Segovia, Yepes, Bream, the Romeros, Sainz de la Maza, Tárrega, Paco de Lucía, Sabicas, Montoya, Barrueco, Russell) and the core repertoire (Sor, Albéniz, Granados, Rodrigo, Barrios, Villa-Lobos). Matched by guitarist or by an explicit guitar title; orchestral, piano, vocal and non-guitar works are excluded."
         ),
         // Chamber Music: curl-verified 2026-05-15 — 919 items; canonical
         // ensembles (Budapest/Quartetto Italiano), Trout Quintet, Beethoven

@@ -41,27 +41,30 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    func testClassicalGuitarChannelInCurated() {
-        // Renamed from "spanish-guitar" + broader composers (Bach lute, Bream,
-        // Williams, Villa-Lobos, Barrios, etc.). Still instrumental-only — no
-        // vocal, choral, folk or electronic.
-        let ch = Channel.defaults.first { $0.id == "classical-guitar" }
-        XCTAssertNotNil(ch, "Classical Guitar channel must exist in Curated category")
+    func testSpanishGuitarChannelInCurated() {
+        // Strict, guitar-only: famous guitarists (all-guitar catalogues),
+        // explicit guitar-title phrases, and top guitar composers GATED to a
+        // guitar title. No loose subject:"classical guitar" arm (that leaked
+        // non-guitar like "Joy Bells by Cliff Friend").
+        let ch = Channel.defaults.first { $0.id == "spanish-guitar" }
+        XCTAssertNotNil(ch, "Spanish Guitar channel must exist in Curated category")
         XCTAssertEqual(ch?.category, "Curated")
-        XCTAssertEqual(ch?.name, "Classical Guitar")
+        XCTAssertEqual(ch?.name, "Spanish Guitar")
         let q = ch?.iaQueryEntry?.iaQuery ?? ""
-        XCTAssertTrue(q.contains("subject:\"classical guitar\""),
-            "Classical Guitar query must use the classical-guitar subject")
-        XCTAssertTrue(q.contains("creator:\"Julian Bream\"")
-            || q.contains("creator:\"Heitor Villa-Lobos\""),
-            "Classical Guitar should include broader composers beyond Spanish-only")
-        XCTAssertTrue(q.contains("NOT (subject:electric")
-            || q.contains("AND NOT (subject:electric"),
-            "Must exclude electric/electronic genres")
-        XCTAssertTrue(q.contains("subject:vocal") && q.contains("subject:folk"),
-            "Must exclude vocal and folk content (instrumental-only)")
+        XCTAssertTrue(q.contains("creator:\"Andrés Segovia\"")
+            && q.contains("creator:\"Julian Bream\""),
+            "Spanish Guitar must match the renowned guitarists")
+        XCTAssertTrue(q.contains("title:\"classical guitar\"")
+            && q.contains("title:\"spanish guitar\""),
+            "Spanish Guitar must match explicit guitar titles")
+        XCTAssertFalse(q.contains("subject:\"classical guitar\""),
+            "Must NOT use the loose subject arm that leaked non-guitar items")
+        XCTAssertTrue(q.contains("subject:orchestra") && q.contains("subject:piano")
+            && q.contains("subject:vocal"),
+            "Must exclude orchestral / piano / vocal works")
+        XCTAssertEqual(ch?.iaQueryEntry?.matchTags, ["spanish-guitar"])
         XCTAssertNil(Channel.defaults.first { $0.id == "spanish-guitar" },
-            "Old spanish-guitar id should be retired in favor of classical-guitar")
+            "Old classical-guitar id should be retired in favor of spanish-guitar")
     }
 
     func testReligiousMusicChannel() {
@@ -155,7 +158,7 @@ final class ChannelTests: XCTestCase {
             "Expected 15 Curated channels (+ Religious Music)")
         let ids = Set(channels.map(\.id))
         XCTAssertEqual(ids, [
-            "classical-guitar", "chamber-music", "historical-voices",
+            "spanish-guitar", "chamber-music", "historical-voices",
             "symphony-orchestra", "piano-hour", "tribal-works", "cafe-lento",
             "netlabels", "rpm-78", "childrens-songs", "childrens-books",
             "ancient-greece", "great-books", "greater-books",
@@ -209,11 +212,11 @@ final class ChannelTests: XCTestCase {
     }
 
     func testPreferredSourceAssignedCorrectly() {
-        let classicalGuitar = Channel.defaults.first { $0.id == "classical-guitar" }!
+        let spanishGuitar = Channel.defaults.first { $0.id == "spanish-guitar" }!
         let fmaJazz         = Channel.defaults.first { $0.id == "fma-jazz" }!
         let oxford          = Channel.defaults.first { $0.id == "oxford-philosophy" }!
 
-        XCTAssertEqual(classicalGuitar.preferredSource, "internet_archive")
+        XCTAssertEqual(spanishGuitar.preferredSource, "internet_archive")
         XCTAssertEqual(fmaJazz.preferredSource,         "fma")
         XCTAssertEqual(oxford.preferredSource,          "oxford_lectures")
     }

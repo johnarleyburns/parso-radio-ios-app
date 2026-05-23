@@ -591,6 +591,12 @@ struct iPodView: View {
                         bookmarksSection(for: track)
 
                         Section {
+                            if let shareURL = shareURL(for: track) {
+                                ShareLink(item: shareURL,
+                                          message: Text(track.title)) {
+                                    Label("Share Track", systemImage: "square.and.arrow.up")
+                                }
+                            }
                             Button {
                                 Task {
                                     await playlistVM.toggleFavorite(track)
@@ -600,12 +606,6 @@ struct iPodView: View {
                                 Label(isCurrentTrackFavorite ? "Remove from Favorites" : "Add to Favorites",
                                       systemImage: isCurrentTrackFavorite ? "heart.fill" : "heart")
                                     .foregroundStyle(isCurrentTrackFavorite ? Color.red : Color.accentColor)
-                            }
-                            if let shareURL = shareURL(for: track) {
-                                ShareLink(item: shareURL,
-                                          message: Text(track.title)) {
-                                    Label("Share Track", systemImage: "square.and.arrow.up")
-                                }
                             }
                             Button {
                                 showMoreOptions = false

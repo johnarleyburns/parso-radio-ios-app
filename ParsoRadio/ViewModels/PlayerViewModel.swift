@@ -183,6 +183,14 @@ final class PlayerViewModel: ObservableObject {
         audioPlayer.onTimeUpdate = { [weak self] seconds in
             Task { @MainActor [weak self] in
                 guard let self, !self.isScrubbing else { return }
+                // The first time tick PAST zero means audio is genuinely
+                // progressing — only NOW hide the loading indicator. (The
+                // observer can fire once at 0 before playback actually starts,
+                // so the >0.1 guard avoids clearing too early.)
+                if self.isLoading, seconds > 0.1 {
+                    self.isLoading = false
+                    self.loadingMessage = nil
+                }
                 self.currentPosition = seconds
                 self.trackDuration = self.audioPlayer.duration
                 // (minTrackDuration is enforced invisibly in advanceToNext via
@@ -694,10 +702,16 @@ final class PlayerViewModel: ObservableObject {
                 currentPosition = resumeAt
             }
             isPlaying = true
-            isLoading = false
-            loadingMessage = nil
             errorMessage = nil
             consecutiveLoadFailures = 0
+            // Keep the loading indicator up until the player ACTUALLY produces
+            // audio (the first periodic time tick clears it). Previously this
+            // cleared the moment play() returned — seconds before sound. Ambient
+            // loops start instantly from a bundled asset, so clear immediately.
+            if currentChannel?.contentType == .ambientLoop {
+                isLoading = false
+                loadingMessage = nil
+            }
 
             // Record EVERY real track in Recently Played — channels, playlists,
             // search picks, first-of-channel. (Ambient loops are excluded.)

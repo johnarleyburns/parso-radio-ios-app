@@ -113,10 +113,10 @@ final class QueueManagerTests: XCTestCase {
     // (forcing the exhausted-loop path) must NEVER surface another channel's
     // tracks, and one channel's play history must not shrink another's pool.
     func testCuratedChannelsDoNotLeakAcrossEachOther() async throws {
-        let sg = Channel.defaults.first { $0.id == "classical-guitar" }!
+        let sg = Channel.defaults.first { $0.id == "spanish-guitar" }!
         let cm = Channel.defaults.first { $0.id == "chamber-music" }!
         var all: [Track] = []
-        for i in 1...5 { all.append(makeStamped(id: "sg-\(i)", stamp: "classical-guitar")) }
+        for i in 1...5 { all.append(makeStamped(id: "sg-\(i)", stamp: "spanish-guitar")) }
         for i in 1...5 { all.append(makeStamped(id: "cm-\(i)", stamp: "chamber-music")) }
         await db.saveTracks(all)
 

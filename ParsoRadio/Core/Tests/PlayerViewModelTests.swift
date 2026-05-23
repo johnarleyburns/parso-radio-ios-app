@@ -405,13 +405,13 @@ final class PlayerViewModelTests: XCTestCase {
     // Registry-backed channels (Classical Guitar) are radio stations: they must
     // NOT play strict newest-first even when the global shuffle toggle is off.
     func testRegistryChannelDoesNotPlayStrictNewestFirst() async throws {
-        let channel = Channel.defaults.first { $0.id == "classical-guitar" }!
+        let channel = Channel.defaults.first { $0.id == "spanish-guitar" }!
         XCTAssertNotNil(channel.iaQueryEntry,
             "precondition: classical-guitar must be registry-backed")
 
         var tracks: [Track] = []
         for i in 1...8 {
-            var t = makeIATrack(id: "sg-\(i)", tags: [Channel.stampToken("classical-guitar")])
+            var t = makeIATrack(id: "sg-\(i)", tags: [Channel.stampToken("spanish-guitar")])
             t.addedDate = Date(timeIntervalSince1970: TimeInterval(1_700_000_000 + i * 86_400))
             tracks.append(t)
         }
@@ -436,13 +436,13 @@ final class PlayerViewModelTests: XCTestCase {
     // not by sparse IA subjects. A generic 'classical' track without the stamp
     // must not leak into Classical Guitar.
     func testStampedTrackIsolatedToRegistryChannel() {
-        let sg = Channel.defaults.first { $0.id == "classical-guitar" }!
+        let sg = Channel.defaults.first { $0.id == "spanish-guitar" }!
         let stamped = makeIATrack(id: "sg-x",
-            tags: ["classical", "78rpm", Channel.stampToken("classical-guitar")])
+            tags: ["classical", "78rpm", Channel.stampToken("spanish-guitar")])
         XCTAssertTrue(sg.matches(stamped),
             "a stamped track must match even with sparse/non-guitar subjects")
         // A real IA subject equal to the bare id must NOT match (the leak bug).
-        let bareId = makeIATrack(id: "sg-z", tags: ["classical-guitar"])
+        let bareId = makeIATrack(id: "sg-z", tags: ["spanish-guitar"])
         XCTAssertFalse(sg.matches(bareId),
             "a natural subject equal to the bare id must not be treated as the stamp")
         let unstamped = makeIATrack(id: "sg-y", tags: ["classical", "78rpm"])
@@ -767,7 +767,7 @@ final class PlayerViewModelTests: XCTestCase {
 final class IAQueryRegistryTests: XCTestCase {
 
     func testIAQueryRegistryLoadsClassicalGuitar() {
-        let entry = IAQueryRegistry.shared.entry(for: "classical-guitar")
+        let entry = IAQueryRegistry.shared.entry(for: "spanish-guitar")
         XCTAssertNotNil(entry, "IAQueryRegistry must load the classical-guitar entry from ia_queries.json")
         XCTAssertFalse(entry?.iaQuery.isEmpty ?? true, "iaQuery must not be empty")
         XCTAssertTrue(entry?.iaQuery.contains("classical guitar") ?? false,
@@ -784,16 +784,16 @@ final class IAQueryRegistryTests: XCTestCase {
     }
 
     func testClassicalGuitarMatchTagsAreAnIsolationStamp() {
-        let entry = IAQueryRegistry.shared.entry(for: "classical-guitar")
+        let entry = IAQueryRegistry.shared.entry(for: "spanish-guitar")
         XCTAssertNotNil(entry)
         // matchTags are STAMPED onto every fetched track (not expected to overlap
         // IA subjects). The stamp must be present and collision-resistant.
-        XCTAssertEqual(entry?.matchTags, ["classical-guitar"],
+        XCTAssertEqual(entry?.matchTags, ["spanish-guitar"],
             "matchTags is the per-channel isolation stamp injected at fetch time")
     }
 
     func testChannelMatchesUsesRegistryStamp() {
-        let channel = Channel.defaults.first { $0.id == "classical-guitar" }!
+        let channel = Channel.defaults.first { $0.id == "spanish-guitar" }!
         // A creator-matched track with sparse subjects but carrying the stamp.
         let stamped = Track(
             id: "seg-1", source: "internet_archive",
@@ -802,7 +802,7 @@ final class IAQueryRegistryTests: XCTestCase {
             streamURL: URL(string: "https://archive.org/download/seg-1")!,
             downloadURL: nil, localFilePath: nil,
             license: .publicDomain,
-            tags: ["78rpm", "classical", Channel.stampToken("classical-guitar")],
+            tags: ["78rpm", "classical", Channel.stampToken("spanish-guitar")],
             qualityScore: 0.8,
             rawCreator: "Andrés Segovia", composer: nil, instruments: [],
             metadataConfidence: 0.0
@@ -852,7 +852,7 @@ final class IAQueryRegistryTests: XCTestCase {
             title: "x", artist: "y", duration: 1,
             streamURL: URL(string: "https://archive.org/download/sg-z")!,
             downloadURL: nil, localFilePath: nil,
-            license: .publicDomain, tags: ["classical", Channel.stampToken("classical-guitar")],
+            license: .publicDomain, tags: ["classical", Channel.stampToken("spanish-guitar")],
             qualityScore: 1.0, rawCreator: "", composer: nil, instruments: [],
             metadataConfidence: 0.0
         )

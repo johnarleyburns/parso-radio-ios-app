@@ -31,6 +31,19 @@ struct MainMenuView: View {
     @State private var searchText = ""
     @State private var searchActive = false
 
+    init(initialRoute: MenuRoute? = nil,
+         onSelectChannel: @escaping (Channel) -> Void,
+         dismissAll: @escaping () -> Void) {
+        self.initialRoute = initialRoute
+        self.onSelectChannel = onSelectChannel
+        self.dismissAll = dismissAll
+        // Seed the path SYNCHRONOUSLY so the route is in place before first
+        // render. (Pushing it later from an async .task let a quick Back tap
+        // get overwritten when the await finished — the "bounces back into
+        // Channel Info" bug.)
+        _path = State(initialValue: initialRoute.map { [$0] } ?? [])
+    }
+
     // Fixed section order. Alphabetical WITHIN each.
     private static let categoryOrder = [
         "Curated", "Ambient", "News", "Contemporary", "Audiobooks", "Lectures"
@@ -113,13 +126,6 @@ struct MainMenuView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
                 }
-                // Standard Edit affordance: reorder / delete playlists and
-                // delete Recently Played rows. (Swipe-to-delete also works.)
-                if !searchActive {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        EditButton()
-                    }
-                }
             }
             .sheet(isPresented: $showAbout) {
                 AboutView()
@@ -131,7 +137,6 @@ struct MainMenuView: View {
             }
             .task {
                 recentlyPlayed = await playerVM.recentlyPlayedTracks(limit: 30)
-                if let initialRoute, path.isEmpty { path = [initialRoute] }
             }
         }
     }
@@ -146,7 +151,21 @@ struct MainMenuView: View {
         let others    = playlistVM.playlists.filter { !$0.isFavorites }
         if !playlistVM.playlists.isEmpty {
             Section {
-                collapsibleHeader(id: "playlists", title: "Playlists")
+                collapsibleHeader(
+                    id: "playlists", title: "Playlists",
+                    icon: "music.note.list",
+                    trailing: AnyView(
+                        Group {
+                            if expanded.contains("playlists") {
+                                Button(editMode.isEditing ? "Done" : "Edit") {
+                                    withAnimation { editMode = editMode.isEditing ? .inactive : .active }
+                                }
+                                .font(.callout)
+                                .buttonStyle(.borderless)
+                            }
+                        }
+                    )
+                )
                 if expanded.contains("playlists") {
                     ForEach(favorites) { pl in playlistRow(pl) }
                     ForEach(others) { pl in playlistRow(pl) }
