@@ -355,6 +355,17 @@ final class PlayerViewModel: ObservableObject {
             }
 
             await db.saveTracks(fetched)
+            // Registry (iaQuery) channels carry a unique isolation stamp, so we
+            // can safely prune any previously-stamped tracks this — possibly
+            // updated/narrowed — query no longer returns. Downloads are kept.
+            // This is the GENERAL fix for "an old/broader query's results linger
+            // in the local DB and repeat forever": the pool can never outlive
+            // the current query's definition. (Tag/composer channels are NOT
+            // pruned — they share tracks across channels by subject/composer.)
+            if channel.iaQueryEntry != nil, !fetched.isEmpty {
+                await db.pruneChannelTracks(
+                    forChannel: channel, keeping: Set(fetched.map(\.id)))
+            }
             downloadManager.prefetchNext(fetched)
             channelDescription = channel.detailDescription
             channelTrackCount = fetched.count

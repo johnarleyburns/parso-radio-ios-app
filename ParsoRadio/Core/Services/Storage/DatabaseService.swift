@@ -235,6 +235,31 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
+    /// Remove tracks belonging to a registry channel (matched by its unique
+    /// isolation stamp) that the current query no longer returns — i.e. stale
+    /// results from a previous/broader query definition. Downloaded and
+    /// imported-local tracks are preserved so offline playback keeps working.
+    /// SAFE ONLY for registry channels: their `matches` is stamp-based and
+    /// channel-unique, so this never deletes another channel's tracks.
+    func pruneChannelTracks(forChannel channel: Channel, keeping freshIds: Set<String>) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let all = (try? self.db.prepare(self.tracks))?
+                    .compactMap(self.rowToTrack) ?? []
+                let stale = all.filter {
+                    channel.matches($0)
+                        && !freshIds.contains($0.id)
+                        && $0.localFilePath == nil
+                        && !$0.isLocal
+                }
+                for t in stale {
+                    _ = try? self.db.run(self.tracks.filter(self.colId == t.id).delete())
+                }
+                continuation.resume()
+            }
+        }
+    }
+
     func markDownloaded(trackID: String, localPath: String) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in

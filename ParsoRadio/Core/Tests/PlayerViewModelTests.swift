@@ -787,6 +787,36 @@ final class PlayerViewModelTests: XCTestCase {
                        "guitar-classical")
     }
 
+    // ROOT-CAUSE fix for stale-query junk: when a registry channel re-fetches,
+    // stale streaming tracks the current query no longer returns are pruned —
+    // but downloads and other channels' tracks are preserved. This is what stops
+    // an old/broader query's results from lingering and repeating forever.
+    func testPruneChannelTracksDropsStaleStreamingButKeepsDownloadsAndOtherChannels() async throws {
+        let guitar = Channel.defaults.first { $0.id == "guitar-classical" }!
+        let stamp = Channel.stampToken("guitar-classical")
+        let fresh = makeIATrack(id: "g-fresh", tags: [stamp])
+        let staleStream = makeIATrack(id: "g-stale", tags: [stamp])
+        let staleDownloaded = Track(
+            id: "g-dl", source: "internet_archive", title: "Downloaded", artist: "X",
+            duration: 180, streamURL: URL(string: "https://archive.org/download/g-dl")!,
+            downloadURL: nil, localFilePath: "/tmp/g-dl.mp3",
+            license: .publicDomain, tags: [stamp], qualityScore: 0.8,
+            rawCreator: "", composer: nil, instruments: [], metadataConfidence: 2.0)
+        let otherChannel = makeIATrack(id: "x-1", tags: [Channel.stampToken("chamber-music")])
+        await db.saveTracks([fresh, staleStream, staleDownloaded, otherChannel])
+
+        await db.pruneChannelTracks(forChannel: guitar, keeping: ["g-fresh"])
+
+        let freshLeft = await db.fetchTrack(id: "g-fresh")
+        let staleLeft = await db.fetchTrack(id: "g-stale")
+        let dlLeft = await db.fetchTrack(id: "g-dl")
+        let otherLeft = await db.fetchTrack(id: "x-1")
+        XCTAssertNotNil(freshLeft, "current-query results must remain")
+        XCTAssertNil(staleLeft, "stale streaming results must be pruned")
+        XCTAssertNotNil(dlLeft, "downloaded tracks must be preserved even if stale")
+        XCTAssertNotNil(otherLeft, "another channel's tracks must be untouched")
+    }
+
     // persistSession records the CHANNEL context (kind/contextId/track/position)
     // so a relaunch resumes the exact channel + track + offset.
     func testPersistSessionRecordsChannelContext() {
