@@ -47,24 +47,21 @@ final class ChannelTests: XCTestCase {
         // guitar title. No loose subject:"classical guitar" arm (that leaked
         // non-guitar like "Joy Bells by Cliff Friend").
         let ch = Channel.defaults.first { $0.id == "spanish-guitar" }
-        XCTAssertNotNil(ch, "Spanish Guitar channel must exist in Curated category")
+        XCTAssertNotNil(ch, "Guitar channel must exist in Curated category")
         XCTAssertEqual(ch?.category, "Curated")
-        XCTAssertEqual(ch?.name, "Spanish Guitar")
+        XCTAssertEqual(ch?.name, "Classical Guitar")
         let q = ch?.iaQueryEntry?.iaQuery ?? ""
         XCTAssertTrue(q.contains("creator:\"Andrés Segovia\"")
             && q.contains("creator:\"Julian Bream\""),
-            "Spanish Guitar must match the renowned guitarists")
-        XCTAssertTrue(q.contains("title:\"classical guitar\"")
-            && q.contains("title:\"spanish guitar\""),
-            "Spanish Guitar must match explicit guitar titles")
-        XCTAssertFalse(q.contains("subject:\"classical guitar\""),
-            "Must NOT use the loose subject arm that leaked non-guitar items")
+            "Must match the renowned guitarists")
+        XCTAssertTrue(q.contains("subject:\"classical guitar\"")
+            && q.contains("title:\"classical guitar\""),
+            "Must match classical-guitar subject + title")
         XCTAssertTrue(q.contains("subject:orchestra") && q.contains("subject:piano")
-            && q.contains("subject:vocal"),
-            "Must exclude orchestral / piano / vocal works")
+            && q.contains("subject:vocal") && q.contains("subject:interview")
+            && q.contains("subject:electronic"),
+            "Must exclude orchestral / piano / vocal / interview / electronic works")
         XCTAssertEqual(ch?.iaQueryEntry?.matchTags, ["spanish-guitar"])
-        XCTAssertNil(Channel.defaults.first { $0.id == "classical-guitar" },
-            "Old classical-guitar id should be retired in favor of spanish-guitar")
     }
 
     func testReligiousMusicChannel() {

@@ -120,8 +120,10 @@ final class PlayerViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 UserDefaults.standard.set(self.isPlaying, forKey: "wasPlayingOnQuit")
-                // Safety-net: never lose the user's spot — autosave on resign.
+                // Safety-net: never lose the user's spot — autosave + session
+                // snapshot on resign (covers backgrounding and app updates).
                 self.saveAutosaveForCurrentTrack()
+                self.persistSession(position: self.currentPosition)
             }
         }
 
@@ -195,29 +197,23 @@ final class PlayerViewModel: ObservableObject {
                 self.trackDuration = self.audioPlayer.duration
                 // (minTrackDuration is enforced invisibly in advanceToNext via
                 // assetDuration pre-screening, before the track is revealed.)
-                // Persist position for spoken-word channels so the user can resume.
+                // Persist position so the user resumes EXACTLY where they were —
+                // for every channel type (not just spoken-word) and playlists.
                 // Throttled: write DB at most once every 5 s (timer fires 4×/s).
-                if let channel = self.currentChannel,
-                   channel.contentType == .spokenWord,
-                   let track = self.currentTrack,
+                if let track = self.currentTrack,
+                   self.currentChannel?.contentType != .ambientLoop,
                    seconds - self.lastPositionSaveTime >= 5.0 {
                     self.lastPositionSaveTime = seconds
-                    await self.db.savePosition(
-                        channelId: channel.id,
-                        trackId: track.id,
-                        seconds: seconds
-                    )
-                } else if let playlist = self.currentPlaylist,
-                          let track = self.currentTrack,
-                          seconds - self.lastPositionSaveTime >= 5.0 {
-                    // Resume support: keep the playlist's track + offset
-                    // current (critical for long multi-part audiobooks).
-                    self.lastPositionSaveTime = seconds
-                    await self.db.savePosition(
-                        channelId: Self.playlistKey(playlist.id),
-                        trackId: track.id,
-                        seconds: seconds
-                    )
+                    if let playlist = self.currentPlaylist {
+                        await self.db.savePosition(
+                            channelId: Self.playlistKey(playlist.id),
+                            trackId: track.id, seconds: seconds)
+                    } else if let channel = self.currentChannel {
+                        await self.db.savePosition(
+                            channelId: channel.id,
+                            trackId: track.id, seconds: seconds)
+                    }
+                    self.persistSession(position: seconds)
                 }
             }
         }
@@ -245,6 +241,10 @@ final class PlayerViewModel: ObservableObject {
         UserDefaults.standard.set(visited, forKey: "visitedChannelIds")
 
         currentChannel = channel
+        // Shuffle is per-context: switching channels ALWAYS resets to NOT
+        // shuffling, so an audiobook/lecture channel never inherits a shuffle
+        // left on from a music channel or playlist.
+        shuffleMode = false
         // Lock-screen controls follow the content: spoken-word channels get
         // ±15 s skip buttons; music channels get next/prev track.
         audioPlayer.setContentMode(channel.contentType == .spokenWord ? .spokenWord : .music)
@@ -324,6 +324,19 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
+        // Ambient loops: always play THIS channel's own bundled loop track so
+        // the title/artwork are correct — never a stale saved position that
+        // could point at a previously-played non-ambient track.
+        if channel.contentType == .ambientLoop {
+            if let amb = fetched.first {
+                await playTrack(amb, seekTo: nil)
+            }
+            if !autoPlay && isPlaying { audioPlayer.pause(); isPlaying = false }
+            isLoading = false
+            loadingMessage = nil
+            return
+        }
+
         let saved = await db.loadPosition(channelId: channel.id)
 
         // NEWS: on re-entry, if a NEWER episode than the one last played has
@@ -351,12 +364,11 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
-        // Resume the last-played track for all channel types.
-        // Spoken-word resumes at exact position; music restarts the same track from the beginning.
+        // Resume the last-played track for ALL channel types, at its exact
+        // saved offset (the user asked to always pick up where they were).
         if let saved, let track = await db.fetchTrack(id: saved.trackId) {
             loadingMessage = "Resuming \"\(track.title)\"…"
-            let seekTo: Double? = channel.contentType == .spokenWord ? saved.seconds : nil
-            await playTrack(track, seekTo: seekTo)
+            await playTrack(track, seekTo: saved.seconds > 1 ? saved.seconds : nil)
         } else {
             loadingMessage = "Starting playback…"
             await advanceToNext()
@@ -377,6 +389,7 @@ final class PlayerViewModel: ObservableObject {
             // user is paused the position will not advance, but if they exit
             // the app right after a pause we still want the latest offset.
             saveAutosaveForCurrentTrack()
+            persistSession(position: currentPosition)
             audioPlayer.pause()
             isPlaying = false
         } else if currentTrack != nil {
@@ -738,6 +751,9 @@ final class PlayerViewModel: ObservableObject {
                     seconds: seekTo ?? 0
                 )
             }
+            // Persist the global session immediately so a relaunch right after
+            // starting a track resumes exactly here.
+            persistSession(position: resumeAt)
             probeCurrentTrack()
         } catch {
             await handleLoadFailure(track)
@@ -986,9 +1002,14 @@ final class PlayerViewModel: ObservableObject {
 
     func loadPlaylist(_ playlist: Playlist,
                        startingAt track: Track? = nil,
-                       seekTo: Double = 0) async {
+                       seekTo: Double = 0,
+                       shuffle: Bool = false) async {
         // Save the outgoing track's spot before switching context.
         saveAutosaveForCurrentTrack()
+        // Shuffle is per-context: a normal play/resume resets it OFF; only the
+        // Shuffle action turns it on. Prevents a stray shuffle from scrambling
+        // an audiobook playlist's chapter order.
+        shuffleMode = shuffle
         beginTransition(pre: track)
         currentPlaylist = playlist
         currentChannel = nil
@@ -1021,9 +1042,8 @@ final class PlayerViewModel: ObservableObject {
     // already picks randomly while shuffleMode is on). Previously this called
     // loadPlaylist, which always started on the first track.
     func shufflePlaylist(_ playlist: Playlist) async {
-        shuffleMode = true
         let tracks = await db.fetchTracks(forPlaylist: playlist.id)
-        await loadPlaylist(playlist, startingAt: tracks.randomElement())
+        await loadPlaylist(playlist, startingAt: tracks.randomElement(), shuffle: true)
     }
 
     // Resume a playlist exactly where the user left off (the saved track at
@@ -1198,5 +1218,73 @@ final class PlayerViewModel: ObservableObject {
     /// Lookup helper for playTrack — returns the autosave offset if any.
     func autosavePosition(forTrack trackId: String) async -> Double? {
         await db.fetchAutosaveBookmark(forTrack: trackId)?.positionSeconds
+    }
+
+    // MARK: - Session restore (always pick up where you were)
+
+    // Channel ids that were renamed; restore maps the old saved id to the new.
+    static let channelIdMigrations: [String: String] = [
+        "classical-guitar": "spanish-guitar"
+    ]
+
+    static func migratedChannelId(_ id: String?) -> String? {
+        guard let id else { return nil }
+        return channelIdMigrations[id] ?? id
+    }
+
+    /// Persist the full "where I was": context (channel/playlist), track and
+    /// offset. Called on every track start, on pause, on background, and
+    /// throttled during playback — so a relaunch (incl. post-update) resumes
+    /// exactly here.
+    func persistSession(position: Double) {
+        let d = UserDefaults.standard
+        guard let track = currentTrack,
+              currentChannel?.contentType != .ambientLoop else { return }
+        if let pl = currentPlaylist {
+            d.set("playlist", forKey: "session.kind")
+            d.set(pl.id, forKey: "session.contextId")
+        } else if let ch = currentChannel {
+            d.set("channel", forKey: "session.kind")
+            d.set(ch.id, forKey: "session.contextId")
+        } else {
+            d.set("track", forKey: "session.kind")
+            d.removeObject(forKey: "session.contextId")
+        }
+        d.set(track.id, forKey: "session.trackId")
+        d.set(position, forKey: "session.position")
+    }
+
+    /// Restore the last session on launch. Channel/playlist resume uses the
+    /// positions table; a globally-saved exact track wins if it differs (covers
+    /// a last-played search result). autoPlay decides whether to start paused.
+    func restoreLastSession(fallbackChannel: Channel, autoPlay: Bool) async {
+        let d = UserDefaults.standard
+        let kind = d.string(forKey: "session.kind")
+        let contextId = d.string(forKey: "session.contextId")
+        let savedTrackId = d.string(forKey: "session.trackId")
+        let savedPosition = d.double(forKey: "session.position")
+
+        if kind == "playlist", let pid = contextId,
+           let pl = await db.fetchPlaylists().first(where: { $0.id == pid }) {
+            await resumePlaylist(pl)
+            if !autoPlay && isPlaying { audioPlayer.pause(); isPlaying = false }
+            return
+        }
+
+        // Channel context (default). Migrate any renamed id; fall back to the
+        // last-used channel from UserDefaults or the provided default.
+        let channelId = Self.migratedChannelId(
+            kind == "channel" ? contextId
+                : (Self.migratedChannelId(d.string(forKey: "lastChannelId"))))
+        let channel = Channel.defaults.first { $0.id == channelId } ?? fallbackChannel
+        await load(channel: channel, autoPlay: autoPlay)
+
+        // If the exact last track differs from what the channel resumed (e.g.
+        // it was a one-off search result), play that precise track + offset.
+        if let tid = savedTrackId, currentTrack?.id != tid,
+           let t = await db.fetchTrack(id: tid) {
+            await playTrack(t, seekTo: savedPosition > 1 ? savedPosition : nil)
+            if !autoPlay && isPlaying { audioPlayer.pause(); isPlaying = false }
+        }
     }
 }

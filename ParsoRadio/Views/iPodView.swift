@@ -10,7 +10,8 @@ struct iPodView: View {
     @State private var sleepTimerNow: Date = Date()
     private static let sleepTimerOptions: [Int] = [15, 30, 45, 60]
     @State private var pendingChannel: Channel = {
-        let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "classical-guitar"
+        let raw = UserDefaults.standard.string(forKey: "lastChannelId") ?? "spanish-guitar"
+        let lastId = PlayerViewModel.migratedChannelId(raw) ?? raw
         return Channel.defaults.first { $0.id == lastId } ?? Channel.defaults[0]
     }()
     @State private var showChannelSelector = false
@@ -204,7 +205,10 @@ struct iPodView: View {
             await playlistVM.loadPlaylists()
             let wasPlaying = UserDefaults.standard.bool(forKey: "wasPlayingOnQuit")
             UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
-            await playerVM.load(channel: pendingChannel, autoPlay: wasPlaying)
+            // Resume EXACTLY where the user was — same channel/playlist, track
+            // and offset — including after an app update.
+            await playerVM.restoreLastSession(fallbackChannel: pendingChannel,
+                                              autoPlay: wasPlaying)
             // First launch: show the wheel guide once so the gestures are
             // discoverable.
             if !didShowWheelHelp {
@@ -282,17 +286,19 @@ struct iPodView: View {
                     .padding(.bottom, 12)
             }
         }
-        // Repeat-One indicator (top-right) — shown only while "Repeat Track"
-        // is engaged from Track Info. No control here; toggled in the sheet.
+        // Status indicators (top-right): shuffle (blue when active) and
+        // repeat-one. Both are display-only; toggled from Track Info.
         .overlay(alignment: .topTrailing) {
-            if playerVM.repeatMode == .one, !isAmbientLoop, playerVM.currentTrack != nil {
-                Image(systemName: "repeat.1")
-                    .font(.system(size: mainRegularSize, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(8)
-                    .background(.black.opacity(0.35), in: Circle())
-                    .padding(12)
-                    .accessibilityLabel("Repeat track is on")
+            if !isAmbientLoop, playerVM.currentTrack != nil {
+                HStack(spacing: 8) {
+                    if playerVM.shuffleMode {
+                        statusBadge("shuffle", tint: .blue, label: "Shuffle is on")
+                    }
+                    if playerVM.repeatMode == .one {
+                        statusBadge("repeat.1", tint: .white, label: "Repeat track is on")
+                    }
+                }
+                .padding(12)
             }
         }
         // Unmistakable loading indicator centred on the screen while a track
@@ -407,6 +413,15 @@ struct iPodView: View {
         // One spoken element: "Title, Artist, Part 2 of 5" rather than four
         // separate VoiceOver stops.
         .accessibilityElement(children: .combine)
+    }
+
+    private func statusBadge(_ systemName: String, tint: Color, label: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: mainRegularSize, weight: .semibold))
+            .foregroundStyle(tint)
+            .padding(8)
+            .background(.black.opacity(0.35), in: Circle())
+            .accessibilityLabel(label)
     }
 
     // Centered, high-visibility loading state shown over the whole track box.
@@ -590,6 +605,15 @@ struct iPodView: View {
                         Section("Playback") {
                             playbackSpeedRow
                             sleepTimerRow
+                            Toggle(isOn: Binding(
+                                get: { playerVM.shuffleMode },
+                                set: { on in
+                                    if playerVM.shuffleMode != on { playerVM.toggleShuffle() }
+                                }
+                            )) {
+                                Label("Shuffle", systemImage: "shuffle")
+                            }
+                            .accessibilityHint("When on, a blue shuffle icon shows on the player and tracks play in random order. Resets when you change channels.")
                             Toggle(isOn: Binding(
                                 get: { playerVM.repeatMode == .one },
                                 set: { on in
@@ -997,6 +1021,8 @@ struct ClickWheel: View {
     let onCenter:    () -> Void                    // centre tap → Track Info
 
     @State private var tapTrigger = 0
+    @State private var isDragging = false
+    @StateObject private var seekVM = SeekWheelViewModel()
 
     var body: some View {
         GeometryReader { geo in
@@ -1041,10 +1067,43 @@ struct ClickWheel: View {
 
                 // Hit grid: 3×3 of equal cells over the wheel. Centre column
                 // top=MENU, centre=Track Info, bottom=Play/Pause; left/right
-                // columns are the back/forward regions (tap/double-tap/hold).
+                // columns are the back/forward regions (tap=±10s, double=skip).
                 hitGrid(cell: size / 3)
             }
             .frame(width: size, height: size)
+            // Rotational drag-to-scrub on the ring (classic click-wheel feel):
+            // spin a finger around the wheel to move the elapsed timer
+            // forward/back. Runs simultaneously with the per-region tap
+            // gestures; WheelSideRegion skips its tap when the touch moved, so
+            // a scrub never also fires a ±10 tap. Only the ring scrubs — touches
+            // starting in the centre well are ignored here.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 14, coordinateSpace: .local)
+                    .onChanged { value in
+                        guard duration > 0, transportEnabled else { return }
+                        let center = CGPoint(x: size / 2, y: size / 2)
+                        let startR = hypot(value.startLocation.x - center.x,
+                                           value.startLocation.y - center.y)
+                        guard startR > innerR else { return }   // not the centre well
+                        if !isDragging {
+                            isDragging = true
+                            seekVM.currentTime = currentTime
+                            seekVM.duration = duration
+                            seekVM.onSeek = onSeek
+                            onScrubChanged(true)
+                        } else {
+                            seekVM.duration = duration
+                        }
+                        seekVM.handleDrag(location: value.location, center: center)
+                    }
+                    .onEnded { _ in
+                        guard isDragging else { return }
+                        seekVM.handleDragEnded()
+                        onScrubChanged(false)
+                        isDragging = false
+                    }
+            )
+            .onAppear { seekVM.onAppear() }
             .sensoryFeedback(.impact(weight: .light), trigger: tapTrigger)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Playback controls")
@@ -1086,16 +1145,12 @@ struct ClickWheel: View {
             }
             HStack(spacing: 0) {
                 WheelSideRegion(direction: -1, enabled: transportEnabled,
-                                currentTime: currentTime, duration: duration,
-                                onSeekBy: onSeekBy, onSeek: onSeek,
-                                onScrubChanged: onScrubChanged,
+                                onSeekBy: onSeekBy,
                                 onTrackSkip: onPrevTrack, haptic: tap)
                     .frame(width: cell, height: cell)
                 tapCell { onCenter() }                                   // Track Info
                 WheelSideRegion(direction: 1, enabled: transportEnabled,
-                                currentTime: currentTime, duration: duration,
-                                onSeekBy: onSeekBy, onSeek: onSeek,
-                                onScrubChanged: onScrubChanged,
+                                onSeekBy: onSeekBy,
                                 onTrackSkip: onNextTrack, haptic: tap)
                     .frame(width: cell, height: cell)
             }
@@ -1115,50 +1170,37 @@ struct ClickWheel: View {
 }
 
 // One back/forward wheel region: single tap = seek ±10 s, double tap = skip
-// track, press-and-hold = continuous scrub within the track that accelerates
-// the longer it's held (classic-iPod feel).
+// track. Continuous scrub is handled at the wheel level by rotational
+// drag-to-scrub, so a touch that MOVED is treated as a scrub here and never
+// fires a tap.
 private struct WheelSideRegion: View {
     let direction: Int          // -1 back, +1 forward
     let enabled: Bool
-    let currentTime: Double
-    let duration: Double
     let onSeekBy: (Double) -> Void
-    let onSeek: (Double) -> Void
-    let onScrubChanged: (Bool) -> Void
     let onTrackSkip: () -> Void
     let haptic: () -> Void
 
-    @State private var pressStart: Date? = nil
-    @State private var didLongPress = false
     @State private var lastTapDate: Date? = nil
     @State private var pendingSingleTap: DispatchWorkItem? = nil
-    @State private var scrubTimer: Timer? = nil
-    @State private var scrubPos: Double = 0
-    @State private var scrubStep: Double = 0
+    @State private var maxMove: CGFloat = 0
 
     var body: some View {
         Color.clear
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        guard enabled, pressStart == nil else { return }
-                        let start = Date()
-                        pressStart = start
-                        // Promote to a hold if still pressed after 0.35 s.
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            if pressStart == start, !didLongPress {
-                                didLongPress = true
-                                beginScrub()
-                            }
-                        }
+                    .onChanged { v in
+                        let m = hypot(v.translation.width, v.translation.height)
+                        if m > maxMove { maxMove = m }
                     }
                     .onEnded { _ in
+                        let moved = maxMove
+                        maxMove = 0
                         guard enabled else { return }
-                        let wasLong = didLongPress
-                        pressStart = nil
-                        if wasLong { endScrub(); didLongPress = false }
-                        else { registerTap() }
+                        // A moved touch is a rotational scrub (handled at the
+                        // wheel level) — never a ±10 / track-skip tap.
+                        if moved > 14 { return }
+                        registerTap()
                     }
             )
     }
@@ -1180,25 +1222,6 @@ private struct WheelSideRegion: View {
             pendingSingleTap = work
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.32, execute: work)
         }
-    }
-
-    private func beginScrub() {
-        guard duration > 0 else { return }
-        haptic()
-        scrubPos = currentTime
-        scrubStep = 3
-        onScrubChanged(true)
-        scrubTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
-            scrubPos = min(max(scrubPos + Double(direction) * scrubStep, 0), duration)
-            onSeek(scrubPos)
-            scrubStep = min(scrubStep * 1.25, 30)   // accelerate, capped
-        }
-    }
-
-    private func endScrub() {
-        scrubTimer?.invalidate(); scrubTimer = nil
-        onSeek(scrubPos)
-        onScrubChanged(false)
     }
 }
 

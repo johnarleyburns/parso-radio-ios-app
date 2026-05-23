@@ -1,11 +1,13 @@
 import SwiftUI
 
-// Pushed destinations within the Main Menu's navigation stack. Reaching a
-// playlist / channel-info this way means the standard back chevron returns to
-// the menu list — the "back to main menu" the wheel-MENU navigation needs.
+// Pushed destinations within the Main Menu's navigation stack. Drilling in
+// (and the wheel-MENU contextual push) means the standard back chevron returns
+// to the menu list.
 enum MenuRoute: Hashable {
     case playlist(Playlist)
     case channelInfo(Channel)
+    case channelList(String)   // a category → its Channels screen
+    case playlists             // the Playlists library screen
 }
 
 struct MainMenuView: View {
@@ -22,9 +24,6 @@ struct MainMenuView: View {
     @State private var showAbout = false
     @State private var recentlyPlayed: [Track] = []
     @State private var path: [MenuRoute] = []
-    // Section IDs currently expanded. Empty = all collapsed (the default).
-    @State private var expanded: Set<String> = []
-    @State private var editMode: EditMode = .inactive
     // Inline search. searchActive (iOS 17 isPresented) is true the moment the
     // field is focused, so the menu sections hide immediately on focus. Search
     // runs only on submit (Return / Search key), not as you type.
@@ -61,25 +60,6 @@ struct MainMenuView: View {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    // A playlist row ALWAYS opens the playlist detail (never starts playing),
-    // pushed via the navigation path so the back chevron returns here.
-    @ViewBuilder
-    private func playlistRow(_ playlist: Playlist) -> some View {
-        NavigationLink(value: MenuRoute.playlist(playlist)) {
-            HStack {
-                Label(playlist.name,
-                      systemImage: playlist.isFavorites ? "heart.fill" : "music.note.list")
-                Spacer()
-                Text("\(playlistVM.trackCount(for: playlist))")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            .contentShape(Rectangle())
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(playlist.name), \(playlistVM.trackCount(for: playlist)) tracks")
-        .accessibilityHint("Opens this playlist")
-    }
-
     var body: some View {
         NavigationStack(path: $path) {
             List {
@@ -90,9 +70,6 @@ struct MainMenuView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            // Collapsed sections shouldn't leave big gaps between headers.
-            .listSectionSpacing(.compact)
-            .environment(\.editMode, $editMode)
             .navigationTitle("Parso Music")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: MenuRoute.self) { route in
@@ -104,6 +81,15 @@ struct MainMenuView: View {
                         .environmentObject(offlineService)
                 case .channelInfo(let ch):
                     ChannelInfoView(channel: ch)
+                case .channelList(let category):
+                    ChannelListScreen(category: category,
+                                      channels: channels(in: category),
+                                      onSelect: { channel in onSelectChannel(channel) })
+                case .playlists:
+                    PlaylistsScreen(dismissAll: dismissAll)
+                        .environmentObject(playlistVM)
+                        .environmentObject(playerVM)
+                        .environmentObject(offlineService)
                 }
             }
             // Inline search per Apple HIG. isPresented hides the menu on focus;
@@ -142,61 +128,30 @@ struct MainMenuView: View {
         }
     }
 
-    // MARK: - Menu content (recents + playlists + categories + about)
+    // MARK: - Menu content (drill-down library)
 
     @ViewBuilder
     private var menuContent: some View {
         recentlyPlayedSection            // always shown (placeholder when empty)
 
-        let favorites = playlistVM.playlists.filter { $0.isFavorites }
-        let others    = playlistVM.playlists.filter { !$0.isFavorites }
-        if !playlistVM.playlists.isEmpty {
-            Section {
-                collapsibleHeader(
-                    id: "playlists", title: "Playlists",
-                    icon: "music.note.list",
-                    trailing: AnyView(
-                        Group {
-                            if expanded.contains("playlists") {
-                                Button(editMode.isEditing ? "Done" : "Edit") {
-                                    withAnimation { editMode = editMode.isEditing ? .inactive : .active }
-                                }
-                                .font(.callout)
-                                .buttonStyle(.borderless)
-                            }
-                        }
-                    )
-                )
-                if expanded.contains("playlists") {
-                    ForEach(favorites) { pl in playlistRow(pl) }
-                    ForEach(others) { pl in playlistRow(pl) }
-                        .onMove { indices, newOffset in
-                            var reordered = others
-                            reordered.move(fromOffsets: indices, toOffset: newOffset)
-                            Task { await playlistVM.reorderPlaylists(reordered) }
-                        }
-                        .onDelete { indices in
-                            let toDelete = indices.map { others[$0] }
-                            Task {
-                                for pl in toDelete { await playlistVM.deletePlaylist(pl) }
-                            }
-                        }
+        // Library: simple drill-down rows (HIG) — tap pushes the matching
+        // screen; the back chevron returns here.
+        Section("Library") {
+            NavigationLink(value: MenuRoute.playlists) {
+                HStack {
+                    Label("Playlists", systemImage: "music.note.list")
+                    Spacer()
+                    Text("\(playlistVM.playlists.count)")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
-        }
-
-        ForEach(Self.orderedCategories(), id: \.self) { category in
-            Section {
-                collapsibleHeader(id: category, title: category,
-                                  icon: Self.categoryIcon(category))
-                if expanded.contains(category) {
-                    ForEach(channels(in: category)) { channel in
-                        Button {
-                            onSelectChannel(channel)
-                        } label: {
-                            Label(channel.name, systemImage: channel.icon)
-                        }
-                        .foregroundStyle(.primary)
+            ForEach(Self.orderedCategories(), id: \.self) { category in
+                NavigationLink(value: MenuRoute.channelList(category)) {
+                    HStack {
+                        Label(category, systemImage: Self.categoryIcon(category))
+                        Spacer()
+                        Text("\(channels(in: category).count)")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -217,17 +172,20 @@ struct MainMenuView: View {
 
     @ViewBuilder
     private var searchResultsContent: some View {
-        if searchVM.isSearching && searchVM.results.isEmpty {
+        if searchVM.isSearching {
+            // Mirror the player's "Loading…" affordance while a search runs.
             Section {
-                HStack { Spacer(); ProgressView(); Spacer() }
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("Searching…").foregroundStyle(.secondary)
+                }
             }
-        } else if searchVM.results.isEmpty {
-            Section {
-                ContentUnavailableView.search(text: searchText)
-            }
-        } else {
+        } else if searchVM.showNoResults {
+            // Only AFTER a search returned nothing — never before searching.
+            Section { ContentUnavailableView.search(text: searchText) }
+        } else if !searchVM.results.isEmpty {
             Section("Results") {
-                ForEach(searchVM.results) { group in
+                ForEach(searchVM.displayedResults) { group in
                     Button {
                         Task {
                             await playerVM.playSearchResult(group)
@@ -235,7 +193,7 @@ struct MainMenuView: View {
                         }
                     } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: "music.note")
+                            Image(systemName: resultIcon(group))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 24)
                                 .accessibilityHidden(true)
@@ -249,58 +207,26 @@ struct MainMenuView: View {
                         .contentShape(Rectangle())
                     }
                     .foregroundStyle(.primary)
+                    .task { searchVM.loadItemInfo(group) }   // resolves kind → icon + ranking
                     .accessibilityElement(children: .combine)
                     .accessibilityHint("Plays this result")
                 }
             }
         }
+        // else: search field focused but nothing searched yet → show nothing.
     }
 
-    // MARK: - Collapsible section header
-
-    /// One row that doubles as the section header — chevron flips, taps
-    /// toggle the matching key in `expanded`. We render our own header inside
-    /// a Section (not a SwiftUI `header:`) so the chevron's tap area is part
-    /// of the list rows, which gives consistent tap behaviour on iPhone/iPad.
-    @ViewBuilder
-    private func collapsibleHeader(id: String, title: String,
-                                   icon: String? = nil,
-                                   trailing: AnyView? = nil) -> some View {
-        let isOpen = expanded.contains(id)
-        HStack(spacing: 8) {
-            // Only the icon + title + chevron toggle; trailing controls are
-            // SIBLINGS (not children) so their taps aren't swallowed.
-            Button {
-                withAnimation(.easeInOut(duration: 0.18)) {
-                    if isOpen { expanded.remove(id) } else { expanded.insert(id) }
-                }
-            } label: {
-                HStack(spacing: 8) {
-                    if let icon {
-                        Image(systemName: icon)
-                            .font(.subheadline)
-                            .foregroundStyle(Color.accentColor)
-                            .frame(width: 22)
-                            .accessibilityHidden(true)
-                    }
-                    Text(title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .textCase(nil)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(isOpen ? 90 : 0))
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityAddTraits(.isHeader)
-            .accessibilityLabel("\(title), \(isOpen ? "expanded" : "collapsed")")
-            .accessibilityHint("Double tap to \(isOpen ? "collapse" : "expand")")
-
-            if let trailing { trailing }
+    // Leading icon by item kind: whole album, whole book, a single audiobook
+    // chapter, or a single music track.
+    private func resultIcon(_ group: SearchViewModel.ResultGroup) -> String {
+        switch searchVM.itemKinds[group.id] {
+        case .book:  return "book.closed.fill"
+        case .album: return "square.stack.fill"
+        case .track, nil:
+            let c = (group.collection ?? "").lowercased()
+            let bookish = ["librivox", "audiobook", "audio_books", "audio_bookspoetry"]
+                .contains { c.contains($0) }
+            return bookish ? "doc.text" : "music.note"
         }
     }
 
@@ -322,44 +248,40 @@ struct MainMenuView: View {
     @ViewBuilder
     private var recentlyPlayedSection: some View {
         Section {
-            collapsibleHeader(
-                id: "recently-played",
-                title: "Recently Played",
-                icon: "clock.arrow.circlepath",
-                trailing: AnyView(
-                    Group {
-                        if expanded.contains("recently-played"), !recentlyPlayed.isEmpty {
-                            Button(role: .destructive) {
-                                Task {
-                                    await playerVM.clearRecentlyPlayed()
-                                    recentlyPlayed = []
-                                }
-                            } label: {
-                                Image(systemName: "trash")
-                            }
-                            .buttonStyle(.borderless)
-                            .font(.callout)
-                            .accessibilityLabel("Clear all Recently Played")
-                        }
+            if recentlyPlayed.isEmpty {
+                Text("Nothing played yet.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(recentlyPlayed.prefix(8)) { track in
+                    recentRow(track)
+                }
+                .onDelete { indices in
+                    let recents = Array(recentlyPlayed.prefix(8))
+                    let toRemove = indices.map { recents[$0] }
+                    Task {
+                        for t in toRemove { await playerVM.removeFromRecentlyPlayed(t) }
+                        recentlyPlayed = await playerVM.recentlyPlayedTracks(limit: 30)
                     }
-                )
-            )
-            if expanded.contains("recently-played") {
-                if recentlyPlayed.isEmpty {
-                    Text("Nothing played yet.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(recentlyPlayed.prefix(20)) { track in
-                        recentRow(track)
-                    }
-                    .onDelete { indices in
-                        let toRemove = indices.map { recentlyPlayed[$0] }
+                }
+            }
+        } header: {
+            HStack {
+                Label("Recently Played", systemImage: "clock.arrow.circlepath")
+                    .textCase(nil)
+                Spacer()
+                if !recentlyPlayed.isEmpty {
+                    Button(role: .destructive) {
                         Task {
-                            for t in toRemove { await playerVM.removeFromRecentlyPlayed(t) }
-                            recentlyPlayed = await playerVM.recentlyPlayedTracks(limit: 30)
+                            await playerVM.clearRecentlyPlayed()
+                            recentlyPlayed = []
                         }
+                    } label: {
+                        Text("Clear")
                     }
+                    .font(.caption)
+                    .textCase(nil)
+                    .accessibilityLabel("Clear all Recently Played")
                 }
             }
         }

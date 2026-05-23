@@ -761,6 +761,163 @@ final class PlayerViewModelTests: XCTestCase {
             metadataConfidence: 0.0
         )
     }
+
+    // MARK: - Session restore (#1: always pick up where you were)
+
+    private func clearSessionDefaults() {
+        let d = UserDefaults.standard
+        for k in ["session.kind", "session.contextId", "session.trackId",
+                  "session.position", "lastChannelId"] {
+            d.removeObject(forKey: k)
+        }
+    }
+
+    // Renamed channel ids must map forward so a session saved under the old id
+    // still restores. Unknown ids pass through unchanged; nil stays nil.
+    func testMigratedChannelIdMapsRenamedChannel() {
+        XCTAssertEqual(PlayerViewModel.migratedChannelId("classical-guitar"),
+                       "spanish-guitar", "the renamed guitar channel must map forward")
+        XCTAssertEqual(PlayerViewModel.migratedChannelId("fma-jazz"), "fma-jazz",
+                       "an unknown id passes through unchanged")
+        XCTAssertNil(PlayerViewModel.migratedChannelId(nil), "nil stays nil")
+        XCTAssertEqual(PlayerViewModel.channelIdMigrations["classical-guitar"],
+                       "spanish-guitar")
+    }
+
+    // persistSession records the CHANNEL context (kind/contextId/track/position)
+    // so a relaunch resumes the exact channel + track + offset.
+    func testPersistSessionRecordsChannelContext() {
+        clearSessionDefaults()
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        vm.currentChannel = channel
+        vm.currentPlaylist = nil
+        vm.currentTrack = makeFMATrack(id: "sess-ch-1", tags: ["jazz"])
+
+        vm.persistSession(position: 123.5)
+
+        let d = UserDefaults.standard
+        XCTAssertEqual(d.string(forKey: "session.kind"), "channel")
+        XCTAssertEqual(d.string(forKey: "session.contextId"), "fma-jazz")
+        XCTAssertEqual(d.string(forKey: "session.trackId"), "sess-ch-1")
+        XCTAssertEqual(d.double(forKey: "session.position"), 123.5, accuracy: 0.001)
+    }
+
+    // A playlist context is recorded as kind=playlist with the playlist id.
+    func testPersistSessionRecordsPlaylistContext() async throws {
+        clearSessionDefaults()
+        let pl = try await seedPlaylist(["sess-pl-1", "sess-pl-2"])
+        vm.currentChannel = nil
+        vm.currentPlaylist = pl
+        vm.currentTrack = makeFMATrack(id: "sess-pl-2", tags: ["jazz"])
+
+        vm.persistSession(position: 42)
+
+        let d = UserDefaults.standard
+        XCTAssertEqual(d.string(forKey: "session.kind"), "playlist")
+        XCTAssertEqual(d.string(forKey: "session.contextId"), pl.id)
+        XCTAssertEqual(d.string(forKey: "session.trackId"), "sess-pl-2")
+    }
+
+    // Ambient loops must NOT persist a session — their "position" is meaningless
+    // and a stale one is exactly what showed the wrong track name (#5).
+    func testPersistSessionSkipsAmbientAndNilTrack() {
+        clearSessionDefaults()
+        // No current track → nothing written.
+        vm.currentTrack = nil
+        vm.persistSession(position: 10)
+        XCTAssertNil(UserDefaults.standard.string(forKey: "session.kind"),
+                     "no current track → no session written")
+
+        // Ambient channel → still nothing written.
+        let ambient = Channel.defaults.first { $0.contentType == .ambientLoop }!
+        vm.currentChannel = ambient
+        vm.currentTrack = makeFMATrack(id: "amb-x", tags: [])
+        vm.persistSession(position: 10)
+        XCTAssertNil(UserDefaults.standard.string(forKey: "session.kind"),
+                     "ambient channel → no session persisted")
+    }
+
+    // restoreLastSession's playlist branch must rebuild the playlist context and
+    // land on the saved track at the saved offset (no network).
+    func testRestoreLastSessionResumesPlaylist() async throws {
+        clearSessionDefaults()
+        let pl = try await seedPlaylist(["rs1", "rs2", "rs3"])
+        let order = await db.fetchTracks(forPlaylist: pl.id)
+        await db.savePosition(channelId: PlayerViewModel.playlistKey(pl.id),
+                              trackId: order[1].id, seconds: 256)
+        let d = UserDefaults.standard
+        d.set("playlist", forKey: "session.kind")
+        d.set(pl.id, forKey: "session.contextId")
+        d.set(order[1].id, forKey: "session.trackId")
+        d.set(256.0, forKey: "session.position")
+
+        let fallback = Channel.defaults.first { $0.id == "fma-jazz" }!
+        await vm.restoreLastSession(fallbackChannel: fallback, autoPlay: false)
+
+        XCTAssertEqual(vm.currentPlaylist?.id, pl.id,
+            "a playlist session must restore the playlist context")
+        XCTAssertEqual(vm.currentTrack?.id, order[1].id,
+            "restore must land on the exact saved track")
+        XCTAssertEqual(vm.currentPosition, 256, accuracy: 0.001,
+            "restore must seek to the saved offset")
+        XCTAssertFalse(vm.isPlaying, "autoPlay:false must restore paused")
+    }
+
+    // MARK: - Shuffle is per-context (#shuffle: reset on every context switch)
+
+    // Switching channels ALWAYS resets shuffle OFF — set synchronously in load()'s
+    // preamble, before any network await, so an audiobook channel never inherits a
+    // shuffle left on from a music channel.
+    func testLoadChannelResetsShuffleOff() async throws {
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        await db.saveTracks([makeFMATrack(id: "shuf-reset", tags: ["jazz"])])
+        vm.shuffleMode = true
+
+        let loadTask = Task { await self.vm.load(channel: channel) }
+        await Task.yield()   // run load()'s synchronous preamble
+
+        XCTAssertFalse(vm.shuffleMode,
+            "entering a channel must always reset shuffle OFF")
+        loadTask.cancel()
+    }
+
+    // A normal playlist play resets shuffle OFF; only the Shuffle action turns it
+    // on. This is what keeps an audiobook playlist in chapter order.
+    func testLoadPlaylistResetsShuffleUnlessRequested() async throws {
+        let pl = try await seedPlaylist(["sh1", "sh2", "sh3"])
+
+        vm.shuffleMode = true
+        await vm.loadPlaylist(pl)                 // default shuffle:false
+        XCTAssertFalse(vm.shuffleMode,
+            "a normal playlist play must reset shuffle OFF")
+
+        await vm.loadPlaylist(pl, shuffle: true)  // explicit shuffle
+        XCTAssertTrue(vm.shuffleMode,
+            "loadPlaylist(shuffle:true) must turn shuffle ON")
+    }
+
+    func testShufflePlaylistTurnsShuffleOn() async throws {
+        let pl = try await seedPlaylist(["sf1", "sf2", "sf3", "sf4"])
+        vm.shuffleMode = false
+
+        await vm.shufflePlaylist(pl)
+
+        XCTAssertTrue(vm.shuffleMode, "the Shuffle action must turn shuffle ON")
+        XCTAssertEqual(vm.currentPlaylist?.id, pl.id,
+            "shuffle must load the playlist context")
+    }
+
+    // The Track Info shuffle toggle flips shuffleMode (which drives the blue
+    // player indicator) and persists the choice.
+    func testToggleShuffleFlipsAndPersists() {
+        vm.shuffleMode = false
+        vm.toggleShuffle()
+        XCTAssertTrue(vm.shuffleMode)
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: "shuffleMode"))
+        vm.toggleShuffle()
+        XCTAssertFalse(vm.shuffleMode)
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: "shuffleMode"))
+    }
 }
 
 // IAQueryRegistry: bundle JSON loads and matchTags act as an isolation stamp.
@@ -775,11 +932,9 @@ final class IAQueryRegistryTests: XCTestCase {
         XCTAssertTrue(entry?.iaQuery.contains("Julian Bream") ?? false
                        && entry?.iaQuery.contains("Andrés Segovia") ?? false,
             "iaQuery must match the renowned guitarists")
-        // Strict guitar-only: no loose subject arm; exclude non-guitar works.
-        XCTAssertFalse(entry?.iaQuery.contains("subject:\"classical guitar\"") ?? true,
-            "Must NOT use the loose subject arm that leaked non-guitar items")
-        for excluded in ["subject:orchestra", "subject:piano", "subject:violin",
-                         "subject:vocal", "subject:electronic"] {
+        // Guitar-focused: exclude interviews / electronic / non-guitar works.
+        for excluded in ["subject:interview", "subject:orchestra", "subject:piano",
+                         "subject:violin", "subject:vocal", "subject:electronic"] {
             XCTAssertTrue(entry?.iaQuery.contains(excluded) ?? false,
                 "iaQuery must exclude '\(excluded)' to stay guitar-focused")
         }
