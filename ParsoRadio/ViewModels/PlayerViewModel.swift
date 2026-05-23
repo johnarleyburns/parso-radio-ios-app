@@ -1283,9 +1283,12 @@ final class PlayerViewModel: ObservableObject {
 
     // MARK: - Session restore (always pick up where you were)
 
-    // Channel ids that were renamed; restore maps the old saved id to the new.
+    // Channel ids that were renamed/rebuilt; restore maps the old saved id to
+    // the new. The guitar channel was rebuilt under a fresh id to shed stale
+    // stamped tracks, so both prior ids forward to it.
     static let channelIdMigrations: [String: String] = [
-        "classical-guitar": "spanish-guitar"
+        "classical-guitar": "guitar-classical",
+        "spanish-guitar": "guitar-classical"
     ]
 
     static func migratedChannelId(_ id: String?) -> String? {

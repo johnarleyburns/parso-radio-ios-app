@@ -41,28 +41,32 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    func testSpanishGuitarChannelInCurated() {
-        // Roster-driven: a curated list of MASTER guitarists (whose IA
-        // catalogues are professional, all-guitar recordings). The broad
-        // subject:"classical guitar" / title:"classical guitar" arms were
-        // dropped because they flooded the channel with amateur home
-        // recordings and buried the masters.
-        let ch = Channel.defaults.first { $0.id == "spanish-guitar" }
+    func testGuitarClassicalChannelInCurated() {
+        // Rebuilt under a FRESH id ("guitar-classical") so it sheds stale
+        // stamped tracks. Roster-driven: a curated list of MASTER guitarists
+        // (whose IA catalogues are professional, all-guitar recordings),
+        // INCLUDING Li Jie. The broad subject:"classical guitar" arm was dropped
+        // because it flooded the channel with amateur home recordings.
+        let ch = Channel.defaults.first { $0.id == "guitar-classical" }
         XCTAssertNotNil(ch, "Guitar channel must exist in Curated category")
         XCTAssertEqual(ch?.category, "Curated")
-        XCTAssertEqual(ch?.name, "Classical Guitar")
+        XCTAssertEqual(ch?.name, "Guitar - Classical")
+        // The retired ids must be gone (a fresh stamp is the whole point).
+        XCTAssertNil(Channel.defaults.first { $0.id == "spanish-guitar" },
+            "the old spanish-guitar channel must be removed")
         let q = ch?.iaQueryEntry?.iaQuery ?? ""
         XCTAssertTrue(q.contains("creator:\"Andrés Segovia\"")
             && q.contains("creator:\"Julian Bream\"")
             && q.contains("creator:Sabicas")
-            && q.contains("creator:\"Laurindo Almeida\""),
-            "Must match the master guitarists' catalogues")
+            && q.contains("creator:\"Laurindo Almeida\"")
+            && q.contains("creator:\"Li Jie\""),
+            "Must match the master guitarists' catalogues, including Li Jie")
         XCTAssertFalse(q.contains("subject:\"classical guitar\""),
             "The broad amateur-leaking subject arm must be gone")
         XCTAssertTrue(q.contains("subject:interview") && q.contains("subject:talk")
             && q.contains("subject:lecture") && q.contains("title:interview"),
             "Must still exclude interviews / talks / lectures")
-        XCTAssertEqual(ch?.iaQueryEntry?.matchTags, ["spanish-guitar"])
+        XCTAssertEqual(ch?.iaQueryEntry?.matchTags, ["guitar-classical"])
     }
 
     func testReligiousMusicChannel() {
@@ -156,7 +160,7 @@ final class ChannelTests: XCTestCase {
             "Expected 15 Curated channels (+ Religious Music)")
         let ids = Set(channels.map(\.id))
         XCTAssertEqual(ids, [
-            "spanish-guitar", "chamber-music", "historical-voices",
+            "guitar-classical", "chamber-music", "historical-voices",
             "symphony-orchestra", "piano-hour", "tribal-works", "cafe-lento",
             "netlabels", "rpm-78", "childrens-songs", "childrens-books",
             "ancient-greece", "great-books", "greater-books",
@@ -210,7 +214,7 @@ final class ChannelTests: XCTestCase {
     }
 
     func testPreferredSourceAssignedCorrectly() {
-        let spanishGuitar = Channel.defaults.first { $0.id == "spanish-guitar" }!
+        let spanishGuitar = Channel.defaults.first { $0.id == "guitar-classical" }!
         let fmaJazz         = Channel.defaults.first { $0.id == "fma-jazz" }!
         let oxford          = Channel.defaults.first { $0.id == "oxford-philosophy" }!
 

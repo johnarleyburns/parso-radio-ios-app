@@ -1,9 +1,9 @@
 [
   {
-    "channelId": "spanish-guitar",
-    "iaQuery": "mediatype:audio AND (creator:\"Andr\u00e9s Segovia\" OR creator:\"Andres Segovia\" OR creator:\"Narciso Yepes\" OR creator:\"Julian Bream\" OR creator:\"Pepe Romero\" OR creator:\"Angel Romero\" OR creator:\"Los Romeros\" OR creator:\"Celedonio Romero\" OR creator:\"Regino Sainz de la Maza\" OR creator:\"Paco de Luc\u00eda\" OR creator:\"Paco de Lucia\" OR creator:Sabicas OR creator:\"Mario Escudero\" OR creator:\"Carlos Montoya\" OR creator:\"Manuel Barrueco\" OR creator:\"David Russell\" OR creator:\"Christopher Parkening\" OR creator:\"Ana Vidovi\u0107\" OR creator:\"Sharon Isbin\" OR creator:\"Kazuhito Yamashita\" OR creator:\"Alirio D\u00edaz\" OR creator:\"Alirio Diaz\" OR creator:\"Laurindo Almeida\" OR creator:\"Liona Boyd\" OR creator:\"Eliot Fisk\" OR creator:\"G\u00f6ran S\u00f6llscher\" OR creator:\"Oscar Ghiglia\" OR creator:\"Konrad Ragossnig\" OR creator:\"Turibio Santos\" OR creator:\"Carlos Bonell\" OR creator:\"Jorge Morel\" OR creator:\"Manuel L\u00f3pez Ramos\") AND NOT (subject:interview OR subject:talk OR subject:lecture OR title:interview) AND downloads:[15 TO *]",
+    "channelId": "guitar-classical",
+    "iaQuery": "mediatype:audio AND (creator:\"Andr\u00e9s Segovia\" OR creator:\"Andres Segovia\" OR creator:\"Narciso Yepes\" OR creator:\"Julian Bream\" OR creator:\"Pepe Romero\" OR creator:\"Angel Romero\" OR creator:\"Los Romeros\" OR creator:\"Celedonio Romero\" OR creator:\"Regino Sainz de la Maza\" OR creator:\"Paco de Luc\u00eda\" OR creator:\"Paco de Lucia\" OR creator:Sabicas OR creator:\"Mario Escudero\" OR creator:\"Carlos Montoya\" OR creator:\"Manuel Barrueco\" OR creator:\"David Russell\" OR creator:\"Christopher Parkening\" OR creator:\"Ana Vidovi\u0107\" OR creator:\"Sharon Isbin\" OR creator:\"Kazuhito Yamashita\" OR creator:\"Alirio D\u00edaz\" OR creator:\"Alirio Diaz\" OR creator:\"Laurindo Almeida\" OR creator:\"Liona Boyd\" OR creator:\"Eliot Fisk\" OR creator:\"G\u00f6ran S\u00f6llscher\" OR creator:\"Oscar Ghiglia\" OR creator:\"Konrad Ragossnig\" OR creator:\"Turibio Santos\" OR creator:\"Carlos Bonell\" OR creator:\"Jorge Morel\" OR creator:\"Manuel L\u00f3pez Ramos\" OR creator:\"Li Jie\" OR creator:\"Jie Li\") AND NOT (subject:interview OR subject:talk OR subject:lecture OR title:interview) AND downloads:[15 TO *]",
     "matchTags": [
-      "spanish-guitar"
+      "guitar-classical"
     ]
   },
   {

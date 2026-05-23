@@ -10,7 +10,7 @@ struct iPodView: View {
     @State private var sleepTimerNow: Date = Date()
     private static let sleepTimerOptions: [Int] = [15, 30, 45, 60]
     @State private var pendingChannel: Channel = {
-        let raw = UserDefaults.standard.string(forKey: "lastChannelId") ?? "spanish-guitar"
+        let raw = UserDefaults.standard.string(forKey: "lastChannelId") ?? "guitar-classical"
         let lastId = PlayerViewModel.migratedChannelId(raw) ?? raw
         return Channel.defaults.first { $0.id == lastId } ?? Channel.defaults[0]
     }()
@@ -271,7 +271,12 @@ struct iPodView: View {
                 // Track metadata — bottom section above scrubber.
                 // currentTrack is nil on error (playTrack catch clears it), so
                 // errorView is reached naturally without reordering these branches.
-                if let track = playerVM.currentTrack {
+                if isAmbientLoop {
+                    // A looping ambient channel is a single forever track: the
+                    // channel name (top-left) is all that's needed — no title /
+                    // artist / album line. (Details remain on the Track Info page.)
+                    EmptyView()
+                } else if let track = playerVM.currentTrack {
                     trackMetadataStack(track: track)
                 } else if playerVM.isLoading {
                     loadingView
@@ -1006,31 +1011,25 @@ struct ClickWheel: View {
     // Single source of truth for icon point size on the main screen.
     static let iconSize: CGFloat = 22
 
-    // Wheel colors are dedicated (not system grouped-background grays) so the
-    // wheel clearly stands out from the dark device body in low light. The ring
-    // is a light silver in BOTH appearances — the iconic iPod look — kept a
-    // touch muted in dark so it isn't glary; the centre well is darker so the
-    // ring still reads as a ring; glyphs are a fixed near-black that contrasts
-    // on the light ring in both modes.
+    // Classic-iPod look: a soft silver wheel with subtle medium-gray glyphs —
+    // visible against the dark device body without the stark, high-contrast feel
+    // of a bright disc + black icons. The centre well is just a hair darker than
+    // the ring (so it still reads as a wheel), and there is no hard edge stroke.
     static let ring = Color(uiColor: UIColor { t in
         t.userInterfaceStyle == .dark
-            ? UIColor(red: 0.60, green: 0.62, blue: 0.68, alpha: 1)
-            : UIColor(red: 0.96, green: 0.96, blue: 0.97, alpha: 1)
+            ? UIColor(red: 0.52, green: 0.54, blue: 0.59, alpha: 1)
+            : UIColor(red: 0.90, green: 0.90, blue: 0.92, alpha: 1)
     })
     static let well = Color(uiColor: UIColor { t in
         t.userInterfaceStyle == .dark
-            ? UIColor(red: 0.40, green: 0.42, blue: 0.48, alpha: 1)
-            : UIColor(red: 0.88, green: 0.89, blue: 0.92, alpha: 1)
+            ? UIColor(red: 0.46, green: 0.48, blue: 0.53, alpha: 1)
+            : UIColor(red: 0.85, green: 0.85, blue: 0.88, alpha: 1)
     })
-    static let ringEdge = Color(uiColor: UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(white: 0.78, alpha: 0.5)
-            : UIColor(white: 0.0, alpha: 0.18)
-    })
+    // Subtle medium-gray glyphs (the classic iPod icon tone), not stark black.
     static let glyph = Color(uiColor: UIColor { t in
         t.userInterfaceStyle == .dark
-            ? UIColor(red: 0.10, green: 0.11, blue: 0.14, alpha: 1)
-            : UIColor(red: 0.16, green: 0.17, blue: 0.22, alpha: 1)
+            ? UIColor(red: 0.22, green: 0.23, blue: 0.27, alpha: 1)
+            : UIColor(red: 0.42, green: 0.43, blue: 0.47, alpha: 1)
     })
 
     let isPlaying: Bool
@@ -1062,12 +1061,11 @@ struct ClickWheel: View {
             let midRing = (outerR + innerR) / 2
 
             ZStack {
-                // Outer ring — dedicated high-contrast color + a thin edge so it
-                // separates from the device body even in low light.
+                // Outer ring — soft silver; a gentle shadow lifts it off the
+                // device body without a hard outline.
                 Circle()
                     .fill(ClickWheel.ring)
-                    .overlay(Circle().strokeBorder(ClickWheel.ringEdge, lineWidth: 1))
-                    .shadow(color: .black.opacity(0.45), radius: 7, y: 3)
+                    .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
                 // Centre well (now opens Track Info — no repeat glyph).
                 Circle()
                     .fill(ClickWheel.well)

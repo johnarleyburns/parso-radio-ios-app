@@ -126,5 +126,5 @@ struct ChannelSelectorView: View {
 }
 
 #Preview {
-    ChannelSelectorView(currentChannelId: "spanish-guitar") { _ in }
+    ChannelSelectorView(currentChannelId: "guitar-classical") { _ in }
 }
