@@ -5,6 +5,7 @@ struct iPodView: View {
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showChapters = false
     @State private var sleepTimerNow: Date = Date()
     private static let sleepTimerOptions: [Int] = [15, 30, 45, 60]
@@ -22,6 +23,8 @@ struct iPodView: View {
     @State private var showMoreOptions = false
     @State private var showFullMetadata = false
     @State private var isCurrentTrackFavorite = false
+    @State private var showWheelHelp = false
+    @AppStorage("didShowWheelHelp") private var didShowWheelHelp = false
     // Wheel MENU opens the Main Menu sheet, optionally pre-navigated to the
     // current playlist or channel-info (single tap); double tap = root menu.
     @State private var menuRoute: MenuRoute? = nil
@@ -60,20 +63,29 @@ struct iPodView: View {
         playerVM.currentPlaylist?.name ?? playerVM.currentChannel?.name ?? ""
     }
 
-    // Two sizes only on the main page (per spec): one larger bold for the
-    // playlist/channel name and track title; one smaller regular for artist,
-    // part, date and time labels.
-    private static let mainBoldSize: CGFloat = 19
-    private static let mainRegularSize: CGFloat = 14
+    // Two sizes only on the main page: one larger bold for the playlist/
+    // channel name and track title; one smaller regular for artist, part,
+    // date and time labels. @ScaledMetric so they honor Dynamic Type (the
+    // .dynamicTypeSize clamp on the panel keeps the layout coherent at the
+    // extreme settings).
+    @ScaledMetric(relativeTo: .title3)      private var mainBoldSize: CGFloat = 19
+    @ScaledMetric(relativeTo: .subheadline) private var mainRegularSize: CGFloat = 14
     // Brand dark blue (matches the wheel's old progress arc) — used for the
     // elapsed-progress fill on the dark scrim.
     private static let progressBlue = Color(red: 0.18, green: 0.42, blue: 0.95)
+    // Device-body color adapts to appearance (HIG): a deep slate in Dark Mode,
+    // a lighter slate in Light Mode.
+    private static let deviceBody = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.150, green: 0.170, blue: 0.215, alpha: 1)
+            : UIColor(red: 0.290, green: 0.333, blue: 0.408, alpha: 1)
+    })
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Device body — slate blue-grey
-                Color(red: 0.290, green: 0.333, blue: 0.408)
+                // Device body — adapts to Light/Dark appearance.
+                Self.deviceBody
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
@@ -113,7 +125,11 @@ struct iPodView: View {
 
                     Spacer(minLength: deviceMargin(geo))
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // On iPad (regular width) cap the "device" to a phone-like
+                // width and centre it, so the wheel/track box stay iPod-
+                // proportioned instead of stretching across a 12.9" display.
+                .frame(maxWidth: contentWidth(geo), maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
                 // Match the device-body Color: extend to the physical screen
                 // bottom so the bottom spacer (and thus the wheel centering)
                 // is measured to the real screen edge, not the safe-area inset
@@ -172,6 +188,9 @@ struct iPodView: View {
         .sheet(isPresented: $showMoreOptions) {
             combinedTrackSheet
         }
+        .sheet(isPresented: $showWheelHelp) {
+            WheelHelpView()
+        }
         // A drag-to-seek gesture interrupted by a sheet presentation can leave
         // isScrubbing stuck true, which freezes the progress bar / elapsed time
         // until the next track. Clear it whenever a sheet closes.
@@ -186,6 +205,12 @@ struct iPodView: View {
             let wasPlaying = UserDefaults.standard.bool(forKey: "wasPlayingOnQuit")
             UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
             await playerVM.load(channel: pendingChannel, autoPlay: wasPlaying)
+            // First launch: show the wheel guide once so the gestures are
+            // discoverable.
+            if !didShowWheelHelp {
+                didShowWheelHelp = true
+                showWheelHelp = true
+            }
         }
     }
 
@@ -198,14 +223,16 @@ struct iPodView: View {
 
             // Top scrim — keeps the channel title readable over light artwork.
             LinearGradient(
-                colors: [.black.opacity(0.55), .clear],
+                colors: [.black.opacity(0.6), .clear],
                 startPoint: .top,
                 endPoint: .center
             )
 
             // Bottom scrim for the track metadata / scrubber legibility.
+            // Slightly stronger so white text clears the 4.5:1 contrast bar
+            // even over a bright album cover.
             LinearGradient(
-                colors: [.clear, .black.opacity(0.75)],
+                colors: [.clear, .black.opacity(0.82)],
                 startPoint: .center,
                 endPoint: .bottom
             )
@@ -217,16 +244,17 @@ struct iPodView: View {
                 HStack(spacing: 8) {
                     if let icon = titleIcon {
                         Image(systemName: icon)
-                            .font(.system(size: Self.mainBoldSize,
+                            .font(.system(size: mainBoldSize,
                                            weight: .semibold))
                     }
                     Text(titleText)
-                        .font(.system(size: Self.mainBoldSize,
+                        .font(.system(size: mainBoldSize,
                                        weight: .semibold))
                         .lineLimit(1)
                     Spacer()
                 }
                 .foregroundStyle(.white.opacity(0.95))
+                .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
                 // Label only — navigation moved to the wheel MENU button.
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(
@@ -259,7 +287,7 @@ struct iPodView: View {
         .overlay(alignment: .topTrailing) {
             if playerVM.repeatMode == .one, !isAmbientLoop, playerVM.currentTrack != nil {
                 Image(systemName: "repeat.1")
-                    .font(.system(size: Self.mainRegularSize, weight: .semibold))
+                    .font(.system(size: mainRegularSize, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(8)
                     .background(.black.opacity(0.35), in: Circle())
@@ -336,13 +364,13 @@ struct iPodView: View {
                 HStack(spacing: 6) {
                     ProgressView().scaleEffect(0.8).tint(.white)
                     Text(msg)
-                        .font(.system(size: Self.mainRegularSize))
+                        .font(.system(size: mainRegularSize))
                         .foregroundStyle(.white.opacity(0.8))
                 }
             }
 
             Text(track.title)
-                .font(.system(size: Self.mainBoldSize, weight: .bold))
+                .font(.system(size: mainBoldSize, weight: .bold))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.trailing)
                 .lineLimit(2)
@@ -350,14 +378,14 @@ struct iPodView: View {
 
             if let artist = cleaned(track.artist) {
                 Text(artist)
-                    .font(.system(size: Self.mainRegularSize))
+                    .font(.system(size: mainRegularSize))
                     .foregroundStyle(.white.opacity(0.8))
                     .lineLimit(1)
             }
 
             if let part = track.partNumber, let total = track.totalParts, total > 1 {
                 Text("Part \(part) of \(total)")
-                    .font(.system(size: Self.mainRegularSize))
+                    .font(.system(size: mainRegularSize))
                     .foregroundStyle(.white.opacity(0.7))
             }
 
@@ -366,7 +394,7 @@ struct iPodView: View {
             if playerVM.currentChannel?.preferredSource == "podcast",
                let date = track.bestDate {
                 Text(date.formatted(.dateTime.year().month().day()))
-                    .font(.system(size: Self.mainRegularSize))
+                    .font(.system(size: mainRegularSize))
                     .foregroundStyle(.white.opacity(0.7))
             }
             // License/source intentionally NOT shown here — only in the
@@ -375,6 +403,7 @@ struct iPodView: View {
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
+        .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
         // One spoken element: "Title, Artist, Part 2 of 5" rather than four
         // separate VoiceOver stops.
         .accessibilityElement(children: .combine)
@@ -387,7 +416,7 @@ struct iPodView: View {
                 .controlSize(.large)
                 .tint(.white)
             Text(playerVM.loadingMessage ?? "Loading…")
-                .font(.system(size: Self.mainRegularSize, weight: .medium))
+                .font(.system(size: mainRegularSize, weight: .medium))
                 .foregroundStyle(.white)
         }
         .padding(22)
@@ -405,7 +434,7 @@ struct iPodView: View {
         HStack(spacing: 8) {
             ProgressView().tint(.white)
             Text(playerVM.loadingMessage ?? "Loading…")
-                .font(.system(size: Self.mainRegularSize))
+                .font(.system(size: mainRegularSize))
                 .foregroundStyle(.white.opacity(0.8))
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
@@ -417,7 +446,7 @@ struct iPodView: View {
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 8) {
             Text(message)
-                .font(.system(size: Self.mainRegularSize))
+                .font(.system(size: mainRegularSize))
                 .foregroundStyle(.white.opacity(0.85))
                 .multilineTextAlignment(.trailing)
             Button("Try Again") {
@@ -425,7 +454,7 @@ struct iPodView: View {
                     Task { await playerVM.load(channel: ch) }
                 }
             }
-            .font(.system(size: Self.mainRegularSize))
+            .font(.system(size: mainRegularSize))
             .buttonStyle(.bordered)
             .tint(.white)
         }
@@ -437,7 +466,7 @@ struct iPodView: View {
     @ViewBuilder
     private var idleView: some View {
         Text("Tap \(Image(systemName: "line.3.horizontal")) to select a channel")
-            .font(.system(size: Self.mainRegularSize))
+            .font(.system(size: mainRegularSize))
             .foregroundStyle(.white.opacity(0.7))
             .multilineTextAlignment(.trailing)
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -457,13 +486,13 @@ struct iPodView: View {
             VStack(spacing: 6) {
                 HStack(spacing: 0) {
                     Text(formatTime(playerVM.currentPosition))
-                        .font(.system(size: Self.mainRegularSize))
+                        .font(.system(size: mainRegularSize))
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.75))
                         .accessibilityHidden(true)
                     Spacer()
                     Text("-" + formatTime(max(0, dur - playerVM.currentPosition)))
-                        .font(.system(size: Self.mainRegularSize))
+                        .font(.system(size: mainRegularSize))
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.75))
                         .accessibilityHidden(true)
@@ -879,17 +908,23 @@ struct iPodView: View {
     // badly with SwiftUI's layout engine) shared by the screen panel and the
     // wheel so they read as one physical device.
 
+    // Effective layout width — capped on iPad (regular width) so the "device"
+    // stays phone-sized and centered rather than filling the whole screen.
+    private func contentWidth(_ geo: GeometryProxy) -> CGFloat {
+        horizontalSizeClass == .regular ? min(geo.size.width, 480) : geo.size.width
+    }
+
     // Click-wheel diameter. Floor at 80 pt prevents a negative/invisible frame
     // when GeometryReader briefly reports zero during sheet-dismiss animations.
     private func wheelDiameter(_ geo: GeometryProxy) -> CGFloat {
-        max(80.0, min(geo.size.width - 48, geo.size.height * 0.50 - 32))
+        max(80.0, min(contentWidth(geo) - 48, geo.size.height * 0.50 - 32))
     }
 
     // The wheel is centered, so its gap to each screen edge is exactly this.
     // The screen panel uses the same value for its left/right AND top margins
     // so panel and wheel have identical insets from the screen edge.
     private func deviceMargin(_ geo: GeometryProxy) -> CGFloat {
-        max(12.0, (geo.size.width - wheelDiameter(geo)) / 2)
+        max(12.0, (contentWidth(geo) - wheelDiameter(geo)) / 2)
     }
 
     // MARK: - Helpers

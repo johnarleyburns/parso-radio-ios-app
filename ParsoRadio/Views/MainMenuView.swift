@@ -17,6 +17,7 @@ struct MainMenuView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @State private var showAbout = false
     @State private var recentlyPlayed: [Track] = []
@@ -430,7 +431,14 @@ struct MainMenuView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(.thinMaterial)
+            // Honor Reduce Transparency with an opaque fallback (HIG).
+            .background {
+                if reduceTransparency {
+                    Color(.secondarySystemBackground)
+                } else {
+                    Rectangle().fill(.thinMaterial)
+                }
+            }
             .overlay(Rectangle()
                 .frame(height: 0.5)
                 .foregroundStyle(.separator),
