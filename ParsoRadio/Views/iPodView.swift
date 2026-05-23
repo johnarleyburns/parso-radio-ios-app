@@ -1006,6 +1006,33 @@ struct ClickWheel: View {
     // Single source of truth for icon point size on the main screen.
     static let iconSize: CGFloat = 22
 
+    // Wheel colors are dedicated (not system grouped-background grays) so the
+    // wheel clearly stands out from the dark device body in low light. The ring
+    // is a light silver in BOTH appearances — the iconic iPod look — kept a
+    // touch muted in dark so it isn't glary; the centre well is darker so the
+    // ring still reads as a ring; glyphs are a fixed near-black that contrasts
+    // on the light ring in both modes.
+    static let ring = Color(uiColor: UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 0.60, green: 0.62, blue: 0.68, alpha: 1)
+            : UIColor(red: 0.96, green: 0.96, blue: 0.97, alpha: 1)
+    })
+    static let well = Color(uiColor: UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 0.40, green: 0.42, blue: 0.48, alpha: 1)
+            : UIColor(red: 0.88, green: 0.89, blue: 0.92, alpha: 1)
+    })
+    static let ringEdge = Color(uiColor: UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(white: 0.78, alpha: 0.5)
+            : UIColor(white: 0.0, alpha: 0.18)
+    })
+    static let glyph = Color(uiColor: UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 0.10, green: 0.11, blue: 0.14, alpha: 1)
+            : UIColor(red: 0.16, green: 0.17, blue: 0.22, alpha: 1)
+    })
+
     let isPlaying: Bool
     var currentTime: Double = 0
     var duration: Double = 0
@@ -1035,36 +1062,38 @@ struct ClickWheel: View {
             let midRing = (outerR + innerR) / 2
 
             ZStack {
-                // Outer ring.
+                // Outer ring — dedicated high-contrast color + a thin edge so it
+                // separates from the device body even in low light.
                 Circle()
-                    .fill(Color(.secondarySystemGroupedBackground))
-                    .shadow(color: .black.opacity(0.35), radius: 6, y: 3)
+                    .fill(ClickWheel.ring)
+                    .overlay(Circle().strokeBorder(ClickWheel.ringEdge, lineWidth: 1))
+                    .shadow(color: .black.opacity(0.45), radius: 7, y: 3)
                 // Centre well (now opens Track Info — no repeat glyph).
                 Circle()
-                    .fill(Color(.systemBackground))
+                    .fill(ClickWheel.well)
                     .frame(width: innerR * 2, height: innerR * 2)
                     .allowsHitTesting(false)
 
                 // MENU (top)
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: ClickWheel.iconSize, weight: .medium))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(ClickWheel.glyph)
                     .offset(y: -midRing).allowsHitTesting(false)
                 if transportEnabled {
                     Image(systemName: "backward.fill")
                         .font(.system(size: ClickWheel.iconSize, weight: .medium))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(ClickWheel.glyph)
                         .offset(x: -midRing).allowsHitTesting(false)
                     Image(systemName: "forward.fill")
                         .font(.system(size: ClickWheel.iconSize, weight: .medium))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(ClickWheel.glyph)
                         .offset(x: midRing).allowsHitTesting(false)
                 }
                 if playPauseEnabled {
                     // Fixed combined glyph — never swaps between play and pause.
                     Image(systemName: "playpause.fill")
                         .font(.system(size: ClickWheel.iconSize, weight: .medium))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(ClickWheel.glyph)
                         .offset(y: midRing).allowsHitTesting(false)
                 }
 
