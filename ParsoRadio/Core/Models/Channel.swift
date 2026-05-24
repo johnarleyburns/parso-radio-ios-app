@@ -118,6 +118,25 @@ struct Channel: Codable, Identifiable, Hashable {
 extension Channel {
     static let defaults: [Channel] = [
 
+        // MARK: For You — dynamic, built from listening history at fetch time
+        // (no static ia_queries.json entry). Show a "listen to N tracks first"
+        // prompt until there's enough history. See RecommendationQueryBuilder.
+        Channel(
+            id: "music-for-you", name: "Music for You", category: "For You",
+            icon: "sparkles",
+            tags: ["music-for-you"],
+            preferredSource: "internet_archive",
+            summary: "A rotating mix based on the music you play most — more from the artists, composers and genres in your listening history. Updates as you listen."
+        ),
+        Channel(
+            id: "books-for-you", name: "Books for You", category: "For You",
+            icon: "sparkles",
+            tags: ["books-for-you"],
+            contentType: .spokenWord,
+            preferredSource: "internet_archive",
+            summary: "Audiobooks picked from the authors and genres you've been listening to. Updates as you listen."
+        ),
+
         // MARK: Contemporary — Free Music Archive genre channels (all curl-verified)
         Channel(
             id: "fma-classical", name: "Classical", category: "Contemporary",

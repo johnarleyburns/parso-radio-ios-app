@@ -772,6 +772,33 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
+    /// All-time play history (newest first, one entry per track) WITH the
+    /// channel it was played in — so recommendations can split music vs
+    /// audiobook listening by channel category.
+    func fetchRecentlyPlayedWithChannel(limit: Int = 200) async -> [(track: Track, channelId: String)] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let sql = """
+                    SELECT track_id, channel_id, MAX(played_at) AS last_at
+                    FROM track_play_history
+                    GROUP BY track_id
+                    ORDER BY last_at DESC
+                    LIMIT ?
+                """
+                var out: [(track: Track, channelId: String)] = []
+                if let rows = try? self.db.prepare(sql, limit) {
+                    for r in rows {
+                        guard let tid = r[0] as? String, let cid = r[1] as? String,
+                              let row = try? self.db.pluck(self.tracks.filter(self.colId == tid)),
+                              let track = self.rowToTrack(row) else { continue }
+                        out.append((track, cid))
+                    }
+                }
+                continuation.resume(returning: out)
+            }
+        }
+    }
+
     // MARK: - Bookmarks
 
     func saveBookmark(_ bookmark: Bookmark) async {

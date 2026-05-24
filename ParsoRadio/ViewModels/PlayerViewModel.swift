@@ -341,7 +341,25 @@ final class PlayerViewModel: ObservableObject {
         var fetched: [Track] = []
 
         do {
-            if channel.feedURL != nil {
+            if channel.category == "For You" {
+                // Dynamic "for you" channels: build the query from listening
+                // history at fetch time. If there isn't enough history yet, show
+                // a friendly prompt and stop (no tracks to resume/advance into).
+                if let built = try await fetchRecommendations(for: channel) {
+                    fetched = built
+                } else {
+                    currentChannel = channel
+                    channelDescription = channel.detailDescription
+                    channelTrackCount = 0
+                    currentArtwork = nil
+                    currentTrack = nil
+                    isPlaying = false
+                    isLoading = false
+                    loadingMessage = nil
+                    errorMessage = "Listen to at least \(RecommendationQueryBuilder.minPlays) tracks first — then your \(channel.name) picks will appear here."
+                    return
+                }
+            } else if channel.feedURL != nil {
                 // News/podcast channels: fetch from RSS feed via PodcastRSSService.
                 fetched = try await podcastService.fetchTracks(channel: channel)
             } else if channel.preferredSource == "nps" || channel.contentType == .ambientLoop {
@@ -1342,6 +1360,33 @@ final class PlayerViewModel: ObservableObject {
     /// view, which is a window onto the same data). Playlists/downloads kept.
     func clearListeningHistory() async {
         await db.clearAllPlayHistory()
+    }
+
+    /// Build the track list for a "for you" channel from listening history.
+    /// Returns nil when there isn't enough qualifying history yet (caller shows
+    /// the "listen to N tracks first" prompt). Music vs Books is decided by the
+    /// CATEGORY of the channel each track was played in; playlists, lectures,
+    /// news and the for-you channels themselves don't count (no feedback loop).
+    private func fetchRecommendations(for channel: Channel) async throws -> [Track]? {
+        let history = await db.fetchRecentlyPlayedWithChannel(limit: 200)
+        let catById = Dictionary(Channel.defaults.map { ($0.id, $0.category) },
+                                 uniquingKeysWith: { a, _ in a })
+        let isBooks = channel.id == "books-for-you"
+        let musicCats: Set<String> = ["Contemporary", "Curated", "Ambient"]
+        let relevant = history.filter { pair in
+            let cat = catById[pair.channelId] ?? ""
+            return isBooks ? (cat == "Audiobooks") : musicCats.contains(cat)
+        }.map(\.track)
+
+        guard let query = isBooks
+            ? RecommendationQueryBuilder.booksQuery(fromHistory: relevant)
+            : RecommendationQueryBuilder.musicQuery(fromHistory: relevant)
+        else { return nil }
+
+        let raw = try await archiveService.fetchTracks(iaQuery: query, matchTags: [channel.id])
+        // Recommend NEW material — drop anything already in the history.
+        let playedIds = Set(history.map(\.track.id))
+        return raw.filter { !playedIds.contains($0.id) }
     }
 
     /// Settings → "Clear All Data": stop playback and erase EVERYTHING — tracks,

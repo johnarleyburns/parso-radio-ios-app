@@ -4,10 +4,10 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 14 Contemporary + 18 Lectures + 4 News + 4 Ambient + 14 Curated
-        // + 21 Audiobooks (LibriVox) = 75. (Dropped bulk Netlabels & 78 RPM;
-        // added String Quartet.)
-        XCTAssertEqual(Channel.defaults.count, 75)
+        // 2 For You + 14 Contemporary + 18 Lectures + 4 News + 4 Ambient
+        // + 14 Curated + 21 Audiobooks (LibriVox) = 77. (Dropped bulk Netlabels
+        // & 78 RPM; added String Quartet + Music/Books for You.)
+        XCTAssertEqual(Channel.defaults.count, 77)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {
@@ -18,14 +18,23 @@ final class ChannelTests: XCTestCase {
         XCTAssertTrue(Channel.defaults.allSatisfy { $0.category != "Classical" },
             "No legacy Classical channels should remain")
         for ch in Channel.defaults where ch.preferredSource == "internet_archive" {
-            XCTAssertTrue(ch.category == "Curated" || ch.category == "Audiobooks",
-                "IA channel '\(ch.id)' must be Curated or Audiobooks")
+            XCTAssertTrue(["Curated", "Audiobooks", "For You"].contains(ch.category),
+                "IA channel '\(ch.id)' must be Curated, Audiobooks or For You")
             guard let entry = ch.iaQueryEntry else {
                 XCTFail("IA channel '\(ch.id)' must be registry-backed"); continue
             }
             XCTAssertEqual(entry.matchTags, [ch.id],
                 "IA channel '\(ch.id)' stamp must be [\(ch.id)]")
         }
+    }
+
+    func testForYouChannelsExistAndAreDynamic() {
+        let ids = Set(Channel.defaults.filter { $0.category == "For You" }.map(\.id))
+        XCTAssertEqual(ids, ["music-for-you", "books-for-you"])
+        // Books-for-you is spoken-word so it gets ±15s lock-screen controls and
+        // position persistence; music-for-you is music.
+        let books = Channel.defaults.first { $0.id == "books-for-you" }
+        XCTAssertEqual(books?.contentType, .spokenWord)
     }
 
     func testAudiobooksAreTwentyOneLibriVoxRegistryChannels() {

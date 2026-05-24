@@ -48,7 +48,7 @@ struct MainMenuView: View {
 
     // Fixed section order. Alphabetical WITHIN each.
     private static let categoryOrder = [
-        "Curated", "Ambient", "News", "Contemporary", "Audiobooks", "Lectures"
+        "For You", "Curated", "Ambient", "News", "Contemporary", "Audiobooks", "Lectures"
     ]
 
     static func orderedCategories() -> [String] {
@@ -255,6 +255,7 @@ struct MainMenuView: View {
     // SF Symbol per menu category.
     static func categoryIcon(_ category: String) -> String {
         switch category {
+        case "For You":      return "sparkles"
         case "Curated":      return "star"
         case "Ambient":      return "leaf"
         case "News":         return "newspaper"
