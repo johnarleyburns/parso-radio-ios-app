@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  CarPlay AUDIO entitlement. This key alone is NOT enough: Apple must GRANT
+	  "CarPlay audio app" to the App ID in the Developer portal first, and the
+	  provisioning profile (CI_PROFILE secret) must then be regenerated to include
+	  it. Until that is done, a Release build that references this file will FAIL
+	  code-signing — which is exactly why this lives on the `carplay-support`
+	  branch and must NOT be merged to `main` before the grant. See CARPLAY.md.
+	-->
+	<key>com.apple.developer.carplay-audio</key>
+	<true/>
+</dict>
+</plist>

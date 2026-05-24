@@ -14,7 +14,10 @@ struct ParsoMusicApp: App {
     private static let sharedDB = makeSharedDB()
     private static let sharedDownloadManager = DownloadManager(db: sharedDB)
 
-    @StateObject private var playerVM: PlayerViewModel = {
+    // Shared so the CarPlay scene (CarPlaySceneDelegate) drives the SAME player
+    // as the on-phone UI — one audio session, one now-playing state. @MainActor
+    // because PlayerViewModel is main-actor isolated.
+    @MainActor static let sharedPlayerVM: PlayerViewModel = {
         let db = ParsoMusicApp.sharedDB
         return PlayerViewModel(
             db: db,
@@ -25,6 +28,8 @@ struct ParsoMusicApp: App {
             downloadManager: ParsoMusicApp.sharedDownloadManager
         )
     }()
+
+    @StateObject private var playerVM = ParsoMusicApp.sharedPlayerVM
 
     @StateObject private var playlistVM: PlaylistViewModel = {
         PlaylistViewModel(db: ParsoMusicApp.sharedDB)
