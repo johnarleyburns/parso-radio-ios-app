@@ -885,19 +885,25 @@ final class PlayerViewModel: ObservableObject {
         }
     }
 
-    // Buffering-stall watchdog handler. Fires stallTimeout after a track was
-    // loaded; if that exact track is still current but the item NEVER became
-    // playable (.readyToPlay) AND never produced a tick, it's stuck buffering —
-    // skip to the next track (preserving the play intent) so the channel can't
-    // hang forever. A paused-but-ready resume is healthy (readyGeneration set)
-    // and is left alone.
+    // Buffering-stall watchdog handler. Fires stallTimeout after a track loaded.
+    // Key insight from the field: an AVPlayerItem can reach .readyToPlay and
+    // THEN stall during playback (buffer underrun → no time ticks). So:
+    //  • When we intend to PLAY (autoPlay): the only proof of health is an actual
+    //    playback tick (playbackConfirmedGeneration). "Ready but never played in
+    //    20s" = stalled → skip. (This is the skip-forward-hangs bug.)
+    //  • When loaded PAUSED (autoPlay == false): a track that merely became
+    //    READY is healthy (it just isn't playing) — only skip a dead, never-ready
+    //    item.
     @MainActor
     func handleStallIfNeeded(generation: Int, autoPlay: Bool = true) async {
         guard generation == loadGeneration else { return }              // track changed
-        guard playbackConfirmedGeneration != generation else { return } // it played
-        guard readyGeneration != generation else { return }             // it became ready
         guard currentChannel?.contentType != .ambientLoop else { return }
-        Log.playback.error("Track stuck (never ready/played in \(self.stallTimeout)s) — skipping")
+        guard playbackConfirmedGeneration != generation else { return } // it actually played → fine
+        if !autoPlay {
+            // Paused load: a ready item is fine; only a never-ready one is dead.
+            guard readyGeneration != generation else { return }
+        }
+        Log.playback.error("Track stalled (no audio in \(self.stallTimeout)s) — skipping")
         // Advance to the next track, keeping the original play intent so a
         // paused launch lands paused on a working track (not silently playing).
         audioPlayer.skip()

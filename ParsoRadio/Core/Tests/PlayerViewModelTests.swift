@@ -993,6 +993,24 @@ final class PlayerViewModelTests: XCTestCase {
             "a ready (but paused) track must not be skipped")
     }
 
+    // The field bug: a track that became READY but then stalled during playback
+    // (never produced a tick) while we INTENDED to play must be skipped — being
+    // "ready" is not enough when we wanted audio.
+    func testStallWatchdogSkipsReadyButNeverPlayedWhenAutoPlay() async throws {
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        await db.saveTracks([makeFMATrack(id: "ready-stalled", tags: ["jazz"]),
+                             makeFMATrack(id: "next-up", tags: ["jazz"])])
+        vm.currentChannel = channel
+        vm.currentTrack = makeFMATrack(id: "ready-stalled", tags: ["jazz"])
+        vm.isPlaying = true
+        vm.loadGeneration = 6
+        vm.playbackConfirmedGeneration = -1     // never actually produced audio
+        vm.readyGeneration = 6                  // item DID become ready, then stalled
+        await vm.handleStallIfNeeded(generation: 6, autoPlay: true)
+        XCTAssertTrue(vm.isLoading,
+            "a ready-but-stalled track must be skipped when we intended to play")
+    }
+
     // A watchdog from a PREVIOUS track (stale generation) must be a no-op.
     func testStallWatchdogIgnoresStaleGeneration() async {
         let channel = Channel.defaults.first { $0.id == "fma-jazz" }!

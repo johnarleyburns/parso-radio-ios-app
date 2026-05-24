@@ -47,6 +47,9 @@ final class AudioPlayerService: ObservableObject {
     private var statusObserver: NSKeyValueObservation?
     // Resume offset waiting to be applied once the item is .readyToPlay.
     private var pendingStartSeek: Double = 0
+    // Monotonic per-player token: invalidates stray periodic-time ticks from a
+    // torn-down player so they aren't reported as the next track's playback.
+    private var playToken = 0
     // Whether playback should actually START once the item is ready. Lets a
     // resume load the track + seek + show its duration while staying PAUSED,
     // instead of the old race where load() paused after the fact and the
@@ -121,6 +124,14 @@ final class AudioPlayerService: ObservableObject {
             }
         }
 
+        // Tag this player's ticks with a token. A periodic-time block already
+        // dispatched before teardown can still run AFTER the next track started
+        // — without this guard that stray tick would be reported as the NEW
+        // track's playback (falsely "confirming" a track that's actually still
+        // buffering, which disarmed the stall watchdog → infinite buffering on
+        // skip). Only the live player's ticks are forwarded.
+        playToken &+= 1
+        let token = playToken
         timeObserver = player?.addPeriodicTimeObserver(
             forInterval: CMTime(value: 1, timescale: 4), // 0.25 s — smooth progress bar
             queue: .main
@@ -130,8 +141,9 @@ final class AudioPlayerService: ObservableObject {
             // isolated — assumeIsolated tells the compiler that without an
             // extra Task hop, keeping progress updates frame-tight.
             MainActor.assumeIsolated {
-                self?.onTimeUpdate?(time.seconds)
-                self?.updateNowPlayingElapsed(time.seconds)
+                guard let self, self.playToken == token else { return }
+                self.onTimeUpdate?(time.seconds)
+                self.updateNowPlayingElapsed(time.seconds)
             }
         }
 
@@ -488,6 +500,8 @@ final class AudioPlayerService: ObservableObject {
     // MARK: - Teardown
 
     private func tearDownPlayer() {
+        // Invalidate any in-flight periodic-time ticks from the outgoing player.
+        playToken &+= 1
         player?.pause()
         playerLooper?.disableLooping()
         playerLooper = nil
