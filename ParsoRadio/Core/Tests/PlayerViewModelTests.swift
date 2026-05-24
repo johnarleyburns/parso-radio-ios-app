@@ -964,6 +964,38 @@ final class PlayerViewModelTests: XCTestCase {
             "loadPlaylist(shuffle:true) must turn shuffle ON")
     }
 
+    // REGRESSION GUARD: a resume must honor autoPlay reliably. autoPlay:false
+    // must load the track PAUSED (ready, not playing); autoPlay:true must start
+    // playing. The bug was a race where the channel loaded silent with no
+    // progress until the user pressed play.
+    func testLoadPlaylistAutoPlayFalseLoadsPaused() async throws {
+        let pl = try await seedPlaylist(["ap1", "ap2"])
+        await vm.loadPlaylist(pl, autoPlay: false)
+        XCTAssertNotNil(vm.currentTrack, "the track must still LOAD when autoPlay is false")
+        XCTAssertFalse(vm.isPlaying, "autoPlay:false must load paused, not playing")
+    }
+
+    func testLoadPlaylistAutoPlayTrueStartsPlaying() async throws {
+        let pl = try await seedPlaylist(["ap3", "ap4"])
+        await vm.loadPlaylist(pl, autoPlay: true)
+        XCTAssertNotNil(vm.currentTrack)
+        XCTAssertTrue(vm.isPlaying, "autoPlay:true must start playing")
+    }
+
+    // A paused resume must still seek to (and surface) the saved offset, so the
+    // progress bar shows where the user was instead of 0:00.
+    func testResumePlaylistAutoPlayFalseLandsAtOffsetPaused() async throws {
+        let pl = try await seedPlaylist(["ro1", "ro2", "ro3"])
+        let order = await db.fetchTracks(forPlaylist: pl.id)
+        await db.savePosition(channelId: PlayerViewModel.playlistKey(pl.id),
+                              trackId: order[1].id, seconds: 220)
+        await vm.resumePlaylist(pl, autoPlay: false)
+        XCTAssertEqual(vm.currentTrack?.id, order[1].id, "must resume the saved track")
+        XCTAssertFalse(vm.isPlaying, "autoPlay:false resume stays paused")
+        XCTAssertEqual(vm.currentPosition, 220, accuracy: 0.5,
+            "a paused resume must still show the saved offset, not 0:00")
+    }
+
     func testShufflePlaylistTurnsShuffleOn() async throws {
         let pl = try await seedPlaylist(["sf1", "sf2", "sf3", "sf4"])
         vm.shuffleMode = false

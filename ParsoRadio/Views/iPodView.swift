@@ -76,9 +76,12 @@ struct iPodView: View {
     private static let progressBlue = Color(red: 0.18, green: 0.42, blue: 0.95)
     // Device-body color adapts to appearance (HIG): a deep slate in Dark Mode,
     // a lighter slate in Light Mode.
-    private static let deviceBody = Color(uiColor: UIColor { trait in
+    // Dark mode: a very dark, near-black body (the wheel centre matches this
+    // exactly so it reads as one continuous dark face, HIG-style). Light mode
+    // keeps the slate body.
+    static let deviceBody = Color(uiColor: UIColor { trait in
         trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.150, green: 0.170, blue: 0.215, alpha: 1)
+            ? UIColor(red: 0.085, green: 0.088, blue: 0.098, alpha: 1)
             : UIColor(red: 0.290, green: 0.333, blue: 0.408, alpha: 1)
     })
 
@@ -1011,24 +1014,23 @@ struct ClickWheel: View {
     // Single source of truth for icon point size on the main screen.
     static let iconSize: CGFloat = 22
 
-    // Classic-iPod look: a soft silver wheel with subtle medium-gray glyphs —
-    // visible against the dark device body without the stark, high-contrast feel
-    // of a bright disc + black icons. The centre well is just a hair darker than
-    // the ring (so it still reads as a wheel), and there is no hard edge stroke.
+    // Dark mode: a dark wheel that's only SLIGHTLY lighter than the near-black
+    // body, with white glyphs — a quiet, harmonious dark face (HIG). The centre
+    // well matches the body exactly so the dark centre blends into the
+    // background. Light mode keeps the soft silver wheel with dark glyphs.
     static let ring = Color(uiColor: UIColor { t in
         t.userInterfaceStyle == .dark
-            ? UIColor(red: 0.52, green: 0.54, blue: 0.59, alpha: 1)
+            ? UIColor(red: 0.20, green: 0.205, blue: 0.225, alpha: 1)
             : UIColor(red: 0.90, green: 0.90, blue: 0.92, alpha: 1)
     })
     static let well = Color(uiColor: UIColor { t in
         t.userInterfaceStyle == .dark
-            ? UIColor(red: 0.46, green: 0.48, blue: 0.53, alpha: 1)
+            ? UIColor(red: 0.085, green: 0.088, blue: 0.098, alpha: 1)   // == device body
             : UIColor(red: 0.85, green: 0.85, blue: 0.88, alpha: 1)
     })
-    // Subtle medium-gray glyphs (the classic iPod icon tone), not stark black.
     static let glyph = Color(uiColor: UIColor { t in
         t.userInterfaceStyle == .dark
-            ? UIColor(red: 0.22, green: 0.23, blue: 0.27, alpha: 1)
+            ? UIColor(white: 0.97, alpha: 1)                              // white icons
             : UIColor(red: 0.42, green: 0.43, blue: 0.47, alpha: 1)
     })
 

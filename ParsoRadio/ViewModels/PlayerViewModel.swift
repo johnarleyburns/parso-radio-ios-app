@@ -190,6 +190,18 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
+        // The item became playable: publish its real duration so the progress
+        // bar / elapsed time appear immediately — even for a resume that starts
+        // PAUSED (IA search docs carry no runtime, so this is often the first
+        // time we learn the duration), and clear the loading indicator.
+        audioPlayer.onReady = { [weak self] duration in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if duration > 0 { self.trackDuration = duration }
+                if self.isLoading { self.isLoading = false; self.loadingMessage = nil }
+            }
+        }
+
         audioPlayer.onTimeUpdate = { [weak self] seconds in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -389,9 +401,8 @@ final class PlayerViewModel: ObservableObject {
         // could point at a previously-played non-ambient track.
         if channel.contentType == .ambientLoop {
             if let amb = fetched.first {
-                await playTrack(amb, seekTo: nil)
+                await playTrack(amb, seekTo: nil, autoPlay: autoPlay)
             }
-            if !autoPlay && isPlaying { audioPlayer.pause(); isPlaying = false }
             isLoading = false
             loadingMessage = nil
             return
@@ -416,8 +427,7 @@ final class PlayerViewModel: ObservableObject {
                 await db.clearPosition(channelId: channel.id)
                 await db.recordPlayed(channelId: channel.id, trackId: newest.id)
                 loadingMessage = "Loading the latest…"
-                await playTrack(newest, seekTo: nil)
-                if !autoPlay && isPlaying { audioPlayer.pause(); isPlaying = false }
+                await playTrack(newest, seekTo: nil, autoPlay: autoPlay)
                 isLoading = false
                 loadingMessage = nil
                 return
@@ -426,17 +436,16 @@ final class PlayerViewModel: ObservableObject {
 
         // Resume the last-played track for ALL channel types, at its exact
         // saved offset (the user asked to always pick up where they were).
+        // autoPlay is threaded all the way into AudioPlayerService so a paused
+        // resume still loads, seeks and shows its duration — it just doesn't
+        // start — instead of the old race that left the track silent.
         if let saved, let track = await db.fetchTrack(id: saved.trackId) {
             loadingMessage = "Resuming \"\(track.title)\"…"
-            await playTrack(track, seekTo: saved.seconds > 1 ? saved.seconds : nil)
+            await playTrack(track, seekTo: saved.seconds > 1 ? saved.seconds : nil,
+                            autoPlay: autoPlay)
         } else {
             loadingMessage = "Starting playback…"
-            await advanceToNext()
-        }
-
-        if !autoPlay && isPlaying {
-            audioPlayer.pause()
-            isPlaying = false
+            await advanceToNext(autoPlay: autoPlay)
         }
 
         isLoading = false
@@ -526,7 +535,7 @@ final class PlayerViewModel: ObservableObject {
 
     // MARK: - Private
 
-    private func advanceToNext() async {
+    private func advanceToNext(autoPlay: Bool = true) async {
         // Playlist mode: advance within the playlist's ordered tracks.
         // (currentChannel is nil in playlist mode, so the channel queue path
         // below would otherwise do nothing — which is why <next> was dead.)
@@ -565,7 +574,7 @@ final class PlayerViewModel: ObservableObject {
         // Librivox sequential multi-part: advance to next part before random pick
         if let current = currentTrack, current.parentIdentifier != nil {
             if let nextPart = await queueManager.nextPart(after: current, channel: channel) {
-                await playTrack(nextPart, seekTo: nil, recordHistory: false)
+                await playTrack(nextPart, seekTo: nil, recordHistory: false, autoPlay: autoPlay)
                 return
             }
         }
@@ -600,7 +609,7 @@ final class PlayerViewModel: ObservableObject {
                 track = next
             }
         }
-        await playTrack(track, seekTo: nil, recordHistory: false)
+        await playTrack(track, seekTo: nil, recordHistory: false, autoPlay: autoPlay)
     }
 
     // Resolve a track's playable URL and read its duration WITHOUT starting
@@ -663,7 +672,8 @@ final class PlayerViewModel: ObservableObject {
         await playTrack(previous, seekTo: nil, recordHistory: false)
     }
 
-    private func playTrack(_ track: Track, seekTo: Double?, recordHistory: Bool = true) async {
+    private func playTrack(_ track: Track, seekTo: Double?, recordHistory: Bool = true,
+                           autoPlay: Bool = true) async {
         // Hide the book/album buttons immediately; the probe re-enables them
         // once it confirms this track belongs to a multi-file item.
         currentTrackIsMultiPart = false
@@ -780,13 +790,14 @@ final class PlayerViewModel: ObservableObject {
             let resumeAt = max(effectiveSeek, 0)
             audioPlayer.play(url: url, track: track,
                              looping: currentChannel?.contentType == .ambientLoop,
-                             startAt: resumeAt)
+                             startAt: resumeAt,
+                             autoPlay: autoPlay)
             if resumeAt > 0 {
                 // Show the resume position in the UI immediately; AudioPlayer
                 // applies the actual seek once the item is .readyToPlay.
                 currentPosition = resumeAt
             }
-            isPlaying = true
+            isPlaying = autoPlay
             errorMessage = nil
             consecutiveLoadFailures = 0
             // Keep the loading indicator up until the player ACTUALLY produces
@@ -1075,7 +1086,8 @@ final class PlayerViewModel: ObservableObject {
     func loadPlaylist(_ playlist: Playlist,
                        startingAt track: Track? = nil,
                        seekTo: Double = 0,
-                       shuffle: Bool = false) async {
+                       shuffle: Bool = false,
+                       autoPlay: Bool = true) async {
         // Save the outgoing track's spot before switching context.
         saveAutosaveForCurrentTrack()
         // Shuffle is per-context: a normal play/resume resets it OFF; only the
@@ -1098,7 +1110,7 @@ final class PlayerViewModel: ObservableObject {
         // recordHistory:false — currentTrack here is still the previously-playing
         // CHANNEL track. Pushing it into playHistory is exactly why "back" on the
         // first playlist track used to jump to a track not in the playlist.
-        await playTrack(startTrack, seekTo: seekTo, recordHistory: false)
+        await playTrack(startTrack, seekTo: seekTo, recordHistory: false, autoPlay: autoPlay)
     }
 
     // The saved spot in a playlist (track still present + offset), or nil.
@@ -1120,11 +1132,12 @@ final class PlayerViewModel: ObservableObject {
 
     // Resume a playlist exactly where the user left off (the saved track at
     // its saved offset). Falls back to a normal play-from-top if nothing saved.
-    func resumePlaylist(_ playlist: Playlist) async {
+    func resumePlaylist(_ playlist: Playlist, autoPlay: Bool = true) async {
         if let resume = await savedPlaylistResume(playlist) {
-            await loadPlaylist(playlist, startingAt: resume.track, seekTo: resume.seconds)
+            await loadPlaylist(playlist, startingAt: resume.track, seekTo: resume.seconds,
+                               autoPlay: autoPlay)
         } else {
-            await loadPlaylist(playlist)
+            await loadPlaylist(playlist, autoPlay: autoPlay)
         }
     }
 
@@ -1341,8 +1354,7 @@ final class PlayerViewModel: ObservableObject {
 
         if kind == "playlist", let pid = contextId,
            let pl = await db.fetchPlaylists().first(where: { $0.id == pid }) {
-            await resumePlaylist(pl)
-            if !autoPlay && isPlaying { audioPlayer.pause(); isPlaying = false }
+            await resumePlaylist(pl, autoPlay: autoPlay)
             return
         }
 
@@ -1358,8 +1370,8 @@ final class PlayerViewModel: ObservableObject {
         // it was a one-off search result), play that precise track + offset.
         if let tid = savedTrackId, currentTrack?.id != tid,
            let t = await db.fetchTrack(id: tid) {
-            await playTrack(t, seekTo: savedPosition > 1 ? savedPosition : nil)
-            if !autoPlay && isPlaying { audioPlayer.pause(); isPlaying = false }
+            await playTrack(t, seekTo: savedPosition > 1 ? savedPosition : nil,
+                            autoPlay: autoPlay)
         }
     }
 }

@@ -338,11 +338,13 @@ extension Channel {
             // stamp) so it no longer inherits stale tracks the old
             // "spanish-guitar"/"classical-guitar" stamps had accumulated in the
             // local DB (which caused the same few items to repeat forever).
-            id: "guitar-classical", name: "Guitar - Classical", category: "Curated",
-            icon: "guitars",
+            id: "guitar-classical", name: "Classical Guitar", category: "Curated",
+            // SF Symbols has no dedicated classical/acoustic-guitar glyph (only
+            // "guitars", which reads as electric), so use a clean music note.
+            icon: "music.note",
             tags: ["guitar-classical"],
             preferredSource: "internet_archive",
-            summary: "Classical guitar — a rotating mix of the great guitarists: Segovia, Yepes, Bream, the Romeros, Sabicas, Carlos Montoya, Paco de Lucía, Manuel Barrueco, David Russell, Laurindo Almeida, Li Jie and more. Interviews, talks and lectures are excluded."
+            summary: "Classical guitar — a rotating mix of the great guitarists (Segovia, Yepes, Bream, the Romeros, Sabicas, Carlos Montoya, Paco de Lucía, Manuel Barrueco, David Russell, Laurindo Almeida, Li Jie) and the core repertoire (Tárrega, Sor, Rodrigo's Concierto de Aranjuez, Giuliani, Villa-Lobos). Interviews, talks and lectures are excluded."
         ),
         // Chamber Music: curl-verified 2026-05-15 — 919 items; canonical
         // ensembles (Budapest/Quartetto Italiano), Trout Quintet, Beethoven

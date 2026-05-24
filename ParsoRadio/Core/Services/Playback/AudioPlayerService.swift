@@ -47,6 +47,14 @@ final class AudioPlayerService: ObservableObject {
     private var statusObserver: NSKeyValueObservation?
     // Resume offset waiting to be applied once the item is .readyToPlay.
     private var pendingStartSeek: Double = 0
+    // Whether playback should actually START once the item is ready. Lets a
+    // resume load the track + seek + show its duration while staying PAUSED,
+    // instead of the old race where load() paused after the fact and the
+    // deferred play sometimes won (or the track sat silent with no progress).
+    private var pendingAutoPlay: Bool = true
+    // Fired when the item reaches .readyToPlay with its duration, so the UI can
+    // show the progress bar / elapsed time even when starting paused.
+    var onReady: ((Double) -> Void)?
 
     init() {
         do {
@@ -66,11 +74,13 @@ final class AudioPlayerService: ObservableObject {
     // resumes from 0:00, especially right after an app upgrade" — a fresh
     // process makes the remote item slower to become ready, so the old
     // seek-immediately-after-play race was lost almost every time.
-    func play(url: URL, track: Track, looping: Bool = false, startAt: Double = 0) {
+    func play(url: URL, track: Track, looping: Bool = false, startAt: Double = 0,
+              autoPlay: Bool = true) {
         tearDownPlayer()
 
         let item = AVPlayerItem(url: url)
         pendingStartSeek = (looping || startAt <= 0) ? 0 : startAt
+        pendingAutoPlay = autoPlay
 
         if looping {
             // AVPlayerLooper on AVQueuePlayer: stable, proven, gapless-enough
@@ -107,7 +117,7 @@ final class AudioPlayerService: ObservableObject {
             // PlayerViewModel.playTrack) auto-skips a track.
             statusObserver = item.observe(\.status, options: [.new, .initial]) { [weak self] item, _ in
                 guard item.status == .readyToPlay else { return }
-                Task { @MainActor [weak self] in self?.applyPendingStartSeekAndPlay() }
+                Task { @MainActor [weak self] in self?.handleItemReady() }
             }
         }
 
@@ -125,35 +135,44 @@ final class AudioPlayerService: ObservableObject {
             }
         }
 
-        // No resume offset → start immediately. With a resume offset we wait
-        // for .readyToPlay (the status observer seeks then plays) so the seek
-        // is never dropped and the user never hears the track restart at 0:00.
-        if pendingStartSeek <= 0 {
+        // Start immediately ONLY when there's no resume seek to apply and we
+        // mean to play. With a resume offset we wait for .readyToPlay (handled
+        // in handleItemReady) so the seek is never dropped and the user never
+        // hears the track restart at 0:00. Looping (ambient) always starts.
+        if autoPlay, looping || pendingStartSeek <= 0 {
             player?.play()
             applyRate()
         }
         currentTrack = track
-        isPlaying = true
+        isPlaying = autoPlay
         updateNowPlayingInfo(for: track)
     }
 
-    // Called from the .readyToPlay status observer. Applies the deferred
-    // resume seek exactly once, then starts playback at that offset.
-    private func applyPendingStartSeekAndPlay() {
-        guard pendingStartSeek > 0 else { return }
+    // Called once the item is .readyToPlay. Applies any deferred resume seek,
+    // reports the now-known duration (so the UI shows progress even when
+    // starting paused), and starts playback only if autoPlay was requested.
+    private func handleItemReady() {
+        if let d = duration { onReady?(d) }
         let target = pendingStartSeek
         pendingStartSeek = 0
-        let time = CMTime(seconds: target, preferredTimescale: 600)
-        player?.seek(to: time,
-                     toleranceBefore: .zero,
-                     toleranceAfter: CMTime(seconds: 1, preferredTimescale: 1)) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.player?.play()
-                self.applyRate()
-                self.isPlaying = true
-                self.updateNowPlayingElapsed(target)
+
+        func startIfNeeded(_ at: Double) {
+            updateNowPlayingElapsed(at)
+            guard pendingAutoPlay else { return }
+            player?.play()
+            applyRate()
+            isPlaying = true
+        }
+
+        if target > 0 {
+            let time = CMTime(seconds: target, preferredTimescale: 600)
+            player?.seek(to: time,
+                         toleranceBefore: .zero,
+                         toleranceAfter: CMTime(seconds: 1, preferredTimescale: 1)) { [weak self] _ in
+                Task { @MainActor [weak self] in startIfNeeded(target) }
             }
+        } else {
+            startIfNeeded(currentTime)
         }
     }
 

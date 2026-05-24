@@ -50,7 +50,8 @@ final class ChannelTests: XCTestCase {
         let ch = Channel.defaults.first { $0.id == "guitar-classical" }
         XCTAssertNotNil(ch, "Guitar channel must exist in Curated category")
         XCTAssertEqual(ch?.category, "Curated")
-        XCTAssertEqual(ch?.name, "Guitar - Classical")
+        XCTAssertEqual(ch?.name, "Classical Guitar")
+        XCTAssertEqual(ch?.icon, "music.note", "icon must not be the electric 'guitars' glyph")
         // The retired ids must be gone (a fresh stamp is the whole point).
         XCTAssertNil(Channel.defaults.first { $0.id == "spanish-guitar" },
             "the old spanish-guitar channel must be removed")
@@ -61,6 +62,9 @@ final class ChannelTests: XCTestCase {
             && q.contains("creator:\"Laurindo Almeida\"")
             && q.contains("creator:\"Li Jie\""),
             "Must match the master guitarists' catalogues, including Li Jie")
+        XCTAssertTrue(q.contains("Tárrega"), "must include the Tárrega repertoire arm")
+        XCTAssertFalse(q.contains("creator:\"John Williams\""),
+            "must NOT include John Williams (the film composer pollutes results)")
         XCTAssertFalse(q.contains("subject:\"classical guitar\""),
             "The broad amateur-leaking subject arm must be gone")
         XCTAssertTrue(q.contains("subject:interview") && q.contains("subject:talk")
