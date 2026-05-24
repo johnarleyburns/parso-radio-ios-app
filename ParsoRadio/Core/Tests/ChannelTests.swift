@@ -4,9 +4,9 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 14 Contemporary + 18 Lectures + 4 News + 4 Ambient + 15 Curated
-        // + 21 Audiobooks (LibriVox) = 76.
-        XCTAssertEqual(Channel.defaults.count, 76)
+        // 14 Contemporary + 18 Lectures + 4 News + 4 Ambient + 13 Curated
+        // + 21 Audiobooks (LibriVox) = 74. (Dropped bulk Netlabels & 78 RPM.)
+        XCTAssertEqual(Channel.defaults.count, 74)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {
@@ -160,13 +160,13 @@ final class ChannelTests: XCTestCase {
 
     func testCuratedChannelsAreRegistryBacked() {
         let channels = Channel.defaults.filter { $0.category == "Curated" }
-        XCTAssertEqual(channels.count, 15,
-            "Expected 15 Curated channels (+ Religious Music)")
+        XCTAssertEqual(channels.count, 13,
+            "Expected 13 Curated channels (bulk Netlabels & 78 RPM dropped)")
         let ids = Set(channels.map(\.id))
         XCTAssertEqual(ids, [
             "guitar-classical", "chamber-music", "historical-voices",
             "symphony-orchestra", "piano-hour", "tribal-works", "cafe-lento",
-            "netlabels", "rpm-78", "childrens-songs", "childrens-books",
+            "childrens-songs", "childrens-books",
             "ancient-greece", "great-books", "greater-books",
             "religious-music"
         ])

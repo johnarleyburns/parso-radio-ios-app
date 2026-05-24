@@ -203,20 +203,6 @@
     ]
   },
   {
-    "channelId": "netlabels",
-    "iaQuery": "collection:netlabels AND mediatype:audio",
-    "matchTags": [
-      "netlabels"
-    ]
-  },
-  {
-    "channelId": "rpm-78",
-    "iaQuery": "collection:78rpm AND mediatype:audio",
-    "matchTags": [
-      "rpm-78"
-    ]
-  },
-  {
     "channelId": "childrens-books",
     "iaQuery": "(collection:librivoxaudio OR collection:audio_bookspoetry) AND (subject:\"Juvenile fiction\" OR subject:\"Children's Fiction\" OR subject:\"Juvenile literature\" OR subject:\"Fairy tales\")",
     "matchTags": [

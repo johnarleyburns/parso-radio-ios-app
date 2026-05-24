@@ -406,23 +406,9 @@ extension Channel {
             preferredSource: "internet_archive",
             summary: "Mellow café listening — bossa nova, cool and chamber jazz, and soft solo guitar (Laurindo Almeida, Bill Evans, André Previn). Bebop, rock and big-band are excluded."
         ),
-        // Netlabels: the entire IA netlabels collection, randomized
-        // (curl-verified 2026-05-16 — 78,120 audio items).
-        Channel(
-            id: "netlabels", name: "Netlabels", category: "Curated",
-            icon: "dot.radiowaves.left.and.right",
-            tags: ["netlabels"],
-            preferredSource: "internet_archive",
-            summary: "The Internet Archive's vast Netlabels collection — free, Creative-Commons releases from independent net-labels spanning every electronic and indie genre, shuffled."
-        ),
-        // 78 RPM: the entire IA 78rpm collection, randomized (309,347 items).
-        Channel(
-            id: "rpm-78", name: "78 RPM", category: "Curated",
-            icon: "opticaldisc",
-            tags: ["78rpm", "shellac"],
-            preferredSource: "internet_archive",
-            summary: "Crackle and charm from the shellac era — the Internet Archive's enormous 78 RPM collection of early-20th-century recordings, shuffled."
-        ),
+        // (Removed the bulk "Netlabels" and "78 RPM" channels: they streamed
+        // entire uncurated IA collections — not curation. Gated 78rpm subsets
+        // remain inside specific channels, e.g. World Music and Children's Songs.)
         // Religious Music: sacred/liturgical music across faiths (Christian
         // sacred choral, Gregorian chant, hymns, spirituals; Hindu bhajan &
         // kirtan; Sufi qawwali; Jewish cantorial; Buddhist chant). Sermons

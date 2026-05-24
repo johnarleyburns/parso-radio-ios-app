@@ -90,6 +90,16 @@ final class PlayerViewModel: ObservableObject {
     private let loadTimeout: Double = 10
     private let maxConsecutiveLoadFailures = 8
     private var consecutiveLoadFailures = 0
+    // Buffering-stall watchdog: if a track never produces a real playback tick
+    // within stallTimeout, it's stuck buffering — skip to the next track instead
+    // of hanging forever. loadGeneration bumps on every playTrack so a stale
+    // watchdog from a previous track is a no-op; playbackConfirmedGeneration is
+    // stamped by the periodic time observer once audio actually progresses.
+    private let stallTimeout: Double = 20
+    // internal (not private) so tests can drive the watchdog's decision directly.
+    var loadGeneration = 0
+    var playbackConfirmedGeneration = -1
+    private var stallWatchdog: Task<Void, Never>?
 
     init(
         db: DatabaseService,
@@ -205,6 +215,10 @@ final class PlayerViewModel: ObservableObject {
         audioPlayer.onTimeUpdate = { [weak self] seconds in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                // A periodic time tick only fires while the player is actually
+                // progressing (never while buffering/stalled), so any tick means
+                // THIS track is genuinely playing — disarm the stall watchdog.
+                self.playbackConfirmedGeneration = self.loadGeneration
                 // The first time tick PAST zero means audio is genuinely
                 // progressing — hide the loading indicator. This MUST run even
                 // while isScrubbing: an interrupted wheel drag could otherwise
@@ -691,6 +705,10 @@ final class PlayerViewModel: ObservableObject {
         // be persisted until it passed the previous track's offset (leaving the
         // resume marker stuck at 0:00 if the user left early).
         lastPositionSaveTime = -5
+        // New track → new watchdog generation; cancel any prior one.
+        loadGeneration += 1
+        stallWatchdog?.cancel()
+        stallWatchdog = nil
         // Reload bookmarks for the new track (replaced below).
         bookmarksForCurrentTrack = []
         currentTrack = track
@@ -807,6 +825,17 @@ final class PlayerViewModel: ObservableObject {
             if currentChannel?.contentType == .ambientLoop {
                 isLoading = false
                 loadingMessage = nil
+            } else if autoPlay {
+                // Arm the buffering-stall watchdog: if this track never produces
+                // a real playback tick within stallTimeout it's stuck buffering
+                // — skip to the next track so the channel can't hang forever.
+                let gen = loadGeneration
+                let timeout = stallTimeout
+                stallWatchdog = Task { [weak self] in
+                    try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                    guard !Task.isCancelled else { return }
+                    await self?.handleStallIfNeeded(generation: gen)
+                }
             }
 
             // Record EVERY real track in Recently Played — channels, playlists,
@@ -841,6 +870,20 @@ final class PlayerViewModel: ObservableObject {
         } catch {
             await handleLoadFailure(track)
         }
+    }
+
+    // Buffering-stall watchdog handler. Fires stallTimeout after a track was
+    // told to play; if that exact track is still current, was meant to be
+    // playing, and never produced a real playback tick, it's stuck buffering —
+    // skip to the next track so the channel doesn't hang forever.
+    @MainActor
+    func handleStallIfNeeded(generation: Int) async {
+        guard generation == loadGeneration else { return }          // track changed
+        guard playbackConfirmedGeneration != generation else { return }  // it DID play
+        guard isPlaying else { return }                              // user paused → leave it
+        guard currentChannel?.contentType != .ambientLoop else { return }
+        Log.playback.error("Track stalled (no audio in \(self.stallTimeout)s) — skipping")
+        skip()
     }
 
     // MARK: - Whole book/album
