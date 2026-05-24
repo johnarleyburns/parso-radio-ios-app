@@ -21,6 +21,13 @@
     ]
   },
   {
+    "channelId": "string-quartet",
+    "iaQuery": "mediatype:audio AND (subject:\"string quartet\" OR title:\"string quartet\") AND (creator:Beethoven OR creator:Mozart OR creator:Haydn OR creator:Schubert OR creator:Brahms OR creator:Dvo\u0159\u00e1k OR creator:Dvorak OR creator:Mendelssohn OR creator:Ravel OR creator:Debussy OR creator:Bart\u00f3k OR creator:Bartok OR creator:Shostakovich OR creator:Borodin OR creator:Schumann OR creator:Tchaikovsky OR creator:\"Budapest String Quartet\" OR creator:\"Quartetto Italiano\" OR creator:\"Amadeus Quartet\" OR creator:\"Juilliard String Quartet\") AND NOT (subject:jazz OR subject:rock OR subject:pop OR subject:electronic OR subject:soundtrack OR subject:guitar OR collection:podcasts OR collection:radio) AND downloads:[20 TO *]",
+    "matchTags": [
+      "string-quartet"
+    ]
+  },
+  {
     "channelId": "historical-voices",
     "iaQuery": "( collection:pacifica_radio_archives^10 OR collection:freedomarchives^5 OR identifier:InterviewsWithOrsonWelles^8 OR identifier:gore-vidal-in-the-psychiatrists-chair^7 OR identifier:yt-1s.com-norman-corwin-cbc-radio-9-jauary-2000^6 OR identifier:winston-churchill-as-peacemaker^6 OR identifier:arthur-c-clarke-the-science-and-the-fiction^6 OR identifier:lillian-gish^5 OR identifier:ruth-rendell-in-the-psychiatrists-chair^5 ) AND mediatype:audio AND ( subject:\"interview\"^5 OR subject:\"conversation\"^4 OR subject:\"public affairs\"^3 OR subject:\"civil rights\"^4 OR subject:\"civil rights movement\"^7 OR subject:\"political\"^2 OR subject:\"lecture\"^1 OR subject:\"Studs Terkel\"^9 OR subject:\"Martin Luther King\"^8 OR subject:\"Malcolm X\"^6 OR subject:\"Vietnam\"^4 OR subject:\"Kissinger\"^4 OR subject:\"McCarthy\"^5 OR *:*^0.01 )",
     "matchTags": [

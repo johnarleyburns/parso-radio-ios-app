@@ -9,6 +9,7 @@ enum MenuRoute: Hashable {
     case channelList(String)   // a category → its Channels screen
     case playlists             // the Playlists library screen
     case recentlyPlayed        // the Recently Played history screen
+    case settings              // appearance + data management
 }
 
 struct MainMenuView: View {
@@ -94,6 +95,11 @@ struct MainMenuView: View {
                 case .recentlyPlayed:
                     RecentlyPlayedScreen(dismissAll: dismissAll)
                         .environmentObject(playerVM)
+                case .settings:
+                    SettingsView()
+                        .environmentObject(playerVM)
+                        .environmentObject(playlistVM)
+                        .environmentObject(offlineService)
                 }
             }
             // Inline search per Apple HIG. isPresented hides the menu on focus;
@@ -170,6 +176,10 @@ struct MainMenuView: View {
         }
 
         Section {
+            NavigationLink(value: MenuRoute.settings) {
+                Label("Settings", systemImage: "gearshape")
+                    .font(.body).padding(.vertical, 2)
+            }
             Button {
                 showAbout = true
             } label: {

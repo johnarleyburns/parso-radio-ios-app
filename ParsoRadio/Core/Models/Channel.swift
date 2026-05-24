@@ -356,6 +356,18 @@ extension Channel {
             preferredSource: "internet_archive",
             summary: "Intimate ensemble music — string quartets, piano trios and quintets by Beethoven, Brahms, Mozart, Schubert, Dvořák and more. No jazz, AI tracks, or radio noise."
         ),
+        // String Quartet: the canonical quartet repertoire only — Haydn, Mozart,
+        // Beethoven, Schubert, Dvořák, Mendelssohn, Brahms, Shostakovich, Bartók,
+        // Ravel/Debussy — performed by the great ensembles (Budapest, Quartetto
+        // Italiano, Amadeus, Juilliard). Gated to a quartet title/subject, guitar
+        // & non-classical excluded. Curl-verified 2026-05-23 — 188 items.
+        Channel(
+            id: "string-quartet", name: "String Quartet", category: "Curated",
+            icon: "music.note",
+            tags: ["string-quartet"],
+            preferredSource: "internet_archive",
+            summary: "The cornerstone of chamber music — string quartets by Haydn, Mozart, Beethoven, Schubert, Mendelssohn, Brahms, Dvořák, Bartók, Ravel, Debussy and Shostakovich, played by the legendary quartets (Budapest, Quartetto Italiano, Amadeus, Juilliard)."
+        ),
         // Historical Voices: curl-verified 2026-05-15 — 2716 items; Pacifica
         // Radio Archives + Freedom Archives interviews/public-affairs (Sontag,
         // Vidal, Churchill, Clarke, civil-rights & Vietnam-era recordings).

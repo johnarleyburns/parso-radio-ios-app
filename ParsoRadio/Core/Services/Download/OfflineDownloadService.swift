@@ -96,6 +96,16 @@ final class OfflineDownloadService: ObservableObject {
         activeDownloads[jobId] = nil
     }
 
+    /// Cancel all in-flight downloads and delete every downloaded/imported audio
+    /// file on disk. Used by Settings → "Clear All Data".
+    func deleteAllDownloads() async {
+        for (id, _) in activeTasks { cancel(jobId: id) }
+        activeTasks.removeAll(); activeDownloads.removeAll(); trackProgress.removeAll()
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("audio", isDirectory: true)
+        try? FileManager.default.removeItem(at: dir)
+    }
+
     // Storage summary: total bytes used in the audio directory
     var offlineStorageSummary: String {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]

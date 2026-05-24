@@ -4,9 +4,10 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 14 Contemporary + 18 Lectures + 4 News + 4 Ambient + 13 Curated
-        // + 21 Audiobooks (LibriVox) = 74. (Dropped bulk Netlabels & 78 RPM.)
-        XCTAssertEqual(Channel.defaults.count, 74)
+        // 14 Contemporary + 18 Lectures + 4 News + 4 Ambient + 14 Curated
+        // + 21 Audiobooks (LibriVox) = 75. (Dropped bulk Netlabels & 78 RPM;
+        // added String Quartet.)
+        XCTAssertEqual(Channel.defaults.count, 75)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {
@@ -71,6 +72,22 @@ final class ChannelTests: XCTestCase {
             && q.contains("subject:lecture") && q.contains("title:interview"),
             "Must still exclude interviews / talks / lectures")
         XCTAssertEqual(ch?.iaQueryEntry?.matchTags, ["guitar-classical"])
+    }
+
+    func testStringQuartetChannel() {
+        let ch = Channel.defaults.first { $0.id == "string-quartet" }
+        XCTAssertNotNil(ch, "String Quartet channel must exist")
+        XCTAssertEqual(ch?.category, "Curated")
+        XCTAssertEqual(ch?.name, "String Quartet")
+        let q = ch?.iaQueryEntry?.iaQuery ?? ""
+        XCTAssertTrue(q.contains("subject:\"string quartet\""),
+            "must be gated to the string-quartet repertoire")
+        XCTAssertTrue(q.contains("creator:Beethoven") && q.contains("creator:Haydn")
+            && q.contains("creator:Shostakovich"),
+            "must include the canonical quartet composers")
+        XCTAssertTrue(q.contains("NOT") && q.contains("subject:guitar"),
+            "must exclude non-quartet noise (e.g. guitar)")
+        XCTAssertEqual(ch?.iaQueryEntry?.matchTags, ["string-quartet"])
     }
 
     func testReligiousMusicChannel() {
@@ -160,11 +177,11 @@ final class ChannelTests: XCTestCase {
 
     func testCuratedChannelsAreRegistryBacked() {
         let channels = Channel.defaults.filter { $0.category == "Curated" }
-        XCTAssertEqual(channels.count, 13,
-            "Expected 13 Curated channels (bulk Netlabels & 78 RPM dropped)")
+        XCTAssertEqual(channels.count, 14,
+            "Expected 14 Curated channels (added String Quartet; bulk Netlabels & 78 RPM dropped)")
         let ids = Set(channels.map(\.id))
         XCTAssertEqual(ids, [
-            "guitar-classical", "chamber-music", "historical-voices",
+            "guitar-classical", "chamber-music", "string-quartet", "historical-voices",
             "symphony-orchestra", "piano-hour", "tribal-works", "cafe-lento",
             "childrens-songs", "childrens-books",
             "ancient-greece", "great-books", "greater-books",

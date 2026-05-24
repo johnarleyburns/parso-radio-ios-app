@@ -206,12 +206,13 @@ struct iPodView: View {
         }
         .task {
             await playlistVM.loadPlaylists()
-            let wasPlaying = UserDefaults.standard.bool(forKey: "wasPlayingOnQuit")
             UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
             // Resume EXACTLY where the user was — same channel/playlist, track
-            // and offset — including after an app update.
+            // and offset — and START PLAYING. A radio app should pick up playing
+            // on launch (and this sidesteps the launch-after-update bug where a
+            // paused resume hung silently with no progress and no timeout).
             await playerVM.restoreLastSession(fallbackChannel: pendingChannel,
-                                              autoPlay: wasPlaying)
+                                              autoPlay: true)
             // First launch: show the wheel guide once so the gestures are
             // discoverable.
             if !didShowWheelHelp {

@@ -35,8 +35,18 @@ struct ParsoMusicApp: App {
     }()
 
     @AppStorage("tosAccepted") private var tosAccepted: Bool = false
+    // Appearance override from Settings: "system" | "light" | "dark".
+    @AppStorage("appearance") private var appearance: String = "system"
     @State private var showSplash: Bool = true
     @State private var showTerms: Bool = false
+
+    private var preferredScheme: ColorScheme? {
+        switch appearance {
+        case "light": return .light
+        case "dark":  return .dark
+        default:      return nil   // follow the system
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -71,6 +81,7 @@ struct ParsoMusicApp: App {
             .fullScreenCover(isPresented: $showTerms) {
                 TermsView(isPresented: $showTerms)
             }
+            .preferredColorScheme(preferredScheme)
         }
     }
 }

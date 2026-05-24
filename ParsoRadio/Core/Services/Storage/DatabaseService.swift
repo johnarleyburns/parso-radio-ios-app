@@ -695,6 +695,21 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
+    /// Nuke every row in every table (tracks, positions, playlists, playlist
+    /// membership, play history, bookmarks). Used by Settings → "Clear All
+    /// Data". Downloaded FILES are deleted separately by the caller.
+    func wipeAllData() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                for table in [self.bookmarks, self.playHistory, self.playlistTracks,
+                              self.playlists, self.positions, self.tracks] {
+                    _ = try? self.db.run(table.delete())
+                }
+                continuation.resume()
+            }
+        }
+    }
+
     func evictOldPlayHistory(olderThanDays days: Int = 30) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in

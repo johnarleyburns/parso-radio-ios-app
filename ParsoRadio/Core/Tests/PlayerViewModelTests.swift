@@ -966,59 +966,76 @@ final class PlayerViewModelTests: XCTestCase {
 
     // MARK: - Buffering-stall watchdog
 
-    // A track that DID start playing (confirmed) must never be skipped by the
-    // stall watchdog — this is the dangerous false-positive direction.
+    // A track that DID start playing (confirmed) must never be skipped.
     func testStallWatchdogDoesNotSkipConfirmedTrack() async {
         let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
-        let track = makeFMATrack(id: "confirmed", tags: ["jazz"])
         vm.currentChannel = channel
-        vm.currentTrack = track
-        vm.isPlaying = true
+        vm.currentTrack = makeFMATrack(id: "confirmed", tags: ["jazz"])
         vm.loadGeneration = 7
         vm.playbackConfirmedGeneration = 7      // audio progressed → confirmed
         await vm.handleStallIfNeeded(generation: 7)
         XCTAssertEqual(vm.currentTrack?.id, "confirmed", "a confirmed track must not be skipped")
     }
 
+    // A track that became READY but is paused (readyGeneration set) is healthy —
+    // it must NOT be skipped even though it never produced a playback tick. This
+    // is the paused-resume-on-launch case.
+    func testStallWatchdogDoesNotSkipReadyPausedTrack() async {
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        vm.currentChannel = channel
+        vm.currentTrack = makeFMATrack(id: "ready-paused", tags: ["jazz"])
+        vm.isPlaying = false
+        vm.loadGeneration = 5
+        vm.playbackConfirmedGeneration = -1
+        vm.readyGeneration = 5                  // item is playable, just paused
+        await vm.handleStallIfNeeded(generation: 5, autoPlay: false)
+        XCTAssertEqual(vm.currentTrack?.id, "ready-paused",
+            "a ready (but paused) track must not be skipped")
+    }
+
     // A watchdog from a PREVIOUS track (stale generation) must be a no-op.
     func testStallWatchdogIgnoresStaleGeneration() async {
         let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
-        let track = makeFMATrack(id: "current", tags: ["jazz"])
         vm.currentChannel = channel
-        vm.currentTrack = track
-        vm.isPlaying = true
+        vm.currentTrack = makeFMATrack(id: "current", tags: ["jazz"])
         vm.loadGeneration = 9                    // we're on generation 9 now
         vm.playbackConfirmedGeneration = -1
+        vm.readyGeneration = -1
         await vm.handleStallIfNeeded(generation: 8)   // stale watchdog from gen 8
         XCTAssertEqual(vm.currentTrack?.id, "current", "a stale-generation watchdog must do nothing")
     }
 
-    // A paused track must not be skipped (the user paused on purpose).
-    func testStallWatchdogDoesNotSkipPaused() async {
+    // A genuinely stuck track (current, never ready, never played) IS skipped —
+    // even when it was loading PAUSED (the launch-after-update hang).
+    func testStallWatchdogSkipsStuckTrackEvenWhenPaused() async throws {
         let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
-        vm.currentChannel = channel
-        vm.currentTrack = makeFMATrack(id: "paused", tags: ["jazz"])
-        vm.isPlaying = false
-        vm.loadGeneration = 3
-        vm.playbackConfirmedGeneration = -1
-        await vm.handleStallIfNeeded(generation: 3)
-        XCTAssertEqual(vm.currentTrack?.id, "paused", "a paused track must not be skipped")
-    }
-
-    // A genuinely stalled track (current, playing, never confirmed) IS skipped.
-    func testStallWatchdogSkipsStalledTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
-        await db.saveTracks([makeFMATrack(id: "stalled", tags: ["jazz"]),
+        await db.saveTracks([makeFMATrack(id: "stuck", tags: ["jazz"]),
                              makeFMATrack(id: "next-up", tags: ["jazz"])])
         vm.currentChannel = channel
-        vm.currentTrack = makeFMATrack(id: "stalled", tags: ["jazz"])
-        vm.isPlaying = true
+        vm.currentTrack = makeFMATrack(id: "stuck", tags: ["jazz"])
+        vm.isPlaying = false                     // loaded paused
         vm.loadGeneration = 4
-        vm.playbackConfirmedGeneration = -1     // never produced a playback tick
-        await vm.handleStallIfNeeded(generation: 4)
-        // skip() runs synchronously up to clearing the current track / showing
-        // the spinner before its async advance.
-        XCTAssertTrue(vm.isLoading, "a stalled track must trigger a skip (spinner shown)")
+        vm.playbackConfirmedGeneration = -1      // never produced a tick
+        vm.readyGeneration = -1                  // never became ready
+        await vm.handleStallIfNeeded(generation: 4, autoPlay: false)
+        // The stuck track must be skipped (spinner shown while advancing).
+        XCTAssertTrue(vm.isLoading, "a never-ready track must be skipped even when paused")
+    }
+
+    // Settings → "Clear All Data" must erase tracks, playlists and history.
+    func testClearAllUserDataWipesEverything() async throws {
+        _ = try await seedPlaylist(["w1", "w2"])
+        await db.recordPlayed(channelId: "fma-jazz", trackId: "w1")
+        XCTAssertGreaterThan(await db.trackCount(), 0, "precondition: data present")
+        XCTAssertFalse(await db.fetchPlaylists().isEmpty)
+
+        await vm.clearAllUserData()
+
+        XCTAssertEqual(await db.trackCount(), 0, "all tracks must be deleted")
+        XCTAssertTrue(await db.fetchPlaylists().isEmpty, "all playlists must be deleted")
+        XCTAssertTrue(await vm.recentlyPlayedTracks(limit: 50).isEmpty,
+            "all listening history must be deleted")
+        XCTAssertNil(vm.currentTrack, "playback must stop and clear")
     }
 
     // REGRESSION GUARD: a resume must honor autoPlay reliably. autoPlay:false

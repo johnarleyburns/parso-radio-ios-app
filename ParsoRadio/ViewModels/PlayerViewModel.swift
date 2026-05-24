@@ -99,6 +99,11 @@ final class PlayerViewModel: ObservableObject {
     // internal (not private) so tests can drive the watchdog's decision directly.
     var loadGeneration = 0
     var playbackConfirmedGeneration = -1
+    // Stamped when the AVPlayerItem reaches .readyToPlay (onReady) — distinct
+    // from "confirmed playing": a PAUSED resume becomes ready but never ticks,
+    // and must NOT be treated as stalled. The watchdog only skips a track that
+    // is BOTH never-ready AND never-played within the timeout.
+    var readyGeneration = -1
     private var stallWatchdog: Task<Void, Never>?
 
     init(
@@ -207,6 +212,9 @@ final class PlayerViewModel: ObservableObject {
         audioPlayer.onReady = { [weak self] duration in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                // Item is playable → disarm the stall watchdog (a paused-but-ready
+                // resume is healthy and must not be skipped).
+                self.readyGeneration = self.loadGeneration
                 if duration > 0 { self.trackDuration = duration }
                 if self.isLoading { self.isLoading = false; self.loadingMessage = nil }
             }
@@ -825,16 +833,21 @@ final class PlayerViewModel: ObservableObject {
             if currentChannel?.contentType == .ambientLoop {
                 isLoading = false
                 loadingMessage = nil
-            } else if autoPlay {
-                // Arm the buffering-stall watchdog: if this track never produces
-                // a real playback tick within stallTimeout it's stuck buffering
-                // — skip to the next track so the channel can't hang forever.
+            } else {
+                // Arm the buffering-stall watchdog for EVERY non-ambient track,
+                // whether or not we intend to auto-play: if the item never even
+                // becomes .readyToPlay (and never produces a tick) within
+                // stallTimeout, it's stuck — skip to the next track so the
+                // channel can't hang forever (this is the launch-after-update
+                // "Buffering… forever, no timeout" bug). The skip preserves the
+                // play intent so a paused launch stays paused on a working track.
                 let gen = loadGeneration
                 let timeout = stallTimeout
+                let wantPlay = autoPlay
                 stallWatchdog = Task { [weak self] in
                     try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
                     guard !Task.isCancelled else { return }
-                    await self?.handleStallIfNeeded(generation: gen)
+                    await self?.handleStallIfNeeded(generation: gen, autoPlay: wantPlay)
                 }
             }
 
@@ -873,17 +886,29 @@ final class PlayerViewModel: ObservableObject {
     }
 
     // Buffering-stall watchdog handler. Fires stallTimeout after a track was
-    // told to play; if that exact track is still current, was meant to be
-    // playing, and never produced a real playback tick, it's stuck buffering —
-    // skip to the next track so the channel doesn't hang forever.
+    // loaded; if that exact track is still current but the item NEVER became
+    // playable (.readyToPlay) AND never produced a tick, it's stuck buffering —
+    // skip to the next track (preserving the play intent) so the channel can't
+    // hang forever. A paused-but-ready resume is healthy (readyGeneration set)
+    // and is left alone.
     @MainActor
-    func handleStallIfNeeded(generation: Int) async {
-        guard generation == loadGeneration else { return }          // track changed
-        guard playbackConfirmedGeneration != generation else { return }  // it DID play
-        guard isPlaying else { return }                              // user paused → leave it
+    func handleStallIfNeeded(generation: Int, autoPlay: Bool = true) async {
+        guard generation == loadGeneration else { return }              // track changed
+        guard playbackConfirmedGeneration != generation else { return } // it played
+        guard readyGeneration != generation else { return }             // it became ready
         guard currentChannel?.contentType != .ambientLoop else { return }
-        Log.playback.error("Track stalled (no audio in \(self.stallTimeout)s) — skipping")
-        skip()
+        Log.playback.error("Track stuck (never ready/played in \(self.stallTimeout)s) — skipping")
+        // Advance to the next track, keeping the original play intent so a
+        // paused launch lands paused on a working track (not silently playing).
+        audioPlayer.skip()
+        isSkipping = true
+        isPlaying = false
+        currentPosition = 0
+        errorMessage = nil
+        isLoading = true
+        loadingMessage = "Skipping unavailable track…"
+        await advanceToNext(autoPlay: autoPlay)
+        isSkipping = false
     }
 
     // MARK: - Whole book/album
@@ -1301,6 +1326,36 @@ final class PlayerViewModel: ObservableObject {
     /// Clear the entire Recently Played list.
     func clearRecentlyPlayed() async {
         await db.clearAllPlayHistory()
+    }
+
+    /// Settings → "Clear Listening History": wipe the all-time play history that
+    /// powers the "for you" recommendation channels (and the Recently Played
+    /// view, which is a window onto the same data). Playlists/downloads kept.
+    func clearListeningHistory() async {
+        await db.clearAllPlayHistory()
+    }
+
+    /// Settings → "Clear All Data": stop playback and erase EVERYTHING — tracks,
+    /// positions, playlists, play history, bookmarks (DB), plus the persisted
+    /// session/preferences in UserDefaults. The caller also wipes downloaded
+    /// files (OfflineDownloadService) and reloads playlists.
+    func clearAllUserData() async {
+        stallWatchdog?.cancel()
+        audioPlayer.skip()
+        currentTrack = nil
+        isPlaying = false
+        currentPlaylist = nil
+        playlistTracks = []
+        playHistory = []
+        currentPosition = 0
+        trackDuration = nil
+        await db.wipeAllData()
+        let d = UserDefaults.standard
+        for k in ["session.kind", "session.contextId", "session.trackId",
+                  "session.position", "lastChannelId", "visitedChannelIds",
+                  "searchHistory", "shuffleMode", "wasPlayingOnQuit"] {
+            d.removeObject(forKey: k)
+        }
     }
 
     // MARK: - Chapters (multi-part items)

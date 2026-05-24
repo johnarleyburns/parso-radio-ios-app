@@ -226,6 +226,10 @@ final class AudioPlayerService: ObservableObject {
     func resume() {
         // Re-activate the audio session in case it was deactivated during an interruption.
         try? AVAudioSession.sharedInstance().setActive(true)
+        // The user explicitly wants playback now: if the item is still waiting on
+        // a deferred resume-seek (loaded paused), make sure it PLAYS once ready
+        // instead of staying silent.
+        pendingAutoPlay = true
         player?.play()
         applyRate()
         isPlaying = true
