@@ -1026,15 +1026,19 @@ final class PlayerViewModelTests: XCTestCase {
     func testClearAllUserDataWipesEverything() async throws {
         _ = try await seedPlaylist(["w1", "w2"])
         await db.recordPlayed(channelId: "fma-jazz", trackId: "w1")
-        XCTAssertGreaterThan(await db.trackCount(), 0, "precondition: data present")
-        XCTAssertFalse(await db.fetchPlaylists().isEmpty)
+        let tracksBefore = await db.trackCount()
+        let playlistsBefore = await db.fetchPlaylists()
+        XCTAssertGreaterThan(tracksBefore, 0, "precondition: data present")
+        XCTAssertFalse(playlistsBefore.isEmpty)
 
         await vm.clearAllUserData()
 
-        XCTAssertEqual(await db.trackCount(), 0, "all tracks must be deleted")
-        XCTAssertTrue(await db.fetchPlaylists().isEmpty, "all playlists must be deleted")
-        XCTAssertTrue(await vm.recentlyPlayedTracks(limit: 50).isEmpty,
-            "all listening history must be deleted")
+        let tracksAfter = await db.trackCount()
+        let playlistsAfter = await db.fetchPlaylists()
+        let historyAfter = await vm.recentlyPlayedTracks(limit: 50)
+        XCTAssertEqual(tracksAfter, 0, "all tracks must be deleted")
+        XCTAssertTrue(playlistsAfter.isEmpty, "all playlists must be deleted")
+        XCTAssertTrue(historyAfter.isEmpty, "all listening history must be deleted")
         XCTAssertNil(vm.currentTrack, "playback must stop and clear")
     }
 
