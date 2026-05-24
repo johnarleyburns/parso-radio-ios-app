@@ -80,15 +80,18 @@ struct iPodView: View {
     // exactly so it reads as one continuous dark face, HIG-style). Light mode
     // keeps the slate body. The device face is painted with a SUBTLE top→bottom
     // gradient (deviceBodyTop → deviceBodyBottom) for tasteful depth.
+    // Light mode: the page background uses the SAME light-grey gradient as the
+    // wheel's inner well, so background + well read as one cohesive surface and
+    // only the bright-white ring stands out. Dark mode stays near-black.
     static let deviceBodyTop = Color(uiColor: UIColor { trait in
         trait.userInterfaceStyle == .dark
             ? UIColor(red: 0.105, green: 0.108, blue: 0.120, alpha: 1)
-            : UIColor(red: 0.330, green: 0.375, blue: 0.455, alpha: 1)
+            : UIColor(red: 0.900, green: 0.905, blue: 0.930, alpha: 1)
     })
     static let deviceBodyBottom = Color(uiColor: UIColor { trait in
         trait.userInterfaceStyle == .dark
             ? UIColor(red: 0.065, green: 0.068, blue: 0.078, alpha: 1)
-            : UIColor(red: 0.250, green: 0.292, blue: 0.365, alpha: 1)
+            : UIColor(red: 0.820, green: 0.825, blue: 0.855, alpha: 1)
     })
 
     var body: some View {

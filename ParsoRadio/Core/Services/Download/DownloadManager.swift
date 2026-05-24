@@ -15,6 +15,12 @@ final class DownloadManager {
     }
 
     func download(track: Track, onProgress: (@Sendable (Double) -> Void)? = nil) async {
+        // A whole-item IA track's downloadURL points at the item DIRECTORY, not a
+        // playable file — downloading it just saves the directory listing as a
+        // fake .mp3 that never plays (and which local-first would then serve).
+        // Skip those; they stream via resolveAudioURL instead. Per-file IA ids
+        // (contain "/"), FMA and imported tracks have real file URLs.
+        if track.source == "internet_archive", !track.id.contains("/") { return }
         let dest = fileStorage.localURL(for: track.id)
         if FileManager.default.fileExists(atPath: dest.path) {
             await db.markDownloaded(trackID: track.id, localPath: dest.path)

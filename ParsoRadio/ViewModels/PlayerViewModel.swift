@@ -770,12 +770,15 @@ final class PlayerViewModel: ObservableObject {
             } else if let localPath = track.localFilePath,
                       FileManager.default.fileExists(atPath: localPath) {
                 url = URL(fileURLWithPath: localPath)   // offline-downloaded track
-            } else if case let downloaded = fileStorage.localURL(for: track.id),
+            } else if (track.source != "internet_archive" || track.id.contains("/")),
+                      case let downloaded = fileStorage.localURL(for: track.id),
                       FileManager.default.fileExists(atPath: downloaded.path) {
-                // Downloaded earlier (or prefetched ahead) but the in-memory
-                // Track carries no localFilePath — play the file on disk instead
-                // of re-streaming. Faster, works offline, and spares the
-                // Internet Archive needless bandwidth.
+                // A genuinely-downloaded file on disk (per-file IA track, FMA,
+                // imported) whose in-memory Track lacks localFilePath — play it
+                // locally. CRUCIAL: this is GATED to per-file ids / non-IA. A
+                // whole-item IA id ("identifier", no slash) has no direct file;
+                // its only on-disk artifact is a prefetch of the item DIRECTORY
+                // (a fake .mp3 that never plays). Those must always resolve.
                 url = downloaded
             } else if track.source == "internet_archive" {
                 if let cached = prefetchedURLs.removeValue(forKey: track.id) {

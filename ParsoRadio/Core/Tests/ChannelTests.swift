@@ -66,6 +66,8 @@ final class ChannelTests: XCTestCase {
         XCTAssertTrue(q.contains("Tárrega"), "must include the Tárrega repertoire arm")
         XCTAssertFalse(q.contains("creator:\"John Williams\""),
             "must NOT include John Williams (the film composer pollutes results)")
+        XCTAssertTrue(q.contains("subject:vocal") && q.contains("creator:\"Salli Terri\""),
+            "must exclude vocal songs (e.g. Salli Terri collaborations)")
         XCTAssertFalse(q.contains("subject:\"classical guitar\""),
             "The broad amateur-leaking subject arm must be gone")
         XCTAssertTrue(q.contains("subject:interview") && q.contains("subject:talk")
