@@ -1411,15 +1411,39 @@ final class PlayerViewModel: ObservableObject {
             return isBooks ? (cat == "Audiobooks") : musicCats.contains(cat)
         }.map(\.track)
 
-        guard let query = isBooks
-            ? RecommendationQueryBuilder.booksQuery(fromHistory: relevant)
-            : RecommendationQueryBuilder.musicQuery(fromHistory: relevant)
-        else { return nil }
+        // Two arms (see RecommendationQueryBuilder / RECOMMENDATIONS-DESIGN.md):
+        // a creator "signal" arm and a subject "discovery" arm. Either can be nil
+        // (no creators / no subjects yet); only when BOTH are nil is there too
+        // little history to recommend from → show the "listen to N tracks" prompt.
+        let creatorQuery = isBooks
+            ? RecommendationQueryBuilder.booksCreatorQuery(fromHistory: relevant)
+            : RecommendationQueryBuilder.musicCreatorQuery(fromHistory: relevant)
+        let subjectQuery = isBooks
+            ? RecommendationQueryBuilder.booksSubjectQuery(fromHistory: relevant)
+            : RecommendationQueryBuilder.musicSubjectQuery(fromHistory: relevant)
+        guard creatorQuery != nil || subjectQuery != nil else { return nil }
 
-        let raw = try await archiveService.fetchTracks(iaQuery: query, matchTags: [channel.id])
-        // Recommend NEW material — drop anything already in the history.
+        // Fetch both arms in parallel; a failing arm is non-fatal (the other
+        // carries the pool). Both stamp matchTags=[channel.id] for DB isolation.
+        let svc = archiveService
+        let cid = channel.id
+        async let creatorFetch: [Track] = {
+            guard let q = creatorQuery else { return [] }
+            return (try? await svc.fetchTracks(iaQuery: q, matchTags: [cid])) ?? []
+        }()
+        async let subjectFetch: [Track] = {
+            guard let q = subjectQuery else { return [] }
+            return (try? await svc.fetchTracks(iaQuery: q, matchTags: [cid])) ?? []
+        }()
+        let creatorTracks = await creatorFetch
+        let subjectTracks = await subjectFetch
+
+        // Compose a signal-biased pool, then recommend NEW material only — drop
+        // anything already in the history.
+        let mixed = RecommendationQueryBuilder.mixPool(
+            creatorTracks: creatorTracks, subjectTracks: subjectTracks)
         let playedIds = Set(history.map(\.track.id))
-        return raw.filter { !playedIds.contains($0.id) }
+        return mixed.filter { !playedIds.contains($0.id) }
     }
 
     /// Settings → "Clear All Data": stop playback and erase EVERYTHING — tracks,
