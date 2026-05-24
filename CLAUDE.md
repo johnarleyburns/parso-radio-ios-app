@@ -40,3 +40,52 @@ No local compiler means no type-checker. Before using any XCTest, AVFoundation, 
 - **DatabaseService** — async, `withCheckedContinuation`-wrapped SQLite operations
 - **PlayerViewModel** — `@MainActor`; fetches IA + Musopen in parallel for composer channels
 - **AudioPlayerService** — `@MainActor`; AVAudioSession set up in `init()`; `onTrackFinished` callback for auto-advance
+
+## Hard-won lessons (read before touching playback or tests)
+
+### `swiftc -parse` is NOT a type-checker
+Local `swiftc -parse` only catches *syntax* errors. It does **not** catch: type
+mismatches, wrong argument labels, `await`/`async` misuse, actor-isolation
+errors, or `await` inside an `XCTAssert(...)` autoclosure (autoclosures don't
+support concurrency). Those only surface on the macOS compiler in CI — a 15-min
+round trip. Before pushing test changes especially: hoist every `await` out of
+`XCTAssert*(...)` into a `let` first, and double-check argument labels/types by
+re-reading the callee signature. Treat a green `-parse` as "not obviously broken
+syntax," never as "compiles."
+
+### Channel pool = the local DB, not the query
+`QueueManager` builds a channel's playable pool from `db.fetchTracks(forChannel:)`
+— i.e. every track ever **stamped** for that channel in SQLite. `saveTracks`
+never deletes, so an old/broader query's results linger forever and repeat. Two
+rules: (1) registry (iaQuery) channels carry a unique stamp, so on a successful
+re-fetch we `pruneChannelTracks` to drop stamped tracks the *current* query no
+longer returns (keeping downloads); (2) changing a channel's identity/curation is
+safest via a **fresh channel id** (new stamp) + a migration map entry.
+
+### A watchdog must cover the path it's meant to protect
+The buffering-stall watchdog originally armed only when `autoPlay == true`, but
+the launch-after-update hang happens on the `autoPlay == false` resume path — so
+it never fired there. Lesson: when adding a safety timeout, enumerate *every*
+code path that reaches the failure and make sure the guard covers them. The
+watchdog now arms for every non-ambient load and keys off `readyGeneration`
+(item reached `.readyToPlay`) vs `playbackConfirmedGeneration` (a real time
+tick), so a paused-but-ready resume is never false-skipped while a never-ready
+item is always skipped within `stallTimeout` (20 s).
+
+### Resume / autoplay reliability
+Resuming with `startAt > 0` DEFERS play until `.readyToPlay` (so the seek isn't
+dropped — fixes "audiobook restarts at 0:00"). That deferral must be paired with
+the play intent threaded all the way down (`PlayerViewModel.playTrack(autoPlay:)`
+→ `AudioPlayerService.play(autoPlay:)`), NOT a `pause()` issued by `load()` after
+the fact — the after-the-fact pause races the deferred play and leaves the track
+silent with no duration. `onReady(duration)` publishes the runtime so the
+progress bar appears even for a paused resume (IA search docs carry no runtime).
+Launch resumes PLAYING (`autoPlay: true`) — it's a radio app.
+
+### Curation philosophy: leave out rather than accidentally include
+Prefer an explicit roster (named creators/ensembles) gated to a context
+(`title:`/`subject:`) over a broad `subject:"…"` arm, which floods channels with
+amateur uploads. Never add a creator without curl-checking: "John Williams"
+pulled in the *film composer* (Star Wars). Validate every query with a random
+`sort[]=random` sample and count distinct creators + scan for noise before
+committing. Rather a small clean channel than a large one with bad tracks.

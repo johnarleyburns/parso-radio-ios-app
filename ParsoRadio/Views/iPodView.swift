@@ -78,18 +78,27 @@ struct iPodView: View {
     // a lighter slate in Light Mode.
     // Dark mode: a very dark, near-black body (the wheel centre matches this
     // exactly so it reads as one continuous dark face, HIG-style). Light mode
-    // keeps the slate body.
-    static let deviceBody = Color(uiColor: UIColor { trait in
+    // keeps the slate body. The device face is painted with a SUBTLE top→bottom
+    // gradient (deviceBodyTop → deviceBodyBottom) for tasteful depth.
+    static let deviceBodyTop = Color(uiColor: UIColor { trait in
         trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.085, green: 0.088, blue: 0.098, alpha: 1)
-            : UIColor(red: 0.290, green: 0.333, blue: 0.408, alpha: 1)
+            ? UIColor(red: 0.105, green: 0.108, blue: 0.120, alpha: 1)
+            : UIColor(red: 0.330, green: 0.375, blue: 0.455, alpha: 1)
+    })
+    static let deviceBodyBottom = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.065, green: 0.068, blue: 0.078, alpha: 1)
+            : UIColor(red: 0.250, green: 0.292, blue: 0.365, alpha: 1)
     })
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Device body — adapts to Light/Dark appearance.
-                Self.deviceBody
+                // Device body — adapts to Light/Dark appearance, with a subtle
+                // gradient for depth (HIG). The ring stays a flat solid on top.
+                LinearGradient(
+                    colors: [Self.deviceBodyTop, Self.deviceBodyBottom],
+                    startPoint: .top, endPoint: .bottom)
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
@@ -1019,15 +1028,25 @@ struct ClickWheel: View {
     // body, with white glyphs — a quiet, harmonious dark face (HIG). The centre
     // well matches the body exactly so the dark centre blends into the
     // background. Light mode keeps the soft silver wheel with dark glyphs.
+    // Wheel ring: a SOLID fill (no gradient) — dark mode a quiet near-black grey,
+    // light mode a bright clean white.
     static let ring = Color(uiColor: UIColor { t in
         t.userInterfaceStyle == .dark
             ? UIColor(red: 0.20, green: 0.205, blue: 0.225, alpha: 1)
-            : UIColor(red: 0.90, green: 0.90, blue: 0.92, alpha: 1)
+            : UIColor(red: 0.985, green: 0.99, blue: 1.0, alpha: 1)
     })
-    static let well = Color(uiColor: UIColor { t in
+    // Centre well: a SUBTLE top→bottom gradient for a tasteful recessed look. In
+    // dark mode both stops equal the device body (stays flat & matched); in light
+    // mode a gentle light-grey gradient.
+    static let wellTop = Color(uiColor: UIColor { t in
         t.userInterfaceStyle == .dark
-            ? UIColor(red: 0.085, green: 0.088, blue: 0.098, alpha: 1)   // == device body
-            : UIColor(red: 0.85, green: 0.85, blue: 0.88, alpha: 1)
+            ? UIColor(red: 0.085, green: 0.088, blue: 0.098, alpha: 1)
+            : UIColor(red: 0.90, green: 0.905, blue: 0.93, alpha: 1)
+    })
+    static let wellBottom = Color(uiColor: UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 0.085, green: 0.088, blue: 0.098, alpha: 1)
+            : UIColor(red: 0.82, green: 0.825, blue: 0.855, alpha: 1)
     })
     static let glyph = Color(uiColor: UIColor { t in
         t.userInterfaceStyle == .dark
@@ -1069,9 +1088,12 @@ struct ClickWheel: View {
                 Circle()
                     .fill(ClickWheel.ring)
                     .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
-                // Centre well (now opens Track Info — no repeat glyph).
+                // Centre well (now opens Track Info — no repeat glyph). Subtle
+                // gradient for a recessed feel; flat & body-matched in dark mode.
                 Circle()
-                    .fill(ClickWheel.well)
+                    .fill(LinearGradient(
+                        colors: [ClickWheel.wellTop, ClickWheel.wellBottom],
+                        startPoint: .top, endPoint: .bottom))
                     .frame(width: innerR * 2, height: innerR * 2)
                     .allowsHitTesting(false)
 
