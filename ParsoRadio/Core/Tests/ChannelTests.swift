@@ -389,7 +389,7 @@ final class ChannelTests: XCTestCase {
     // that actually have channels, and every channel category is covered.
     func testMainMenuCategoryOrder() {
         let order = MainMenuView.orderedCategories()
-        XCTAssertEqual(order, ["Curated", "Ambient", "News", "Contemporary",
+        XCTAssertEqual(order, ["For You", "Curated", "Ambient", "News", "Contemporary",
                                "Audiobooks", "Lectures"])
         // No channel category is silently dropped from the menu.
         let present = Set(Channel.defaults.map(\.category))
