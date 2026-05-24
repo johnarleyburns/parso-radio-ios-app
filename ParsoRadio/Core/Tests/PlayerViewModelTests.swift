@@ -1040,6 +1040,58 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertTrue(vm.isLoading, "a never-ready track must be skipped even when paused")
     }
 
+    // The "infinite buffering" bug: when track after track resolves but never
+    // produces audio (marginal connection, or a channel of oversized items that
+    // can't buffer the start within stallTimeout), the watchdog used to skip
+    // forever — the load-failure cap never tripped because each resolve
+    // "succeeds" and resets it. A separate consecutive-stall cap must give up.
+    func testStallWatchdogGivesUpAfterRepeatedStalls() async throws {
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        await db.saveTracks((0..<10).map { makeFMATrack(id: "stall-\($0)", tags: ["jazz"]) })
+        vm.currentChannel = channel
+        vm.currentTrack = makeFMATrack(id: "stall-0", tags: ["jazz"])
+        vm.isPlaying = true
+        // Four consecutive stalls (== maxConsecutiveStalls) with no playback tick
+        // between them. Re-sync the generation each time: each skip arms a new one.
+        for _ in 0..<4 {
+            let gen = vm.loadGeneration
+            vm.playbackConfirmedGeneration = -1   // this generation never produced audio
+            await vm.handleStallIfNeeded(generation: gen, autoPlay: true)
+        }
+        XCTAssertNotNil(vm.errorMessage,
+            "after repeated stalls with no playback the player must give up with an error")
+        XCTAssertFalse(vm.isLoading, "giving up must clear the buffering indicator")
+        XCTAssertNil(vm.currentTrack, "giving up must stop playback")
+    }
+
+    // A genuine playback tick between stalls must RESET the streak, so a normally
+    // healthy channel with the occasional bad track never hits the give-up cap.
+    func testStallStreakResetAllowsContinuedPlayback() async throws {
+        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        await db.saveTracks((0..<10).map { makeFMATrack(id: "mix-\($0)", tags: ["jazz"]) })
+        vm.currentChannel = channel
+        vm.currentTrack = makeFMATrack(id: "mix-0", tags: ["jazz"])
+        vm.isPlaying = true
+        // Three stalls (under the cap)…
+        for _ in 0..<3 {
+            let gen = vm.loadGeneration
+            vm.playbackConfirmedGeneration = -1
+            await vm.handleStallIfNeeded(generation: gen, autoPlay: true)
+        }
+        // …then real audio plays: a periodic tick resets the streak (mirrored here
+        // by zeroing the counter, exactly as onTimeUpdate does)…
+        vm.consecutiveStalls = 0
+        // …then three more stalls. Each side stays under the cap, so the player
+        // keeps trying and never gives up.
+        for _ in 0..<3 {
+            let gen = vm.loadGeneration
+            vm.playbackConfirmedGeneration = -1
+            await vm.handleStallIfNeeded(generation: gen, autoPlay: true)
+        }
+        XCTAssertNil(vm.errorMessage,
+            "a confirmed playback between stalls must reset the streak (no give-up)")
+    }
+
     // Settings → "Clear All Data" must erase tracks, playlists and history.
     func testClearAllUserDataWipesEverything() async throws {
         _ = try await seedPlaylist(["w1", "w2"])

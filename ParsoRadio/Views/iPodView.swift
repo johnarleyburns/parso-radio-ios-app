@@ -316,7 +316,7 @@ struct iPodView: View {
                         statusBadge("shuffle", tint: .blue, label: "Shuffle is on")
                     }
                     if playerVM.repeatMode == .one {
-                        statusBadge("repeat.1", tint: .white, label: "Repeat track is on")
+                        statusBadge("repeat.1", tint: .blue, label: "Repeat track is on")
                     }
                 }
                 .padding(12)

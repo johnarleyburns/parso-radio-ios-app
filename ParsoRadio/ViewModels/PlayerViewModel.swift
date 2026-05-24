@@ -96,6 +96,18 @@ final class PlayerViewModel: ObservableObject {
     // watchdog from a previous track is a no-op; playbackConfirmedGeneration is
     // stamped by the periodic time observer once audio actually progresses.
     private let stallTimeout: Double = 20
+    // A SINGLE stall is recoverable (skip to the next track). But if track after
+    // track resolves yet never produces audio — a marginal connection, or a
+    // channel full of oversized/long-form items that can't buffer the start
+    // within stallTimeout — skipping forever IS the "infinite buffering" bug:
+    // the load-failure cap never trips because each resolve "succeeds" (and
+    // resets consecutiveLoadFailures). So count CONSECUTIVE stalls separately
+    // and give up gracefully. Reset ONLY by a genuine playback tick or a fresh
+    // channel load — never by a mere resolve (that's the trap we're avoiding).
+    private let maxConsecutiveStalls = 4
+    // internal (not private) so tests can drive the give-up decision directly;
+    // a genuine playback tick resets it to 0 (see onTimeUpdate).
+    var consecutiveStalls = 0
     // internal (not private) so tests can drive the watchdog's decision directly.
     var loadGeneration = 0
     var playbackConfirmedGeneration = -1
@@ -227,6 +239,8 @@ final class PlayerViewModel: ObservableObject {
                 // progressing (never while buffering/stalled), so any tick means
                 // THIS track is genuinely playing — disarm the stall watchdog.
                 self.playbackConfirmedGeneration = self.loadGeneration
+                // Real audio is flowing → the stall streak is broken.
+                self.consecutiveStalls = 0
                 // The first time tick PAST zero means audio is genuinely
                 // progressing — hide the loading indicator. This MUST run even
                 // while isScrubbing: an interrupted wheel drag could otherwise
@@ -336,6 +350,8 @@ final class PlayerViewModel: ObservableObject {
         errorMessage = nil
         currentPosition = 0
         trackDuration = nil
+        // Fresh channel the user explicitly chose → fresh stall budget.
+        consecutiveStalls = 0
 
         // Hoisted so the post-fetch resume / News-newest logic can see it.
         var fetched: [Track] = []
@@ -924,7 +940,24 @@ final class PlayerViewModel: ObservableObject {
             // Paused load: a ready item is fine; only a never-ready one is dead.
             guard readyGeneration != generation else { return }
         }
-        Log.playback.error("Track stalled (no audio in \(self.stallTimeout)s) — skipping")
+        // Count this stall. A streak with no real audio in between means
+        // skipping again won't help (bad connection / a channel of oversized
+        // items) — stop and tell the user instead of buffering forever.
+        consecutiveStalls += 1
+        guard consecutiveStalls < maxConsecutiveStalls else {
+            consecutiveStalls = 0
+            stallWatchdog?.cancel()
+            stallWatchdog = nil
+            audioPlayer.skip()
+            currentTrack = nil
+            trackDuration = nil
+            isPlaying = false
+            isLoading = false
+            loadingMessage = nil
+            errorMessage = "Couldn't start playback — check your connection and try again."
+            return
+        }
+        Log.playback.error("Track stalled (no audio in \(self.stallTimeout)s) — skipping (\(self.consecutiveStalls)/\(self.maxConsecutiveStalls))")
         // Advance to the next track, keeping the original play intent so a
         // paused launch lands paused on a working track (not silently playing).
         audioPlayer.skip()
