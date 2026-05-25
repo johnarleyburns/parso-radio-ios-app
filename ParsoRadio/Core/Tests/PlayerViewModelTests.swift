@@ -27,7 +27,7 @@ final class PlayerViewModelTests: XCTestCase {
     // UC2: last channel ID is written to UserDefaults as soon as load() begins,
     // before any network call, so a crash or force-quit still persists the choice.
     func testLastChannelIdSavedOnLoad() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         // Seed a track so advanceToNext() doesn't deadlock waiting for the DB.
         await db.saveTracks([makeFMATrack(id: "jazz-1", tags: ["jazz"])])
 
@@ -45,7 +45,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // UC3 (music): pressing back when well into a track (> 3 s) restarts from zero.
     func testBackMidMusicTrackRestartsFromBeginning() throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         let track = makeFMATrack(id: "jazz-1", tags: ["jazz"])
 
         vm.currentChannel = channel
@@ -60,7 +60,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // UC3 (music): pressing back at the very start navigates to the previous track.
     func testBackAtStartOfMusicTrackPlaysPreviousTrack() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         let t1 = makeFMATrack(id: "jazz-prev", tags: ["jazz"])
         let t2 = makeFMATrack(id: "jazz-curr", tags: ["jazz"])
         await db.saveTracks([t1, t2])
@@ -80,7 +80,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // UC3: pressing back with no history restarts the current track without crashing.
     func testBackWithEmptyHistoryDoesNotCrash() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         let track = makeFMATrack(id: "jazz-1", tags: ["jazz"])
         await db.saveTracks([track])
 
@@ -98,7 +98,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // UC3: playing a new track appends the previous one to playHistory.
     func testSkipAddsToPlayHistory() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         let t1 = makeFMATrack(id: "jazz-1", tags: ["jazz"])
         let t2 = makeFMATrack(id: "jazz-2", tags: ["jazz"])
         await db.saveTracks([t1, t2])
@@ -126,7 +126,7 @@ final class PlayerViewModelTests: XCTestCase {
         vm.currentTrack = fmaTrack
         vm.isPlaying = true
 
-        let newChannel = Channel.defaults.first { $0.id == "fma-classical" }!
+        let newChannel = Channel.fmaClassicalTestChannel
         let loadTask = Task { await self.vm.load(channel: newChannel) }
         // Yield so the synchronous preamble (stop + clear) executes.
         await Task.yield()
@@ -205,7 +205,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // UC14: seek() updates currentPosition immediately.
     func testSeekUpdatesCurrentPosition() throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         let track = makeFMATrack(id: "jazz-1", tags: ["jazz"])
 
         vm.currentChannel = channel
@@ -238,7 +238,7 @@ final class PlayerViewModelTests: XCTestCase {
     // Bug: after loadPlaylist, currentChannel must be nil and currentPlaylist must be set.
     // Previously both were possible to still hold the channel, leaving the wrong header shown.
     func testLoadPlaylistClearsChannelAndSetsPlaylist() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         let track = makeFMATrack(id: "playlist-fma-1", tags: ["jazz"])
         await db.saveTracks([track])
         vm.currentChannel = channel
@@ -256,7 +256,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // Bug: switching to a playlist must clear play history from the previous channel.
     func testLoadPlaylistClearsPlayHistory() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         let prev = makeFMATrack(id: "prev-track", tags: ["jazz"])
         let playlistTrack = makeFMATrack(id: "playlist-fma-2", tags: ["jazz"])
         await db.saveTracks([prev, playlistTrack])
@@ -361,7 +361,7 @@ final class PlayerViewModelTests: XCTestCase {
     func testPlaylistBackStopsAtFirstAndNeverPlaysNonPlaylistTrack() async throws {
         vm.shuffleMode = false
         // Simulate a channel track playing BEFORE the playlist is opened.
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         let preChannelTrack = makeFMATrack(id: "channel-pre", tags: ["jazz"])
         let olderChannelTrack = makeFMATrack(id: "channel-older", tags: ["jazz"])
         await db.saveTracks([preChannelTrack, olderChannelTrack])
@@ -513,7 +513,7 @@ final class PlayerViewModelTests: XCTestCase {
     // though playHistory held channel tracks.
     func testChannelThenPlaylistBackNeverLeaksChannelTrack() async throws {
         vm.shuffleMode = false
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         let chTrack = makeFMATrack(id: "ch-keep-out", tags: ["jazz"])
         await db.saveTracks([chTrack])
         vm.currentChannel = channel
@@ -625,7 +625,7 @@ final class PlayerViewModelTests: XCTestCase {
     // Switching channel must hide the book/album button (no override-queue
     // machinery remains — Play Entire was removed).
     func testLoadChannelClearsMultiPartState() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         await db.saveTracks([makeFMATrack(id: "jz", tags: ["jazz"])])
         vm.currentTrackIsMultiPart = true
 
@@ -642,7 +642,7 @@ final class PlayerViewModelTests: XCTestCase {
     // fetchTracks(forPlaylist:) (sort_order DESC) returns part1 → partN.
     func testAddEntireItemToPlaylistReadsInBookOrder() async throws {
         let plVM = PlaylistViewModel(db: db)
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         vm.currentChannel = channel
         let parts = (1...4).map { makeBookPart(parent: "tom_sawyer", part: $0) }
         await db.saveTracks(parts.shuffled())   // DB order is arbitrary
@@ -686,7 +686,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     func testAddEntireItemToNewPlaylistCreatesNamedPlaylistInOrder() async throws {
         let plVM = PlaylistViewModel(db: db)
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         vm.currentChannel = channel
         let parts = (1...3).map { makeBookPart(parent: "the_odyssey", part: $0) }
         await db.saveTracks(parts.shuffled())
@@ -821,7 +821,7 @@ final class PlayerViewModelTests: XCTestCase {
     // so a relaunch resumes the exact channel + track + offset.
     func testPersistSessionRecordsChannelContext() {
         clearSessionDefaults()
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         vm.currentChannel = channel
         vm.currentPlaylist = nil
         vm.currentTrack = makeFMATrack(id: "sess-ch-1", tags: ["jazz"])
@@ -884,7 +884,7 @@ final class PlayerViewModelTests: XCTestCase {
         d.set(order[1].id, forKey: "session.trackId")
         d.set(256.0, forKey: "session.position")
 
-        let fallback = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let fallback = Channel.fmaJazzTestChannel
         await vm.restoreLastSession(fallbackChannel: fallback, autoPlay: false)
 
         XCTAssertEqual(vm.currentPlaylist?.id, pl.id,
@@ -937,7 +937,7 @@ final class PlayerViewModelTests: XCTestCase {
     // preamble, before any network await, so an audiobook channel never inherits a
     // shuffle left on from a music channel.
     func testLoadChannelResetsShuffleOff() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         await db.saveTracks([makeFMATrack(id: "shuf-reset", tags: ["jazz"])])
         vm.shuffleMode = true
 
@@ -968,7 +968,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // A track that DID start playing (confirmed) must never be skipped.
     func testStallWatchdogDoesNotSkipConfirmedTrack() async {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         vm.currentChannel = channel
         vm.currentTrack = makeFMATrack(id: "confirmed", tags: ["jazz"])
         vm.loadGeneration = 7
@@ -981,7 +981,7 @@ final class PlayerViewModelTests: XCTestCase {
     // it must NOT be skipped even though it never produced a playback tick. This
     // is the paused-resume-on-launch case.
     func testStallWatchdogDoesNotSkipReadyPausedTrack() async {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         vm.currentChannel = channel
         vm.currentTrack = makeFMATrack(id: "ready-paused", tags: ["jazz"])
         vm.isPlaying = false
@@ -997,7 +997,7 @@ final class PlayerViewModelTests: XCTestCase {
     // (never produced a tick) while we INTENDED to play must be skipped — being
     // "ready" is not enough when we wanted audio.
     func testStallWatchdogSkipsReadyButNeverPlayedWhenAutoPlay() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         await db.saveTracks([makeFMATrack(id: "ready-stalled", tags: ["jazz"]),
                              makeFMATrack(id: "next-up", tags: ["jazz"])])
         vm.currentChannel = channel
@@ -1013,7 +1013,7 @@ final class PlayerViewModelTests: XCTestCase {
 
     // A watchdog from a PREVIOUS track (stale generation) must be a no-op.
     func testStallWatchdogIgnoresStaleGeneration() async {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         vm.currentChannel = channel
         vm.currentTrack = makeFMATrack(id: "current", tags: ["jazz"])
         vm.loadGeneration = 9                    // we're on generation 9 now
@@ -1026,7 +1026,7 @@ final class PlayerViewModelTests: XCTestCase {
     // A genuinely stuck track (current, never ready, never played) IS skipped —
     // even when it was loading PAUSED (the launch-after-update hang).
     func testStallWatchdogSkipsStuckTrackEvenWhenPaused() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         await db.saveTracks([makeFMATrack(id: "stuck", tags: ["jazz"]),
                              makeFMATrack(id: "next-up", tags: ["jazz"])])
         vm.currentChannel = channel
@@ -1046,7 +1046,7 @@ final class PlayerViewModelTests: XCTestCase {
     // forever — the load-failure cap never tripped because each resolve
     // "succeeds" and resets it. A separate consecutive-stall cap must give up.
     func testStallWatchdogGivesUpAfterRepeatedStalls() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         await db.saveTracks((0..<10).map { makeFMATrack(id: "stall-\($0)", tags: ["jazz"]) })
         vm.currentChannel = channel
         vm.currentTrack = makeFMATrack(id: "stall-0", tags: ["jazz"])
@@ -1067,7 +1067,7 @@ final class PlayerViewModelTests: XCTestCase {
     // A genuine playback tick between stalls must RESET the streak, so a normally
     // healthy channel with the occasional bad track never hits the give-up cap.
     func testStallStreakResetAllowsContinuedPlayback() async throws {
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         await db.saveTracks((0..<10).map { makeFMATrack(id: "mix-\($0)", tags: ["jazz"]) })
         vm.currentChannel = channel
         vm.currentTrack = makeFMATrack(id: "mix-0", tags: ["jazz"])

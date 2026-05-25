@@ -48,7 +48,7 @@ struct MainMenuView: View {
 
     // Fixed section order. Alphabetical WITHIN each.
     private static let categoryOrder = [
-        "For You", "Curated", "Ambient", "News", "Contemporary", "Audiobooks", "Lectures"
+        "For You", "Curated", "Ambient", "News", "Audiobooks", "Lectures"
     ]
 
     static func orderedCategories() -> [String] {

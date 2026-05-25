@@ -1405,7 +1405,7 @@ final class PlayerViewModel: ObservableObject {
         let catById = Dictionary(Channel.defaults.map { ($0.id, $0.category) },
                                  uniquingKeysWith: { a, _ in a })
         let isBooks = channel.id == "books-for-you"
-        let musicCats: Set<String> = ["Contemporary", "Curated", "Ambient"]
+        let musicCats: Set<String> = ["Curated", "Ambient"]
         let relevant = history.filter { pair in
             let cat = catById[pair.channelId] ?? ""
             return isBooks ? (cat == "Audiobooks") : musicCats.contains(cat)

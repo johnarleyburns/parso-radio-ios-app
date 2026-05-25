@@ -99,8 +99,6 @@ struct Channel: Codable, Identifiable, Hashable {
     var infoSentence: String {
         if let s = summary, !s.isEmpty { return s }
         switch category {
-        case "Contemporary":
-            return "\(name) from the Free Music Archive — Creative Commons recordings by independent artists."
         case "Lectures":
             return "\(name): lectures and talks from the University of Oxford's public podcast series."
         case "News":
@@ -135,78 +133,6 @@ extension Channel {
             contentType: .spokenWord,
             preferredSource: "internet_archive",
             summary: "Audiobooks picked from the authors and genres you've been listening to. Updates as you listen."
-        ),
-
-        // MARK: Contemporary — Free Music Archive genre channels (all curl-verified)
-        Channel(
-            id: "fma-classical", name: "Classical", category: "Contemporary",
-            icon: "music.quarternote.3", tags: ["classical"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-jazz", name: "Jazz", category: "Contemporary",
-            icon: "music.mic", tags: ["jazz"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-blues", name: "Blues", category: "Contemporary",
-            icon: "guitars", tags: ["blues"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-rock", name: "Rock", category: "Contemporary",
-            icon: "bolt.fill", tags: ["rock"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-country", name: "Country", category: "Contemporary",
-            icon: "leaf", tags: ["country"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-folk", name: "Folk", category: "Contemporary",
-            icon: "music.note", tags: ["folk"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-instrumental", name: "Instrumental", category: "Contemporary",
-            icon: "tuningfork", tags: ["instrumental"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-electronic", name: "Electronic", category: "Contemporary",
-            icon: "dot.radiowaves.left.and.right", tags: ["electronic"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-hip-hop", name: "Hip-Hop", category: "Contemporary",
-            icon: "mic.fill", tags: ["hip-hop"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-pop", name: "Pop", category: "Contemporary",
-            icon: "star.fill", tags: ["pop"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-soul-rnb", name: "Soul & R&B", category: "Contemporary",
-            icon: "heart.fill", tags: ["soul"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-experimental", name: "Experimental", category: "Contemporary",
-            icon: "wand.and.stars", tags: ["experimental"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-international", name: "World Music", category: "Contemporary",
-            icon: "globe", tags: ["world music"],
-            preferredSource: "fma"
-        ),
-        Channel(
-            id: "fma-old-time", name: "Old-Time & Historic", category: "Contemporary",
-            icon: "guitars", tags: ["old-time__historic"],
-            preferredSource: "fma"
         ),
 
         // MARK: Lectures — University of Oxford open-license audio lectures

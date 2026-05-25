@@ -4,10 +4,10 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 2 For You + 14 Contemporary + 18 Lectures + 4 News + 4 Ambient
-        // + 14 Curated + 21 Audiobooks (LibriVox) = 77. (Dropped bulk Netlabels
-        // & 78 RPM; added String Quartet + Music/Books for You.)
-        XCTAssertEqual(Channel.defaults.count, 77)
+        // 2 For You + 18 Lectures + 4 News + 4 Ambient + 14 Curated
+        // + 21 Audiobooks (LibriVox) = 63. (Dropped the 14 Contemporary/FMA
+        // genre channels in the public-library/public-radio wedge pivot.)
+        XCTAssertEqual(Channel.defaults.count, 63)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {
@@ -211,63 +211,21 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    func testFMATagChannelMatchesByTag() {
-        let fmaJazz = Channel.defaults.first { $0.id == "fma-jazz" }!
-        let jazzTrack  = makeTrack(composer: nil, instruments: [], tags: ["jazz"])
-        let rockTrack  = makeTrack(composer: nil, instruments: [], tags: ["rock"])
-        let noTagTrack = makeTrack(composer: nil, instruments: [], tags: [])
-        XCTAssertTrue(fmaJazz.matches(jazzTrack),  "Jazz track should match Jazz channel")
-        XCTAssertFalse(fmaJazz.matches(rockTrack), "Rock track should not match Jazz channel")
-        XCTAssertFalse(fmaJazz.matches(noTagTrack),"Untagged track should not match Jazz channel")
-    }
-
-    // Regression: Soul & R&B / World Music were empty because FMA tags tracks
-    // with the genre SLUG ("soul-rb") while the channel tag is "soul" —
-    // Channel.matches() never matched. FMAService now stamps the channel tag.
-    func testFMASlugMismatchChannelsNeedChannelTagStamp() {
-        let soul = Channel.defaults.first { $0.id == "fma-soul-rnb" }!
-        let world = Channel.defaults.first { $0.id == "fma-international" }!
-        XCTAssertEqual(soul.tags, ["soul"])
-        XCTAssertEqual(world.tags, ["world music"])
-
-        // FMA mapTrack tags by lowercased slug — the bug.
-        let slugTagged = makeTrack(composer: nil, instruments: [], tags: ["soul-rb"])
-        XCTAssertFalse(soul.matches(slugTagged),
-            "slug-only tag must NOT match (this was the empty-channel bug)")
-
-        // The FMAService fix stamps the channel tag → matches.
-        let stamped = slugTagged.stamped(with: ["soul"])
-        XCTAssertTrue(soul.matches(stamped),
-            "stamping the channel tag must make Soul & R&B match")
-        let worldStamped = makeTrack(composer: nil, instruments: [], tags: ["international"])
-            .stamped(with: ["world music"])
-        XCTAssertTrue(world.matches(worldStamped),
-            "stamping must make World Music match")
-    }
-
     func testPreferredSourceAssignedCorrectly() {
         let spanishGuitar = Channel.defaults.first { $0.id == "guitar-classical" }!
-        let fmaJazz         = Channel.defaults.first { $0.id == "fma-jazz" }!
-        let oxford          = Channel.defaults.first { $0.id == "oxford-philosophy" }!
+        let oxford        = Channel.defaults.first { $0.id == "oxford-philosophy" }!
 
         XCTAssertEqual(spanishGuitar.preferredSource, "internet_archive")
-        XCTAssertEqual(fmaJazz.preferredSource,         "fma")
         XCTAssertEqual(oxford.preferredSource,          "oxford_lectures")
     }
 
-    // Contemporary category (formerly FMA): 14 genre channels.
-    func testContemporaryCategoryHas14Channels() {
-        let channels = Channel.defaults.filter { $0.category == "Contemporary" }
-        XCTAssertEqual(channels.count, 14, "Expected 14 Contemporary genre channels")
-    }
-
-    func testContemporaryChannelsHaveValidTags() {
-        let channels = Channel.defaults.filter { $0.category == "Contemporary" }
-        for channel in channels {
-            XCTAssertFalse(channel.tags.isEmpty, "Contemporary channel \(channel.id) must have at least one tag")
-            let hasKnownGenre = channel.tags.first { FMAService.genreMap[$0] != nil } != nil
-            XCTAssertTrue(hasKnownGenre, "Contemporary channel \(channel.id) tags must map to a known FMA genre")
-        }
+    // Wedge pivot: the Contemporary/FMA genre channels were removed. No channel
+    // should remain in that category or source from FMA.
+    func testNoContemporaryOrFMAChannelsRemain() {
+        XCTAssertTrue(Channel.defaults.allSatisfy { $0.category != "Contemporary" },
+            "Contemporary category must be empty after the wedge pivot")
+        XCTAssertTrue(Channel.defaults.allSatisfy { $0.preferredSource != "fma" },
+            "No channel should source from FMA after the wedge pivot")
     }
 
     // Lectures category: 18 channels. music/population-health/surgical were
@@ -389,7 +347,7 @@ final class ChannelTests: XCTestCase {
     // that actually have channels, and every channel category is covered.
     func testMainMenuCategoryOrder() {
         let order = MainMenuView.orderedCategories()
-        XCTAssertEqual(order, ["For You", "Curated", "Ambient", "News", "Contemporary",
+        XCTAssertEqual(order, ["For You", "Curated", "Ambient", "News",
                                "Audiobooks", "Lectures"])
         // No channel category is silently dropped from the menu.
         let present = Set(Channel.defaults.map(\.category))

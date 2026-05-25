@@ -69,7 +69,7 @@ final class DatabaseServiceTests: XCTestCase {
         )
         await db.saveTracks([lowConf])
 
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         let results = await db.fetchTracks(forChannel: channel)
         XCTAssertTrue(
             results.contains { $0.id == "jazz-low" },
@@ -103,7 +103,7 @@ final class DatabaseServiceTests: XCTestCase {
         )
         await db.saveTracks([fmaTrack, iaTrack])
 
-        let channel = Channel.defaults.first { $0.id == "fma-jazz" }!
+        let channel = Channel.fmaJazzTestChannel
         XCTAssertEqual(channel.preferredSource, "fma")
         let results = await db.fetchTracks(forChannel: channel)
         XCTAssertTrue(results.contains  { $0.id == "fma-jazz-1" }, "FMA track must be returned for fma-jazz channel")

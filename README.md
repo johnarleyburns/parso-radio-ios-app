@@ -11,8 +11,9 @@ the source and license are shown for every track.
 - **Curated channels** — Spanish Guitar, Chamber Music, Symphony, Piano Hour,
   Café Lento, 78 RPM, Ancient Greece, Great Books, Greater Books, Children's
   Books, Children's Songs, and more.
-- **LibriVox audiobooks** (21 genre channels) and **Oxford University
-  lectures**; **FMA** genre channels; **News** podcast channels.
+- **LibriVox audiobooks** (21 genre channels), **Oxford University
+  lectures**, and **News** podcast channels — the public-library / public-radio
+  core (the contemporary/FMA genre channels were dropped to sharpen this focus).
 - **Ambient loops** — Flowing Water / Rainy Day / Ocean Waves: bundled,
   gapless, offline CC0 audio with a looping video backdrop.
 - **Search** the Internet Archive; tap a result to Play, Add to Playlist, or

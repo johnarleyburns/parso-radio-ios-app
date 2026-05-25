@@ -7,7 +7,7 @@ final class SourceValidatorTests: XCTestCase {
     private let bachChannel = Channel(id: "bach", name: "Bach", category: "Classical", icon: "music.note", composers: ["bach"], preferredSource: "internet_archive")
 
     // An FMA jazz channel (no feedURL) — non-broadcast creator tracks must pass
-    private let jazzChannel = Channel.defaults.first(where: { $0.id == "fma-jazz" })!
+    private let jazzChannel = Channel.fmaJazzTestChannel
 
     func testBroadcastCreatorRejectedForComposerChannel() {
         let broadcastCreators = ["PBS Digital Studios", "BBC Radio 3", "CBC Music", "NPR Music", "Classical Radio WNED"]
