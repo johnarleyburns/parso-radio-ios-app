@@ -32,6 +32,15 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         cache.close()
     }
 
+    /// Force-cancel all in-flight network work and release the cache handle
+    /// immediately. Called from AudioPlayerService.tearDownPlayer so a track
+    /// switch doesn't leave the OLD delegate's URLSession racing the new one
+    /// (suspected cause of the "track 2 hangs" symptom). Idempotent.
+    func shutdown() {
+        session.invalidateAndCancel()
+        cache.close()
+    }
+
     /// Swap a remote URL's scheme to the custom one so the asset's resource
     /// loader routes through this delegate. Only http/https are wrapped; other
     /// schemes (file://, parsocache://) are passed through unchanged by returning
@@ -100,6 +109,12 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         req.setValue("bytes=0-0", forHTTPHeaderField: "Range")
         let (_, response) = try await session.data(for: req)
         guard let http = response as? HTTPURLResponse else { throw URLError(.cannotParseResponse) }
+        // Bail on a 4xx/5xx — without this we'd feed the error-page body to
+        // AVPlayer as if it were audio and the player would buffer forever.
+        guard (200..<300).contains(http.statusCode) else {
+            Log.playback.error("ResourceLoader probe HTTP \(http.statusCode) for \(self.originalURL.absoluteString)")
+            throw URLError(.badServerResponse)
+        }
         let length: Int64
         if let cr = http.value(forHTTPHeaderField: "Content-Range"),
            let total = Self.parseTotal(fromContentRange: cr) {
@@ -110,6 +125,7 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
             throw URLError(.zeroByteResource)
         }
         let mime = http.value(forHTTPHeaderField: "Content-Type") ?? "audio/mpeg"
+        Log.playback.debug("ResourceLoader probe OK len=\(length) mime=\(mime)")
         return ContentProbe(length: length,
                             uti: Self.uti(forMIME: mime, fallbackName: originalURL.lastPathComponent))
     }
@@ -190,7 +206,14 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
 
         var request = URLRequest(url: originalURL)
         request.setValue(rangeHeader, forHTTPHeaderField: "Range")
-        let (bytes, _) = try await session.bytes(for: request)
+        let (bytes, response) = try await session.bytes(for: request)
+        // Same defensive HTTP check as the probe: a 4xx body would otherwise be
+        // shovelled to AVPlayer as audio and the player would buffer forever.
+        if let http = response as? HTTPURLResponse,
+           !(200..<300).contains(http.statusCode) {
+            Log.playback.error("ResourceLoader range HTTP \(http.statusCode) for range \(rangeHeader) of \(self.originalURL.absoluteString)")
+            throw URLError(.badServerResponse)
+        }
 
         // 32 KB chunks: AVPlayer starts playing within a few hundred ms of the
         // first chunk on broadband, and the per-byte iteration overhead is
@@ -198,6 +221,7 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         let chunkSize = 32 * 1024
         var buf: [UInt8] = []
         buf.reserveCapacity(chunkSize)
+        var firstChunkLogged = false
         for try await byte in bytes {
             buf.append(byte)
             if buf.count >= chunkSize {
@@ -207,6 +231,10 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
                 dr.respond(with: chunk)
                 cursor += Int64(chunk.count)
                 buf.removeAll(keepingCapacity: true)
+                if !firstChunkLogged {
+                    Log.playback.debug("ResourceLoader first chunk delivered (\(chunkSize)B at offset \(dr.requestedOffset))")
+                    firstChunkLogged = true
+                }
             }
         }
         if !buf.isEmpty {

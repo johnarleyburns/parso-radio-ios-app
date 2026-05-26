@@ -538,6 +538,11 @@ final class AudioPlayerService: ObservableObject {
         }
         statusObserver?.invalidate()
         statusObserver = nil
+        // Force-cancel the previous resource loader's URLSession BEFORE letting
+        // the asset chain release. Otherwise on a fast track-skip the old
+        // session can keep an in-flight Range fetch alive racing the new
+        // track's loader (suspected cause of "track 2 buffers forever").
+        currentCachingDelegate?.shutdown()
         currentCachingDelegate = nil
         pendingStartSeek = 0
         player = nil

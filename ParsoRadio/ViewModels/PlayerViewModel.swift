@@ -218,7 +218,16 @@ final class PlayerViewModel: ObservableObject {
                 // treated as healthy by the watchdog (and not skipped).
                 self.stallModel.markReady(generation: self.stallModel.loadGeneration)
                 if duration > 0 { self.trackDuration = duration }
-                if self.isLoading { self.isLoading = false; self.loadingMessage = nil }
+                // Clear "Buffering…" on ready ONLY when we don't intend to play
+                // (a paused resume — no time tick will come, so the spinner has
+                // to go now). For autoPlay loads the spinner stays until the
+                // first real time tick (onTimeUpdate) so the user sees feedback
+                // during the few hundred ms AVPlayer takes to prebuffer audio
+                // after .readyToPlay — the "sits at 0:00 with no spinner" bug.
+                if self.isLoading, !self.isPlaying {
+                    self.isLoading = false
+                    self.loadingMessage = nil
+                }
             }
         }
 
