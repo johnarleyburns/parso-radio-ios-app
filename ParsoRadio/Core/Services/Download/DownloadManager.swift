@@ -3,6 +3,13 @@ import Foundation
 final class DownloadManager {
     private let db: DatabaseService
     private let fileStorage = FileStorageService()
+    // Single-flight: coalesce concurrent fetches of the same track (e.g. a
+    // playlist prefetch racing an explicit download) so a file is never fetched
+    // twice at once. Also lets the player ask "is this already downloading?".
+    private let inFlight = InFlightRegistry()
+
+    /// Whether a download for this track id is currently running.
+    func isDownloading(_ id: String) -> Bool { inFlight.contains(id) }
     private let session: URLSession = {
         let cfg = URLSessionConfiguration.default
         cfg.timeoutIntervalForRequest  = 30
@@ -30,6 +37,14 @@ final class DownloadManager {
 
         guard let url = track.downloadURL else { return }
 
+        // Single-flight: if this id is already being fetched, don't start a
+        // second download — the in-flight one will complete and mark it.
+        guard inFlight.begin(track.id) else {
+            onProgress?(1.0)
+            return
+        }
+        defer { inFlight.end(track.id) }
+
         do {
             let tmpURL: URL
             if let onProgress {
@@ -52,7 +67,8 @@ final class DownloadManager {
         Task {
             for track in tracks.prefix(5) {
                 let dest = fileStorage.localURL(for: track.id)
-                guard !FileManager.default.fileExists(atPath: dest.path) else { continue }
+                guard !FileManager.default.fileExists(atPath: dest.path),
+                      !inFlight.contains(track.id) else { continue }
                 await download(track: track)
             }
         }

@@ -177,6 +177,28 @@ final class PlaybackResilienceTests: XCTestCase {
         XCTAssertEqual(CacheEvictionPolicy.evictions(entries, maxBytes: 500), [])
     }
 
+    // MARK: - Single-flight registry
+
+    func testInFlightRegistrySingleFlight() {
+        let r = InFlightRegistry()
+        XCTAssertTrue(r.begin("a"),  "first claim succeeds")
+        XCTAssertFalse(r.begin("a"), "second concurrent claim is rejected (single-flight)")
+        XCTAssertTrue(r.contains("a"))
+        XCTAssertFalse(r.contains("b"))
+        r.end("a")
+        XCTAssertFalse(r.contains("a"))
+        XCTAssertTrue(r.begin("a"), "claimable again after it ends")
+    }
+
+    func testInFlightRegistryTracksMultipleIDs() {
+        let r = InFlightRegistry()
+        r.begin("a"); r.begin("b")
+        XCTAssertTrue(r.contains("a") && r.contains("b"))
+        r.end("a")
+        XCTAssertFalse(r.contains("a"))
+        XCTAssertTrue(r.contains("b"), "ending one id doesn't affect another")
+    }
+
     func testEvictionNeverTouchesPinned() {
         let now = Date()
         let entries = [

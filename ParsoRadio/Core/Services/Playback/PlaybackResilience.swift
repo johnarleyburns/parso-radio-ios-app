@@ -174,6 +174,37 @@ struct ThroughputEstimator: Equatable {
     }
 }
 
+// MARK: - Single-flight registry
+
+/// Thread-safe set of "operations in progress", keyed by id. Lets streaming and
+/// downloading coalesce so a track is never fetched twice at once (the
+/// double-fetch / "garbage prefetch" class). Reference type because callers share
+/// one instance across concurrency domains; an NSLock keeps it cheap and
+/// dependency-free (no actor hop on the hot path).
+final class InFlightRegistry {
+    private let lock = NSLock()
+    private var ids = Set<String>()
+
+    /// Try to claim the slot for `id`. Returns true iff THIS call acquired it
+    /// (i.e. it was not already in flight) — the caller that gets true owns the
+    /// fetch; others should back off.
+    @discardableResult
+    func begin(_ id: String) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return ids.insert(id).inserted
+    }
+
+    func end(_ id: String) {
+        lock.lock(); defer { lock.unlock() }
+        ids.remove(id)
+    }
+
+    func contains(_ id: String) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return ids.contains(id)
+    }
+}
+
 // MARK: - Cache eviction (LRU, pinned-safe)
 
 struct CacheEntry: Equatable {
