@@ -13,11 +13,13 @@ final class RecommendationQueryBuilderTests: XCTestCase {
     }
 
     /// Convenience: build a history list with `(channelId, count)` repetitions.
-    private func history(_ entries: [(String, Int)]) -> [(channelId: String, track: Track)] {
-        var out: [(channelId: String, track: Track)] = []
+    /// Tuple shape matches DatabaseService.fetchRecentlyPlayedWithChannel —
+    /// `(track, channelId)`. Reordering crashes at runtime, not at compile.
+    private func history(_ entries: [(String, Int)]) -> [(track: Track, channelId: String)] {
+        var out: [(track: Track, channelId: String)] = []
         var n = 0
         for (cid, count) in entries {
-            for _ in 0..<count { out.append((cid, track("t\(n)"))); n += 1 }
+            for _ in 0..<count { out.append((track("t\(n)"), cid)); n += 1 }
         }
         return out
     }

@@ -387,14 +387,10 @@ struct iPodView: View {
     @ViewBuilder
     private func trackMetadataStack(track: Track) -> some View {
         VStack(alignment: .trailing, spacing: 5) {
-            if playerVM.isLoading, let msg = playerVM.loadingMessage {
-                HStack(spacing: 6) {
-                    ProgressView().scaleEffect(0.8).tint(.white)
-                    Text(msg)
-                        .font(.system(size: mainRegularSize))
-                        .foregroundStyle(.white.opacity(0.8))
-                }
-            }
+            // The inline spinner that used to live here was redundant with the
+            // centered loadingOverlay — it created the "two indicators at once"
+            // effect. The overlay is now the single source of truth for
+            // "loading", so this stack just shows the track metadata.
 
             Text(track.title)
                 .font(.system(size: mainBoldSize, weight: .bold))
@@ -445,33 +441,29 @@ struct iPodView: View {
             .accessibilityLabel(label)
     }
 
-    // Centered, high-visibility loading state shown over the whole track box.
+    // Centered loading spinner shown over the whole track box. Icon-only — the
+    // various "Buffering…" / "Loading…" / "Finding tracks…" texts were noisy
+    // and inconsistent; a single spinner is unambiguous.
     private var loadingOverlay: some View {
-        VStack(spacing: 10) {
-            ProgressView()
-                .controlSize(.large)
-                .tint(.white)
-            Text(playerVM.loadingMessage ?? "Loading…")
-                .font(.system(size: mainRegularSize, weight: .medium))
-                .foregroundStyle(.white)
-        }
-        .padding(22)
-        .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 16))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.15))
-        .allowsHitTesting(false)
-        .transition(.opacity)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(playerVM.loadingMessage ?? "Loading")
+        ProgressView()
+            .controlSize(.large)
+            .tint(.white)
+            .padding(22)
+            .background(.black.opacity(0.45), in: Circle())
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black.opacity(0.15))
+            .allowsHitTesting(false)
+            .transition(.opacity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Loading")
     }
 
     @ViewBuilder
     private var loadingView: some View {
         HStack(spacing: 8) {
             ProgressView().tint(.white)
-            Text(playerVM.loadingMessage ?? "Loading…")
-                .font(.system(size: mainRegularSize))
-                .foregroundStyle(.white.opacity(0.8))
+            // Loading indicator: spinner only, no text — see loadingOverlay.
+            EmptyView()
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.horizontal, 14)

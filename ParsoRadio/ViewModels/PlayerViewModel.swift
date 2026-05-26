@@ -503,8 +503,11 @@ final class PlayerViewModel: ObservableObject {
             await advanceToNext(autoPlay: autoPlay)
         }
 
-        isLoading = false
-        loadingMessage = nil
+        // Don't clear isLoading here — playTrack/advanceToNext own the spinner
+        // from this point and dismiss it on the first real time tick (or on
+        // failure / give-up). Clearing here used to drop the spinner during
+        // AVPlayer's pre-buffer window — visible on long audiobook resumes as
+        // "no spinner is shown" even though audio hasn't started yet.
     }
 
     func togglePlayPause() {

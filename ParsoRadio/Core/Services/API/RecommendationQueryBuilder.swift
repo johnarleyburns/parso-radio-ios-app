@@ -30,8 +30,15 @@ enum RecommendationQueryBuilder {
     /// Histogram of plays per channel, filtered to the relevant categories
     /// (Curated for Music, Audiobooks for Books), normalised so weights sum to
     /// 1.0. Sorted by plays desc, with channelId as a deterministic tie-break.
+    ///
+    /// Tuple order MUST match `DatabaseService.fetchRecentlyPlayedWithChannel`
+    /// — `(track, channelId)`, not `(channelId, track)`. Swift accepts the
+    /// reordered shape at compile time and inserts a runtime array force-cast
+    /// that CRASHES on the first call ("failed cast" / _arrayForceCast). The
+    /// body only reads `.channelId`, so the field order is purely a typing
+    /// contract; keep it aligned with the DB call.
     static func channelWeights(
-        fromHistory history: [(channelId: String, track: Track)],
+        fromHistory history: [(track: Track, channelId: String)],
         categoryFilter: Set<String>,
         categoryById: [String: String]
     ) -> [ChannelWeight] {
