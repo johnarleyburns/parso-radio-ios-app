@@ -88,35 +88,25 @@ final class PlayerViewModel: ObservableObject {
     // skipped — AVPlayer waits and rebuffers. Capped so a channel where every
     // track is genuinely unplayable doesn't loop forever.
     private let loadTimeout: Double = 10
+    // Buffering-stall watchdog: if a track never produces a real playback tick
+    // within stallTimeout, it's stuck buffering. ALL the reliability decisions —
+    // is this a stale watchdog, is the item healthy, skip, or give up after too
+    // many consecutive stalls with no audio ("infinite buffering") — are made by
+    // the pure, unit-tested StallModel (see PlaybackResilience / PLAYBACK-DESIGN).
+    // The view model only owns the timer plumbing and applies the verdict.
+    private let stallTimeout: Double = 20
+    // internal (not private) so tests can drive the watchdog's decision directly.
+    var stallModel = StallModel(maxConsecutiveSkips: 4)
+    private var stallWatchdog: Task<Void, Never>?
+    // Retry transient resolve/load failures (timeout, 5xx, connection lost) with
+    // exponential backoff before skipping; permanent failures (404/unsupported)
+    // skip immediately. Per-item attempt counts; cleared on success. Pure policy.
+    private let retryPolicy = RetryPolicy()
+    private var loadAttempts: [String: Int] = [:]
+    // After this many items fail to RESOLVE in a row, stop (distinct from the
+    // stall give-up, which is for items that resolve but never produce audio).
     private let maxConsecutiveLoadFailures = 8
     private var consecutiveLoadFailures = 0
-    // Buffering-stall watchdog: if a track never produces a real playback tick
-    // within stallTimeout, it's stuck buffering — skip to the next track instead
-    // of hanging forever. loadGeneration bumps on every playTrack so a stale
-    // watchdog from a previous track is a no-op; playbackConfirmedGeneration is
-    // stamped by the periodic time observer once audio actually progresses.
-    private let stallTimeout: Double = 20
-    // A SINGLE stall is recoverable (skip to the next track). But if track after
-    // track resolves yet never produces audio — a marginal connection, or a
-    // channel full of oversized/long-form items that can't buffer the start
-    // within stallTimeout — skipping forever IS the "infinite buffering" bug:
-    // the load-failure cap never trips because each resolve "succeeds" (and
-    // resets consecutiveLoadFailures). So count CONSECUTIVE stalls separately
-    // and give up gracefully. Reset ONLY by a genuine playback tick or a fresh
-    // channel load — never by a mere resolve (that's the trap we're avoiding).
-    private let maxConsecutiveStalls = 4
-    // internal (not private) so tests can drive the give-up decision directly;
-    // a genuine playback tick resets it to 0 (see onTimeUpdate).
-    var consecutiveStalls = 0
-    // internal (not private) so tests can drive the watchdog's decision directly.
-    var loadGeneration = 0
-    var playbackConfirmedGeneration = -1
-    // Stamped when the AVPlayerItem reaches .readyToPlay (onReady) — distinct
-    // from "confirmed playing": a PAUSED resume becomes ready but never ticks,
-    // and must NOT be treated as stalled. The watchdog only skips a track that
-    // is BOTH never-ready AND never-played within the timeout.
-    var readyGeneration = -1
-    private var stallWatchdog: Task<Void, Never>?
 
     init(
         db: DatabaseService,
@@ -224,9 +214,9 @@ final class PlayerViewModel: ObservableObject {
         audioPlayer.onReady = { [weak self] duration in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                // Item is playable → disarm the stall watchdog (a paused-but-ready
-                // resume is healthy and must not be skipped).
-                self.readyGeneration = self.loadGeneration
+                // Item is playable → mark ready so a paused-but-ready resume is
+                // treated as healthy by the watchdog (and not skipped).
+                self.stallModel.markReady(generation: self.stallModel.loadGeneration)
                 if duration > 0 { self.trackDuration = duration }
                 if self.isLoading { self.isLoading = false; self.loadingMessage = nil }
             }
@@ -237,10 +227,9 @@ final class PlayerViewModel: ObservableObject {
                 guard let self else { return }
                 // A periodic time tick only fires while the player is actually
                 // progressing (never while buffering/stalled), so any tick means
-                // THIS track is genuinely playing — disarm the stall watchdog.
-                self.playbackConfirmedGeneration = self.loadGeneration
-                // Real audio is flowing → the stall streak is broken.
-                self.consecutiveStalls = 0
+                // THIS track is genuinely playing — confirm it (which also breaks
+                // the consecutive-stall streak; a mere resolve must NOT reset it).
+                self.stallModel.confirmPlayback(generation: self.stallModel.loadGeneration)
                 // The first time tick PAST zero means audio is genuinely
                 // progressing — hide the loading indicator. This MUST run even
                 // while isScrubbing: an interrupted wheel drag could otherwise
@@ -350,8 +339,9 @@ final class PlayerViewModel: ObservableObject {
         errorMessage = nil
         currentPosition = 0
         trackDuration = nil
-        // Fresh channel the user explicitly chose → fresh stall budget.
-        consecutiveStalls = 0
+        // Fresh channel the user explicitly chose → fresh stall + retry budget.
+        stallModel.resetSkipStreak()
+        loadAttempts.removeAll()
 
         // Hoisted so the post-fetch resume / News-newest logic can see it.
         var fetched: [Track] = []
@@ -748,7 +738,7 @@ final class PlayerViewModel: ObservableObject {
         // resume marker stuck at 0:00 if the user left early).
         lastPositionSaveTime = -5
         // New track → new watchdog generation; cancel any prior one.
-        loadGeneration += 1
+        _ = stallModel.beginLoad()
         stallWatchdog?.cancel()
         stallWatchdog = nil
         // Reload bookmarks for the new track (replaced below).
@@ -863,6 +853,7 @@ final class PlayerViewModel: ObservableObject {
             isPlaying = autoPlay
             errorMessage = nil
             consecutiveLoadFailures = 0
+            loadAttempts[track.id] = nil   // resolved/loaded OK → clear retry count
             // Keep the loading indicator up until the player ACTUALLY produces
             // audio (the first periodic time tick clears it). Previously this
             // cleared the moment play() returned — seconds before sound. Ambient
@@ -878,7 +869,7 @@ final class PlayerViewModel: ObservableObject {
                 // channel can't hang forever (this is the launch-after-update
                 // "Buffering… forever, no timeout" bug). The skip preserves the
                 // play intent so a paused launch stays paused on a working track.
-                let gen = loadGeneration
+                let gen = stallModel.loadGeneration
                 let timeout = stallTimeout
                 let wantPlay = autoPlay
                 stallWatchdog = Task { [weak self] in
@@ -918,34 +909,24 @@ final class PlayerViewModel: ObservableObject {
             persistSession(position: resumeAt)
             probeCurrentTrack()
         } catch {
-            await handleLoadFailure(track)
+            await handleLoadFailure(track, error: error, autoPlay: autoPlay)
         }
     }
 
     // Buffering-stall watchdog handler. Fires stallTimeout after a track loaded.
-    // Key insight from the field: an AVPlayerItem can reach .readyToPlay and
-    // THEN stall during playback (buffer underrun → no time ticks). So:
-    //  • When we intend to PLAY (autoPlay): the only proof of health is an actual
-    //    playback tick (playbackConfirmedGeneration). "Ready but never played in
-    //    20s" = stalled → skip. (This is the skip-forward-hangs bug.)
-    //  • When loaded PAUSED (autoPlay == false): a track that merely became
-    //    READY is healthy (it just isn't playing) — only skip a dead, never-ready
-    //    item.
+    // The DECISION (stale / healthy / skip / give-up after too many consecutive
+    // stalls with no audio) is made by the pure, unit-tested StallModel; the view
+    // model only applies the verdict. See PLAYBACK-DESIGN.md.
     @MainActor
     func handleStallIfNeeded(generation: Int, autoPlay: Bool = true) async {
-        guard generation == loadGeneration else { return }              // track changed
         guard currentChannel?.contentType != .ambientLoop else { return }
-        guard playbackConfirmedGeneration != generation else { return } // it actually played → fine
-        if !autoPlay {
-            // Paused load: a ready item is fine; only a never-ready one is dead.
-            guard readyGeneration != generation else { return }
-        }
-        // Count this stall. A streak with no real audio in between means
-        // skipping again won't help (bad connection / a channel of oversized
-        // items) — stop and tell the user instead of buffering forever.
-        consecutiveStalls += 1
-        guard consecutiveStalls < maxConsecutiveStalls else {
-            consecutiveStalls = 0
+        switch stallModel.evaluateStall(generation: generation, autoPlay: autoPlay) {
+        case .ignoreStale, .healthy:
+            return
+        case .giveUp:
+            // Too many consecutive stalls with no audio in between — stop and tell
+            // the user instead of buffering forever (the "infinite buffering" bug).
+            stallModel.resetSkipStreak()
             stallWatchdog?.cancel()
             stallWatchdog = nil
             audioPlayer.skip()
@@ -955,20 +936,20 @@ final class PlayerViewModel: ObservableObject {
             isLoading = false
             loadingMessage = nil
             errorMessage = "Couldn't start playback — check your connection and try again."
-            return
+        case .skip:
+            Log.playback.error("Track stalled (no audio in \(self.stallTimeout)s) — skipping")
+            // Advance to the next track, keeping the original play intent so a
+            // paused launch lands paused on a working track (not silently playing).
+            audioPlayer.skip()
+            isSkipping = true
+            isPlaying = false
+            currentPosition = 0
+            errorMessage = nil
+            isLoading = true
+            loadingMessage = "Skipping unavailable track…"
+            await advanceToNext(autoPlay: autoPlay)
+            isSkipping = false
         }
-        Log.playback.error("Track stalled (no audio in \(self.stallTimeout)s) — skipping (\(self.consecutiveStalls)/\(self.maxConsecutiveStalls))")
-        // Advance to the next track, keeping the original play intent so a
-        // paused launch lands paused on a working track (not silently playing).
-        audioPlayer.skip()
-        isSkipping = true
-        isPlaying = false
-        currentPosition = 0
-        errorMessage = nil
-        isLoading = true
-        loadingMessage = "Skipping unavailable track…"
-        await advanceToNext(autoPlay: autoPlay)
-        isSkipping = false
     }
 
     // MARK: - Whole book/album
@@ -1115,9 +1096,36 @@ final class PlayerViewModel: ObservableObject {
         }
     }
 
-    // Failure/timeout: auto-advance to the next track instead of
-    // dead-ending. Capped so a channel where everything fails stops cleanly.
-    private func handleLoadFailure(_ track: Track) async {
+    private func classify(_ error: Error) -> PlaybackFailure {
+        if let u = error as? URLError {
+            return PlaybackFailureClassifier.classify(urlError: u.code)
+        }
+        return .transient   // resolve timeouts (withTimeout) / unknown → worth a retry
+    }
+
+    // Resolve/load failure. TRANSIENT failures (timeout, 5xx, connection lost)
+    // retry the SAME track with exponential backoff before skipping; PERMANENT
+    // ones (404/unsupported) skip immediately. When retries are exhausted we
+    // advance to the next track, capped so a fully-dead channel stops cleanly.
+    // Retry/backoff/classification are the pure, unit-tested policy core.
+    private func handleLoadFailure(_ track: Track, error: Error, autoPlay: Bool) async {
+        let failure = classify(error)
+        let attempt = loadAttempts[track.id, default: 0]
+        if retryPolicy.shouldRetry(afterAttempt: attempt, failure: failure) {
+            loadAttempts[track.id] = attempt + 1
+            let gen = stallModel.loadGeneration
+            let delay = retryPolicy.delay(forAttempt: attempt, rand: Double.random(in: 0..<1))
+            isLoading = true
+            loadingMessage = "Reconnecting…"
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            // If the user changed channel/track during the backoff, a new load
+            // bumped the generation — abort this stale retry.
+            guard gen == stallModel.loadGeneration, !Task.isCancelled else { return }
+            await playTrack(track, seekTo: nil, recordHistory: false, autoPlay: autoPlay)
+            return
+        }
+        // Permanent, or out of retries for this item → give up on it and move on.
+        loadAttempts[track.id] = nil
         consecutiveLoadFailures += 1
         guard consecutiveLoadFailures < maxConsecutiveLoadFailures else {
             consecutiveLoadFailures = 0
@@ -1136,7 +1144,7 @@ final class PlayerViewModel: ObservableObject {
         isPlaying = false
         isLoading = true
         loadingMessage = "Skipping unavailable track…"
-        await advanceToNext()
+        await advanceToNext(autoPlay: autoPlay)
     }
 
     private func prefetchNextURL(channel: Channel) async {
