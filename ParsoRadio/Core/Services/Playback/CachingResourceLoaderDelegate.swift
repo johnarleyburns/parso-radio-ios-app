@@ -165,13 +165,22 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
 
         try Task.checkCancellation()
 
-        // 2) Anything left → fetch from the network and tee-write into the cache
-        // when the bytes extend the contiguous prefix.
+        // 2) Anything left → fetch from the network and feed AVPlayer
+        // PROGRESSIVELY in chunks so it can start playing before the whole
+        // range arrives. The previous URLSession.data(for:) wait-for-full-body
+        // was the "Buffering forever" bug: a 15 MB audiobook chapter delivered
+        // zero bytes to AVPlayer until the whole file downloaded.
         let rangeHeader: String
         let endNeeded: Int64
         if dr.requestsAllDataToEndOfResource {
             endNeeded = cache.contentLength ?? Int64.max
-            rangeHeader = "bytes=\(cursor)-"
+            // Prefer a CLOSED range when we know the length (some CDNs handle
+            // closed ranges more reliably than open `bytes=N-`).
+            if let cl = cache.contentLength, cl > cursor {
+                rangeHeader = "bytes=\(cursor)-\(cl - 1)"
+            } else {
+                rangeHeader = "bytes=\(cursor)-"
+            }
         } else {
             endNeeded = dr.requestedOffset + Int64(dr.requestedLength)
             guard cursor < endNeeded else { return }
@@ -181,8 +190,30 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
 
         var request = URLRequest(url: originalURL)
         request.setValue(rangeHeader, forHTTPHeaderField: "Range")
-        let (data, _) = try await session.data(for: request)
-        cache.appendContiguous(data, at: cursor)
-        dr.respond(with: data)
+        let (bytes, _) = try await session.bytes(for: request)
+
+        // 32 KB chunks: AVPlayer starts playing within a few hundred ms of the
+        // first chunk on broadband, and the per-byte iteration overhead is
+        // amortised across the chunk.
+        let chunkSize = 32 * 1024
+        var buf: [UInt8] = []
+        buf.reserveCapacity(chunkSize)
+        for try await byte in bytes {
+            buf.append(byte)
+            if buf.count >= chunkSize {
+                try Task.checkCancellation()
+                let chunk = Data(buf)
+                cache.appendContiguous(chunk, at: cursor)
+                dr.respond(with: chunk)
+                cursor += Int64(chunk.count)
+                buf.removeAll(keepingCapacity: true)
+            }
+        }
+        if !buf.isEmpty {
+            let chunk = Data(buf)
+            cache.appendContiguous(chunk, at: cursor)
+            dr.respond(with: chunk)
+            cursor += Int64(chunk.count)
+        }
     }
 }
