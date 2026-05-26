@@ -61,6 +61,29 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: false
+        # App Transport Security: the entire app stays HTTPS-only EXCEPT for
+        # podcast media loading, where several public broadcasters' enclosure
+        # URLs are still http and/or redirect to http-only CDNs (BBC's mediaset
+        # → bbc.pdn.tritondigital.com is the canonical case). Without this the
+        # AVPlayerItem load silently fails — the "BBC Global News loads forever
+        # with no spinner" symptom. Two narrow allowances:
+        #  • NSAllowsArbitraryLoadsInMedia — AVFoundation media loading only;
+        #    covers the default playback path for any http podcast.
+        #  • NSExceptionDomains — specific BBC + CDN hosts, needed for the
+        #    streaming-cache delegate's own URLSession (which is not under
+        #    AVFoundation's media-loading scope).
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoadsInMedia: true
+          NSExceptionDomains:
+            bbc.co.uk:
+              NSIncludesSubdomains: true
+              NSExceptionAllowsInsecureHTTPLoads: true
+            bbci.co.uk:
+              NSIncludesSubdomains: true
+              NSExceptionAllowsInsecureHTTPLoads: true
+            tritondigital.com:
+              NSIncludesSubdomains: true
+              NSExceptionAllowsInsecureHTTPLoads: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: guru.parso.ios-radio-app
