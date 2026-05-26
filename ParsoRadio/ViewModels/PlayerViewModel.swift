@@ -1404,54 +1404,52 @@ final class PlayerViewModel: ObservableObject {
     }
 
     /// Build the track list for a "for you" channel from listening history.
-    /// Returns nil when there isn't enough qualifying history yet (caller shows
-    /// the "listen to N tracks first" prompt). Music vs Books is decided by the
-    /// CATEGORY of the channel each track was played in; playlists, lectures,
-    /// news and the for-you channels themselves don't count (no feedback loop).
+    /// "Curated for you": sample tracks from the curated channels the user
+    /// actually plays, weighted by how much they play each. No metadata
+    /// fishing across all of IA (which used to leak 78rpm / amateur into the
+    /// pool). Returns nil when there isn't enough qualifying history yet —
+    /// caller shows the "listen to N tracks first" prompt.
     private func fetchRecommendations(for channel: Channel) async throws -> [Track]? {
         let history = await db.fetchRecentlyPlayedWithChannel(limit: 200)
         let catById = Dictionary(Channel.defaults.map { ($0.id, $0.category) },
                                  uniquingKeysWith: { a, _ in a })
         let isBooks = channel.id == "books-for-you"
-        let musicCats: Set<String> = ["Curated", "Ambient"]
-        let relevant = history.filter { pair in
-            let cat = catById[pair.channelId] ?? ""
-            return isBooks ? (cat == "Audiobooks") : musicCats.contains(cat)
-        }.map(\.track)
+        // ONLY count plays from the user's actual curated/audiobook channels —
+        // For You, Ambient, News, Lectures, playlists are excluded so the
+        // recommendations stay tightly within the wedge.
+        let relevantCats: Set<String> = isBooks ? ["Audiobooks"] : ["Curated"]
+        let relevantPlays = history.filter { relevantCats.contains(catById[$0.channelId] ?? "") }
+        guard relevantPlays.count >= RecommendationQueryBuilder.minPlays else { return nil }
 
-        // Two arms (see RecommendationQueryBuilder / RECOMMENDATIONS-DESIGN.md):
-        // a creator "signal" arm and a subject "discovery" arm. Either can be nil
-        // (no creators / no subjects yet); only when BOTH are nil is there too
-        // little history to recommend from → show the "listen to N tracks" prompt.
-        let creatorQuery = isBooks
-            ? RecommendationQueryBuilder.booksCreatorQuery(fromHistory: relevant)
-            : RecommendationQueryBuilder.musicCreatorQuery(fromHistory: relevant)
-        let subjectQuery = isBooks
-            ? RecommendationQueryBuilder.booksSubjectQuery(fromHistory: relevant)
-            : RecommendationQueryBuilder.musicSubjectQuery(fromHistory: relevant)
-        guard creatorQuery != nil || subjectQuery != nil else { return nil }
+        let weights = RecommendationQueryBuilder.channelWeights(
+            fromHistory: history, categoryFilter: relevantCats, categoryById: catById)
+        let allocations = RecommendationQueryBuilder.allocateSamples(weights: weights)
+        guard !allocations.isEmpty else { return nil }
 
-        // Fetch both arms in parallel; a failing arm is non-fatal (the other
-        // carries the pool). Both stamp matchTags=[channel.id] for DB isolation.
+        // Fetch each contributing channel's NATIVE registry query in parallel.
+        // Stamp every fetched track with the For-You channel id so the DB
+        // isolates them in the music-for-you / books-for-you pool.
         let svc = archiveService
-        let cid = channel.id
-        async let creatorFetch: [Track] = {
-            guard let q = creatorQuery else { return [] }
-            return (try? await svc.fetchTracks(iaQuery: q, matchTags: [cid])) ?? []
-        }()
-        async let subjectFetch: [Track] = {
-            guard let q = subjectQuery else { return [] }
-            return (try? await svc.fetchTracks(iaQuery: q, matchTags: [cid])) ?? []
-        }()
-        let creatorTracks = await creatorFetch
-        let subjectTracks = await subjectFetch
+        let stampTags = [channel.id]
+        var pool: [Track] = []
+        await withTaskGroup(of: [Track].self) { group in
+            for (channelId, count) in allocations {
+                guard let source = Channel.defaults.first(where: { $0.id == channelId }),
+                      let entry = source.iaQueryEntry else { continue }
+                group.addTask {
+                    let tracks = (try? await svc.fetchTracks(
+                        iaQuery: entry.iaQuery, matchTags: stampTags)) ?? []
+                    return Array(tracks.shuffled().prefix(count))
+                }
+            }
+            for await tracks in group { pool.append(contentsOf: tracks) }
+        }
 
-        // Compose a signal-biased pool, then recommend NEW material only — drop
-        // anything already in the history.
-        let mixed = RecommendationQueryBuilder.mixPool(
-            creatorTracks: creatorTracks, subjectTracks: subjectTracks)
+        // Recommend NEW material only — drop anything already in the history,
+        // and dedupe across channel overlaps.
         let playedIds = Set(history.map(\.track.id))
-        return mixed.filter { !playedIds.contains($0.id) }
+        var seen = Set<String>()
+        return pool.filter { !playedIds.contains($0.id) && seen.insert($0.id).inserted }
     }
 
     /// Settings → "Clear All Data": stop playback and erase EVERYTHING — tracks,
