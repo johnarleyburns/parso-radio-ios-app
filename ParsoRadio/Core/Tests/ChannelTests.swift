@@ -256,11 +256,13 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    // News category: 4 channels (NPR Up First, PBS NewsHour, Democracy Now!, NPR 1A).
-    // BBC*, CBC*, UN, VOA removed — broken or contain ads.
-    func testNewsCategoryHas10Channels() {
+    // News category: 7 channels — 4 US public radio (NPR Up First, PBS
+    // NewsHour, Democracy Now!, NPR 1A) + 3 international public broadcasters
+    // (BBC Global News, DW Inside Europe, CBC As It Happens). All ad-free in
+    // their canonical RSS feeds; curl-verified live with recent items.
+    func testNewsCategoryHasExpectedChannels() {
         let newsChannels = Channel.defaults.filter { $0.category == "News" }
-        XCTAssertEqual(newsChannels.count, 4, "Expected 4 News channels")
+        XCTAssertEqual(newsChannels.count, 7, "Expected 7 News channels")
     }
 
     func testNewsChannelsHaveFeedURL() {
