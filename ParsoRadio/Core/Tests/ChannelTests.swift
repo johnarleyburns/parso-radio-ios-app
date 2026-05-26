@@ -4,10 +4,11 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 2 For You + 18 Lectures + 4 News + 4 Ambient + 14 Curated
-        // + 21 Audiobooks (LibriVox) = 63. (Dropped the 14 Contemporary/FMA
-        // genre channels in the public-library/public-radio wedge pivot.)
-        XCTAssertEqual(Channel.defaults.count, 63)
+        // 2 For You + 18 Lectures + 7 News + 4 Ambient + 14 Curated
+        // + 21 Audiobooks (LibriVox) = 66. (Added BBC Global News, DW Inside
+        // Europe, CBC As It Happens — international public broadcasters,
+        // ad-free podcast feeds; complement the 4 US public-radio channels.)
+        XCTAssertEqual(Channel.defaults.count, 66)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {

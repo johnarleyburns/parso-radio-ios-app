@@ -270,6 +270,31 @@ extension Channel {
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feeds.npr.org/510316/podcast.xml"
         ),
+        // International public broadcasters. Their canonical podcast feeds are
+        // licence-fee / public-funded and ship ad-free worldwide (the "BBC has
+        // ads outside the UK" issue is Spotify's insertion — not the BBC RSS).
+        // All curl-verified live with hundreds of recent items.
+        Channel(
+            id: "news-bbc-global", name: "BBC Global News",
+            category: "News", icon: "globe.europe.africa.fill",
+            tags: ["news-bbc-global"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://podcasts.files.bbci.co.uk/p02nq0gn.rss"
+        ),
+        Channel(
+            id: "news-dw-inside-europe", name: "DW Inside Europe",
+            category: "News", icon: "building.columns.fill",
+            tags: ["news-dw-inside-europe"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://partner.dw.com/xml/podcast_inside-europe"
+        ),
+        Channel(
+            id: "news-cbc-as-it-happens", name: "CBC As It Happens",
+            category: "News", icon: "globe.americas.fill",
+            tags: ["news-cbc-as-it-happens"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://www.cbc.ca/podcasting/includes/asithappens.xml"
+        ),
 
         // MARK: Curated — pure-Lucene IA channels
         // Each channel here resolves to ONE hand-tuned Lucene query in

@@ -43,7 +43,24 @@ struct MainMenuView: View {
         // render. (Pushing it later from an async .task let a quick Back tap
         // get overwritten when the await finished — the "bounces back into
         // Channel Info" bug.)
-        _path = State(initialValue: initialRoute.map { [$0] } ?? [])
+        //
+        // Expand a deep-linked Channel Info / Playlist into its proper parent →
+        // child hierarchy so the back chevron lands at the natural "level up"
+        // (the category list, or the Playlists library) instead of jumping all
+        // the way to the Main Menu root. Other routes (channelList, playlists,
+        // recentlyPlayed, settings) already sit one level under the root.
+        let expanded: [MenuRoute]
+        switch initialRoute {
+        case .channelInfo(let ch):
+            expanded = [.channelList(ch.category), .channelInfo(ch)]
+        case .playlist(let pl):
+            expanded = [.playlists, .playlist(pl)]
+        case .some(let r):
+            expanded = [r]
+        case .none:
+            expanded = []
+        }
+        _path = State(initialValue: expanded)
     }
 
     // Fixed section order. Alphabetical WITHIN each.
