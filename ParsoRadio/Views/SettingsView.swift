@@ -13,6 +13,11 @@ struct SettingsView: View {
     // "system" | "light" | "dark" — applied at the app root via preferredColorScheme.
     @AppStorage("appearance") private var appearance: String = "system"
 
+    // EXPERIMENTAL: route remote streams through CachingResourceLoaderDelegate so
+    // streamed bytes warm an on-disk prefix cache (replays / seeks serve from
+    // disk). Default OFF — flip on a real device to validate.
+    @AppStorage("parso.useCachingPlayer") private var useCachingPlayer: Bool = false
+
     @State private var confirmClearHistory = false
     @State private var confirmClearAll = false
     @State private var working = false
@@ -26,6 +31,16 @@ struct SettingsView: View {
                     Text("Dark").tag("dark")
                 }
                 .pickerStyle(.segmented)
+            }
+
+            Section {
+                Toggle(isOn: $useCachingPlayer) {
+                    Label("Streaming Cache (Experimental)", systemImage: "internaldrive")
+                }
+            } header: {
+                Text("Experimental")
+            } footer: {
+                Text("Caches streamed audio to disk as it plays. Replays and seeks back become instant, and a track that fully streams is on disk for later. Restart playback to apply. If you hit buffering issues, turn this off.")
             }
 
             Section {

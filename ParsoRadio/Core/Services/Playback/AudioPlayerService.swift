@@ -45,6 +45,12 @@ final class AudioPlayerService: ObservableObject {
     private var interruptionObserver: (any NSObjectProtocol)?
     private var routeChangeObserver: (any NSObjectProtocol)?
     private var statusObserver: NSKeyValueObservation?
+    // Strong ref to the experimental caching resource-loader so AVFoundation
+    // (which holds the delegate weakly) doesn't drop it mid-playback. Gated by
+    // UserDefaults("parso.useCachingPlayer"), default off — flip it from
+    // Settings → Experimental once you want the streaming-cache path.
+    private var currentCachingDelegate: CachingResourceLoaderDelegate?
+    private static let cachingDelegateQueue = DispatchQueue(label: "guru.parso.resourceLoader")
     // Resume offset waiting to be applied once the item is .readyToPlay.
     private var pendingStartSeek: Double = 0
     // Monotonic per-player token: invalidates stray periodic-time ticks from a
@@ -81,7 +87,24 @@ final class AudioPlayerService: ObservableObject {
               autoPlay: Bool = true) {
         tearDownPlayer()
 
-        let item = AVPlayerItem(url: url)
+        // Build the player item. When the experimental caching flag is on, route
+        // remote http(s) playback through CachingResourceLoaderDelegate so the
+        // streamed bytes warm an on-disk prefix cache (replays/seeks serve from
+        // disk). Looping (ambient) is bundled and stays on the plain path.
+        let useCachingPlayer = UserDefaults.standard.bool(forKey: "parso.useCachingPlayer")
+        let item: AVPlayerItem
+        if useCachingPlayer, !looping,
+           let cachingURL = CachingResourceLoaderDelegate.cachingURL(for: url),
+           let cache = ContiguousFileCache(fileURL: streamingCachePath(for: track.id)) {
+            let asset = AVURLAsset(url: cachingURL)
+            let delegate = CachingResourceLoaderDelegate(originalURL: url, cache: cache)
+            asset.resourceLoader.setDelegate(delegate, queue: Self.cachingDelegateQueue)
+            currentCachingDelegate = delegate
+            item = AVPlayerItem(asset: asset)
+        } else {
+            currentCachingDelegate = nil
+            item = AVPlayerItem(url: url)
+        }
         pendingStartSeek = (looping || startAt <= 0) ? 0 : startAt
         pendingAutoPlay = autoPlay
 
@@ -515,7 +538,21 @@ final class AudioPlayerService: ObservableObject {
         }
         statusObserver?.invalidate()
         statusObserver = nil
+        currentCachingDelegate = nil
         pendingStartSeek = 0
         player = nil
+    }
+
+    /// Filesystem path for the experimental streaming-cache file for one track.
+    /// Lives under cachesDirectory so iOS can evict; ":" / "/" in ids are
+    /// sanitised so per-file IA ids (e.g. "identifier/file.mp3") map to a flat path.
+    private func streamingCachePath(for trackID: String) -> URL {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let dir = caches.appendingPathComponent("StreamingCache")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let safe = trackID
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: ":", with: "_")
+        return dir.appendingPathComponent(safe).appendingPathExtension("audio")
     }
 }
