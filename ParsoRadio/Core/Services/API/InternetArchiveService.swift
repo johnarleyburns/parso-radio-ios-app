@@ -99,6 +99,7 @@ struct InternetArchiveService {
             URLQueryItem(name: "fl[]",   value: "collection"),
             URLQueryItem(name: "fl[]",   value: "addeddate"),
             URLQueryItem(name: "fl[]",   value: "date"),
+            URLQueryItem(name: "fl[]",   value: "downloads"),
             URLQueryItem(name: "output", value: "json"),
             URLQueryItem(name: "rows",   value: "200"),
             // ALL pure-Lucene IA channels (curated + LibriVox) get a fresh
@@ -131,7 +132,10 @@ struct InternetArchiveService {
                 localFilePath: nil,
                 license: license,
                 tags: doc.subjects.map { $0.lowercased() },
-                qualityScore: 1.0,
+                // Popularity-as-quality: down-weight low-download (amateur)
+                // items so the channel's well-loved recordings surface more
+                // (QueueManager.selectionWeight multiplies by qualityScore).
+                qualityScore: IAQualityScore.fromDownloads(doc.downloads),
                 rawCreator: doc.creator ?? "",
                 composer: nil,
                 instruments: [],
@@ -600,10 +604,11 @@ struct IADoc: Decodable {
     let addeddate: String?
     let date: String?
     let runtime: String?
+    let downloads: Int?   // IA all-time download count — used as a quality signal
 
     enum CodingKeys: String, CodingKey {
         case identifier, title, creator, licenseurl, description, year, addeddate
-        case subject, collection, date, runtime
+        case subject, collection, date, runtime, downloads
     }
 
     init(from decoder: Decoder) throws {
@@ -662,5 +667,28 @@ struct IADoc: Decodable {
         } else {
             runtime = try? c.decode(String.self, forKey: .runtime)
         }
+
+        // downloads: Int or String (IA sometimes serialises numerics as strings)
+        if let n = try? c.decode(Int.self, forKey: .downloads) {
+            downloads = n
+        } else if let s = try? c.decode(String.self, forKey: .downloads), let n = Int(s) {
+            downloads = n
+        } else {
+            downloads = nil
+        }
+    }
+}
+
+/// Maps an Internet Archive all-time download count to a 0.1…1.0 quality weight.
+/// Log-scaled so a viral item isn't 1000× an obscure one (just a few ×), and
+/// floored at 0.1 so a low-download item is DOWN-weighted, never excluded — the
+/// curated query stays the curation; this only biases which of its results
+/// surface more often (QueueManager.selectionWeight multiplies by this). See
+/// ASSESSMENT.md #3 (curate down).
+enum IAQualityScore {
+    static func fromDownloads(_ downloads: Int?) -> Double {
+        guard let d = downloads, d > 0 else { return 0.1 }
+        let normalized = min(log10(Double(d) + 1) / 5.0, 1.0)   // ~100k downloads → 1.0
+        return normalized * 0.9 + 0.1                            // → [0.1, 1.0]
     }
 }
