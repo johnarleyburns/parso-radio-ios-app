@@ -5,30 +5,32 @@ _2026-05-28. Deep dive on the three finalists from the naming exploration.
 The app: free, ad-free, public-domain / Creative-Commons audio — audiobooks,
 lectures, classical, news, ambient. The "public library / public radio" wedge._
 
-## ⚑ UPDATE (2026-05-28) — trademark search changes the pick → **Airloom**
+## ⚑ FINAL PICK (2026-05-28) — **Lorewave**
 
-Ran live USPTO trademark searches (RapidAPI). Result: **the dictionary-word
-finalists are too crowded/conflicted to own cleanly; a coinage wins.**
+Live USPTO trademark searches (RapidAPI) + App Store checks. Result: **dictionary
+words are too crowded; a coinage wins — and Lorewave is clean on BOTH fronts.**
 
-| Name | Active marks | Software/media (cls 9/38/41/42) | Verdict |
-|---|---|---|---|
-| **Aether** | 181 | crowded — `AETHER GAZER` (cls 9+42), `AETHER GAMES`/`AETHERCLOUD`/`AETHERLAB` (42), `AETHERA` (9+42)… bare "Aether" only in HVAC/jewelry/retail | ⚠️ risky, crowded field, likely refusal/opposition for an app |
-| **Spindle** | 49 | **worse** — a live **exact "SPINDLE"** mark for *downloadable + online software* (cls 9/42) | ❌ same-word/same-class conflict |
-| **Airloom** | **3** | **none** — only HVAC, clothing, retail (all unrelated) | ✅ **clean for audio** |
+| Name | TM active marks | In software/media (9/38/41/42) | App Store exact name | Verdict |
+|---|---|---|---|---|
+| Aether | 181 | crowded (`AETHER GAZER` 9+42, `AETHERCLOUD`/`LAB` 42, `AETHERA` 9+42) | free | ⚠️ crowded → refusal risk |
+| Spindle | 49 | exact **"SPINDLE"** = downloadable/online software (9/42) | free | ❌ same-word/class conflict |
+| Airloom | 3 | none (HVAC/clothing/retail) | **taken** (Photo + Lifestyle apps) | ✅ TM-clean, but needs "Airloom Radio" |
+| **Lorewave** | **1** | **none** — the lone mark is **bed linens** (cls 24) | **EXACT-FREE** (no near matches) | ✅✅ **clean on both** |
 
-**Recommendation: `Airloom`** — coinage of *heirloom* (timeless public-domain
-treasures) + *air* (airwaves/radio). Trademark field is clean in our classes,
-it's distinctive/registrable (a coined mark is inherently stronger), and the
-concept fits the whole catalog. Caveats:
-- **App Store name "Airloom" is taken** (a Photo/Video app + a Lifestyle app, both
-  unrelated) → list as **"Airloom Radio"** (unique; the brand is still "Airloom").
-- Domains: `getairloom.com` / `airloom.radio` looked free; `.app/.fm/.audio` taken.
-- The two existing `AIRLOOM` registrations (HVAC, clothing) are unrelated classes,
-  so an audio/entertainment "Airloom" should coexist — but still get a formal
-  attorney clearance before filing.
+**Recommendation: `Lorewave`.** Coinage = *lore* (the stories & knowledge of the
+audiobooks + lectures) over the *airwaves*. It's the only finalist that is
+**both** App-Store-exact-free (use the bare word, no qualifier) **and**
+trademark-clean for audio (the single existing mark is bedding — coexists). A
+coined mark is also inherently distinctive/strong.
+- **App name:** `Lorewave`. **Subtitle (≤30):** `Free classical, books & radio`.
+- **Domains (verify whois):** `.com`/`.fm` taken; `lorewave.app`,
+  `lorewave.radio`, `lorewave.audio`, `getlorewave.com` looked free.
+- **Runner-up:** Airloom (TM-clean, but App Store name taken → "Airloom Radio").
+- Still get a quick attorney clearance before filing (the bedding mark coexists,
+  but confirm).
 
-_The original Aether-first analysis below predates the trademark data; keep it
-for reference, but Airloom is the pick._
+_Everything below predates the trademark data — kept for reference; Lorewave is
+the pick._
 
 ---
 
