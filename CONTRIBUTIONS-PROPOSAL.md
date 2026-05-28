@@ -1,8 +1,15 @@
 # Contributions / Sustainability — Proposal (ASSESSMENT #5)
 
 _2026-05-28. A voluntary, non-intrusive contribution flow to keep the app free
-& ad-free (hosting, copyright/DMCA handling, development) with a portion given to
-the Internet Archive. Design-first; nothing implemented yet._
+& ad-free (hosting, copyright/DMCA handling, development) with a share given to
+the Internet Archive. Design done; not yet implemented._
+
+> **DECIDED (2026-05-28):** one-time **$1.99 / $4.99 / $9.99** (consumables);
+> subscription **$2.99/mo + $24.99/yr** with ongoing value = cosmetic perks +
+> "we prioritize supporter feedback"; **10% of net proceeds** to the Internet
+> Archive **from launch** ("keep it real"); cosmetic perk = **alternate app
+> icons** + a **Supporter badge** on the splash + About. Ready to implement on
+> your go.
 
 ## 0. Read this first — the Apple-compliance reality that shapes everything
 
@@ -69,7 +76,7 @@ over the transport controls, never mid-listen.
 ```
    Enjoying Parso?
    Parso is free and ad-free. A contribution helps keep it that way —
-   and a portion supports the Internet Archive.
+   and we give 10% to the Internet Archive.
 
    [ Support Parso ]   ← primary → opens the Support sheet
    [ Maybe later ]     ← snooze
@@ -94,8 +101,8 @@ again" → "Don't ask again" (same behavior, tighter copy).
   3.1.2): product title, duration, price-per-period, auto-renew terms, and links
   to **Terms of Use (EULA)** + **Privacy Policy**.
 - Footer line: *"Parso is free and ad-free. Contributions cover hosting,
-  copyright/DMCA handling, and development — and we give a portion of all
-  proceeds to the Internet Archive."*
+  copyright/DMCA handling, and development — and we give 10% of our proceeds
+  (after Apple's commission) to the Internet Archive."*
 
 ## 4. Apple guideline checklist
 
@@ -209,17 +216,18 @@ reviewer can deem "feature-request input" too intangible, and it's real ongoing
 - **About screen — YES.** A "Supporter — thank you" badge.
 - **NOT in the now-playing/player UI** — keep the player clean.
 
-### 9.3 Internet Archive share — "a portion" now, **10%** when ready
+### 9.3 Internet Archive share — **10% of net proceeds, from launch** (DECIDED)
 
-- Launch with **"a portion"** (zero commitment/risk while volume is unknown).
-- When ready, commit to a named **10%** — credible and meaningful for this
-  audience, and sustainable: 90% still covers Apple's cut + hosting/DMCA/dev.
-- **Word it precisely:** *"10% of our proceeds (what we receive after Apple's
-  commission) supports the Internet Archive."* Don't promise a % of *gross* —
-  you never receive Apple's 15–30%. Keep records; Apple can ask you to
-  substantiate the claim.
-- A named % converts better than "a portion" for trust-sensitive,
-  mission-aligned users — worth graduating to it.
+- **10% of net proceeds** to the Internet Archive, starting at launch ("keep it
+  real"). 90% still covers Apple's cut + hosting/DMCA/dev.
+- **"Net" is load-bearing — word it precisely everywhere:** *"We give 10% of our
+  proceeds (what we receive after Apple's commission) to the Internet Archive."*
+  Never imply 10% of the *gross* contribution — you never receive Apple's
+  15–30%. Keep remittance records; Apple/users can ask you to substantiate it.
+- Toast (punchy, still accurate): *"…and we give 10% to the Internet Archive."*
+  Settings (precise): the full "10% of proceeds after Apple's commission" line.
+- A named % converts better than "a portion" for this trust-sensitive,
+  mission-aligned audience — the right call.
 
 ### 9.4 Cosmetic perk — alternate app icons (primary) + splash/About badge
 
