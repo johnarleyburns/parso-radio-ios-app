@@ -24,11 +24,11 @@ struct SplashView: View {
                     .scaleEffect(iconScale)
 
                 VStack(spacing: 6) {
-                    Text("Parso Music")
+                    Text("Lorewave")
                         .font(.system(size: 38, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
 
-                    Text("Free Music. Everywhere.")
+                    Text("Free audio, forever.")
                         .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.8))
                 }

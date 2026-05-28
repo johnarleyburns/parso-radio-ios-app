@@ -41,7 +41,7 @@ targets:
     info:
       path: ParsoRadio/Info.plist
       properties:
-        CFBundleDisplayName: Parso Music
+        CFBundleDisplayName: Lorewave
         CFBundleIconName: AppIcon
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"

@@ -13,7 +13,7 @@ struct ChannelListView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .navigationTitle("Parso Radio")
+            .navigationTitle("Lorewave")
             .navigationDestination(item: $selectedChannel) { channel in
                 PlayerView(channel: channel)
             }

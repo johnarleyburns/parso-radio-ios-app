@@ -82,7 +82,7 @@ struct AboutView: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Parso Music")
+                Text("Lorewave")
                     .font(.title2)
                     .fontWeight(.bold)
 
@@ -107,7 +107,7 @@ struct AboutView: View {
             Text("Open Source")
                 .font(.title3)
                 .fontWeight(.bold)
-            Text("Parso Music is open source, released under the MIT license. The complete source — every channel query, the playback engine, and the curation logic — is on GitHub, so anyone can verify exactly how it works, confirm it collects nothing about you, learn from it, or build their own. Issues and contributions are welcome.")
+            Text("Lorewave is open source, released under the MIT license. The complete source — every channel query, the playback engine, and the curation logic — is on GitHub, so anyone can verify exactly how it works, confirm it collects nothing about you, learn from it, or build their own. Issues and contributions are welcome.")
                 .font(.body)
                 .foregroundStyle(.secondary)
             Link("View source on GitHub", destination: URL(string:
@@ -184,7 +184,7 @@ struct AboutView: View {
 
             policySection(
                 title: "We host nothing",
-                body: "Parso Radio does not upload, host, or store any audio. It only streams works that the source repositories — the Internet Archive, the Free Music Archive, and Freesound — publish as public domain or under Creative Commons licenses. The source and license are shown for every track."
+                body: "Lorewave does not upload, host, or store any audio. It only streams works that the source repositories — the Internet Archive, the Free Music Archive, and Freesound — publish as public domain or under Creative Commons licenses. The source and license are shown for every track."
             )
 
             policySection(
@@ -223,7 +223,7 @@ struct AboutView: View {
 
             policySection(
                 title: "Overview",
-                body: "Parso Consulting (\"we,\" \"our,\" or \"us\") operates the mobile application Parso Music (the \"App\") available on the Apple App Store. This Privacy Policy describes how we handle information in compliance with App Store requirements."
+                body: "Parso Consulting (\"we,\" \"our,\" or \"us\") operates the mobile application Lorewave (the \"App\") available on the Apple App Store. This Privacy Policy describes how we handle information in compliance with App Store requirements."
             )
 
             policySection(
@@ -248,7 +248,7 @@ struct AboutView: View {
 
             policySection(
                 title: "Children's Privacy",
-                body: "Parso Music is designed to be appropriate for all ages, including children. We do not knowingly collect any personal information from any user, including children under the age of 13."
+                body: "Lorewave is designed to be appropriate for all ages, including children. We do not knowingly collect any personal information from any user, including children under the age of 13."
             )
 
             policySection(
@@ -263,7 +263,7 @@ struct AboutView: View {
 
             Divider()
 
-            Text("Parso Music streams public-domain and Creative Commons licensed audio. No copyrighted content is stored or distributed.")
+            Text("Lorewave streams public-domain and Creative Commons licensed audio. No copyrighted content is stored or distributed.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)

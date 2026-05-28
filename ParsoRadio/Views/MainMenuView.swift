@@ -89,7 +89,7 @@ struct MainMenuView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("Parso Music")
+            .navigationTitle("Lorewave")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: MenuRoute.self) { route in
                 switch route {

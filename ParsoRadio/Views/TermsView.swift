@@ -50,7 +50,7 @@ struct TermsView: View {
         .alert("Cannot Continue", isPresented: $showDeclineAlert) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("You must agree to the Terms of Service to use Parso Radio. To decline, close the app.")
+            Text("You must agree to the Terms of Service to use Lorewave. To decline, close the app.")
         }
     }
 
@@ -74,7 +74,7 @@ struct TermsView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Parso Radio")
+                    Text("Lorewave")
                         .font(.title3)
                         .fontWeight(.bold)
                     Text("End User License Agreement")
@@ -95,51 +95,51 @@ struct TermsView: View {
             tosSection(
                 title: "Acknowledgement",
                 body: """
-Parso Consulting ("Licensor") and you ("End-User") acknowledge that this End User License Agreement ("EULA") is concluded between Licensor and End-User only, and not with Apple Inc. ("Apple"). Licensor, not Apple, is solely responsible for the Licensed Application ("Parso Radio") and its content.
+Parso Consulting ("Licensor") and you ("End-User") acknowledge that this End User License Agreement ("EULA") is concluded between Licensor and End-User only, and not with Apple Inc. ("Apple"). Licensor, not Apple, is solely responsible for the Licensed Application ("Lorewave") and its content.
 
-This EULA may not provide for usage rules for Parso Radio that are in conflict with the Apple Media Services Terms and Conditions as of the date you download Parso Radio.
+This EULA may not provide for usage rules for Lorewave that are in conflict with the Apple Media Services Terms and Conditions as of the date you download Lorewave.
 """
             )
 
             tosSection(
                 title: "Scope of License",
                 body: """
-Licensor grants you a non-transferable, non-exclusive, non-sublicensable license to install and use Parso Radio on any Apple-branded products that you own or control. You may not distribute or make Parso Radio available over a network where it could be used by multiple devices at the same time. You may not copy (except as permitted by this license), reverse-engineer, disassemble, attempt to derive the source code of, modify, or create derivative works of Parso Radio.
+Licensor grants you a non-transferable, non-exclusive, non-sublicensable license to install and use Lorewave on any Apple-branded products that you own or control. You may not distribute or make Lorewave available over a network where it could be used by multiple devices at the same time. You may not copy (except as permitted by this license), reverse-engineer, disassemble, attempt to derive the source code of, modify, or create derivative works of Lorewave.
 """
             )
 
             tosSection(
                 title: "Content",
                 body: """
-Parso Radio streams audio content from the Internet Archive (archive.org) and the Free Music Archive (freemusicarchive.org). All streamed content is public-domain or licensed under Creative Commons. Licensor does not produce or own this content and is not responsible for its accuracy or availability.
+Lorewave streams audio content from the Internet Archive (archive.org) and the Free Music Archive (freemusicarchive.org). All streamed content is public-domain or licensed under Creative Commons. Licensor does not produce or own this content and is not responsible for its accuracy or availability.
 """
             )
 
             tosSection(
                 title: "No Warranty",
                 body: """
-To the maximum extent permitted by applicable law, Parso Radio is provided "AS IS" and "AS AVAILABLE," with all faults and without warranty of any kind. Licensor disclaims all warranties, express or implied, including implied warranties of merchantability, fitness for a particular purpose, and non-infringement.
+To the maximum extent permitted by applicable law, Lorewave is provided "AS IS" and "AS AVAILABLE," with all faults and without warranty of any kind. Licensor disclaims all warranties, express or implied, including implied warranties of merchantability, fitness for a particular purpose, and non-infringement.
 """
             )
 
             tosSection(
                 title: "Limitation of Liability",
                 body: """
-To the extent not prohibited by law, Licensor shall not be liable for any incidental, special, indirect, or consequential damages arising out of or related to your use or inability to use Parso Radio.
+To the extent not prohibited by law, Licensor shall not be liable for any incidental, special, indirect, or consequential damages arising out of or related to your use or inability to use Lorewave.
 """
             )
 
             tosSection(
                 title: "Privacy",
                 body: """
-Parso Radio does not collect, store, transmit, or share any personal information. Playback position for spoken-word channels is stored locally on your device only. No analytics, tracking, or account is required. See the full Privacy Policy in Settings → About.
+Lorewave does not collect, store, transmit, or share any personal information. Playback position for spoken-word channels is stored locally on your device only. No analytics, tracking, or account is required. See the full Privacy Policy in Settings → About.
 """
             )
 
             tosSection(
                 title: "Maintenance and Support",
                 body: """
-Licensor is solely responsible for providing maintenance and support for Parso Radio. Apple has no obligation to furnish any maintenance or support. Contact: info@parso.guru
+Licensor is solely responsible for providing maintenance and support for Lorewave. Apple has no obligation to furnish any maintenance or support. Contact: info@parso.guru
 """
             )
 

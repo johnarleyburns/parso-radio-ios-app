@@ -52,7 +52,7 @@ struct ChannelInfoView: View {
 
             Section("Licensing") {
                 Text(
-                    "Parso Radio plays only public-domain and Creative Commons "
+                    "Lorewave plays only public-domain and Creative Commons "
                     + "content. Per-track license is shown in the Track Info popup."
                 )
                 .font(.footnote)
