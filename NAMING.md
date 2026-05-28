@@ -16,6 +16,20 @@ words are too crowded; a coinage wins — and Lorewave is clean on BOTH fronts.*
 | Spindle | 49 | exact **"SPINDLE"** = downloadable/online software (9/42) | free | ❌ same-word/class conflict |
 | Airloom | 3 | none (HVAC/clothing/retail) | **taken** (Photo + Lifestyle apps) | ✅ TM-clean, but needs "Airloom Radio" |
 | **Lorewave** | **1** | **none** — the lone mark is **bed linens** (cls 24) | **EXACT-FREE** (no near matches) | ✅✅ **clean on both** |
+| **Audova** | **0** | **none anywhere** | **EXACT-FREE** (no near matches) | ✅✅ **cleanest of all** |
+
+**Two clean finalists — now a pure brand choice (both legally clear):**
+- **Lorewave** — *lore over the airwaves*. Evocative, tells the story (books +
+  lectures + knowledge + radio). Slight risk: "lore" leans folklore/fantasy,
+  a touch off for the news/lectures side.
+- **Audova** — *audio + -ova ("nova")*. Neutral, professional, maximally clean
+  (0 marks), and reads like a polished product brand — but says nothing specific
+  about the content (generic "audio brand"). Distinct enough from "Audible."
+
+My lean: **Lorewave** for distinctiveness/story; **Audova** if you prefer a
+neutral, ultra-safe, professional brand that suits the news/lectures breadth.
+Either closes #4.
+
 
 **Recommendation: `Lorewave`.** Coinage = *lore* (the stories & knowledge of the
 audiobooks + lectures) over the *airwaves*. It's the only finalist that is
