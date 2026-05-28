@@ -294,8 +294,6 @@ struct iPodView: View {
                     EmptyView()
                 } else if let track = playerVM.currentTrack {
                     trackMetadataStack(track: track)
-                } else if playerVM.isLoading {
-                    loadingView
                 } else if let err = playerVM.errorMessage {
                     errorView(err)
                 } else {
@@ -441,33 +439,22 @@ struct iPodView: View {
             .accessibilityLabel(label)
     }
 
-    // Centered loading spinner shown over the whole track box. Icon-only — the
-    // various "Buffering…" / "Loading…" / "Finding tracks…" texts were noisy
-    // and inconsistent; a single spinner is unambiguous.
+    // THE single loading spinner: one icon, centered over the track box, sized
+    // to roughly match the wheel's inner circle (size * 0.45 ≈ a bit over 100 pt
+    // on a typical iPhone) for visual consistency. No text, no second indicator.
     private var loadingOverlay: some View {
         ProgressView()
             .controlSize(.large)
+            .scaleEffect(1.8)
             .tint(.white)
-            .padding(22)
-            .background(.black.opacity(0.45), in: Circle())
+            .frame(width: 110, height: 110)
+            .background(.black.opacity(0.5), in: Circle())
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.black.opacity(0.15))
             .allowsHitTesting(false)
             .transition(.opacity)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Loading")
-    }
-
-    @ViewBuilder
-    private var loadingView: some View {
-        HStack(spacing: 8) {
-            ProgressView().tint(.white)
-            // Loading indicator: spinner only, no text — see loadingOverlay.
-            EmptyView()
-        }
-        .frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.horizontal, 14)
-        .padding(.bottom, 8)
     }
 
     @ViewBuilder
