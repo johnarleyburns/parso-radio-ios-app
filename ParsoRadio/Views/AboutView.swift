@@ -26,6 +26,12 @@ struct AboutView: View {
 
                     Divider()
 
+                    openSource
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 24)
+
+                    Divider()
+
                     credits
                         .padding(.horizontal, 20)
                         .padding(.vertical, 24)
@@ -91,6 +97,29 @@ struct AboutView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    // MARK: - Open source / maker
+
+    private var openSource: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Open Source")
+                .font(.title3)
+                .fontWeight(.bold)
+            Text("Parso Music is built in the open. The complete source — every channel query, the playback engine, and the curation logic — is public on GitHub, so anyone can verify exactly how it works and confirm it collects nothing about you. Issues and feedback are welcome.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+            Link("View source on GitHub", destination: URL(string:
+                "https://github.com/johnarleyburns/parso-radio-ios-app")!)
+                .font(.body)
+
+            Text("Made by Parso Consulting — an independent software studio.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .padding(.top, 6)
+            Link("parso.guru", destination: URL(string: "https://www.parso.guru")!)
+                .font(.body)
         }
     }
 
