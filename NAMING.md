@@ -5,6 +5,33 @@ _2026-05-28. Deep dive on the three finalists from the naming exploration.
 The app: free, ad-free, public-domain / Creative-Commons audio — audiobooks,
 lectures, classical, news, ambient. The "public library / public radio" wedge._
 
+## ⚑ UPDATE (2026-05-28) — trademark search changes the pick → **Airloom**
+
+Ran live USPTO trademark searches (RapidAPI). Result: **the dictionary-word
+finalists are too crowded/conflicted to own cleanly; a coinage wins.**
+
+| Name | Active marks | Software/media (cls 9/38/41/42) | Verdict |
+|---|---|---|---|
+| **Aether** | 181 | crowded — `AETHER GAZER` (cls 9+42), `AETHER GAMES`/`AETHERCLOUD`/`AETHERLAB` (42), `AETHERA` (9+42)… bare "Aether" only in HVAC/jewelry/retail | ⚠️ risky, crowded field, likely refusal/opposition for an app |
+| **Spindle** | 49 | **worse** — a live **exact "SPINDLE"** mark for *downloadable + online software* (cls 9/42) | ❌ same-word/same-class conflict |
+| **Airloom** | **3** | **none** — only HVAC, clothing, retail (all unrelated) | ✅ **clean for audio** |
+
+**Recommendation: `Airloom`** — coinage of *heirloom* (timeless public-domain
+treasures) + *air* (airwaves/radio). Trademark field is clean in our classes,
+it's distinctive/registrable (a coined mark is inherently stronger), and the
+concept fits the whole catalog. Caveats:
+- **App Store name "Airloom" is taken** (a Photo/Video app + a Lifestyle app, both
+  unrelated) → list as **"Airloom Radio"** (unique; the brand is still "Airloom").
+- Domains: `getairloom.com` / `airloom.radio` looked free; `.app/.fm/.audio` taken.
+- The two existing `AIRLOOM` registrations (HVAC, clothing) are unrelated classes,
+  so an audio/entertainment "Airloom" should coexist — but still get a formal
+  attorney clearance before filing.
+
+_The original Aether-first analysis below predates the trademark data; keep it
+for reference, but Airloom is the pick._
+
+---
+
 ## What the name must do (recap)
 Re-frame off "Music" (the app is mostly spoken-word + classical), be findable
 (distinctive enough to own), carry the free/open/timeless feel, and be
