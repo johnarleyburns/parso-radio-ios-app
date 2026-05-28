@@ -69,13 +69,21 @@ struct PlaylistsScreen: View {
                 Label(playlist.name,
                       systemImage: playlist.isFavorites ? "heart.fill" : "music.note.list")
                 Spacer()
+                if playlistVM.downloadedPlaylistIDs.contains(playlist.id) {
+                    // Highlights that this playlist has downloads → plays offline.
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                        .accessibilityHidden(true)
+                }
                 Text("\(playlistVM.trackCount(for: playlist))")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .contentShape(Rectangle())
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(playlist.name), \(playlistVM.trackCount(for: playlist)) tracks")
+        .accessibilityLabel("\(playlist.name), \(playlistVM.trackCount(for: playlist)) tracks"
+            + (playlistVM.downloadedPlaylistIDs.contains(playlist.id) ? ", available offline" : ""))
         .accessibilityHint("Opens this playlist")
     }
 }

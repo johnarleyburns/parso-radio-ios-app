@@ -592,6 +592,23 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
+    /// Playlists that have at least one downloaded (offline-playable) track.
+    /// Used to highlight which playlists work without a connection.
+    func playlistIDsWithDownloads() async -> Set<String> {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let q = """
+                    SELECT DISTINCT pt.playlist_id
+                    FROM playlist_tracks pt
+                    INNER JOIN tracks t ON t.id = pt.track_id
+                    WHERE t.local_file_path IS NOT NULL
+                """
+                let ids = (try? self.db.prepare(q))?.compactMap { $0[0] as? String } ?? []
+                continuation.resume(returning: Set(ids))
+            }
+        }
+    }
+
     func fetchTracks(forPlaylist playlistId: String) async -> [Track] {
         await withCheckedContinuation { continuation in
             queue.async { [self] in

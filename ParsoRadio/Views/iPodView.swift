@@ -207,6 +207,16 @@ struct iPodView: View {
         .sheet(isPresented: $showWheelHelp) {
             WheelHelpView()
         }
+        // Offline notice (e.g. tapped a streaming channel in airplane mode).
+        // Non-destructive: whatever was playing keeps playing behind the alert.
+        .alert("You're Offline", isPresented: Binding(
+            get: { playerVM.transientMessage != nil },
+            set: { if !$0 { playerVM.transientMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { playerVM.transientMessage = nil }
+        } message: {
+            Text(playerVM.transientMessage ?? "")
+        }
         // A drag-to-seek gesture interrupted by a sheet presentation can leave
         // isScrubbing stuck true, which freezes the progress bar / elapsed time
         // until the next track. Clear it whenever a sheet closes.

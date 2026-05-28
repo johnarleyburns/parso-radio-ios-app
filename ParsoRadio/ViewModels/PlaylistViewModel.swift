@@ -5,6 +5,9 @@ final class PlaylistViewModel: ObservableObject {
     @Published var playlists: [Playlist] = []
     @Published var currentPlaylistTracks: [Track] = []
     @Published var trackCounts: [String: Int] = [:]
+    // Playlists with ≥1 downloaded track — highlighted so the user can tell at a
+    // glance what's playable offline (airplane mode, hikes).
+    @Published var downloadedPlaylistIDs: Set<String> = []
 
     let db: DatabaseService
     private var trackFavoriteCache: [String: Bool] = [:]
@@ -19,6 +22,7 @@ final class PlaylistViewModel: ObservableObject {
             let tracks = await db.fetchTracks(forPlaylist: playlist.id)
             trackCounts[playlist.id] = tracks.count
         }
+        downloadedPlaylistIDs = await db.playlistIDsWithDownloads()
     }
 
     func trackCount(for playlist: Playlist) -> Int {

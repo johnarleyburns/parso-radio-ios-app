@@ -11,6 +11,9 @@ final class PlayerViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var loadingMessage: String?
     @Published var errorMessage: String?
+    // Brief, non-destructive notice (e.g. "you're offline") shown as an alert
+    // without disturbing whatever is currently playing.
+    @Published var transientMessage: String?
     @Published var currentPosition: Double = 0
     @Published var trackDuration: Double?
     @Published var isScrubbing: Bool = false
@@ -316,6 +319,21 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func load(channel: Channel, autoPlay: Bool = true) async {
+        // OFFLINE GUARD — the very first thing, BEFORE we stop the current audio.
+        // If this channel needs the network, we're offline, and it has no
+        // downloaded tracks, tell the user and leave whatever is playing (e.g. a
+        // downloaded audiobook) completely untouched. Previously this path
+        // timed out ~10 s, then silently advanced the still-current playlist to
+        // the wrong track — destroying the user's resume point. (Ambient loops
+        // are bundled, so they're never blocked.)
+        if channel.contentType != .ambientLoop, !NetworkMonitor.shared.isOnline {
+            let localCount = await db.offlineTrackCount(forChannel: channel)
+            if localCount == 0 {
+                transientMessage = "You're offline. Only downloaded playlists can be played without a connection."
+                return
+            }
+        }
+
         // Safety-net autosave for the outgoing track (channel switch is one
         // of the "lose your spot" scenarios).
         saveAutosaveForCurrentTrack()
@@ -336,6 +354,13 @@ final class PlayerViewModel: ObservableObject {
         UserDefaults.standard.set(visited, forKey: "visitedChannelIds")
 
         currentChannel = channel
+        // Leave playlist mode NOW that we've committed to a channel. Doing this
+        // here (not only on the fetch SUCCESS path) is critical: if the fetch
+        // fails, advanceToNext must NOT see a stale currentPlaylist and advance
+        // it to the wrong track (the lost-audiobook-spot bug).
+        currentPlaylist = nil
+        playlistTracks = []
+        playlistIndex = 0
         // Shuffle is per-context: switching channels ALWAYS resets to NOT
         // shuffling, so an audiobook/lecture channel never inherits a shuffle
         // left on from a music channel or playlist.
@@ -437,18 +462,21 @@ final class PlayerViewModel: ObservableObject {
             channelDescription = channel.detailDescription
             channelTrackCount = fetched.count
             channelMostRecentDate = fetched.compactMap(\.addedDate).max()
-            currentPlaylist = nil
-            playlistTracks = []
-            playlistIndex = 0
         } catch let urlError as URLError
             where urlError.code == .notConnectedToInternet || urlError.code == .networkConnectionLost {
-            if currentTrack == nil {
-                errorMessage = "No internet connection. Check your network and try again."
-            }
+            // Network dropped mid-fetch. Show the offline notice and STOP — do
+            // NOT fall through to resume/advance (which would churn trying to
+            // stream offline). currentPlaylist is already cleared, so nothing
+            // gets clobbered.
+            transientMessage = "You're offline. Only downloaded playlists can be played without a connection."
+            isLoading = false
+            loadingMessage = nil
+            return
         } catch {
-            if currentTrack == nil {
-                errorMessage = "Could not fetch tracks. Try another channel."
-            }
+            errorMessage = "Couldn't load this channel. Please try again."
+            isLoading = false
+            loadingMessage = nil
+            return
         }
 
         // Ambient loops: always play THIS channel's own bundled loop track so
@@ -1123,7 +1151,10 @@ final class PlayerViewModel: ObservableObject {
     // advance to the next track, capped so a fully-dead channel stops cleanly.
     // Retry/backoff/classification are the pure, unit-tested policy core.
     private func handleLoadFailure(_ track: Track, error: Error, autoPlay: Bool) async {
-        let failure = classify(error)
+        // Offline → retrying the network is pointless; treat as permanent so we
+        // skip straight to the next (likely downloaded) track instead of burning
+        // the backoff budget. Keeps offline playlist playback snappy.
+        let failure: PlaybackFailure = NetworkMonitor.shared.isOnline ? classify(error) : .permanent
         let attempt = loadAttempts[track.id, default: 0]
         if retryPolicy.shouldRetry(afterAttempt: attempt, failure: failure) {
             loadAttempts[track.id] = attempt + 1
@@ -1596,9 +1627,12 @@ final class PlayerViewModel: ObservableObject {
         await load(channel: channel, autoPlay: autoPlay)
 
         // If the exact last track differs from what the channel resumed (e.g.
-        // it was a one-off search result), play that precise track + offset.
+        // it was a one-off search result), play that precise track + offset —
+        // but offline, only if it's downloaded (don't strand a launch trying to
+        // stream a non-local track).
         if let tid = savedTrackId, currentTrack?.id != tid,
-           let t = await db.fetchTrack(id: tid) {
+           let t = await db.fetchTrack(id: tid),
+           NetworkMonitor.shared.isOnline || t.localFilePath != nil {
             await playTrack(t, seekTo: savedPosition > 1 ? savedPosition : nil,
                             autoPlay: autoPlay)
         }
