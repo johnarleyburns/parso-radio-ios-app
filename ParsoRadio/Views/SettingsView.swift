@@ -22,6 +22,8 @@ struct SettingsView: View {
     @State private var confirmClearAll = false
     @State private var working = false
 
+    @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
+
     var body: some View {
         List {
             Section("Appearance") {
@@ -31,6 +33,18 @@ struct SettingsView: View {
                     Text("Dark").tag("dark")
                 }
                 .pickerStyle(.segmented)
+            }
+
+            Section {
+                NavigationLink {
+                    ContributionSupportView(store: contributionStore)
+                } label: {
+                    Label(contributionStore.isSupporter ? "Supporter — Thank You" : "Support Lorewave",
+                          systemImage: contributionStore.isSupporter ? "heart.fill" : "heart")
+                        .foregroundStyle(contributionStore.isSupporter ? Color.pink : Color.accentColor)
+                }
+            } footer: {
+                Text("Keep Lorewave free and ad-free. We give 10% of proceeds to the Internet Archive.")
             }
 
             Section {

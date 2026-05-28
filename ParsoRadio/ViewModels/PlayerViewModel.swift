@@ -899,6 +899,8 @@ final class PlayerViewModel: ObservableObject {
                     ?? "direct"
                 let trackId = track.id
                 Task { [db] in await db.recordPlayed(channelId: ctx, trackId: trackId) }
+                // Engagement signal for the contribution prompt (never ambient).
+                ContributionCoordinator.recordTrackPlayed()
             }
 
             if let channel = currentChannel {
