@@ -112,18 +112,18 @@ final class PlaybackReliabilityTests: XCTestCase {
     func test_stalledTrackSkipsToNextWithinStallTimeout() async throws {
         let vm = makeVM(stallTimeout: 0.05)
         let pl = try await seedPlaylist(["s1", "s2"])
-        let order = await db.fetchTracks(forPlaylist: pl.id)
-        await vm.loadPlaylist(pl)            // plays order[0]; fake never readies
-        await settle()
-        XCTAssertEqual(engine.liveTrack?.id, order[0].id)
-        let playsBefore = engine.playCount
+        await vm.loadPlaylist(pl)            // plays first track; fake never readies
 
-        // No onReady / onTimeUpdate ever fires → the stall watchdog must skip.
-        try await Task.sleep(nanoseconds: 300_000_000)
+        // The fake NEVER fires onReady/onTimeUpdate, so every loaded track
+        // stalls. The watchdog must keep advancing (skip) rather than hang
+        // forever — so MORE than the single initial load occurs, then it stops
+        // (give-up cap). We don't assert the first track stays loaded: with a
+        // 50 ms stallTimeout the watchdog may already have skipped it.
+        try await Task.sleep(nanoseconds: 400_000_000)
         await settle()
 
-        XCTAssertGreaterThan(engine.playCount, playsBefore,
-            "a track that never produces audio must be skipped within stallTimeout")
+        XCTAssertGreaterThan(engine.playCount, 1,
+            "a track that never produces audio must be skipped within stallTimeout, never hang")
     }
 
     // I3 — the persisted playlist offset reflects the last observed position, not
