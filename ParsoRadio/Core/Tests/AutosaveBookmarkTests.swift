@@ -133,8 +133,10 @@ final class AutosaveBookmarkViewModelTests: XCTestCase {
     func testTogglePlayPauseAutosavesOnPause() async throws {
         vm.currentTrack = makeTrack(id: "pp", duration: 600)
         vm.currentPosition = 250
-        // Mark the audio player as playing so togglePlayPause takes the pause path.
-        vm.audioPlayer.isPlaying = true
+        // Put the engine in a playing state so togglePlayPause takes the pause
+        // path. isPlaying is engine-owned (get-only via AudioEngine); resume()
+        // is the method that sets it (no-op on the nil player in this test).
+        vm.audioPlayer.resume()
         vm.togglePlayPause()
         try? await Task.sleep(nanoseconds: 80_000_000)
         let auto = await db.fetchAutosaveBookmark(forTrack: "pp")
