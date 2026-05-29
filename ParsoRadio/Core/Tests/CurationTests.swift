@@ -37,7 +37,8 @@ final class CurationTests: XCTestCase {
     func test_verdictReplacesInPlace() async {
         await db.setCuration(channelId: "c1", trackId: "t1", status: "review")
         await db.setCuration(channelId: "c1", trackId: "t1", status: "approved")
-        XCTAssertEqual(await db.curationStatus(channelId: "c1", trackId: "t1"), "approved")
+        let status = await db.curationStatus(channelId: "c1", trackId: "t1")
+        XCTAssertEqual(status, "approved")
         let counts = await db.curationCounts(channelId: "c1")
         XCTAssertEqual(counts.review, 0, "re-verdicting must not leave a stale review row")
         XCTAssertEqual(counts.approved, 1)
