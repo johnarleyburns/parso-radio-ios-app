@@ -45,10 +45,9 @@ final class AudioPlayerService: ObservableObject {
     private var interruptionObserver: (any NSObjectProtocol)?
     private var routeChangeObserver: (any NSObjectProtocol)?
     private var statusObserver: NSKeyValueObservation?
-    // Strong ref to the experimental caching resource-loader so AVFoundation
-    // (which holds the delegate weakly) doesn't drop it mid-playback. Gated by
-    // UserDefaults("parso.useCachingPlayer"), default off — flip it from
-    // Settings → Experimental once you want the streaming-cache path.
+    // Strong ref to the caching resource-loader so AVFoundation (which holds the
+    // delegate weakly) doesn't drop it mid-playback. This is the ONE streaming
+    // path for all remote audio; nil only for local files / ambient loops.
     private var currentCachingDelegate: CachingResourceLoaderDelegate?
     private static let cachingDelegateQueue = DispatchQueue(label: "guru.parso.resourceLoader")
     // Resume offset waiting to be applied once the item is .readyToPlay.
@@ -87,13 +86,15 @@ final class AudioPlayerService: ObservableObject {
               autoPlay: Bool = true) {
         tearDownPlayer()
 
-        // Build the player item. When the experimental caching flag is on, route
-        // remote http(s) playback through CachingResourceLoaderDelegate so the
+        // Build the player item. ALL remote http(s) playback now routes through
+        // CachingResourceLoaderDelegate — the single streaming path — so the
         // streamed bytes warm an on-disk prefix cache (replays/seeks serve from
-        // disk). Looping (ambient) is bundled and stays on the plain path.
-        let useCachingPlayer = UserDefaults.standard.bool(forKey: "parso.useCachingPlayer")
+        // disk, and a fully-streamed track becomes an offline copy). Only
+        // non-streamed sources take the plain item: ambient LOOPS (bundled, need
+        // AVPlayerLooper) and LOCAL files (file://, where cachingURL(for:)
+        // returns nil so we fall through here).
         let item: AVPlayerItem
-        if useCachingPlayer, !looping,
+        if !looping,
            let cachingURL = CachingResourceLoaderDelegate.cachingURL(for: url),
            let cache = ContiguousFileCache(fileURL: streamingCachePath(for: track.id)) {
             let asset = AVURLAsset(url: cachingURL)

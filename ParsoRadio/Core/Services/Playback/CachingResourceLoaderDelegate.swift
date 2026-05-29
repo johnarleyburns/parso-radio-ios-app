@@ -3,8 +3,8 @@ import Foundation
 
 /// AVAssetResourceLoader delegate that streams a remote audio file through the
 /// tested ContiguousFileCache: sequential playback grows the on-disk prefix,
-/// seeks past it fall back to plain network. EXPERIMENTAL — gated by
-/// UserDefaults("parso.useCachingPlayer"), default off. See PLAYBACK-DESIGN.md.
+/// seeks past it fall back to plain network. This is the SINGLE streaming path
+/// for all remote http(s) audio (no longer optional). See PLAYBACK-DESIGN.md.
 ///
 /// All decision logic that CAN be unit-tested already is (ContiguousFileCache,
 /// SourceSelector, CacheEvictionPolicy, InFlightRegistry). This file is the
