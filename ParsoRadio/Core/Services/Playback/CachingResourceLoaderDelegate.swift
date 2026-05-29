@@ -89,7 +89,13 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         stateLock.lock()
         // Already torn down → refuse new work (the delegate is being discarded).
         guard !didShutdown else { stateLock.unlock(); return false }
-        let task = Task { [weak self] in await self?.handle(req) }
+        // guard-let (not `self?.`) so the closure returns Void, matching
+        // [Task<Void, Never>] — `await self?.handle(req)` is Void? and yields
+        // a Task<()?, Never> that won't store in the array.
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.handle(req)
+        }
         inFlight.append(task)
         stateLock.unlock()
         return true
