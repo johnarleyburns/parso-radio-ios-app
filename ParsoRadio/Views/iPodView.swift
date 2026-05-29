@@ -416,19 +416,24 @@ struct iPodView: View {
                     .lineLimit(1)
             }
 
-            if let part = track.partNumber, let total = track.totalParts, total > 1 {
-                Text("Part \(part) of \(total)")
-                    .font(.system(size: mainRegularSize))
-                    .foregroundStyle(.white.opacity(0.7))
-            } else if playerVM.currentItemChapterCount > 1 {
-                // Item-level multi-part entry (e.g. a book opened from Books for
-                // You) whose track carries no part metadata — the probe filled in
-                // the chapter count and which part is playing.
-                Text(playerVM.currentItemPartIndex.map {
-                    "Part \($0) of \(playerVM.currentItemChapterCount)"
-                } ?? "\(playerVM.currentItemChapterCount) parts")
-                    .font(.system(size: mainRegularSize))
-                    .foregroundStyle(.white.opacity(0.7))
+            // "Part m of n" is for spoken-word (audiobooks/lectures) only. On a
+            // MUSIC channel an album just plays a random track each visit, so the
+            // part label is noise — suppress it there.
+            if playerVM.currentChannel?.contentType != .music {
+                if let part = track.partNumber, let total = track.totalParts, total > 1 {
+                    Text("Part \(part) of \(total)")
+                        .font(.system(size: mainRegularSize))
+                        .foregroundStyle(.white.opacity(0.7))
+                } else if playerVM.currentItemChapterCount > 1 {
+                    // Item-level multi-part entry (e.g. a book opened from Books
+                    // for You) whose track carries no part metadata — the probe
+                    // filled in the chapter count and which part is playing.
+                    Text(playerVM.currentItemPartIndex.map {
+                        "Part \($0) of \(playerVM.currentItemChapterCount)"
+                    } ?? "\(playerVM.currentItemChapterCount) parts")
+                        .font(.system(size: mainRegularSize))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
             }
 
             // News episodes: show the publish date on the now-playing line
@@ -621,7 +626,7 @@ struct iPodView: View {
                                         formatTime(playerVM.currentItemTotalDuration))
                             }
                             if let idx = playerVM.currentItemPartIndex {
-                                infoRow(usesChapterTerminology ? "Chapter" : "Part",
+                                infoRow(usesChapterTerminology ? "Chapter" : "Track",
                                         "\(idx) of \(playerVM.currentItemChapterCount)")
                             }
                         }

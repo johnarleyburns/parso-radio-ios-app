@@ -2,13 +2,31 @@ import Foundation
 
 final class QueueManager {
     private let db: DatabaseService
-    // Recently-played IDs are tracked PER CHANNEL. A single shared list let one
-    // channel's history shrink another channel's pool (and, via the old
-    // tag-fallback, leak tracks across channels).
+    // Per-channel "shadow recently played": the last `historyLimit` item ids
+    // chosen for each channel are excluded from re-selection, so the channel
+    // works through fresh material before repeating (the "too many repeats"
+    // fix). PERSISTED across launches (UserDefaults) — an in-memory-only list
+    // reset every cold start, which is why the same tracks kept coming back.
+    // Per-channel (not shared) so one channel's history can't shrink another's.
     private var recentByChannel: [String: [String]] = [:]
-    private let historyLimit = 50
+    private let historyLimit = 30
+    private static let persistKey = "queueManager.recentByChannel"
+    // Injectable so unit tests get an isolated store instead of sharing the
+    // process-wide standard defaults (which would couple test methods).
+    private let defaults: UserDefaults
 
-    init(db: DatabaseService) { self.db = db }
+    init(db: DatabaseService, defaults: UserDefaults = .standard) {
+        self.db = db
+        self.defaults = defaults
+        if let stored = defaults.dictionary(forKey: Self.persistKey)
+            as? [String: [String]] {
+            recentByChannel = stored
+        }
+    }
+
+    private func persist() {
+        defaults.set(recentByChannel, forKey: Self.persistKey)
+    }
 
     // Curated radio-style channels always shuffle regardless of the global
     // toggle: registry-backed IA channels and Lecture channels (which
@@ -23,9 +41,11 @@ final class QueueManager {
 
     private func record(_ id: String, channelId: String) {
         var list = recentByChannel[channelId] ?? []
+        list.removeAll { $0 == id }          // de-dupe → move to most-recent
         list.append(id)
-        if list.count > historyLimit { list.removeFirst() }
+        if list.count > historyLimit { list.removeFirst(list.count - historyLimit) }
         recentByChannel[channelId] = list
+        persist()
     }
 
     // MARK: - Public
@@ -109,6 +129,7 @@ final class QueueManager {
         // fallback, which used to leak other channels' tracks in.
         if pool.isEmpty {
             recentByChannel[channel.id] = []
+            persist()
             pool = await db.fetchTracks(forChannel: channel)
                 .filter { ($0.partNumber ?? 1) <= 1 }
         }

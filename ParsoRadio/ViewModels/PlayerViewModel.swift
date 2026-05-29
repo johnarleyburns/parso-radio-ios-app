@@ -704,8 +704,12 @@ final class PlayerViewModel: ObservableObject {
             if bgTask != .invalid { UIApplication.shared.endBackgroundTask(bgTask) }
         }
 
-        // Librivox sequential multi-part: advance to next part before random pick
-        if let current = currentTrack, current.parentIdentifier != nil {
+        // Librivox sequential multi-part: advance to next part before random
+        // pick. SPOKEN-WORD only — on a music channel a played album track has a
+        // parentIdentifier too, but we want the NEXT skip to jump to a fresh
+        // random album track, not march sequentially through one album.
+        if channel.contentType == .spokenWord,
+           let current = currentTrack, current.parentIdentifier != nil {
             if let nextPart = await queueManager.nextPart(after: current, channel: channel) {
                 await playTrack(nextPart, seekTo: nil, recordHistory: false, autoPlay: autoPlay)
                 return
@@ -742,7 +746,35 @@ final class PlayerViewModel: ObservableObject {
                 track = next
             }
         }
+        // MUSIC albums: a multi-file item is an ALBUM — play a RANDOM track from
+        // it, not always track 1 (the "only ever Part 1 of N" complaint). Over
+        // repeated visits the whole album gets heard. Audiobooks/lectures
+        // (spoken-word) keep playing the FIRST part on the channel; the user
+        // adds the whole book to a playlist to hear it in order.
+        if channel.contentType == .music {
+            track = await randomAlbumTrack(for: track) ?? track
+        }
         await playTrack(track, seekTo: nil, recordHistory: false, autoPlay: autoPlay)
+    }
+
+    /// If `track` is a known multi-file IA album item, return a RANDOM one of
+    /// its tracks; otherwise nil (caller keeps the original). DELIBERATELY uses
+    /// only ALREADY-KNOWN parts (in-session cache or the DB) — it never fires a
+    /// fresh network probe, so it can't hang a skip (advanceToNext has no
+    /// watchdog). probeCurrentTrack warms the cache + persists the parts to the
+    /// DB after a play, so the first-ever play of an album is track 1 and every
+    /// later visit (incl. future launches) gets a random track.
+    private func randomAlbumTrack(for track: Track) async -> Track? {
+        guard track.source == "internet_archive",
+              track.parentIdentifier == nil,   // already a specific part → leave it
+              !track.id.contains("/") else { return nil }
+        if let cached = itemPartsCache[track.id] {       // key present → definitive
+            guard let parts = cached, parts.count > 1 else { return nil }
+            return parts.randomElement()
+        }
+        let dbParts = await db.fetchTracks(forParentIdentifier: track.id)
+        guard dbParts.count > 1 else { return nil }
+        return dbParts.randomElement()
     }
 
     // Resolve a track's playable URL and read its duration WITHOUT starting
@@ -831,8 +863,13 @@ final class PlayerViewModel: ObservableObject {
         // be persisted until it passed the previous track's offset (leaving the
         // resume marker stuck at 0:00 if the user left early).
         lastPositionSaveTime = -5
-        // New track → new watchdog generation; cancel any prior one.
-        _ = stallModel.beginLoad()
+        // New track → new watchdog generation; cancel any prior one. Capture
+        // the generation: if ANOTHER playTrack starts while this one is still
+        // resolving (rapid Back/Skip taps spawn concurrent loads), it bumps the
+        // generation, and this stale load must abandon before committing audio —
+        // otherwise two loads stomp each other's player/watchdog and the track
+        // can end up shown but never playing, with no spinner (the rapid-Back bug).
+        let loadGen = stallModel.beginLoad()
         stallWatchdog?.cancel()
         stallWatchdog = nil
         // Reload bookmarks for the new track (replaced below).
@@ -934,10 +971,11 @@ final class PlayerViewModel: ObservableObject {
                let auto = await db.fetchAutosaveBookmark(forTrack: track.id) {
                 effectiveSeek = auto.positionSeconds
             }
-            // Context changed while we were resolving the URL (user switched
-            // channel/playlist/search) → abandon this track. The winning context
-            // owns currentTrack/spinner, so don't touch them here.
-            guard entryToken == playbackContextToken else { return }
+            // Context changed (channel/playlist/search switch) OR a newer
+            // playTrack superseded this one (rapid Back/Skip) → abandon before
+            // committing audio. The winning load owns currentTrack/spinner.
+            guard entryToken == playbackContextToken,
+                  loadGen == stallModel.loadGeneration else { return }
             let resumeAt = max(effectiveSeek, 0)
             audioPlayer.play(url: url, track: track,
                              looping: currentChannel?.contentType == .ambientLoop,
@@ -967,7 +1005,7 @@ final class PlayerViewModel: ObservableObject {
                 // channel can't hang forever (this is the launch-after-update
                 // "Buffering… forever, no timeout" bug). The skip preserves the
                 // play intent so a paused launch stays paused on a working track.
-                let gen = stallModel.loadGeneration
+                let gen = loadGen
                 let timeout = stallTimeout
                 let wantPlay = autoPlay
                 stallWatchdog = Task { [weak self] in

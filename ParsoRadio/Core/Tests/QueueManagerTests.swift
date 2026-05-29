@@ -4,11 +4,17 @@ import XCTest
 final class QueueManagerTests: XCTestCase {
     private var db: DatabaseService!
     private var queue: QueueManager!
+    // Isolated, freshly-cleared defaults so the persisted "shadow recently
+    // played" can't leak between test methods (or from a prior run).
+    private var defaults: UserDefaults!
 
     override func setUpWithError() throws {
         try super.setUpWithError()
         db = try DatabaseService(path: ":memory:")
-        queue = QueueManager(db: db)
+        let suite = "QueueManagerTests"
+        defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        queue = QueueManager(db: db, defaults: defaults)
     }
 
     func testNextTrackReturnsMatchingTrack() async throws {
@@ -56,8 +62,8 @@ final class QueueManagerTests: XCTestCase {
         await seedTracks(composer: "bach", instrument: "strings", count: 20)
         let channel = Channel(id: "bach", name: "Bach", category: "Classical", icon: "music.note", composers: ["bach"], preferredSource: "internet_archive")
 
-        let q1 = QueueManager(db: db)
-        let q2 = QueueManager(db: db)
+        let q1 = QueueManager(db: db, defaults: defaults)
+        let q2 = QueueManager(db: db, defaults: defaults)
 
         let t1 = await q1.nextTrack(channel: channel, shuffleMode: true)
         let t2 = await q2.nextTrack(channel: channel, shuffleMode: true)
