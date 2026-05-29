@@ -49,7 +49,7 @@ final class PlayerViewModel: ObservableObject {
     // Mirrors audioPlayer.playbackRate (Float) as a Double for SwiftUI bindings.
     @Published var playbackRate: Double
 
-    let audioPlayer: AudioPlayerService
+    let audioPlayer: any AudioEngine
 
     private let db: DatabaseService
     private let archiveService: InternetArchiveService
@@ -96,21 +96,21 @@ final class PlayerViewModel: ObservableObject {
     // .failed (dead URL / 404 / undecodable). A merely-slow connection is NOT
     // skipped — AVPlayer waits and rebuffers. Capped so a channel where every
     // track is genuinely unplayable doesn't loop forever.
-    private let loadTimeout: Double = 10
+    private let loadTimeout: Double
     // Buffering-stall watchdog: if a track never produces a real playback tick
     // within stallTimeout, it's stuck buffering. ALL the reliability decisions —
     // is this a stale watchdog, is the item healthy, skip, or give up after too
     // many consecutive stalls with no audio ("infinite buffering") — are made by
     // the pure, unit-tested StallModel (see PlaybackResilience / PLAYBACK-DESIGN).
     // The view model only owns the timer plumbing and applies the verdict.
-    private let stallTimeout: Double = 20
+    private let stallTimeout: Double
     // internal (not private) so tests can drive the watchdog's decision directly.
     var stallModel = StallModel(maxConsecutiveSkips: 4)
     private var stallWatchdog: Task<Void, Never>?
     // Retry transient resolve/load failures (timeout, 5xx, connection lost) with
     // exponential backoff before skipping; permanent failures (404/unsupported)
     // skip immediately. Per-item attempt counts; cleared on success. Pure policy.
-    private let retryPolicy = RetryPolicy()
+    private let retryPolicy: RetryPolicy
     private var loadAttempts: [String: Int] = [:]
     // After this many items fail to RESOLVE in a row, stop (distinct from the
     // stall give-up, which is for items that resolve but never produce audio).
@@ -129,11 +129,16 @@ final class PlayerViewModel: ObservableObject {
         archiveService: InternetArchiveService,
         fmaService: FMAService,
         queueManager: QueueManager,
-        audioPlayer: AudioPlayerService,
+        audioPlayer: any AudioEngine,
         downloadManager: DownloadManager,
         oxfordService: OxfordLecturesService = OxfordLecturesService(),
         podcastService: PodcastRSSService = PodcastRSSService(),
-        ambientService: AmbientStaticService = AmbientStaticService()
+        ambientService: AmbientStaticService = AmbientStaticService(),
+        // Injectable so tests can shrink the watchdog/retry to milliseconds and
+        // stay within the single fast CI job (see PLAYBACK-TESTING-PLAN.md).
+        loadTimeout: Double = 10,
+        stallTimeout: Double = 20,
+        retryPolicy: RetryPolicy = RetryPolicy()
     ) {
         self.db = db
         self.archiveService = archiveService
@@ -144,6 +149,9 @@ final class PlayerViewModel: ObservableObject {
         self.queueManager = queueManager
         self.audioPlayer = audioPlayer
         self.downloadManager = downloadManager
+        self.loadTimeout = loadTimeout
+        self.stallTimeout = stallTimeout
+        self.retryPolicy = retryPolicy
         self.playbackRate = Double(audioPlayer.playbackRate)
 
         // Evict stale tracks on launch if DB is large (>5 000 rows, older than 30 days).

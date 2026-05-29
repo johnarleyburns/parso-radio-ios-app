@@ -4,7 +4,7 @@ import MediaPlayer
 import UIKit
 
 @MainActor
-final class AudioPlayerService: ObservableObject {
+final class AudioPlayerService: ObservableObject, AudioEngine {
     enum RepeatMode: String { case off, one }
     var repeatMode: RepeatMode = .off
 
