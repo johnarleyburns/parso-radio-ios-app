@@ -76,6 +76,16 @@ final class DatabaseService: @unchecked Sendable {
     private let colBMCreatedAt    = Expression<Double>("created_at")
     private let colBMIsAutosave   = Expression<Bool>("is_autosave")
 
+    // Curator Mode: per-(channel, track) verdict. status ∈ review/approved/
+    // rejected. The approved set is a curated channel's play pool + what exports
+    // to the bundled manifest; rejected is auto-excluded from future candidates.
+    private let curation       = Table("curation")
+    private let colCurChannel  = Expression<String>("channel_id")
+    private let colCurTrack    = Expression<String>("track_id")
+    private let colCurStatus   = Expression<String>("status")
+    private let colCurReviewedAt = Expression<Double>("reviewed_at")
+    private let colCurNote     = Expression<String?>("note")
+
     init(path: String? = nil) throws {
         if let path {
             db = try Connection(path)
@@ -158,6 +168,17 @@ final class DatabaseService: @unchecked Sendable {
         try db.run("CREATE INDEX IF NOT EXISTS idx_bm_track ON bookmarks(track_id, position_seconds)")
         // Idempotent migration for the autosave flag — older DB rows default to 0.
         _ = try? db.run("ALTER TABLE bookmarks ADD COLUMN is_autosave INTEGER NOT NULL DEFAULT 0")
+
+        // Curator Mode verdicts — one per (channel, track).
+        try db.run(curation.create(ifNotExists: true) { t in
+            t.column(colCurChannel)
+            t.column(colCurTrack)
+            t.column(colCurStatus)
+            t.column(colCurReviewedAt)
+            t.column(colCurNote)
+            t.primaryKey(colCurChannel, colCurTrack)
+        })
+        try db.run("CREATE INDEX IF NOT EXISTS idx_cur_channel_status ON curation(channel_id, status)")
 
         // Idempotent column migrations — try? silently ignores duplicate-column errors
         _ = try? db.run("ALTER TABLE tracks ADD COLUMN added_date   REAL")
@@ -389,6 +410,92 @@ final class DatabaseService: @unchecked Sendable {
             queue.async { [self] in
                 let count = (try? self.db.scalar(self.tracks.count)) ?? 0
                 continuation.resume(returning: count)
+            }
+        }
+    }
+
+    // MARK: - Curation (Curator Mode)
+
+    /// Record a verdict for (channel, track). status ∈ "review"/"approved"/"rejected".
+    func setCuration(channelId: String, trackId: String, status: String, note: String? = nil) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? db.run(curation.insert(or: .replace,
+                    colCurChannel    <- channelId,
+                    colCurTrack      <- trackId,
+                    colCurStatus     <- status,
+                    colCurReviewedAt <- Date().timeIntervalSince1970,
+                    colCurNote       <- note))
+                cont.resume()
+            }
+        }
+    }
+
+    func curationStatus(channelId: String, trackId: String) async -> String? {
+        await withCheckedContinuation { cont in
+            queue.async { [self] in
+                let row = try? db.pluck(curation.filter(colCurChannel == channelId && colCurTrack == trackId))
+                cont.resume(returning: row?[colCurStatus])
+            }
+        }
+    }
+
+    /// Track ids with a given status for a channel.
+    func curationTrackIds(channelId: String, status: String) async -> [String] {
+        await withCheckedContinuation { cont in
+            queue.async { [self] in
+                let q = curation.select(colCurTrack)
+                    .filter(colCurChannel == channelId && colCurStatus == status)
+                cont.resume(returning: (try? db.prepare(q))?.map { $0[colCurTrack] } ?? [])
+            }
+        }
+    }
+
+    /// (review, approved, rejected) counts for a channel.
+    func curationCounts(channelId: String) async -> (review: Int, approved: Int, rejected: Int) {
+        await withCheckedContinuation { cont in
+            queue.async { [self] in
+                func n(_ s: String) -> Int {
+                    (try? db.scalar(curation
+                        .filter(colCurChannel == channelId && colCurStatus == s).count)) ?? 0
+                }
+                cont.resume(returning: (n("review"), n("approved"), n("rejected")))
+            }
+        }
+    }
+
+    /// Approved tracks for a channel, joined to full Track rows — a curated
+    /// channel's play pool once it has a manifest.
+    func fetchApprovedTracks(forChannelId channelId: String) async -> [Track] {
+        await withCheckedContinuation { cont in
+            queue.async { [self] in
+                let ids = (try? db.prepare(curation.select(colCurTrack)
+                    .filter(colCurChannel == channelId && colCurStatus == "approved")))?
+                    .map { $0[colCurTrack] } ?? []
+                var out: [Track] = []
+                for id in ids {
+                    if let row = try? db.pluck(tracks.filter(colId == id)),
+                       let t = rowToTrack(row) { out.append(t) }
+                }
+                cont.resume(returning: out)
+            }
+        }
+    }
+
+    /// All channels → their approved tracks, for the JSON export.
+    func exportApprovedByChannel() async -> [String: [Track]] {
+        await withCheckedContinuation { cont in
+            queue.async { [self] in
+                let pairs = (try? db.prepare(curation.filter(colCurStatus == "approved")))?
+                    .map { ($0[colCurChannel], $0[colCurTrack]) } ?? []
+                var out: [String: [Track]] = [:]
+                for (ch, tid) in pairs {
+                    if let row = try? db.pluck(tracks.filter(colId == tid)),
+                       let t = rowToTrack(row) {
+                        out[ch, default: []].append(t)
+                    }
+                }
+                cont.resume(returning: out)
             }
         }
     }
