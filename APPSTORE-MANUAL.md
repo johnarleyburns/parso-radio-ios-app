@@ -86,8 +86,101 @@ Lorewave** in App Information — don't make a new record.)
   but confirm the questionnaire doesn't force a "Purchases" disclosure for your
   account. If it does, mark **Purchases → not linked to identity, app
   functionality**.
-- Age rating questionnaire: all "None" → **4+**. (News channels are mainstream
-  public-radio; no mature-content flags.)
+### Age rating questionnaire (the 2025 format — exact answers)
+
+> ⚠️ **Not 4+.** Lorewave streams real-world **news** (war, crime, death),
+> **full classic literature** via LibriVox (incl. a Horror & Gothic and a War &
+> Military genre), Oxford lectures (incl. Clinical Medicine), and a broad
+> **Internet Archive search**. Apple requires you to rate for the highest-level
+> content *accessible through the app*, including third-party content. Honest
+> answers land this around **12+**. Under-rating a content app is a removal
+> risk; the answers below are accurate and defensible.
+
+Frequency options are **None / Infrequent or Mild / Frequent or Intense**.
+Capabilities and In-App Controls are **No / Yes**.
+
+**1. In-App Controls**
+| Item | Answer | Why |
+|---|---|---|
+| Parental Controls | **No** | Lorewave has no parental monitoring/restriction tools. |
+| Age Assurance | **No** | No age-gate / age-verification mechanism. |
+
+**2. Capabilities**
+| Item | Answer | Why |
+|---|---|---|
+| Unrestricted Web Access | **No** | No in-app browser. Opening the privacy URL in Safari (leaving the app) and streaming audio files is not unrestricted web browsing. (The breadth of the IA *audio* search is reflected in the content categories below, not here.) |
+| User-Generated Content | **No** | No posts/reviews/profiles/comments. Playlists are private and local to the device. |
+| Messaging and Chat | **No** | None. |
+| Advertising | **No** | Ad-free. |
+
+**3. Mature Themes**
+| Item | Answer | Why |
+|---|---|---|
+| Profanity or Crude Humor | **Infrequent or Mild** | Classic literature + a Satire & Humor genre contain occasional mild/period profanity. |
+| Horror/Fear Themes | **Infrequent or Mild** | There's a Horror & Gothic genre (Poe, Lovecraft, Dracula) — literary, not graphic gore; one channel among many. |
+| Alcohol, Tobacco, or Drug Use or References | **Infrequent or Mild** | News and classic novels reference these (no glorification). |
+
+**4. Medical or Wellness**
+| Item | Answer | Why |
+|---|---|---|
+| Medical or Treatment Information | **Infrequent or Mild** | Oxford "Clinical Medicine" / "Physiology, Anatomy & Genetics" lectures are academic information, not advice. |
+| Health or Wellness Topics | **Infrequent or Mild** | Psychology lectures, ambient "relaxation" framing. |
+
+**5. Sexuality or Nudity**
+| Item | Answer | Why |
+|---|---|---|
+| Mature or Suggestive Themes | **Infrequent or Mild** | A Romance genre + classic novels carry suggestive themes (Austen-level, not explicit). |
+| Sexual Content or Nudity | **None** | Audio-only (no nudity possible); curated channels are classic literature. |
+| Graphic Sexual Content and Nudity | **None** | Same. |
+
+**6. Violence**
+| Item | Answer | Why |
+|---|---|---|
+| Cartoon or Fantasy Violence | **Infrequent or Mild** | Adventure / Fantasy & Mythology genres depict battles, etc. |
+| Realistic Violence | **Infrequent or Mild** | News *reports* real-world violence and a War & Military genre exists — referenced/reported, not graphically depicted. |
+| Prolonged Graphic or Sadistic Realistic Violence | **None** | No graphic/sadistic content. |
+| Guns or Other Weapons | **Infrequent or Mild** | Referenced in news and war literature. |
+
+**7. Chance-Based Activities**
+| Item | Answer | Why |
+|---|---|---|
+| Gambling | **None** | No gambling. |
+| Simulated Gambling | **None** | None. |
+| Contests | **None** | None. |
+| Loot Boxes | **None** | The IAP are fixed tips + a subscription — no randomized rewards. |
+
+**Likely result: 12+** (Apple computes it from the answers — the Infrequent/Mild
+mature-theme, alcohol/drug, and realistic-violence flags from news + literature
+drive it above 4+/9+). This is correct for a news + classic-literature + lecture
+app and avoids an under-rating dispute.
+
+**Judgment calls** (your final call, all defensible):
+- If you want to be extra-conservative about the **Internet Archive search**
+  surfacing mature audio, you can bump *Realistic Violence* and/or *Profanity* to
+  "Frequent or Intense" — that pushes toward **17+**. Not necessary IMO: the
+  curated experience is clean and search returns relevance-ranked audio, but it's
+  the one place a reviewer could disagree, so know the lever.
+- **Kids Category:** answer **No** / do not enroll. Lorewave has IAP, news, and a
+  broad catalog — it does not belong in Made-for-Kids.
+
+## 4b. Content Rights (App Information → Content Rights)
+
+ASC asks whether the app contains/accesses third-party content and whether you're
+authorized to use it. Lorewave **does** stream third-party content, so:
+
+- **"Does this app contain, show, or access third-party content?" → Yes.**
+- **"Do you have the rights to use it?" → Yes / "I have all necessary rights or
+  am authorized."** Basis to keep on file (and echo in the reviewer note):
+  - All audio is **public domain or Creative Commons** (Internet Archive incl.
+    LibriVox, Musopen; freesound.org ambient) — licenses that permit
+    redistribution/streaming.
+  - **News** plays publicly-available **podcast RSS enclosures** (NPR, PBS, BBC,
+    DW, CBC) intended by the publishers for redistribution via standard podcast
+    clients; the app hosts none of it.
+  - Per-track **source + license are shown in-app**, and there's an in-app
+    **DMCA takedown** path (About → Copyright & DMCA, info@parso.guru) with the
+    §512(c)(3) elements + counter-notice.
+- Do **not** check "This app does not contain third-party content" — it does.
 
 ## 5. In-App Purchases / "Support Lorewave" (NEW — required before the build can
 reference them)
