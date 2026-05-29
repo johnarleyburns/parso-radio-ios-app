@@ -13,15 +13,14 @@ struct SettingsView: View {
     // "system" | "light" | "dark" — applied at the app root via preferredColorScheme.
     @AppStorage("appearance") private var appearance: String = "system"
 
-    // EXPERIMENTAL: route remote streams through CachingResourceLoaderDelegate so
-    // streamed bytes warm an on-disk prefix cache (replays / seeks serve from
-    // disk). Default OFF — flip on a real device to validate.
-
     @State private var confirmClearHistory = false
     @State private var confirmClearAll = false
     @State private var working = false
 
     @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
+    @ObservedObject private var kids = KidsModeController.shared
+    @State private var showSetKidsPin = false
+    @State private var kidsPinEntry = ""
 
     var body: some View {
         List {
@@ -47,6 +46,26 @@ struct SettingsView: View {
             }
 
             Section {
+                if kids.isEnabled {
+                    Label("Kids Mode is on", systemImage: "checkmark.shield.fill")
+                        .foregroundStyle(.green)
+                    Text("Exit from the lock button in the Kids menu (your PIN).")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Button {
+                        kidsPinEntry = ""
+                        showSetKidsPin = true
+                    } label: {
+                        Label("Turn On Kids Mode", systemImage: "figure.and.child.holdinghands")
+                    }
+                }
+            } header: {
+                Text("Kids Mode")
+            } footer: {
+                Text("Limits the app to the children's songs and stories — no search, no news, no purchases. A 4-digit PIN is needed to turn it off, so it's safe to hand the phone to a child.")
+            }
+
+            Section {
                 Button(role: .destructive) {
                     confirmClearHistory = true
                 } label: {
@@ -69,6 +88,17 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .disabled(working)
+        .alert("Set a 4-digit PIN", isPresented: $showSetKidsPin) {
+            TextField("PIN", text: $kidsPinEntry)
+                .keyboardType(.numberPad)
+            Button("Turn On") {
+                kids.enable(pin: kidsPinEntry)
+                kidsPinEntry = ""
+            }
+            Button("Cancel", role: .cancel) { kidsPinEntry = "" }
+        } message: {
+            Text("You'll need this PIN to turn Kids Mode off. Pick something a child won't guess.")
+        }
         .alert("Clear Listening History?", isPresented: $confirmClearHistory) {
             Button("Clear History", role: .destructive) {
                 Task {

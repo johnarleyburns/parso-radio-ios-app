@@ -94,7 +94,8 @@ struct ParsoMusicApp: App {
             // actually in use (TOS accepted, splash gone). The coordinator's
             // engine gates it to genuine engagement (≥12 tracks, ≥2 sessions…).
             .overlay(alignment: .bottom) {
-                if tosAccepted, !showSplash, contributions.showToast {
+                if tosAccepted, !showSplash, contributions.showToast,
+                   !KidsModeController.shared.isEnabled {
                     ContributionToast(
                         onSupport: { contributions.dismissToast(); showSupport = true },
                         onLater:   { contributions.dismissToast() },
@@ -113,7 +114,8 @@ struct ParsoMusicApp: App {
             }
             .task { contributions.beginSession() }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active, tosAccepted, !showSplash { contributions.evaluate() }
+                if phase == .active, tosAccepted, !showSplash,
+                   !KidsModeController.shared.isEnabled { contributions.evaluate() }
             }
         }
     }

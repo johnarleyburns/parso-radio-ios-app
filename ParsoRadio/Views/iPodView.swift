@@ -17,6 +17,8 @@ struct iPodView: View {
     @State private var showChannelSelector = false
     @State private var showAbout = false
     @State private var showMainMenu = false
+    @State private var showKidsMenu = false
+    @ObservedObject private var kids = KidsModeController.shared
     @State private var showPlaylists = false
     @State private var showSearch = false
     @State private var showAddToPlaylist = false
@@ -167,6 +169,14 @@ struct iPodView: View {
             .environmentObject(playerVM)
             .environmentObject(offlineService)
         }
+        .sheet(isPresented: $showKidsMenu) {
+            KidsMenuView(onSelectChannel: { channel in
+                pendingChannel = channel
+                showKidsMenu = false
+                Task { await playerVM.load(channel: channel) }
+            })
+            .environmentObject(playerVM)
+        }
         .sheet(isPresented: $showChannelSelector) {
             ChannelSelectorView(currentChannelId: displayChannel.id) { channel in
                 pendingChannel = channel
@@ -229,12 +239,22 @@ struct iPodView: View {
         .task {
             await playlistVM.loadPlaylists()
             UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
-            // Resume EXACTLY where the user was — same channel/playlist, track
-            // and offset — and START PLAYING. A radio app should pick up playing
-            // on launch (and this sidesteps the launch-after-update bug where a
-            // paused resume hung silently with no progress and no timeout).
-            await playerVM.restoreLastSession(fallbackChannel: pendingChannel,
-                                              autoPlay: true)
+            if kids.isEnabled {
+                // Kids Mode: never restore an arbitrary last session (it could be
+                // News). Start on a children's channel — the last kids channel if
+                // there was one, else the first allowed channel.
+                let lastId = UserDefaults.standard.string(forKey: "lastChannelId")
+                let allowed = KidsModeController.allowedChannels()
+                let ch = allowed.first { $0.id == lastId } ?? allowed.first ?? pendingChannel
+                await playerVM.load(channel: ch, autoPlay: true)
+            } else {
+                // Resume EXACTLY where the user was — same channel/playlist, track
+                // and offset — and START PLAYING. A radio app should pick up
+                // playing on launch (and this sidesteps the launch-after-update
+                // bug where a paused resume hung silently with no progress).
+                await playerVM.restoreLastSession(fallbackChannel: pendingChannel,
+                                                  autoPlay: true)
+            }
             // First launch: show the wheel guide once so the gestures are
             // discoverable.
             if !didShowWheelHelp {
@@ -1003,6 +1023,12 @@ struct iPodView: View {
         // Leaving the player screen → save the EXACT current spot so the
         // playlist/channel resume marker reflects where the user actually is.
         playerVM.saveCurrentSpot()
+        // Kids Mode: the wheel MENU opens ONLY the restricted kids menu — never
+        // the full menu (no search / news / settings reachable).
+        if kids.isEnabled {
+            showKidsMenu = true
+            return
+        }
         if contextual, let pl = playerVM.currentPlaylist {
             menuRoute = .playlist(pl)
         } else if contextual, let ch = playerVM.currentChannel {
