@@ -1757,6 +1757,17 @@ final class PlayerViewModel: ObservableObject {
         if kind == "playlist", let pid = contextId,
            let pl = await db.fetchPlaylists().first(where: { $0.id == pid }) {
             await resumePlaylist(pl, autoPlay: autoPlay)
+            // The DB position write is async fire-and-forget and can be LOST when
+            // iOS kills the app in the background; session.position (UserDefaults,
+            // written synchronously on pause/resign) is the durable record. If
+            // it's for the SAME resumed track but AHEAD of the DB offset the
+            // playlist restored from, jump to the real last spot — otherwise we'd
+            // snap back to a stale "previous resume point" (the reported bug).
+            if let cur = currentTrack, cur.id == savedTrackId,
+               savedPosition > currentPosition + 2 {
+                await playTrack(cur, seekTo: savedPosition,
+                                recordHistory: false, autoPlay: autoPlay)
+            }
             return
         }
 
@@ -1768,15 +1779,21 @@ final class PlayerViewModel: ObservableObject {
         let channel = Channel.defaults.first { $0.id == channelId } ?? fallbackChannel
         await load(channel: channel, autoPlay: autoPlay)
 
-        // If the exact last track differs from what the channel resumed (e.g.
-        // it was a one-off search result), play that precise track + offset —
-        // but offline, only if it's downloaded (don't strand a launch trying to
-        // stream a non-local track).
-        if let tid = savedTrackId, currentTrack?.id != tid,
-           let t = await db.fetchTrack(id: tid),
+        if let tid = savedTrackId, let t = await db.fetchTrack(id: tid),
            NetworkMonitor.shared.isOnline || t.localFilePath != nil {
-            await playTrack(t, seekTo: savedPosition > 1 ? savedPosition : nil,
-                            autoPlay: autoPlay)
+            if currentTrack?.id != tid {
+                // The exact last track differs from what the channel resumed
+                // (e.g. it was a one-off search result) → play that precise
+                // track + offset.
+                await playTrack(t, seekTo: savedPosition > 1 ? savedPosition : nil,
+                                autoPlay: autoPlay)
+            } else if savedPosition > currentPosition + 2 {
+                // SAME track, but the durable session offset is ahead of the DB
+                // resume (the DB write was lost when iOS killed the app in the
+                // background) → seek to the real last spot, not an older one.
+                await playTrack(t, seekTo: savedPosition,
+                                recordHistory: false, autoPlay: autoPlay)
+            }
         }
     }
 }
