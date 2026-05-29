@@ -17,6 +17,21 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
     private let cache: ContiguousFileCache
     private let session: URLSession
 
+    // In-flight serving Tasks + a shutdown flag, guarded by a lock because
+    // resourceLoader(...) fires on AVFoundation's loader queue while shutdown()
+    // is called from the main actor. CRITICAL: shutdown CANCELS these tasks; it
+    // must NOT invalidateAndCancel() the session, because a serve() Task already
+    // parked at `session.bytes(for:)` would then create its data task on an
+    // INVALIDATED session — CFNetwork throws an Objective-C NSException there
+    // ("session invalidated") which Swift's do/catch cannot catch, SIGABRT-ing
+    // the app on a fast track-skip. Cancellation stops the network cleanly (the
+    // async byte sequence throws a Swift CancellationError we DO catch); the
+    // session is invalidated only in deinit, which can't run while a serve is
+    // executing (the Task strongly retains self for the call's duration).
+    private let stateLock = NSLock()
+    private var inFlight: [Task<Void, Never>] = []
+    private var didShutdown = false
+
     init(originalURL: URL, cache: ContiguousFileCache) {
         self.originalURL = originalURL
         self.cache = cache
@@ -32,12 +47,18 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         cache.close()
     }
 
-    /// Force-cancel all in-flight network work and release the cache handle
+    /// Cancel all in-flight network work and release the cache handle
     /// immediately. Called from AudioPlayerService.tearDownPlayer so a track
     /// switch doesn't leave the OLD delegate's URLSession racing the new one
-    /// (suspected cause of the "track 2 hangs" symptom). Idempotent.
+    /// (the "track 2 hangs" symptom). Idempotent. Does NOT invalidate the
+    /// session — see the note on `inFlight` for why that would crash.
     func shutdown() {
-        session.invalidateAndCancel()
+        stateLock.lock()
+        didShutdown = true
+        let tasks = inFlight
+        inFlight.removeAll()
+        stateLock.unlock()
+        tasks.forEach { $0.cancel() }
         cache.close()
     }
 
@@ -65,7 +86,12 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
 
     func resourceLoader(_ resourceLoader: AVAssetResourceLoader,
                         shouldWaitForLoadingOfRequestedResource req: AVAssetResourceLoadingRequest) -> Bool {
-        Task { [weak self] in await self?.handle(req) }
+        stateLock.lock()
+        // Already torn down → refuse new work (the delegate is being discarded).
+        guard !didShutdown else { stateLock.unlock(); return false }
+        let task = Task { [weak self] in await self?.handle(req) }
+        inFlight.append(task)
+        stateLock.unlock()
         return true
     }
 
@@ -105,6 +131,7 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         // A ranged GET of byte 0 returns 206 with `Content-Range: bytes 0-0/<total>`
         // — the most reliable way to learn the total length (HEAD often doesn't
         // populate Content-Length on archive.org's CDN redirects).
+        try Task.checkCancellation()
         var req = URLRequest(url: originalURL)
         req.setValue("bytes=0-0", forHTTPHeaderField: "Range")
         let (_, response) = try await session.data(for: req)
@@ -204,6 +231,7 @@ final class CachingResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelega
         }
         guard cursor < endNeeded else { return }
 
+        try Task.checkCancellation()
         var request = URLRequest(url: originalURL)
         request.setValue(rangeHeader, forHTTPHeaderField: "Range")
         let (bytes, response) = try await session.bytes(for: request)

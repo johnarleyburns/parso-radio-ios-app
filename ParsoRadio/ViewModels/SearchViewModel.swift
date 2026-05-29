@@ -19,7 +19,23 @@ final class SearchViewModel: ObservableObject {
     // the leading icon/label and the "Add Book/Album" action.
     enum ItemKind: String { case track, album, book }
 
+    // Search scope filter (the segmented control under the search box). `all`
+    // (= "Both") is the default; `music` excludes book/podcast/radio
+    // collections; `audiobooks` restricts to the book collections.
+    enum SearchScope: String, CaseIterable, Identifiable {
+        case all, music, audiobooks
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .all:        return "Both"
+            case .music:      return "Music"
+            case .audiobooks: return "Audiobooks"
+            }
+        }
+    }
+
     @Published var query: String = ""
+    @Published var scope: SearchScope = .all
     @Published var results: [ResultGroup] = []
     @Published var isSearching: Bool = false
     @Published var errorMessage: String? = nil
@@ -146,6 +162,17 @@ final class SearchViewModel: ObservableObject {
         }
     }
 
+    // The scope filter changed → re-run the current query from page 0.
+    func scopeChanged() {
+        searchTask?.cancel()
+        hasSearched = false
+        guard query.count >= 2 else { results = []; return }
+        searchTask = Task {
+            guard !Task.isCancelled else { return }
+            await performSearch(page: 0)
+        }
+    }
+
     func loadNextPage() async {
         guard !isSearching, hasMorePages else { return }
         await performSearch(page: currentPage + 1)
@@ -155,7 +182,7 @@ final class SearchViewModel: ObservableObject {
         isSearching = true
         errorMessage = nil
         do {
-            let groups = try await archiveService.search(query: query, page: page)
+            let groups = try await archiveService.search(query: query, page: page, scope: scope)
             if page == 0 { results = groups } else { results.append(contentsOf: groups) }
             currentPage = page
             hasMorePages = groups.count == 20

@@ -43,7 +43,19 @@ struct SearchView: View {
                 .background(Color(.secondarySystemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .padding(.horizontal)
+                .padding(.top, 8)
+
+                // Scope filter: Both (default) / Music / Audiobooks.
+                Picker("Search scope", selection: $searchVM.scope) {
+                    ForEach(SearchViewModel.SearchScope.allCases) { scope in
+                        Text(scope.label).tag(scope)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
                 .padding(.vertical, 8)
+                .onChange(of: searchVM.scope) { searchVM.scopeChanged() }
+                .accessibilityLabel("Filter results by type")
 
                 if searchVM.query.count < 2 {
                     historyList

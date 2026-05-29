@@ -31,6 +31,12 @@ final class PlayerViewModel: ObservableObject {
     // Drives the "Add Book/Album to Playlist" button. Set false on every
     // track change; set true once the silent probe confirms a multi-file item.
     @Published var currentTrackIsMultiPart: Bool = false
+    // Multi-part summary for the current item, filled by the silent probe:
+    // total chapters/tracks, summed runtime, and which part is playing (1-based,
+    // nil if unknown). Surfaced on the track box ("Part m of n") and Track Info.
+    @Published var currentItemChapterCount: Int = 0
+    @Published var currentItemTotalDuration: Double = 0
+    @Published var currentItemPartIndex: Int? = nil
 
     // Sleep timer: non-nil endsAt → a Task is counting down to pause(); the
     // "End of Track" flag stops at the next natural onTrackFinished.
@@ -110,6 +116,13 @@ final class PlayerViewModel: ObservableObject {
     // stall give-up, which is for items that resolve but never produce audio).
     private let maxConsecutiveLoadFailures = 8
     private var consecutiveLoadFailures = 0
+    // Bumped every time the playback CONTEXT changes (channel / playlist /
+    // search result). playTrack captures it on entry and re-checks right before
+    // it commits audio: a track that was still resolving when the user switched
+    // contexts is abandoned instead of starting — otherwise a playlist chapter
+    // mid-resolve could begin playing under the channel we just switched to,
+    // showing the channel's name (the "Cafe Lento plays part 9 of my book" bug).
+    private var playbackContextToken = 0
 
     init(
         db: DatabaseService,
@@ -354,6 +367,9 @@ final class PlayerViewModel: ObservableObject {
         UserDefaults.standard.set(visited, forKey: "visitedChannelIds")
 
         currentChannel = channel
+        // New playback context → invalidate any track still resolving from the
+        // previous context (see playbackContextToken).
+        playbackContextToken &+= 1
         // Leave playlist mode NOW that we've committed to a channel. Doing this
         // here (not only on the fetch SUCCESS path) is critical: if the fetch
         // fails, advanceToNext must NOT see a stale currentPlaylist and advance
@@ -361,6 +377,10 @@ final class PlayerViewModel: ObservableObject {
         currentPlaylist = nil
         playlistTracks = []
         playlistIndex = 0
+        // Clear the previous context's artwork/background IMMEDIATELY (before the
+        // fetch await) so switching channels never lingers on the old album art.
+        currentArtwork = nil
+        artworkDominantColor = .accentColor
         // Shuffle is per-context: switching channels ALWAYS resets to NOT
         // shuffling, so an audiobook/lecture channel never inherits a shuffle
         // left on from a music channel or playlist.
@@ -707,7 +727,7 @@ final class PlayerViewModel: ObservableObject {
         } else if track.source == "internet_archive" {
             let svc = archiveService
             let identifier = track.id
-            guard let resolved = try? await withTimeout(loadTimeout, {
+            guard let resolved = try? await Self.withTimeout(loadTimeout, {
                 try await svc.resolveAudioURL(for: identifier)
             }) else { return nil }
             url = resolved
@@ -760,9 +780,16 @@ final class PlayerViewModel: ObservableObject {
 
     private func playTrack(_ track: Track, seekTo: Double?, recordHistory: Bool = true,
                            autoPlay: Bool = true) async {
+        // Snapshot the context this play was initiated under. If it changes
+        // during the (awaited) URL resolution, we abandon before committing
+        // audio so a stale track never plays under a context we've left.
+        let entryToken = playbackContextToken
         // Hide the book/album buttons immediately; the probe re-enables them
         // once it confirms this track belongs to a multi-file item.
         currentTrackIsMultiPart = false
+        currentItemChapterCount = 0
+        currentItemTotalDuration = 0
+        currentItemPartIndex = nil
         // UC3: push current track onto history before replacing it.
         if recordHistory, let existing = currentTrack {
             playHistory.append(existing)
@@ -857,7 +884,7 @@ final class PlayerViewModel: ObservableObject {
                     // this the channel dead-ends on the first slow track.
                     let svc = archiveService
                     let identifier = track.id
-                    url = try await withTimeout(loadTimeout) {
+                    url = try await Self.withTimeout(loadTimeout) {
                         try await svc.resolveAudioURL(for: identifier)
                     }
                 }
@@ -880,6 +907,10 @@ final class PlayerViewModel: ObservableObject {
                let auto = await db.fetchAutosaveBookmark(forTrack: track.id) {
                 effectiveSeek = auto.positionSeconds
             }
+            // Context changed while we were resolving the URL (user switched
+            // channel/playlist/search) → abandon this track. The winning context
+            // owns currentTrack/spinner, so don't touch them here.
+            guard entryToken == playbackContextToken else { return }
             let resumeAt = max(effectiveSeek, 0)
             audioPlayer.play(url: url, track: track,
                              looping: currentChannel?.contentType == .ambientLoop,
@@ -1001,6 +1032,9 @@ final class PlayerViewModel: ObservableObject {
     private func probeCurrentTrack() {
         guard let track = currentTrack, track.source == "internet_archive" else {
             currentTrackIsMultiPart = false
+            currentItemChapterCount = 0
+            currentItemTotalDuration = 0
+            currentItemPartIndex = nil
             return
         }
         let identifier = track.parentIdentifier ?? track.id
@@ -1013,6 +1047,24 @@ final class PlayerViewModel: ObservableObject {
                    self.currentTrack?.parentIdentifier == track.parentIdentifier)
             else { return }
             self.currentTrackIsMultiPart = (parts != nil)
+            guard let parts else {
+                self.currentItemChapterCount = 0
+                self.currentItemTotalDuration = 0
+                self.currentItemPartIndex = nil
+                return
+            }
+            self.currentItemChapterCount = parts.count
+            self.currentItemTotalDuration = parts.reduce(0.0) { $0 + max(0, $1.duration) }
+            // Which chapter is playing? The track's own part number wins; else
+            // match by id; else an item-level entry resolves to the first file.
+            if let pn = self.currentTrack?.partNumber {
+                self.currentItemPartIndex = pn
+            } else if let cur = self.currentTrack?.id,
+                      let idx = parts.firstIndex(where: { $0.id == cur }) {
+                self.currentItemPartIndex = idx + 1
+            } else {
+                self.currentItemPartIndex = 1
+            }
         }
     }
 
@@ -1122,8 +1174,10 @@ final class PlayerViewModel: ObservableObject {
         return pretty.isEmpty ? track.title : pretty.capitalized
     }
 
-    // Runs `op` but throws if it doesn't finish within `seconds`.
-    private func withTimeout<T: Sendable>(
+    // Runs `op` but throws if it doesn't finish within `seconds`. nonisolated
+    // static so it can also bound network work from inside a TaskGroup (the
+    // recommendation fetch) without hopping back to the main actor.
+    nonisolated static func withTimeout<T: Sendable>(
         _ seconds: Double, _ op: @escaping @Sendable () async throws -> T
     ) async throws -> T {
         try await withThrowingTaskGroup(of: T.self) { group in
@@ -1169,8 +1223,21 @@ final class PlayerViewModel: ObservableObject {
             await playTrack(track, seekTo: nil, recordHistory: false, autoPlay: autoPlay)
             return
         }
-        // Permanent, or out of retries for this item → give up on it and move on.
+        // Permanent, or out of retries for this item → give up on it.
         loadAttempts[track.id] = nil
+        // A one-off play with no channel/playlist to advance within (a tapped
+        // search result) has nowhere to go — advanceToNext would return doing
+        // NOTHING, stranding the user on a silent, spinner-less screen (item 9).
+        // Surface a clear error instead.
+        if currentChannel == nil, currentPlaylist == nil {
+            currentTrack = nil
+            trackDuration = nil
+            isPlaying = false
+            isLoading = false
+            loadingMessage = nil
+            errorMessage = "Couldn't play this track. It may be unavailable — try another."
+            return
+        }
         consecutiveLoadFailures += 1
         guard consecutiveLoadFailures < maxConsecutiveLoadFailures else {
             consecutiveLoadFailures = 0
@@ -1251,12 +1318,16 @@ final class PlayerViewModel: ObservableObject {
         currentPlaylist = nil
         playlistTracks = []
         playlistIndex = 0
+        playbackContextToken &+= 1   // new context (see playbackContextToken)
         playHistory = []
         channelDescription = ""
         beginTransition(pre: pre)
         await playTrack(pre, seekTo: nil, recordHistory: false)
-        isLoading = false
-        loadingMessage = nil
+        // NOTE: do NOT clear isLoading here — playTrack owns the spinner and
+        // dismisses it on the first real time tick (or on failure). Clearing it
+        // the instant playTrack returns dropped the spinner during AVPlayer's
+        // pre-buffer window, so a tapped search result showed its name with no
+        // spinner and no audio yet (item 9).
     }
 
     // Per-playlist position is stored in the same positions table as
@@ -1278,6 +1349,7 @@ final class PlayerViewModel: ObservableObject {
         beginTransition(pre: track)
         currentPlaylist = playlist
         currentChannel = nil
+        playbackContextToken &+= 1   // new context (see playbackContextToken)
         playHistory = []
         let tracks = await db.fetchTracks(forPlaylist: playlist.id)
         playlistTracks = tracks
@@ -1482,8 +1554,13 @@ final class PlayerViewModel: ObservableObject {
                 guard let source = Channel.defaults.first(where: { $0.id == channelId }),
                       let entry = source.iaQueryEntry else { continue }
                 group.addTask {
-                    let tracks = (try? await svc.fetchTracks(
-                        iaQuery: entry.iaQuery, matchTags: stampTags)) ?? []
+                    // Bound each query: a single slow IA response must not hang
+                    // the whole "for you" build (the group waits for ALL tasks),
+                    // which left Music/Books For You spinning ~60s with no track.
+                    let tracks = (try? await Self.withTimeout(15) {
+                        try await svc.fetchTracks(
+                            iaQuery: entry.iaQuery, matchTags: stampTags)
+                    }) ?? []
                     return Array(tracks.shuffled().prefix(count))
                 }
             }

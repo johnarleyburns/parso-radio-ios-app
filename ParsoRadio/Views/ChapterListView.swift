@@ -22,14 +22,23 @@ struct ChapterListView: View {
                     description: Text("This item is a single file — there are no separate chapters to navigate.")
                 )
             } else {
-                List(chapters) { chapter in
-                    Button {
-                        Task { await playerVM.playRecentTrack(chapter) }
-                        onDismiss?()
-                    } label: {
-                        chapterRow(chapter)
+                List {
+                    Section {
+                        ForEach(chapters) { chapter in
+                            Button {
+                                Task { await playerVM.playRecentTrack(chapter) }
+                                onDismiss?()
+                            } label: {
+                                chapterRow(chapter)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } header: {
+                        // Whole-work scope: how many chapters and the summed runtime.
+                        Text(summaryText)
+                            .textCase(nil)
+                            .accessibilityLabel(summaryAccessibilityText)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -75,6 +84,25 @@ struct ChapterListView: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(isCurrent ? "Currently playing" : "Plays this chapter")
+    }
+
+    // "124 chapters · 38:42:10" — total parts + summed runtime (omitted if no
+    // durations are known).
+    private var summaryText: String {
+        let count = chapters.count
+        let noun = count == 1 ? "chapter" : "chapters"
+        let total = chapters.reduce(0.0) { $0 + max(0, $1.duration) }
+        return total > 0
+            ? "\(count) \(noun) · \(formatTime(total))"
+            : "\(count) \(noun)"
+    }
+
+    private var summaryAccessibilityText: String {
+        let count = chapters.count
+        let total = chapters.reduce(0.0) { $0 + max(0, $1.duration) }
+        return total > 0
+            ? "\(count) chapters, total time \(formatTime(total))"
+            : "\(count) chapters"
     }
 
     private func formatTime(_ s: Double) -> String {

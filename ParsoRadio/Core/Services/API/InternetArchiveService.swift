@@ -265,8 +265,9 @@ struct InternetArchiveService {
     // matching the Internet Archive website. A field-scoped form like
     // `title:(a b)` ANDs the words within ONE field and misses most hits
     // (e.g. "Tarrega Guitar" → 2 vs 36).
-    func search(query: String, page: Int) async throws -> [SearchViewModel.ResultGroup] {
-        let q = Self.buildSearchQuery(rawInput: query)
+    func search(query: String, page: Int,
+                scope: SearchViewModel.SearchScope = .all) async throws -> [SearchViewModel.ResultGroup] {
+        let q = Self.buildSearchQuery(rawInput: query, scope: scope)
         return try await searchGroups(query: q, page: page)
     }
 
@@ -286,12 +287,14 @@ struct InternetArchiveService {
     ///   relevance scoring wins.
     /// - Boosts: title:^4 / creator:^3 / subject:^1 so "Tárrega Recuerdos"
     ///   wins over "Top 100 Songs mentioning Tárrega".
-    static func buildSearchQuery(rawInput: String) -> String {
+    static func buildSearchQuery(rawInput: String,
+                                 scope: SearchViewModel.SearchScope = .all) -> String {
+        let scopeClause = Self.scopeClause(scope)
         let tokens = rawInput
             .split { !$0.isLetter && !$0.isNumber }
             .map { $0.replacingOccurrences(of: "\"", with: "") }
             .filter { !$0.isEmpty }
-        guard !tokens.isEmpty else { return "mediatype:audio" }
+        guard !tokens.isEmpty else { return "mediatype:audio" + scopeClause }
         // Each token must match somewhere (title/creator/subject), AND'd.
         let perToken = tokens.map {
             "(title:\"\($0)\"^4 OR creator:\"\($0)\"^3 OR subject:\"\($0)\"^1)"
@@ -305,7 +308,25 @@ struct InternetArchiveService {
         let anchor = tokens.map {
             "title:\"\($0)\" OR creator:\"\($0)\""
         }.joined(separator: " OR ")
-        return "mediatype:audio AND \(perToken) AND (\(anchor))"
+        return "mediatype:audio AND \(perToken) AND (\(anchor))" + scopeClause
+    }
+
+    // Collection filter for the search scope. Curl-verified against
+    // archive.org: audiobooks restricts to the LibriVox / audio-books
+    // collections; music EXCLUDES those plus podcast/old-time-radio collections
+    // (which otherwise dominate a music search via relevance). NB: no leading
+    // wildcards (IA disables them) — these are exact collection ids.
+    private static func scopeClause(_ scope: SearchViewModel.SearchScope) -> String {
+        switch scope {
+        case .all:
+            return ""
+        case .audiobooks:
+            return " AND collection:(librivoxaudio OR audio_bookspoetry)"
+        case .music:
+            return " AND NOT collection:(librivoxaudio OR audio_bookspoetry"
+                 + " OR podcasts OR podcasts_mirror OR podcasts_mirror_bobarchives"
+                 + " OR radioprograms OR oldtimeradio)"
+        }
     }
 
     // IA search docs carry no runtime or file count. One metadata GET yields

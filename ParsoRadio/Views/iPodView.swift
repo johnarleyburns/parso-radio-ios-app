@@ -113,7 +113,7 @@ struct iPodView: View {
                     // which would collapse the panel and overflow its content.
                     // No top margin: the panel sits flush just below the
                     // status bar (the VStack still respects the top safe area).
-                    screenPanel
+                    screenPanel(geo: geo)
                         .frame(height: max(160.0, geo.size.height * 0.50))
                         .padding(.horizontal, deviceMargin(geo))
 
@@ -246,7 +246,7 @@ struct iPodView: View {
 
     // MARK: - Screen Panel
 
-    private var screenPanel: some View {
+    private func screenPanel(geo: GeometryProxy) -> some View {
         ZStack(alignment: .bottom) {
             // Full-bleed album art background
             artworkBackground
@@ -332,7 +332,9 @@ struct iPodView: View {
         }
         // Unmistakable loading indicator centred on the screen while a track
         // is resolving/buffering (the small inline spinner was easy to miss).
-        .overlay { if playerVM.isLoading { loadingOverlay } }
+        // Sized to EXACTLY the wheel's inner hub diameter (size * 0.45) so the
+        // loading disc reads as a deliberate twin of the wheel centre.
+        .overlay { if playerVM.isLoading { loadingOverlay(diameter: wheelDiameter(geo) * 0.45) } }
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
         // Dynamic Type clamp — respect the user's text-size setting but keep
@@ -418,6 +420,15 @@ struct iPodView: View {
                 Text("Part \(part) of \(total)")
                     .font(.system(size: mainRegularSize))
                     .foregroundStyle(.white.opacity(0.7))
+            } else if playerVM.currentItemChapterCount > 1 {
+                // Item-level multi-part entry (e.g. a book opened from Books for
+                // You) whose track carries no part metadata — the probe filled in
+                // the chapter count and which part is playing.
+                Text(playerVM.currentItemPartIndex.map {
+                    "Part \($0) of \(playerVM.currentItemChapterCount)"
+                } ?? "\(playerVM.currentItemChapterCount) parts")
+                    .font(.system(size: mainRegularSize))
+                    .foregroundStyle(.white.opacity(0.7))
             }
 
             // News episodes: show the publish date on the now-playing line
@@ -449,15 +460,15 @@ struct iPodView: View {
             .accessibilityLabel(label)
     }
 
-    // THE single loading spinner: one icon, centered over the track box, sized
-    // to roughly match the wheel's inner circle (size * 0.45 ≈ a bit over 100 pt
-    // on a typical iPhone) for visual consistency. No text, no second indicator.
-    private var loadingOverlay: some View {
+    // THE single loading spinner: one icon, centered over the track box, in a
+    // disc whose diameter EXACTLY matches the wheel's inner hub (passed in as
+    // wheelDiameter * 0.45). No text, no second indicator.
+    private func loadingOverlay(diameter: CGFloat) -> some View {
         ProgressView()
             .controlSize(.large)
-            .scaleEffect(1.8)
+            .scaleEffect(min(2.2, max(1.4, diameter / 60)))
             .tint(.white)
-            .frame(width: 110, height: 110)
+            .frame(width: diameter, height: diameter)
             .background(.black.opacity(0.5), in: Circle())
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.black.opacity(0.15))
@@ -597,6 +608,22 @@ struct iPodView: View {
                         if let c = cleaned(track.composer) { infoRow("Composer", c.capitalized) }
                         if let dur = trackInfoDuration(track) {
                             infoRow("Duration", formatTime(dur))
+                        }
+                        // Multi-part item: surface the whole-work totals so the
+                        // user knows the scope (e.g. Don Quixote: 124 chapters,
+                        // 38:42:10) and where they are within it.
+                        if playerVM.currentTrackIsMultiPart,
+                           playerVM.currentItemChapterCount > 1 {
+                            infoRow(usesChapterTerminology ? "Chapters" : "Tracks",
+                                    "\(playerVM.currentItemChapterCount)")
+                            if playerVM.currentItemTotalDuration > 0 {
+                                infoRow("Total Time",
+                                        formatTime(playerVM.currentItemTotalDuration))
+                            }
+                            if let idx = playerVM.currentItemPartIndex {
+                                infoRow(usesChapterTerminology ? "Chapter" : "Part",
+                                        "\(idx) of \(playerVM.currentItemChapterCount)")
+                            }
                         }
                         if let date = track.bestDate {
                             infoRow(track.dateLabel,
