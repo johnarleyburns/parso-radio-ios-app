@@ -542,11 +542,18 @@ final class PlayerViewModel: ObservableObject {
         // autoPlay is threaded all the way into AudioPlayerService so a paused
         // resume still loads, seeks and shows its duration — it just doesn't
         // start — instead of the old race that left the track silent.
-        if let saved, let track = await db.fetchTrack(id: saved.trackId) {
+        if let saved, let track = await db.fetchTrack(id: saved.trackId),
+           await resumeTrackBelongs(track, toChannel: channel) {
             loadingMessage = "Resuming \"\(track.title)\"…"
             await playTrack(track, seekTo: saved.seconds > 1 ? saved.seconds : nil,
                             autoPlay: autoPlay)
         } else {
+            // No usable resume, OR the saved position points at a FOREIGN track
+            // (e.g. a playlist book chapter an earlier bug wrote under this
+            // channel's position — the "Classical Guitar played my book" bug).
+            // Drop the bad marker so it can't hijack the channel again, and
+            // start the channel fresh.
+            if saved != nil { await db.clearPosition(channelId: channel.id) }
             loadingMessage = "Starting playback…"
             await advanceToNext(autoPlay: autoPlay)
         }
@@ -640,6 +647,26 @@ final class PlayerViewModel: ObservableObject {
     }
 
     // MARK: - Private
+
+    /// Whether `track` legitimately belongs to `channel` as a resume target.
+    /// REGISTRY channels isolate STRICTLY by their injected stamp, so a saved
+    /// position pointing at a FOREIGN track — e.g. a playlist book chapter an
+    /// earlier bug recorded under this channel's position — must be rejected so
+    /// it can't hijack the channel. Book CHAPTERS are intentionally left
+    /// unstamped, so a chapter belongs iff its parent ITEM is stamped for the
+    /// channel (keeps legit audiobook-channel chapter resumes working).
+    /// Non-registry channels (News / Lectures / Ambient) keep prior behavior —
+    /// their matching is tag-based, not stamp-precise, so we don't risk
+    /// clearing a good lecture/news resume.
+    private func resumeTrackBelongs(_ track: Track, toChannel channel: Channel) async -> Bool {
+        guard channel.iaQueryEntry != nil else { return true }
+        if channel.matches(track) { return true }
+        if let pid = track.parentIdentifier, !pid.isEmpty,
+           let parent = await db.fetchTrack(id: pid) {
+            return channel.matches(parent)
+        }
+        return false
+    }
 
     private func advanceToNext(autoPlay: Bool = true) async {
         // Playlist mode: advance within the playlist's ordered tracks.
