@@ -14,10 +14,17 @@ final class QueueManager {
     // Injectable so unit tests get an isolated store instead of sharing the
     // process-wide standard defaults (which would couple test methods).
     private let defaults: UserDefaults
+    // Curator Mode: a curated channel with a shipped (non-empty) manifest plays
+    // its approved pool — explicit, human-approved tracks. Injectable so tests
+    // don't depend on the bundled curation.json.
+    private let manifestPool: (String) -> [Track]
 
-    init(db: DatabaseService, defaults: UserDefaults = .standard) {
+    init(db: DatabaseService, defaults: UserDefaults = .standard,
+         manifestPool: @escaping (String) -> [Track]
+             = { CurationManifestStore.shared.pool(for: $0) }) {
         self.db = db
         self.defaults = defaults
+        self.manifestPool = manifestPool
         if let stored = defaults.dictionary(forKey: Self.persistKey)
             as? [String: [String]] {
             recentByChannel = stored
@@ -103,6 +110,34 @@ final class QueueManager {
         }
 
         let recent = recents(channel.id)
+
+        // CURATOR MODE: a channel with shipped, non-empty curation plays its
+        // approved pool ONLY — no search, no composer-expand, the explicit
+        // human-approved list. Channels without a manifest entry fall through
+        // to the search pool below, so conversion is channel-by-channel and no
+        // channel is ever empty mid-rollout. See CURATOR-MODE-PLAN.md.
+        let curated = manifestPool(channel.id)
+        if !curated.isEmpty {
+            var approvedPool = curated.filter { !recent.contains($0.id) }
+            if approvedPool.isEmpty {            // cycled all → reset, replay
+                recentByChannel[channel.id] = []
+                persist()
+                approvedPool = curated
+            }
+            let pick: Track
+            if Self.usesShuffle(channel: channel, shuffleMode: shuffleMode) {
+                pick = weightedRandom(from: approvedPool,
+                                      seed: dailySeed(for: channel),
+                                      variance: recent.count)
+            } else {
+                pick = approvedPool.sorted {
+                    ($0.addedDate ?? .distantPast) > ($1.addedDate ?? .distantPast)
+                }.first!
+            }
+            if record { self.record(pick.id, channelId: channel.id) }
+            return pick
+        }
+
         // Only a book/album's FIRST track is eligible in a channel: a
         // multi-part item plays its opening track and the user adds the whole
         // book to a playlist if they want it — the channel never cycles

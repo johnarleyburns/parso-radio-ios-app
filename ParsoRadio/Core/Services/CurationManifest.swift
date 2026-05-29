@@ -46,4 +46,36 @@ final class CurationManifestStore {
     func hasCuration(for channelId: String) -> Bool {
         !(manifest?.approved(for: channelId).isEmpty ?? true)
     }
+
+    /// A channel's approved tracks as a playable pool ([] if none shipped).
+    func pool(for channelId: String) -> [Track] {
+        (manifest?.approved(for: channelId) ?? []).map { $0.asTrack() }
+    }
+}
+
+extension CurationManifest.Entry {
+    /// Turn a manifest entry into a playable Track. The streamURL is the IA
+    /// download endpoint (per-file ids are already direct; item ids are resolved
+    /// at play time by PlayerViewModel exactly as for any IA track).
+    func asTrack() -> Track {
+        Track(
+            id: id,
+            source: "internet_archive",
+            title: title,
+            artist: creator,
+            duration: duration,
+            streamURL: URL(string: "https://archive.org/download/\(id)")
+                ?? URL(string: "https://archive.org")!,
+            downloadURL: nil,
+            localFilePath: nil,
+            license: .publicDomain,
+            tags: [],
+            qualityScore: 1.0,
+            rawCreator: creator,
+            composer: nil,
+            instruments: [],
+            metadataConfidence: 1.0,
+            parentIdentifier: parentIdentifier
+        )
+    }
 }

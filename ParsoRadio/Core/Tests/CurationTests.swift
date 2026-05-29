@@ -75,6 +75,28 @@ final class CurationTests: XCTestCase {
         XCTAssertEqual(export["c2"]?.map(\.id), ["t2"])
     }
 
+    // Phase 2: QueueManager wired to the curation manifest. When a channel has a
+    // non-empty approved pool, the channel plays ONLY from it — no search/DB
+    // fallback. Channels without a manifest entry keep their search pool
+    // (verified by the existing QueueManagerTests, which use the default empty
+    // bundled manifest).
+    func test_queueManagerPlaysApprovedManifestPoolOnly() async {
+        let approved = [track("appr-1"), track("appr-2")]
+        let defaults = UserDefaults(suiteName: "QMfst-\(UUID().uuidString)")!
+        let qm = QueueManager(db: db, defaults: defaults, manifestPool: { channelId in
+            channelId == "guitar-classical" ? approved : []
+        })
+        guard let channel = Channel.defaults.first(where: { $0.id == "guitar-classical" })
+        else { XCTFail("guitar-classical channel must exist"); return }
+        var seen = Set<String>()
+        for _ in 0..<6 {
+            guard let t = await qm.nextTrack(channel: channel, shuffleMode: true) else { break }
+            seen.insert(t.id)
+        }
+        XCTAssertEqual(seen, ["appr-1", "appr-2"],
+            "a curated channel must play ONLY the manifest's approved tracks")
+    }
+
     func test_manifestDecodesAndQueries() throws {
         let json = Data("""
         {"version":1,"channels":{"childrens-songs":{"updatedAt":"2026-05-29",

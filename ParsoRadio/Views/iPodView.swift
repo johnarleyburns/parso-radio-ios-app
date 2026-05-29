@@ -236,6 +236,28 @@ struct iPodView: View {
         .onChange(of: showMainMenu) { _, shown in
             if !shown { playerVM.isScrubbing = false }
         }
+        // Kids Mode just turned on — dismiss every menu/sheet, push us onto a
+        // children's channel if we aren't on one (no back-track to non-kid
+        // content), and present the kids menu after the dismiss animation.
+        .onChange(of: kids.isEnabled) { _, enabled in
+            guard enabled else { return }
+            showMainMenu = false; showChannelSelector = false
+            showPlaylists = false; showSearch = false; showAbout = false
+            showMoreOptions = false; showAddToPlaylist = false
+            showAddItemToPlaylist = false; showWheelHelp = false; showChapters = false
+            let onAllowedChannel = playerVM.currentChannel?.id
+                .map(KidsModeController.allowedChannelIDs.contains) ?? false
+            let onPlaylist = playerVM.currentPlaylist != nil
+            if !onAllowedChannel || onPlaylist {
+                let target = KidsModeController.allowedChannels().first ?? pendingChannel
+                Task { @MainActor in await playerVM.load(channel: target, autoPlay: true) }
+            }
+            playerVM.playHistory = []
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 350_000_000)
+                showKidsMenu = true
+            }
+        }
         .task {
             await playlistVM.loadPlaylists()
             UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
@@ -361,7 +383,7 @@ struct iPodView: View {
         // the track box layout coherent at the extreme sizes.
         .dynamicTypeSize(.medium ... .accessibility2)
         .contextMenu {
-            if playerVM.currentTrack != nil, !isAmbientLoop {
+            if playerVM.currentTrack != nil, !isAmbientLoop, !kids.isEnabled {
                 Button { showAddToPlaylist = true } label: {
                     Label("Add to Playlist", systemImage: "plus.circle")
                 }
@@ -703,6 +725,11 @@ struct iPodView: View {
                             }
                         }
 
+                        // Kids Mode: hide all user-action surfaces (bookmarks,
+                        // share, favorites, add-to-playlist, add-book/album-to-
+                        // playlist) so a child can audition tracks and use
+                        // playback controls but can't modify state or share.
+                        if !kids.isEnabled {
                         bookmarksSection(for: track)
 
                         Section {
@@ -750,6 +777,7 @@ struct iPodView: View {
                                 }
                             }
                         }
+                        }   // end if !kids.isEnabled
                     }
                 }
             }

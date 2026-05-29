@@ -57,6 +57,15 @@ final class KidsModeController: ObservableObject {
         Channel.defaults.filter { allowedChannelIDs.contains($0.id) }
     }
 
+    /// When Kids Mode is turned on, should we immediately redirect to a
+    /// children's channel? True when there's no current channel, or when it
+    /// isn't an allowed kids channel — so back-track can never reach non-kid
+    /// content right after enabling.
+    static func shouldRedirect(fromChannelId currentChannelId: String?) -> Bool {
+        guard let id = currentChannelId else { return true }
+        return !allowedChannelIDs.contains(id)
+    }
+
     /// Keep only digits, cap at 4.
     static func normalize(_ s: String) -> String {
         String(s.filter(\.isNumber).prefix(4))

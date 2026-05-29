@@ -44,4 +44,21 @@ final class KidsModeControllerTests: XCTestCase {
         XCTAssertEqual(KidsModeController.normalize("12ab345"), "1234")
         XCTAssertEqual(KidsModeController.normalize("9"), "9")
     }
+
+    // Enabling Kids Mode must immediately drop the user onto a children's
+    // channel if they aren't on one — so back-track can't expose non-kid
+    // content. shouldRedirect is the testable predicate driving that.
+    func test_shouldRedirect_whenNotOnAllowedChannel() {
+        XCTAssertTrue(KidsModeController.shouldRedirect(fromChannelId: nil),
+            "no current channel → must redirect into kids content")
+        XCTAssertTrue(KidsModeController.shouldRedirect(fromChannelId: "guitar-classical"),
+            "non-kids channel → must redirect")
+        XCTAssertTrue(KidsModeController.shouldRedirect(fromChannelId: "news-bbc"),
+            "news channel → must redirect")
+    }
+
+    func test_shouldRedirect_whenAlreadyOnKidsChannel() {
+        XCTAssertFalse(KidsModeController.shouldRedirect(fromChannelId: "childrens-songs"))
+        XCTAssertFalse(KidsModeController.shouldRedirect(fromChannelId: "childrens-books"))
+    }
 }
