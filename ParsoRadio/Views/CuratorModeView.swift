@@ -190,6 +190,7 @@ struct CuratorReviewView: View {
     @State private var isFetching = false
     @State private var fetchError: String?
     @State private var showFetchError = false
+    @State private var showSearchAdd = false
 
     var body: some View {
         List {
@@ -237,6 +238,23 @@ struct CuratorReviewView: View {
         }
         .navigationTitle(channel.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showSearchAdd = true
+                } label: {
+                    Label("Add from Search", systemImage: "magnifyingglass.circle")
+                }
+            }
+        }
+        .sheet(isPresented: $showSearchAdd) {
+            CuratorSearchAddView(channel: channel, db: db,
+                                 archiveService: archiveService)
+                .environmentObject(playerVM)
+        }
+        .onChange(of: showSearchAdd) { _, shown in
+            if !shown { Task { await reload() } }   // refresh queue on dismiss
+        }
         .task { await reload() }
         .alert("Fetch failed", isPresented: $showFetchError) {
             Button("OK", role: .cancel) {}
@@ -245,31 +263,70 @@ struct CuratorReviewView: View {
 
     @ViewBuilder
     private func reviewRow(_ track: Track) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(track.title).font(.body).lineLimit(2)
-            Text(track.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            if track.duration > 0 {
-                Text(formatTime(track.duration))
-                    .font(.caption2).foregroundStyle(.tertiary).monospacedDigit()
+        let isLive    = playerVM.currentTrack?.id == track.id
+        let isLoading = isLive && playerVM.isLoading
+        let isPlaying = isLive && playerVM.isPlaying && !isLoading
+
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(track.title).font(.body).lineLimit(2)
+                Text(track.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                if track.duration > 0 {
+                    Text(formatTime(track.duration))
+                        .font(.caption2).foregroundStyle(.tertiary).monospacedDigit()
+                }
             }
-            HStack(spacing: 8) {
-                Button {
+            Spacer(minLength: 8)
+            // Animated waveform indicator while this row is the live, playing
+            // track — visual proof "this one is playing." iOS 17 symbolEffect.
+            if isPlaying {
+                Image(systemName: "waveform")
+                    .symbolEffect(.variableColor.iterative)
+                    .foregroundStyle(.blue)
+                    .font(.title3)
+                    .accessibilityHidden(true)
+            }
+            // Play/pause/loading: spinner while resolving, pause when the live
+            // row is playing, play otherwise. Tap toggles pause when live.
+            Button {
+                if isLive {
+                    playerVM.togglePlayPause()
+                } else {
                     Task { await playerVM.auditionTrack(track) }
-                } label: { Label("Audition", systemImage: "play.fill") }
-                    .buttonStyle(.bordered)
-                Button {
-                    Task { await verdict(track, "approved") }
-                } label: { Label("Accept", systemImage: "checkmark") }
-                    .buttonStyle(.borderedProminent).tint(.green)
-                Button {
-                    Task { await verdict(track, "rejected") }
-                } label: { Label("Reject", systemImage: "xmark") }
-                    .buttonStyle(.borderedProminent).tint(.red)
+                }
+            } label: {
+                if isLoading {
+                    ProgressView().controlSize(.regular)
+                } else {
+                    Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                        .font(.title)
+                        .foregroundStyle(.accentColor)
+                }
             }
-            .font(.caption)
-            .padding(.top, 4)
+            .buttonStyle(.plain)
+            .frame(width: 32, height: 32)
+            .accessibilityLabel(isPlaying ? "Pause audition" :
+                                (isLoading ? "Loading audition" : "Audition track"))
+            Button {
+                Task { await verdict(track, "approved") }
+            } label: {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(.green)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Approve")
+            Button {
+                Task { await verdict(track, "rejected") }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(.red)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Reject")
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
 
     private func reload() async {
@@ -302,6 +359,196 @@ struct CuratorReviewView: View {
     private func formatTime(_ s: Double) -> String {
         let t = Int(s); let m = t / 60; let sec = t % 60
         return String(format: "%d:%02d", m, sec)
+    }
+}
+
+// MARK: - Phase 5: Search → Add to Review
+
+/// Free-text Internet Archive search inside Curator Mode. Tap a result to drop
+/// it into the channel's REVIEW queue (never directly approved — every
+/// candidate still earns approval by audition). Already-verdicted tracks for
+/// this channel are skipped (the reject set is sticky).
+struct CuratorSearchAddView: View {
+    let channel: Channel
+    let db: DatabaseService
+    let archiveService: InternetArchiveService
+
+    @EnvironmentObject var playerVM: PlayerViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var query = ""
+    @State private var results: [SearchViewModel.ResultGroup] = []
+    @State private var isSearching = false
+    @State private var addedIds = Set<String>()
+    @State private var existingVerdicts: [String: String] = [:]
+    @State private var errorMessage: String?
+    @State private var showError = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if isSearching {
+                    Section { ProgressView() }
+                }
+                if results.isEmpty, !isSearching {
+                    Section {
+                        ContentUnavailableView(
+                            "Search archive.org",
+                            systemImage: "magnifyingglass",
+                            description: Text("Type a query and tap Search. Tap “Add” to drop a result into the review queue for “\(channel.name)”."))
+                    }
+                } else {
+                    Section("Results") {
+                        ForEach(results) { group in
+                            resultRow(group)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Add from Search")
+            .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $query, prompt: "Search music, audiobooks, lectures…")
+            .onSubmit(of: .search) {
+                Task { await search() }
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .alert("Search failed", isPresented: $showError) {
+                Button("OK", role: .cancel) {}
+            } message: { Text(errorMessage ?? "") }
+        }
+    }
+
+    @ViewBuilder
+    private func resultRow(_ group: SearchViewModel.ResultGroup) -> some View {
+        let live      = playerVM.currentTrack?.id == group.id
+        let isLoading = live && playerVM.isLoading
+        let isPlaying = live && playerVM.isPlaying && !isLoading
+        let verdict   = existingVerdicts[group.id]
+        let alreadyAdded = addedIds.contains(group.id) || verdict == "review"
+
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(group.title).font(.body).lineLimit(2)
+                Text(group.creator).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                if let v = verdict {
+                    Text(verdictLabel(v))
+                        .font(.caption2)
+                        .foregroundStyle(verdictColor(v))
+                }
+            }
+            Spacer(minLength: 8)
+            if isPlaying {
+                Image(systemName: "waveform")
+                    .symbolEffect(.variableColor.iterative)
+                    .foregroundStyle(.blue)
+                    .font(.title3)
+                    .accessibilityHidden(true)
+            }
+            Button {
+                if live {
+                    playerVM.togglePlayPause()
+                } else {
+                    Task { await playerVM.auditionTrack(searchTrack(group)) }
+                }
+            } label: {
+                if isLoading {
+                    ProgressView().controlSize(.regular)
+                } else {
+                    Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                        .font(.title)
+                        .foregroundStyle(.accentColor)
+                }
+            }
+            .buttonStyle(.plain)
+            .frame(width: 32, height: 32)
+            .accessibilityLabel(isPlaying ? "Pause audition" : "Audition")
+            Button {
+                Task { await add(group) }
+            } label: {
+                Image(systemName: alreadyAdded ? "checkmark.circle.fill" : "plus.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(alreadyAdded ? .green : .accentColor)
+            }
+            .buttonStyle(.plain)
+            .disabled(alreadyAdded || verdict == "approved" || verdict == "rejected")
+            .accessibilityLabel(alreadyAdded ? "Added to review queue" : "Add to review queue")
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func verdictLabel(_ s: String) -> String {
+        switch s {
+        case "approved": return "Already approved for this channel"
+        case "rejected": return "Already rejected for this channel"
+        case "review":   return "Already in the review queue"
+        default:         return ""
+        }
+    }
+
+    private func verdictColor(_ s: String) -> Color {
+        switch s {
+        case "approved": return .green
+        case "rejected": return .red
+        case "review":   return .secondary
+        default:         return .secondary
+        }
+    }
+
+    private func search() async {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return }
+        isSearching = true
+        defer { isSearching = false }
+        do {
+            results = try await archiveService.search(query: q, page: 0)
+            // Look up existing verdicts so the UI can mark already-added /
+            // already-verdicted results without offering a redundant Add tap.
+            var existing: [String: String] = [:]
+            for g in results {
+                if let s = await db.curationStatus(channelId: channel.id, trackId: g.id) {
+                    existing[g.id] = s
+                }
+            }
+            existingVerdicts = existing
+        } catch {
+            results = []
+            errorMessage = error.localizedDescription
+            showError = true
+        }
+    }
+
+    private func add(_ group: SearchViewModel.ResultGroup) async {
+        let t = searchTrack(group)
+        await db.saveTracks([t])
+        await db.ensureReviewSet(channelId: channel.id, trackIds: [t.id])
+        addedIds.insert(group.id)
+        existingVerdicts[group.id] = "review"
+    }
+
+    private func searchTrack(_ group: SearchViewModel.ResultGroup) -> Track {
+        Track(
+            id: group.id,
+            source: "internet_archive",
+            title: group.title,
+            artist: group.creator,
+            duration: group.duration,
+            streamURL: URL(string: "https://archive.org/download/\(group.id)")
+                ?? URL(string: "https://archive.org")!,
+            downloadURL: nil,
+            localFilePath: nil,
+            license: .publicDomain,
+            tags: [],
+            qualityScore: 1.0,
+            rawCreator: group.creator,
+            composer: nil,
+            instruments: [],
+            metadataConfidence: 1.0,
+            addedDate: group.addedDate
+        )
     }
 }
 
