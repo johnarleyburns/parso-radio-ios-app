@@ -88,21 +88,20 @@ struct PlaylistDetailView: View {
                 }
 
                 // Parental "Kid Safe" toggle. Only shown when NOT in Kids Mode
-                // (parents configure this from regular mode). Not offered on the
-                // built-in Favorites playlist.
-                if !playlist.isFavorites {
-                    Section {
-                        Toggle(isOn: Binding(
-                            get: { playlist.isKidSafe },
-                            set: { newValue in
-                                Task { await playlistVM.setKidSafe(playlist, newValue) }
-                            }
-                        )) {
-                            Label("Kid Safe", systemImage: "figure.and.child.holdinghands")
+                // (parents configure this from regular mode). Available on EVERY
+                // playlist including Favorites — parents may want to mark their
+                // own curated Favorites playlist as kid-safe. (Audit decision.)
+                Section {
+                    Toggle(isOn: Binding(
+                        get: { playlist.isKidSafe },
+                        set: { newValue in
+                            Task { await playlistVM.setKidSafe(playlist, newValue) }
                         }
-                    } footer: {
-                        Text("When on, this playlist appears in Kids Mode (read-only — kids can play it but can't edit it).")
+                    )) {
+                        Label("Kid Safe", systemImage: "figure.and.child.holdinghands")
                     }
+                } footer: {
+                    Text("When on, this playlist appears in Kids Mode (read-only — kids can play it but can't edit it).")
                 }
             }
 

@@ -250,10 +250,14 @@ struct iPodView: View {
             showPlaylists = false; showSearch = false; showAbout = false
             showMoreOptions = false; showAddToPlaylist = false
             showAddItemToPlaylist = false; showWheelHelp = false; showChapters = false
-            let needsRedirect = KidsModeController.shouldRedirect(
-                fromChannelId: playerVM.currentChannel?.id)
-            let onPlaylist = playerVM.currentPlaylist != nil
-            if needsRedirect || onPlaylist {
+            // Single decision: redirect ONLY if we're not on an allowed channel
+            // and not in a kid-safe playlist. A kid-safe playlist context is
+            // preserved on enable so the parent can hand the phone over without
+            // interrupting an already-curated kid playlist.
+            let needsRedirect = KidsModeController.needsRedirect(
+                currentChannelId: playerVM.currentChannel?.id,
+                currentPlaylistIsKidSafe: playerVM.currentPlaylist?.isKidSafe)
+            if needsRedirect {
                 let target = KidsModeController.allowedChannels().first ?? pendingChannel
                 Task { @MainActor in await playerVM.load(channel: target, autoPlay: true) }
             }

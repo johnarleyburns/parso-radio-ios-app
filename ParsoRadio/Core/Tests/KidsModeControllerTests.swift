@@ -61,4 +61,60 @@ final class KidsModeControllerTests: XCTestCase {
         XCTAssertFalse(KidsModeController.shouldRedirect(fromChannelId: "childrens-songs"))
         XCTAssertFalse(KidsModeController.shouldRedirect(fromChannelId: "childrens-books"))
     }
+
+    // needsRedirect — the unified decision that considers BOTH the channel
+    // allow-list AND the per-playlist isKidSafe flag.
+
+    func test_needsRedirect_kidSafePlaylistWins_evenOnNonKidsChannel() {
+        // If we're inside a kid-safe playlist, the playlist context wins; the
+        // channel allow-list doesn't matter (the playlist drives playback).
+        XCTAssertFalse(KidsModeController.needsRedirect(
+            currentChannelId: "news-bbc",
+            currentPlaylistIsKidSafe: true))
+    }
+
+    func test_needsRedirect_nonKidSafePlaylist_alwaysRedirects() {
+        XCTAssertTrue(KidsModeController.needsRedirect(
+            currentChannelId: "childrens-songs",
+            currentPlaylistIsKidSafe: false),
+            "a non-kid-safe playlist must redirect even if the channel was kid-safe")
+    }
+
+    func test_needsRedirect_noPlaylist_fallsBackToChannelAllowList() {
+        XCTAssertFalse(KidsModeController.needsRedirect(
+            currentChannelId: "childrens-books",
+            currentPlaylistIsKidSafe: nil))
+        XCTAssertTrue(KidsModeController.needsRedirect(
+            currentChannelId: "guitar-classical",
+            currentPlaylistIsKidSafe: nil))
+        XCTAssertTrue(KidsModeController.needsRedirect(
+            currentChannelId: nil,
+            currentPlaylistIsKidSafe: nil),
+            "no context at all → redirect")
+    }
+
+    // invariantHolds — the runtime guarantee Kids Mode must always satisfy.
+
+    func test_invariantHolds_kidSafePlaylist_holdsRegardlessOfChannel() {
+        XCTAssertTrue(KidsModeController.invariantHolds(
+            currentChannelId: nil, currentPlaylistIsKidSafe: true))
+        XCTAssertTrue(KidsModeController.invariantHolds(
+            currentChannelId: "news-bbc", currentPlaylistIsKidSafe: true))
+    }
+
+    func test_invariantHolds_nonKidSafePlaylist_alwaysFails() {
+        XCTAssertFalse(KidsModeController.invariantHolds(
+            currentChannelId: "childrens-songs", currentPlaylistIsKidSafe: false),
+            "a non-kid-safe playlist context violates the invariant even on a kids channel")
+    }
+
+    func test_invariantHolds_noPlaylist_requiresAllowedChannel() {
+        XCTAssertTrue(KidsModeController.invariantHolds(
+            currentChannelId: "childrens-songs", currentPlaylistIsKidSafe: nil))
+        XCTAssertFalse(KidsModeController.invariantHolds(
+            currentChannelId: "guitar-classical", currentPlaylistIsKidSafe: nil))
+        XCTAssertFalse(KidsModeController.invariantHolds(
+            currentChannelId: nil, currentPlaylistIsKidSafe: nil),
+            "no channel and no playlist → invariant fails (must load a kids channel)")
+    }
 }

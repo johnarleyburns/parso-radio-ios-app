@@ -47,45 +47,58 @@ Status legend: ✅ blocked · 🟡 partial / verify on device · 🟥 known gap
 | ContributionSupportView / toast | Toast suppressed in `ParsoRadioApp.body` overlay when `kids.isEnabled`; `evaluate()` also gated. |
 | AddTracksView | Only via PlaylistDetailView's "Add to Playlist…" — hidden in Kids Mode. |
 
-## Open items (the actual TODO for the next pass)
+## Open items (TODO + progress log)
 
 1. **Verify on-device** every 🟡 above is actually blocked, end-to-end. SwiftUI
    gating is correct in source; a device walk-through is the empirical proof.
+   *Status: open — every TestFlight build should include a quick walk.*
 2. **`playHistory` audit.** Trace every place that pushes to `playHistory`
    (`playTrack(recordHistory:)`, `advanceToNext`) and confirm in Kids Mode the
    history can ONLY contain tracks from kids channels or kid-safe playlists.
-   Add a unit test: clear → enter kids → play a sequence → assert every
-   `playHistory` entry has a kid-safe origin.
-3. **Favorites playlist** is currently *un-markable* as kid-safe (the toggle is
-   hidden when `playlist.isFavorites`). Decide: should parents be able to mark
-   Favorites kid-safe too? If yes, drop the `!playlist.isFavorites` guard and
-   ensure Favorites' read-only behavior holds in Kids Mode.
-4. **PlaylistDetailView tap-to-play in Kids Mode** — currently allowed
-   (playback, not editing). If you'd rather only allow Resume / Shuffle / Play
-   from top, gate the row `onTapGesture` on `!kids.isEnabled`.
-5. **`audioPlayer.repeatMode` carryover** — if the parent had `.one` set
-   pre-Kids-Mode, it persists. Acceptable, but document.
+   *Status: open — needs a scripted-session test using the existing
+   `FakeAudioEngine` harness.*
+3. ✅ **Favorites kid-safe** — *Decision: ALLOWED.* The toggle now appears on
+   every playlist including Favorites. Read-only-in-Kids-Mode behavior already
+   holds (the EditButton is gated globally on `!kids.isEnabled`).
+4. **PlaylistDetailView tap-to-play in Kids Mode** — *Decision: kept enabled*
+   (playback, not editing). Documented as the explicit policy.
+5. **`audioPlayer.repeatMode` carryover** — *Documented.* If the parent had
+   `.one` set pre-Kids-Mode, it persists. Acceptable.
 6. **Save/restore (`saveCurrentSpot`, `persistSession`) while in Kids Mode** —
-   confirm the saved channel/playlist on resign is always kid-safe, so the
-   next launch's restore-then-redirect can't briefly show a non-kid item.
-7. **Track Info → Chapter List → tap chapter** — chapters of a multi-part item
-   the kid is already playing; stays within the item. ✅, but include in test
-   to be explicit.
-8. **Lock-screen artwork tap** doesn't deep-link in iOS, but confirm no
-   `userActivity` / handoff path can route back into the app on a non-kid
-   track.
-9. **Tests to add (item 6):**
-   - `KidsModeNavigationTests` — programmatically construct each "would this
-     view appear?" predicate per surface and assert under `kids.isEnabled`.
-   - `PlayHistoryNeverContainsNonKidWhenKidsModeOn` — drive the player
-     through a scripted session.
-   - `EnableKidsMode_DropsPlaylistContext_IfNotKidSafe` — covered conceptually
-     by the iPodView `.onChange` redirect; lift the predicate into a pure
-     function and unit-test it (same pattern as `shouldRedirect`).
-10. **Programmatic invariant guard (optional).** A small DEBUG-only assertion
-    that, whenever `kids.isEnabled`, the `currentChannel` is in
-    `KidsModeController.allowedChannelIDs` OR the `currentPlaylist?.isKidSafe`
-    is true. Catches any leak we missed during manual testing.
+   *Status: open.* Verify on device that the saved playlist on resign is always
+   kid-safe (kid-safe playlists are preserved on enable as of this audit, so
+   the resign path is the next thing to confirm).
+7. **Track Info → Chapter List → tap chapter** — stays within the item. ✅
+   *Add an explicit test* (still open).
+8. **Lock-screen artwork tap / `userActivity` / handoff** — confirm no path
+   surfaces a non-kid track. *Status: open — device verification.*
+9. **Tests to add:**
+   - ✅ `KidsModeNavigationTests` — `shouldRedirect`, `needsRedirect`,
+     `invariantHolds` cases (this audit).
+   - ✅ `EnableKidsMode_DropsPlaylistContext_IfNotKidSafe` — covered by the
+     `needsRedirect_*` test cases.
+   - **Still open:** `PlayHistoryNeverContainsNonKidWhenKidsModeOn` — scripted
+     session via `FakeAudioEngine`.
+10. ✅ **Pure invariant predicate exposed.**
+    `KidsModeController.invariantHolds(currentChannelId:currentPlaylistIsKidSafe:)`
+    is the single source of truth — usable for a DEBUG `assertionFailure` at
+    each context transition, or for property-based fuzzing. Hook-up to a
+    runtime guard is a follow-up.
+
+### Helpers exposed by this audit
+
+```swift
+// Single decision for "enabling/maintaining Kids Mode requires redirect?"
+KidsModeController.needsRedirect(currentChannelId:, currentPlaylistIsKidSafe:)
+
+// The runtime invariant: allowed channel OR kid-safe playlist.
+KidsModeController.invariantHolds(currentChannelId:, currentPlaylistIsKidSafe:)
+```
+
+Both are unit-tested across the relevant cases and now drive the iPodView
+`.onChange(of: kids.isEnabled)` redirect — so a kid-safe playlist context is
+preserved when Kids Mode flips on (a parent can hand the phone over without
+interrupting an already-curated kid playlist).
 
 ## Process: how to use this list
 

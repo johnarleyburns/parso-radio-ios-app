@@ -66,6 +66,33 @@ final class KidsModeController: ObservableObject {
         return !allowedChannelIDs.contains(id)
     }
 
+    /// The single decision for "should enabling Kids Mode (or entering it on
+    /// launch) move us OUT of the current context?" — combines the channel
+    /// allow-list and the per-playlist `isKidSafe` flag. `currentPlaylistIsKidSafe`
+    /// is `nil` when there's no playlist (channel-only context).
+    ///
+    /// - On a playlist: keep iff the playlist is kid-safe.
+    /// - Otherwise: keep iff the channel is allowed.
+    static func needsRedirect(currentChannelId: String?,
+                              currentPlaylistIsKidSafe: Bool?) -> Bool {
+        if let isKidSafe = currentPlaylistIsKidSafe {
+            return !isKidSafe   // playlist context wins when present
+        }
+        return shouldRedirect(fromChannelId: currentChannelId)
+    }
+
+    /// The runtime invariant Kids Mode must always satisfy: the user is either
+    /// on an allowed channel, OR inside a kid-safe playlist. Surfaced so
+    /// callers can assert it (DEBUG runtime guard) and tests can prove it.
+    static func invariantHolds(currentChannelId: String?,
+                               currentPlaylistIsKidSafe: Bool?) -> Bool {
+        if currentPlaylistIsKidSafe == true { return true }
+        if currentPlaylistIsKidSafe == false { return false }
+        // No playlist context → require an allowed channel.
+        guard let id = currentChannelId else { return false }
+        return allowedChannelIDs.contains(id)
+    }
+
     /// Keep only digits, cap at 4.
     static func normalize(_ s: String) -> String {
         String(s.filter(\.isNumber).prefix(4))
