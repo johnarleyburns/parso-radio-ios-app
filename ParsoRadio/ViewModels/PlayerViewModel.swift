@@ -340,6 +340,37 @@ final class PlayerViewModel: ObservableObject {
         persistSession(position: pos)
     }
 
+    /// Called when Kids Mode is turning ON (mid-session, or while entering Kids
+    /// Mode on launch). Clears `playHistory` so back-track can't reach
+    /// pre-Kids-Mode tracks, and returns the channel the caller must load to
+    /// redirect — or `nil` if the current context is already kid-safe (a
+    /// children's channel or a kid-safe playlist). The single decision lives in
+    /// `KidsModeController.needsRedirect`, which is unit-tested.
+    func enterKidsMode() -> Channel? {
+        playHistory = []
+        let needs = KidsModeController.needsRedirect(
+            currentChannelId: currentChannel?.id,
+            currentPlaylistIsKidSafe: currentPlaylist?.isKidSafe)
+        guard needs else { return nil }
+        return KidsModeController.allowedChannels().first
+    }
+
+    /// DEBUG-only runtime check: while Kids Mode is on, the current context
+    /// MUST be an allowed channel OR a kid-safe playlist. Any other state is a
+    /// leak. Logs loud so manual TestFlight testing surfaces it; intentionally
+    /// NOT an assertionFailure so an unrelated test that flips the singleton
+    /// doesn't crash on this path.
+    func assertKidsModeInvariant() {
+        #if DEBUG
+        guard KidsModeController.shared.isEnabled else { return }
+        if !KidsModeController.invariantHolds(
+            currentChannelId: currentChannel?.id,
+            currentPlaylistIsKidSafe: currentPlaylist?.isKidSafe) {
+            Log.playback.error("⚠️ Kids Mode invariant violated — channel=\(self.currentChannel?.id ?? "nil") playlist.isKidSafe=\(String(describing: self.currentPlaylist?.isKidSafe))")
+        }
+        #endif
+    }
+
     func load(channel: Channel, autoPlay: Bool = true) async {
         // OFFLINE GUARD — the very first thing, BEFORE we stop the current audio.
         // If this channel needs the network, we're offline, and it has no
@@ -999,6 +1030,7 @@ final class PlayerViewModel: ObservableObject {
             errorMessage = nil
             consecutiveLoadFailures = 0
             loadAttempts[track.id] = nil   // resolved/loaded OK → clear retry count
+            assertKidsModeInvariant()      // DEBUG-only Kids Mode leak detector
             // Keep the loading indicator up until the player ACTUALLY produces
             // audio (the first periodic time tick clears it). Previously this
             // cleared the moment play() returned — seconds before sound. Ambient

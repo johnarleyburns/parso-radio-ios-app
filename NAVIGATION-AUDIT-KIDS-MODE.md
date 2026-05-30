@@ -52,11 +52,14 @@ Status legend: ✅ blocked · 🟡 partial / verify on device · 🟥 known gap
 1. **Verify on-device** every 🟡 above is actually blocked, end-to-end. SwiftUI
    gating is correct in source; a device walk-through is the empirical proof.
    *Status: open — every TestFlight build should include a quick walk.*
-2. **`playHistory` audit.** Trace every place that pushes to `playHistory`
-   (`playTrack(recordHistory:)`, `advanceToNext`) and confirm in Kids Mode the
-   history can ONLY contain tracks from kids channels or kid-safe playlists.
-   *Status: open — needs a scripted-session test using the existing
-   `FakeAudioEngine` harness.*
+2. ✅ **`playHistory` audit (entry side).** `PlayerViewModel.enterKidsMode()`
+   now clears `playHistory` unconditionally when Kids Mode flips on — so a
+   stray pre-Kids-Mode entry can never resurface. Unit-tested in
+   `KidsModeEnterTests` (non-kids channel, kids channel, kid-safe playlist,
+   non-kid-safe playlist, history-clear-even-when-staying). The
+   accumulation-side test (history pushed during an ongoing Kids-Mode session
+   only contains kid-safe origins) is left to the future
+   `FakeAudioEngine`-scripted session test.
 3. ✅ **Favorites kid-safe** — *Decision: ALLOWED.* The toggle now appears on
    every playlist including Favorites. Read-only-in-Kids-Mode behavior already
    holds (the EditButton is gated globally on `!kids.isEnabled`).
@@ -79,11 +82,13 @@ Status legend: ✅ blocked · 🟡 partial / verify on device · 🟥 known gap
      `needsRedirect_*` test cases.
    - **Still open:** `PlayHistoryNeverContainsNonKidWhenKidsModeOn` — scripted
      session via `FakeAudioEngine`.
-10. ✅ **Pure invariant predicate exposed.**
+10. ✅ **Pure invariant predicate exposed AND wired to a DEBUG runtime guard.**
     `KidsModeController.invariantHolds(currentChannelId:currentPlaylistIsKidSafe:)`
-    is the single source of truth — usable for a DEBUG `assertionFailure` at
-    each context transition, or for property-based fuzzing. Hook-up to a
-    runtime guard is a follow-up.
+    is called from `PlayerViewModel.assertKidsModeInvariant()` at the end of
+    every successful `playTrack`. While Kids Mode is on, any violation logs a
+    loud `⚠️ Kids Mode invariant violated` to `Log.playback.error` (intentionally
+    not `assertionFailure` — keeps test runs that flip the singleton from
+    crashing). Manual TestFlight testing will surface any remaining leak.
 
 ### Helpers exposed by this audit
 
