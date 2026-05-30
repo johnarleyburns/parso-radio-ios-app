@@ -1217,6 +1217,42 @@ final class PlayerViewModel: ObservableObject {
         await playlistVM.addTracks(ordered, to: playlist)
     }
 
+    /// Play the CURRENT track's whole item (album / book) as a transient
+    /// playlist queue — in order, or SHUFFLED when `shuffleMode` is on. Track
+    /// Info's "Play Entire Album/Book" calls this. Leaves the channel context
+    /// so the album owns playback; advancePlaylist walks the parts.
+    func playEntireCurrentItem() async {
+        guard let track = currentTrack else { return }
+        let identifier = track.parentIdentifier ?? track.id
+        guard let parts = await resolveItemParts(identifier: identifier),
+              !parts.isEmpty else { return }
+        let ordered: [Track]
+        if shuffleMode, parts.count > 1 {
+            ordered = parts.shuffled()
+        } else {
+            ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+        }
+        saveAutosaveForCurrentTrack()
+        // Build a transient (non-persisted) album playlist. The id is prefixed
+        // "album:" so any saved-position writes don't collide with real
+        // playlists. Bump the context token so prior in-flight loads bail.
+        let albumPlaylist = Playlist(
+            id: "album:\(identifier)",
+            name: itemDisplayName(for: track),
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFavorites: false,
+            isKidSafe: false
+        )
+        currentChannel = nil
+        currentPlaylist = albumPlaylist
+        playlistTracks = ordered
+        playlistIndex = 0
+        playbackContextToken &+= 1
+        playHistory = []
+        await playTrack(ordered[0], seekTo: nil, recordHistory: false)
+    }
+
     // One-tap: create a playlist named after the book/album and add every
     // part to it in order. Smoother than the picker for a fresh shelf.
     @discardableResult

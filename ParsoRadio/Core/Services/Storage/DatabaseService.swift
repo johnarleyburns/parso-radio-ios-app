@@ -52,6 +52,10 @@ final class DatabaseService: @unchecked Sendable {
     private let colUpdatedAt     = Expression<Double>("updated_at")
     private let colIsFavorites   = Expression<Bool>("is_favorites")
     private let colPlaylistOrder = Expression<Int?>("sort_order")
+    // Parental flag: parents mark playlists kid-safe; only those appear in Kids
+    // Mode (and they're read-only there). Added via idempotent migration so
+    // existing rows default to false.
+    private let colPlaylistKidSafe = Expression<Bool>("is_kid_safe")
 
     // MARK: - Playlist tracks table
     private let playlistTracks   = Table("playlist_tracks")
@@ -132,6 +136,7 @@ final class DatabaseService: @unchecked Sendable {
             t.column(colCreatedAt)
             t.column(colUpdatedAt)
             t.column(colIsFavorites, defaultValue: false)
+            t.column(colPlaylistKidSafe, defaultValue: false)
         })
 
         // Playlist tracks join table
@@ -201,6 +206,11 @@ final class DatabaseService: @unchecked Sendable {
                 WHERE p2.created_at <= playlists.created_at
             ) WHERE sort_order IS NULL
         """)
+        // Kids Mode: parental "kid safe" flag per playlist. Defaults to false
+        // so EVERY existing playlist remains adult-by-default — parents must
+        // explicitly opt-in per playlist.
+        _ = try? db.run(
+            "ALTER TABLE playlists ADD COLUMN is_kid_safe INTEGER NOT NULL DEFAULT 0")
 
         // Enable FK enforcement
         _ = try? db.run("PRAGMA foreign_keys = ON")
@@ -553,7 +563,8 @@ final class DatabaseService: @unchecked Sendable {
                         self.colCreatedAt    <- p.createdAt.timeIntervalSince1970,
                         self.colUpdatedAt    <- p.updatedAt.timeIntervalSince1970,
                         self.colIsFavorites  <- p.isFavorites,
-                        self.colPlaylistOrder <- maxOrder + 1
+                        self.colPlaylistOrder <- maxOrder + 1,
+                        self.colPlaylistKidSafe <- p.isKidSafe
                     ))
                     continuation.resume(returning: p)
                 } catch {
@@ -578,7 +589,8 @@ final class DatabaseService: @unchecked Sendable {
                         name:        row[self.colPlaylistName],
                         createdAt:   Date(timeIntervalSince1970: row[self.colCreatedAt]),
                         updatedAt:   Date(timeIntervalSince1970: row[self.colUpdatedAt]),
-                        isFavorites: row[self.colIsFavorites]
+                        isFavorites: row[self.colIsFavorites],
+                        isKidSafe:   row[self.colPlaylistKidSafe]
                     )
                 }
                 continuation.resume(returning: result ?? [])
@@ -609,6 +621,20 @@ final class DatabaseService: @unchecked Sendable {
                 _ = try? self.db.run(row.update(
                     self.colPlaylistName <- name,
                     self.colUpdatedAt    <- Date().timeIntervalSince1970
+                ))
+                continuation.resume()
+            }
+        }
+    }
+
+    /// Parental "kid safe" flag — only kid-safe playlists appear in Kids Mode.
+    func setPlaylistKidSafe(id: String, isKidSafe: Bool) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let row = self.playlists.filter(self.colPlaylistId == id)
+                _ = try? self.db.run(row.update(
+                    self.colPlaylistKidSafe <- isKidSafe,
+                    self.colUpdatedAt       <- Date().timeIntervalSince1970
                 ))
                 continuation.resume()
             }

@@ -42,6 +42,17 @@ final class PlaylistViewModel: ObservableObject {
         await loadPlaylists()
     }
 
+    /// Parental "kid safe" toggle. Only kid-safe playlists appear inside Kids
+    /// Mode (and they're read-only there).
+    func setKidSafe(_ playlist: Playlist, _ isKidSafe: Bool) async {
+        await db.setPlaylistKidSafe(id: playlist.id, isKidSafe: isKidSafe)
+        await loadPlaylists()
+    }
+
+    /// The kid-safe playlists in current order — the Kids Mode menu's playlist
+    /// section reads from this.
+    var kidSafePlaylists: [Playlist] { playlists.filter(\.isKidSafe) }
+
     func deletePlaylist(_ playlist: Playlist) async {
         guard !playlist.isFavorites else { return }
         await db.deletePlaylist(id: playlist.id)

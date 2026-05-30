@@ -170,12 +170,17 @@ struct iPodView: View {
             .environmentObject(offlineService)
         }
         .sheet(isPresented: $showKidsMenu) {
-            KidsMenuView(onSelectChannel: { channel in
-                pendingChannel = channel
-                showKidsMenu = false
-                Task { await playerVM.load(channel: channel) }
-            })
+            KidsMenuView(
+                onSelectChannel: { channel in
+                    pendingChannel = channel
+                    showKidsMenu = false
+                    Task { await playerVM.load(channel: channel) }
+                },
+                dismissAll: { showKidsMenu = false }
+            )
             .environmentObject(playerVM)
+            .environmentObject(playlistVM)
+            .environmentObject(offlineService)
         }
         .sheet(isPresented: $showChannelSelector) {
             ChannelSelectorView(currentChannelId: displayChannel.id) { channel in
@@ -245,10 +250,10 @@ struct iPodView: View {
             showPlaylists = false; showSearch = false; showAbout = false
             showMoreOptions = false; showAddToPlaylist = false
             showAddItemToPlaylist = false; showWheelHelp = false; showChapters = false
-            let onAllowedChannel = playerVM.currentChannel?.id
-                .map(KidsModeController.allowedChannelIDs.contains) ?? false
+            let needsRedirect = KidsModeController.shouldRedirect(
+                fromChannelId: playerVM.currentChannel?.id)
             let onPlaylist = playerVM.currentPlaylist != nil
-            if !onAllowedChannel || onPlaylist {
+            if needsRedirect || onPlaylist {
                 let target = KidsModeController.allowedChannels().first ?? pendingChannel
                 Task { @MainActor in await playerVM.load(channel: target, autoPlay: true) }
             }
@@ -269,6 +274,10 @@ struct iPodView: View {
                 let allowed = KidsModeController.allowedChannels()
                 let ch = allowed.first { $0.id == lastId } ?? allowed.first ?? pendingChannel
                 await playerVM.load(channel: ch, autoPlay: true)
+                // Kids Mode persists across launches — confirm visually by
+                // presenting the kids menu, so a parent (and child) see at a
+                // glance that it's still on after an app update / relaunch.
+                showKidsMenu = true
             } else {
                 // Resume EXACTLY where the user was — same channel/playlist, track
                 // and offset — and START PLAYING. A radio app should pick up
@@ -722,6 +731,21 @@ struct iPodView: View {
                                 AirPlayButton()
                                     .frame(width: 32, height: 32)
                                     .accessibilityLabel("AirPlay")
+                            }
+                        }
+
+                        // Multi-part: one-tap to play the WHOLE work in order
+                        // (or shuffled when shuffle is on). Stays visible in
+                        // Kids Mode — it's playback, not editing.
+                        if playerVM.currentTrackIsMultiPart {
+                            Section {
+                                Button {
+                                    showMoreOptions = false
+                                    Task { await playerVM.playEntireCurrentItem() }
+                                } label: {
+                                    Label("Play Entire \(itemKindLabel(track))",
+                                          systemImage: "play.rectangle.fill")
+                                }
                             }
                         }
 

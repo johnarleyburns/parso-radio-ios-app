@@ -7,6 +7,7 @@ struct PlaylistDetailView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
     @State private var editMode: EditMode = .inactive
+    @ObservedObject private var kids = KidsModeController.shared
     // Where the user left off in THIS playlist (track still present + offset).
     @State private var resume: (track: Track, seconds: Double)? = nil
 
@@ -75,13 +76,33 @@ struct PlaylistDetailView: View {
                 .padding(.vertical, 4)
             }
 
-            Section {
-                NavigationLink {
-                    AddTracksView(playlist: playlist, db: playlistVM.db)
-                        .environmentObject(playlistVM)
-                        .environmentObject(playerVM)
-                } label: {
-                    Label("Add to Playlist…", systemImage: "plus.circle")
+            if !kids.isEnabled {
+                Section {
+                    NavigationLink {
+                        AddTracksView(playlist: playlist, db: playlistVM.db)
+                            .environmentObject(playlistVM)
+                            .environmentObject(playerVM)
+                    } label: {
+                        Label("Add to Playlist…", systemImage: "plus.circle")
+                    }
+                }
+
+                // Parental "Kid Safe" toggle. Only shown when NOT in Kids Mode
+                // (parents configure this from regular mode). Not offered on the
+                // built-in Favorites playlist.
+                if !playlist.isFavorites {
+                    Section {
+                        Toggle(isOn: Binding(
+                            get: { playlist.isKidSafe },
+                            set: { newValue in
+                                Task { await playlistVM.setKidSafe(playlist, newValue) }
+                            }
+                        )) {
+                            Label("Kid Safe", systemImage: "figure.and.child.holdinghands")
+                        }
+                    } footer: {
+                        Text("When on, this playlist appears in Kids Mode (read-only — kids can play it but can't edit it).")
+                    }
                 }
             }
 
@@ -141,9 +162,16 @@ struct PlaylistDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.editMode, $editMode)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                EditButton()
+            if !kids.isEnabled {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    EditButton()
+                }
             }
+        }
+        .onChange(of: kids.isEnabled) { _, on in
+            // Kids Mode flipped on while this view is open → kill the EditMode
+            // session so no reorder/delete remains active.
+            if on { editMode = .inactive }
         }
         .task {
             await playlistVM.loadTracks(for: playlist)
