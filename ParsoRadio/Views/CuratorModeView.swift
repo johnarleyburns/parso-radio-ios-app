@@ -300,7 +300,7 @@ struct CuratorReviewView: View {
                 } else {
                     Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .font(.title)
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
             .buttonStyle(.plain)
@@ -460,7 +460,7 @@ struct CuratorSearchAddView: View {
                 } else {
                     Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .font(.title)
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
             .buttonStyle(.plain)
@@ -471,7 +471,7 @@ struct CuratorSearchAddView: View {
             } label: {
                 Image(systemName: alreadyAdded ? "checkmark.circle.fill" : "plus.circle.fill")
                     .font(.title)
-                    .foregroundStyle(alreadyAdded ? .green : .accentColor)
+                    .foregroundStyle(alreadyAdded ? Color.green : Color.accentColor)
             }
             .buttonStyle(.plain)
             .disabled(alreadyAdded || verdict == "approved" || verdict == "rejected")
