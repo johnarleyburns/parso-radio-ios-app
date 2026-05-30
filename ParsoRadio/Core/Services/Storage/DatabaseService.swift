@@ -510,6 +510,50 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
+    /// Insert `trackIds` into the channel's REVIEW queue, SKIPPING any that
+    /// already carry a verdict (approved/rejected). Idempotent: re-ingesting
+    /// candidates never resurrects rejected tracks (the reject set is sticky).
+    func ensureReviewSet(channelId: String, trackIds: [String]) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let now = Date().timeIntervalSince1970
+                for tid in trackIds {
+                    let already = (try? db.scalar(curation
+                        .filter(colCurChannel == channelId && colCurTrack == tid)
+                        .count)) ?? 0
+                    if already == 0 {
+                        _ = try? db.run(curation.insert(
+                            colCurChannel    <- channelId,
+                            colCurTrack      <- tid,
+                            colCurStatus     <- "review",
+                            colCurReviewedAt <- now,
+                            colCurNote       <- nil
+                        ))
+                    }
+                }
+                cont.resume()
+            }
+        }
+    }
+
+    /// Tracks currently in the review queue for a channel, joined to full
+    /// track metadata (so the curator UI can render + audition them).
+    func reviewSetTracks(channelId: String) async -> [Track] {
+        await withCheckedContinuation { cont in
+            queue.async { [self] in
+                let ids = (try? db.prepare(curation.select(colCurTrack)
+                    .filter(colCurChannel == channelId && colCurStatus == "review")))?
+                    .map { $0[colCurTrack] } ?? []
+                var out: [Track] = []
+                for id in ids {
+                    if let row = try? db.pluck(tracks.filter(colId == id)),
+                       let t = rowToTrack(row) { out.append(t) }
+                }
+                cont.resume(returning: out)
+            }
+        }
+    }
+
     // MARK: - Playback position
 
     func savePosition(channelId: String, trackId: String, seconds: Double) async {

@@ -97,6 +97,39 @@ final class CurationTests: XCTestCase {
             "a curated channel must play ONLY the manifest's approved tracks")
     }
 
+    // Phase 3 of Curator Mode: the review-set ingest helper. Default-deny on
+    // the reject set — re-ingesting a candidate that was rejected must NEVER
+    // resurrect it as a review candidate.
+
+    func test_ensureReviewSetInsertsNewCandidatesAsReview() async {
+        await db.saveTracks([track("t1"), track("t2")])
+        await db.ensureReviewSet(channelId: "c1", trackIds: ["t1", "t2"])
+        let review = await db.curationTrackIds(channelId: "c1", status: "review")
+        XCTAssertEqual(Set(review), ["t1", "t2"])
+    }
+
+    func test_ensureReviewSetSkipsAlreadyVerdicted() async {
+        await db.saveTracks([track("t1"), track("t2"), track("t3")])
+        await db.setCuration(channelId: "c1", trackId: "t1", status: "approved")
+        await db.setCuration(channelId: "c1", trackId: "t2", status: "rejected")
+        await db.ensureReviewSet(channelId: "c1", trackIds: ["t1", "t2", "t3"])
+        let review = await db.curationTrackIds(channelId: "c1", status: "review")
+        XCTAssertEqual(review, ["t3"],
+            "already-approved/rejected tracks must NEVER be reset to review (sticky verdicts)")
+        let approved = await db.curationTrackIds(channelId: "c1", status: "approved")
+        XCTAssertEqual(approved, ["t1"])
+        let rejected = await db.curationTrackIds(channelId: "c1", status: "rejected")
+        XCTAssertEqual(rejected, ["t2"])
+    }
+
+    func test_reviewSetTracksJoinsMetadata() async {
+        await db.saveTracks([track("r1"), track("r2")])
+        await db.ensureReviewSet(channelId: "c1", trackIds: ["r1", "r2"])
+        let queue = await db.reviewSetTracks(channelId: "c1")
+        XCTAssertEqual(Set(queue.map(\.id)), ["r1", "r2"])
+        XCTAssertEqual(queue.first(where: { $0.id == "r1" })?.title, "T r1")
+    }
+
     func test_manifestDecodesAndQueries() throws {
         let json = Data("""
         {"version":1,"channels":{"childrens-songs":{"updatedAt":"2026-05-29",

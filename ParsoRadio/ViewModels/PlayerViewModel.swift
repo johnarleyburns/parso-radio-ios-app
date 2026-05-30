@@ -51,8 +51,9 @@ final class PlayerViewModel: ObservableObject {
 
     let audioPlayer: any AudioEngine
 
-    private let db: DatabaseService
-    private let archiveService: InternetArchiveService
+    // Internal so the Curator UI can drive the DB through the same model layer.
+    let db: DatabaseService
+    let archiveService: InternetArchiveService
     private let fmaService: FMAService
     private let oxfordService: OxfordLecturesService
     private let podcastService: PodcastRSSService
@@ -1407,6 +1408,21 @@ final class PlayerViewModel: ObservableObject {
         trackDuration = (pre?.duration ?? 0) > 0 ? pre?.duration : nil
         isLoading = true
         loadingMessage = "Loading…"
+    }
+
+    /// Audition a candidate from Curator Mode: play this exact track once,
+    /// outside any channel / playlist context (the curator's verdict isn't
+    /// playback, so no history / position recording is wanted).
+    func auditionTrack(_ track: Track) async {
+        currentChannel = nil
+        currentPlaylist = nil
+        playlistTracks = []
+        playlistIndex = 0
+        playbackContextToken &+= 1
+        playHistory = []
+        channelDescription = ""
+        beginTransition(pre: track)
+        await playTrack(track, seekTo: nil, recordHistory: false)
     }
 
     // Play a single Internet Archive search result immediately.
