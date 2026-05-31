@@ -1117,18 +1117,50 @@ final class PlayerViewModel: ObservableObject {
             errorMessage = "Couldn't start playback — check your connection and try again."
         case .skip:
             Log.playback.error("Track stalled (no audio in \(self.stallTimeout)s) — skipping")
-            // Advance to the next track, keeping the original play intent so a
-            // paused launch lands paused on a working track (not silently playing).
             audioPlayer.skip()
-            isSkipping = true
             isPlaying = false
             currentPosition = 0
             errorMessage = nil
+            // Audition context (no channel, no playlist) has nowhere to advance —
+            // surface an error and CLEAR the spinner so it can't hang forever
+            // (was: "Skipping unavailable track…" then advanceToNext returned
+            // silently and isLoading stayed true — the curator-audition stuck-
+            // spinner bug).
+            if currentChannel == nil, currentPlaylist == nil {
+                currentTrack = nil
+                trackDuration = nil
+                isLoading = false
+                loadingMessage = nil
+                errorMessage = "Couldn't play this track. It may be unavailable."
+                return
+            }
+            // Advance to the next track, keeping the original play intent so a
+            // paused launch lands paused on a working track (not silently playing).
+            isSkipping = true
             isLoading = true
             loadingMessage = "Skipping unavailable track…"
             await advanceToNext(autoPlay: autoPlay)
             isSkipping = false
         }
+    }
+
+    /// Stop any **audition-context** playback (no channel, no playlist active).
+    /// Used by Curator Mode when the user exits the curator screen or
+    /// backgrounds the app. No-op when current playback came from a real
+    /// channel/playlist — we never disturb genuine listening.
+    func stopAudition() {
+        guard currentChannel == nil, currentPlaylist == nil,
+              (currentTrack != nil || isLoading) else { return }
+        stallWatchdog?.cancel()
+        stallWatchdog = nil
+        audioPlayer.skip()
+        currentTrack = nil
+        trackDuration = nil
+        isPlaying = false
+        isLoading = false
+        loadingMessage = nil
+        errorMessage = nil
+        playbackContextToken &+= 1   // invalidate any in-flight playTrack
     }
 
     // MARK: - Whole book/album

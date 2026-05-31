@@ -271,18 +271,19 @@ struct iPodView: View {
                 let lastId = UserDefaults.standard.string(forKey: "lastChannelId")
                 let allowed = KidsModeController.allowedChannels()
                 let ch = allowed.first { $0.id == lastId } ?? allowed.first ?? pendingChannel
-                await playerVM.load(channel: ch, autoPlay: true)
+                // NEVER auto-play on launch — load the channel paused, user taps
+                // the wheel play to start.
+                await playerVM.load(channel: ch, autoPlay: false)
                 // Kids Mode persists across launches — confirm visually by
                 // presenting the kids menu, so a parent (and child) see at a
                 // glance that it's still on after an app update / relaunch.
                 showKidsMenu = true
             } else {
-                // Resume EXACTLY where the user was — same channel/playlist, track
-                // and offset — and START PLAYING. A radio app should pick up
-                // playing on launch (and this sidesteps the launch-after-update
-                // bug where a paused resume hung silently with no progress).
+                // Resume EXACTLY where the user was, but PAUSED — the user
+                // explicitly asked never to auto-play on launch / return from
+                // background. They tap play to start.
                 await playerVM.restoreLastSession(fallbackChannel: pendingChannel,
-                                                  autoPlay: true)
+                                                  autoPlay: false)
             }
             // First launch: show the wheel guide once so the gestures are
             // discoverable.

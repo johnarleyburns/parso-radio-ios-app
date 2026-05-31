@@ -185,6 +185,7 @@ struct CuratorReviewView: View {
     let archiveService: InternetArchiveService
 
     @EnvironmentObject var playerVM: PlayerViewModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var queue: [Track] = []
     @State private var counts: (review: Int, approved: Int, rejected: Int) = (0, 0, 0)
     @State private var isFetching = false
@@ -254,6 +255,12 @@ struct CuratorReviewView: View {
         }
         .onChange(of: showSearchAdd) { _, shown in
             if !shown { Task { await reload() } }   // refresh queue on dismiss
+        }
+        // Exit the review screen or background the app → STOP audition so a
+        // curator track never keeps playing once the curator has stepped away.
+        .onDisappear { playerVM.stopAudition() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { playerVM.stopAudition() }
         }
         .task { await reload() }
         .alert("Fetch failed", isPresented: $showFetchError) {
@@ -335,8 +342,20 @@ struct CuratorReviewView: View {
     }
 
     private func verdict(_ track: Track, _ status: String) async {
+        // Capture whether we just verdicted the LIVE track before mutating the
+        // queue — used to auto-advance to the next candidate so the curator can
+        // sprint through reviews without an extra tap per track.
+        let wasPlaying = playerVM.currentTrack?.id == track.id
         await db.setCuration(channelId: channel.id, trackId: track.id, status: status)
         await reload()
+        guard wasPlaying else { return }
+        if let next = queue.first {
+            await playerVM.auditionTrack(next)
+        } else {
+            // No more candidates → stop audition so the spinner/pause icon
+            // doesn't linger on a track that no longer exists in the queue.
+            playerVM.stopAudition()
+        }
     }
 
     private func loadMoreCandidates() async {
@@ -344,12 +363,24 @@ struct CuratorReviewView: View {
         isFetching = true
         defer { isFetching = false }
         do {
+            // Measure delta so we can tell the user when the channel is
+            // exhausted (IA returned nothing new — already-verdicted tracks are
+            // SKIPPED by ensureReviewSet, so "0 added" means we've seen them all).
+            let before = await db.curationCounts(channelId: channel.id)
+            let beforeTotal = before.review + before.approved + before.rejected
             let candidates = try await archiveService.fetchTracks(
                 iaQuery: entry.iaQuery, matchTags: entry.matchTags)
             await db.saveTracks(candidates)
             await db.ensureReviewSet(channelId: channel.id,
                                      trackIds: candidates.map(\.id))
             await reload()
+            let after = await db.curationCounts(channelId: channel.id)
+            let afterTotal = after.review + after.approved + after.rejected
+            let added = afterTotal - beforeTotal
+            if added == 0 {
+                fetchError = "No new candidates — every track IA returned is already reviewed for this channel. The query may be exhausted; broaden it in ia_queries.json or use Add from Search."
+                showFetchError = true
+            }
         } catch {
             fetchError = error.localizedDescription
             showFetchError = true
@@ -375,6 +406,7 @@ struct CuratorSearchAddView: View {
 
     @EnvironmentObject var playerVM: PlayerViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var query = ""
     @State private var results: [SearchViewModel.ResultGroup] = []
@@ -419,6 +451,10 @@ struct CuratorSearchAddView: View {
             .alert("Search failed", isPresented: $showError) {
                 Button("OK", role: .cancel) {}
             } message: { Text(errorMessage ?? "") }
+            .onDisappear { playerVM.stopAudition() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active { playerVM.stopAudition() }
+            }
         }
     }
 
