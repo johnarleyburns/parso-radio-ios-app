@@ -423,7 +423,10 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertTrue(QueueManager.usesShuffle(channel: channel, shuffleMode: true))
 
         // Deterministic drain: whole pool reachable regardless of order.
-        let qm = QueueManager(db: db)
+        // guitar-classical is now manifest-only; inject the test tracks via the
+        // manifest pool to exercise the SAME "every pool track is reachable"
+        // property under the new architecture.
+        let qm = QueueManager(db: db, manifestPool: { _ in tracks })
         var seen = Set<String>()
         for _ in 0..<8 {
             guard let n = await qm.nextTrack(channel: channel, shuffleMode: false) else { break }
@@ -1161,8 +1164,10 @@ final class IAQueryRegistryTests: XCTestCase {
                        && entry?.iaQuery.contains("Sabicas") ?? false
                        && entry?.iaQuery.contains("Laurindo Almeida") ?? false,
             "iaQuery must match the master guitarists")
-        XCTAssertFalse(entry?.iaQuery.contains("subject:\"classical guitar\"") ?? true,
-            "the broad amateur-leaking subject arm must be gone")
+        // Curator-Mode policy: queries are deliberately BROADENED; manual
+        // rejection in Curator Mode handles amateur noise.
+        XCTAssertTrue(entry?.iaQuery.contains("subject:\"classical guitar\"") ?? false,
+            "broadened query includes the subject arm — manual rejection handles noise")
         // Still excludes spoken content.
         for excluded in ["subject:interview", "subject:talk", "subject:lecture", "title:interview"] {
             XCTAssertTrue(entry?.iaQuery.contains(excluded) ?? false,

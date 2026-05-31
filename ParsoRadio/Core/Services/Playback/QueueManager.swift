@@ -123,7 +123,13 @@ final class QueueManager {
         // the on-device live-curation feedback loop work: as the curator
         // approves tracks, the channel populates LIVE without an app rebuild.
         let curated = manifestPool(channel.id)
-        let isCuratedCategory = (channel.category == "Curated")
+        // Only enforce manifest-only on SHIPPED Curated channels (those with
+        // an `iaQueryEntry` in the registry). Test fixtures like
+        // `Channel.fmaJazzTestChannel` reuse the "Curated" category for legacy
+        // reasons but have no registry entry — they keep their tag-based
+        // search-pool fallback.
+        let isCuratedCategory =
+            (channel.category == "Curated" && channel.iaQueryEntry != nil)
         if !curated.isEmpty {
             var approvedPool = curated.filter { !recent.contains($0.id) }
             if approvedPool.isEmpty {            // cycled all → reset, replay

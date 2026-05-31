@@ -78,8 +78,11 @@ final class ChannelTests: XCTestCase {
             "must NOT include John Williams (the film composer pollutes results)")
         XCTAssertTrue(q.contains("subject:vocal") && q.contains("creator:\"Salli Terri\""),
             "must exclude vocal songs (e.g. Salli Terri collaborations)")
-        XCTAssertFalse(q.contains("subject:\"classical guitar\""),
-            "The broad amateur-leaking subject arm must be gone")
+        // Curator-Mode policy: queries are deliberately BROADENED so more
+        // candidates surface for human review; manual rejection in Curator
+        // Mode handles amateur noise. The broad subject arm IS in the query.
+        XCTAssertTrue(q.contains("subject:\"classical guitar\""),
+            "broadened query must include the subject arm — manual rejection handles amateur noise")
         XCTAssertTrue(q.contains("subject:interview") && q.contains("subject:talk")
             && q.contains("subject:lecture") && q.contains("title:interview"),
             "Must still exclude interviews / talks / lectures")
