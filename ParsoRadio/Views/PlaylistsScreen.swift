@@ -4,34 +4,78 @@ import SwiftUI
 /// pushes the playlist detail; Edit reorders/deletes; + creates a new playlist.
 struct PlaylistsScreen: View {
     let dismissAll: () -> Void
+    /// Loads + dismisses the menu when an auto-generated row (Music/Books for
+    /// You) is tapped. Recently Played stays a navigation drill-in.
+    let onSelectChannel: (Channel) -> Void
+
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @State private var editMode: EditMode = .inactive
     @State private var showCreate = false
     @State private var newName = ""
+
+    private var musicForYou: Channel? {
+        Channel.defaults.first { $0.id == "music-for-you" }
+    }
+    private var booksForYou: Channel? {
+        Channel.defaults.first { $0.id == "books-for-you" }
+    }
 
     var body: some View {
         let favorites = playlistVM.playlists.filter { $0.isFavorites }
         let others    = playlistVM.playlists.filter { !$0.isFavorites }
 
         List {
+            // Auto-generated entries live INSIDE Playlists so the top-level
+            // menu stays focused on real channel categories. Recently Played
+            // drills in to the existing screen; the For-You rows behave like
+            // channels (load + dismiss).
+            Section("Made for You") {
+                NavigationLink(value: MenuRoute.recentlyPlayed) {
+                    Label("Recently Played",
+                          systemImage: "clock.arrow.circlepath")
+                }
+                if let m = musicForYou {
+                    Button {
+                        onSelectChannel(m)
+                    } label: {
+                        Label(m.name, systemImage: "sparkles")
+                            .foregroundStyle(.primary)
+                    }
+                    .accessibilityHint("Plays curated music recommendations based on your listening")
+                }
+                if let b = booksForYou {
+                    Button {
+                        onSelectChannel(b)
+                    } label: {
+                        Label(b.name, systemImage: "sparkles")
+                            .foregroundStyle(.primary)
+                    }
+                    .accessibilityHint("Plays book recommendations based on your listening")
+                }
+            }
+
             if playlistVM.playlists.isEmpty {
-                ContentUnavailableView(
-                    "No Playlists",
-                    systemImage: "music.note.list",
-                    description: Text("Add tracks to a playlist from Track Info or search to get started.")
-                )
+                Section {
+                    ContentUnavailableView(
+                        "No Playlists",
+                        systemImage: "music.note.list",
+                        description: Text("Add tracks to a playlist from Track Info or search to get started.")
+                    )
+                }
             } else {
-                ForEach(favorites) { pl in row(pl) }
-                ForEach(others) { pl in row(pl) }
-                    .onMove { indices, newOffset in
-                        var reordered = others
-                        reordered.move(fromOffsets: indices, toOffset: newOffset)
-                        Task { await playlistVM.reorderPlaylists(reordered) }
-                    }
-                    .onDelete { indices in
-                        let toDelete = indices.map { others[$0] }
-                        Task { for pl in toDelete { await playlistVM.deletePlaylist(pl) } }
-                    }
+                Section("My Playlists") {
+                    ForEach(favorites) { pl in row(pl) }
+                    ForEach(others) { pl in row(pl) }
+                        .onMove { indices, newOffset in
+                            var reordered = others
+                            reordered.move(fromOffsets: indices, toOffset: newOffset)
+                            Task { await playlistVM.reorderPlaylists(reordered) }
+                        }
+                        .onDelete { indices in
+                            let toDelete = indices.map { others[$0] }
+                            Task { for pl in toDelete { await playlistVM.deletePlaylist(pl) } }
+                        }
+                }
             }
         }
         .environment(\.editMode, $editMode)

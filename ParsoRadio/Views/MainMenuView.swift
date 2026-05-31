@@ -64,8 +64,12 @@ struct MainMenuView: View {
     }
 
     // Fixed section order. Alphabetical WITHIN each.
+    // NOTE: "For You" is INTENTIONALLY OMITTED here — Music for You and Books
+    // for You are surfaced as auto-generated entries at the top of the Playlists
+    // screen instead, alongside Recently Played, so the top-level menu stays
+    // focused on real channel categories.
     private static let categoryOrder = [
-        "For You", "Curated", "Ambient", "News", "Audiobooks", "Lectures"
+        "Curated", "Ambient", "News", "Audiobooks", "Lectures"
     ]
 
     static func orderedCategories() -> [String] {
@@ -105,7 +109,10 @@ struct MainMenuView: View {
                                       channels: channels(in: category),
                                       onSelect: { channel in onSelectChannel(channel) })
                 case .playlists:
-                    PlaylistsScreen(dismissAll: dismissAll)
+                    PlaylistsScreen(
+                        dismissAll: dismissAll,
+                        onSelectChannel: { ch in onSelectChannel(ch) }
+                    )
                         .environmentObject(playlistVM)
                         .environmentObject(playerVM)
                         .environmentObject(offlineService)
@@ -161,17 +168,10 @@ struct MainMenuView: View {
     private var menuContent: some View {
         // Library: simple drill-down rows (HIG) — tap pushes the matching
         // screen; the back chevron returns here.
+        // Library: simple drill-down rows (HIG). "Recently Played" and the
+        // For-You auto-feeds now live INSIDE Playlists, so the top-level Library
+        // stays small. The Categories rows below follow.
         Section("Library") {
-            NavigationLink(value: MenuRoute.recentlyPlayed) {
-                HStack {
-                    Label("Recently Played", systemImage: "clock.arrow.circlepath")
-                    Spacer()
-                    if !recentlyPlayed.isEmpty {
-                        Text("\(recentlyPlayed.count)")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-            }
             NavigationLink(value: MenuRoute.playlists) {
                 HStack {
                     Label("Playlists", systemImage: "music.note.list")

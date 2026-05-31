@@ -349,15 +349,22 @@ final class ChannelTests: XCTestCase {
         )
     }
 
-    // Master-menu section order (item 1): fixed sequence, only categories
-    // that actually have channels, and every channel category is covered.
+    // Master-menu section order: fixed sequence, only categories that actually
+    // have channels. "For You" is INTENTIONALLY OMITTED — Music for You and
+    // Books for You are surfaced as auto-generated entries inside the Playlists
+    // screen instead, so the top-level menu stays focused on real channel
+    // categories.
     func testMainMenuCategoryOrder() {
         let order = MainMenuView.orderedCategories()
-        XCTAssertEqual(order, ["For You", "Curated", "Ambient", "News",
+        XCTAssertEqual(order, ["Curated", "Ambient", "News",
                                "Audiobooks", "Lectures"])
-        // No channel category is silently dropped from the menu.
+        XCTAssertFalse(order.contains("For You"),
+            "For You channels live inside Playlists, not the top-level menu")
+        // Every category in `order` must actually have at least one channel.
         let present = Set(Channel.defaults.map(\.category))
-        XCTAssertEqual(Set(order), present,
-            "every channel category must appear in the menu order")
+        for cat in order {
+            XCTAssertTrue(present.contains(cat),
+                "menu order lists \(cat) but no channel has that category")
+        }
     }
 }
