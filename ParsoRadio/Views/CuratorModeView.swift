@@ -219,8 +219,19 @@ struct CuratorReviewView: View {
                     }
                 }
                 .disabled(isFetching)
+                // Inline, very visible entry to manual search (the toolbar
+                // button was easy to miss).
+                Button {
+                    showSearchAdd = true
+                } label: {
+                    Label("Search Archive.org to Add",
+                          systemImage: "magnifyingglass.circle.fill")
+                        .foregroundStyle(Color.accentColor)
+                }
+            } header: {
+                Text("Add Candidates")
             } footer: {
-                Text("Runs this channel's IA query and adds new tracks to the review queue. Already-approved or already-rejected tracks are skipped automatically.")
+                Text("Load More runs this channel's IA query and adds new tracks to the review queue. Search lets you add specific tracks or albums by hand. Already-approved or already-rejected tracks are SKIPPED automatically.")
             }
 
             if queue.isEmpty {
@@ -347,6 +358,10 @@ struct CuratorReviewView: View {
         // sprint through reviews without an extra tap per track.
         let wasPlaying = playerVM.currentTrack?.id == track.id
         await db.setCuration(channelId: channel.id, trackId: track.id, status: status)
+        // Live update: refresh the in-memory manifest snapshot AND rewrite
+        // Documents/curation.json so the channel's pool reflects this verdict
+        // immediately (no app rebuild required).
+        await LiveCurationStore.shared.reload(from: db)
         await reload()
         guard wasPlaying else { return }
         if let next = queue.first {

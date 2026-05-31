@@ -130,6 +130,48 @@ final class CurationTests: XCTestCase {
         XCTAssertEqual(queue.first(where: { $0.id == "r1" })?.title, "T r1")
     }
 
+    // LiveCurationStore: the on-device cache + file writer that QueueManager
+    // reads from. Reloads from the DB; falls back to the BUNDLED manifest for
+    // channels the curator hasn't touched (non-curator users on the App Store).
+
+    func test_liveStore_emptyDB_fallsBackToBundled() async {
+        await LiveCurationStore.shared.reload(from: db)
+        // Empty DB + empty bundled curation.json → pool is empty.
+        XCTAssertTrue(LiveCurationStore.shared.pool(for: "guitar-classical").isEmpty)
+        XCTAssertFalse(LiveCurationStore.shared.hasLiveCuration(for: "guitar-classical"))
+    }
+
+    func test_liveStore_reloadReflectsApprovedRows() async {
+        await db.saveTracks([track("live-1"), track("live-2"), track("live-3")])
+        await db.setCuration(channelId: "guitar-classical", trackId: "live-1",
+                              status: "approved")
+        await db.setCuration(channelId: "guitar-classical", trackId: "live-2",
+                              status: "rejected")
+        await db.setCuration(channelId: "guitar-classical", trackId: "live-3",
+                              status: "approved")
+        await LiveCurationStore.shared.reload(from: db)
+        let pool = LiveCurationStore.shared.pool(for: "guitar-classical")
+        XCTAssertEqual(Set(pool.map(\.id)), ["live-1", "live-3"],
+            "live store must surface ONLY approved rows from the DB")
+        XCTAssertTrue(LiveCurationStore.shared.hasLiveCuration(for: "guitar-classical"))
+    }
+
+    func test_liveStore_writesManifestFileToDocuments() async throws {
+        // Wipe DB state to start clean.
+        await LiveCurationStore.shared.reload(from: db)
+        await db.saveTracks([track("doc-1")])
+        await db.setCuration(channelId: "guitar-classical", trackId: "doc-1",
+                              status: "approved")
+        await LiveCurationStore.shared.reload(from: db)
+        let url = LiveCurationStore.liveManifestURL
+        let data = try Data(contentsOf: url)
+        let manifest = try JSONDecoder().decode(CurationManifest.self, from: data)
+        XCTAssertEqual(manifest.version, 1)
+        let approved = manifest.approved(for: "guitar-classical")
+        XCTAssertTrue(approved.contains { $0.id == "doc-1" },
+            "Documents/curation.json must include just-approved tracks (no app rebuild required)")
+    }
+
     func test_manifestDecodesAndQueries() throws {
         let json = Data("""
         {"version":1,"channels":{"childrens-songs":{"updatedAt":"2026-05-29",

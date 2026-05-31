@@ -23,7 +23,6 @@ struct SettingsView: View {
     @State private var kidsPinEntry = ""
 
     @ObservedObject private var curator = CuratorController.shared
-    @State private var showSetCuratorPin = false
     @State private var showEnterCuratorPin = false
     @State private var curatorPinEntry = ""
     @State private var showWrongCuratorPin = false
@@ -72,27 +71,18 @@ struct SettingsView: View {
                 Text("Limits the app to the children's songs and stories — no search, no news, no purchases. A 4-digit PIN is needed to turn it off, so it's safe to hand the phone to a child.")
             }
 
-            // Curator Mode (admin) — separate PIN from the Kids parental PIN.
+            // Curator Mode (admin) — hardcoded PIN, separate from Kids parental PIN.
             Section {
-                if curator.hasPin {
-                    Button {
-                        curatorPinEntry = ""
-                        showEnterCuratorPin = true
-                    } label: {
-                        Label("Enter Curator Mode", systemImage: "checkmark.seal")
-                    }
-                } else {
-                    Button {
-                        curatorPinEntry = ""
-                        showSetCuratorPin = true
-                    } label: {
-                        Label("Set Curator PIN", systemImage: "checkmark.seal")
-                    }
+                Button {
+                    curatorPinEntry = ""
+                    showEnterCuratorPin = true
+                } label: {
+                    Label("Enter Curator Mode", systemImage: "checkmark.seal")
                 }
             } header: {
                 Text("Curator")
             } footer: {
-                Text("Review tracks per channel (Accept / Reject / Skip / Approve Album) and export the approved set as the bundled curation manifest. Separate PIN from Kids Mode.")
+                Text("Review tracks per Curated channel (Accept / Reject) and export the approved set as the bundled curation manifest.")
             }
 
             Section {
@@ -118,19 +108,7 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .disabled(working)
-        // Curator: set / enter PIN, present mode.
-        .alert("Set a 4-digit Curator PIN", isPresented: $showSetCuratorPin) {
-            TextField("PIN", text: $curatorPinEntry).keyboardType(.numberPad)
-            Button("Save") {
-                let pin = curatorPinEntry
-                curatorPinEntry = ""
-                curator.setPin(pin)
-                if curator.unlock(pin: pin) { showCuratorMode = true }
-            }
-            Button("Cancel", role: .cancel) { curatorPinEntry = "" }
-        } message: {
-            Text("This PIN is separate from the Kids Mode PIN — it's the admin gate for the review/export flow.")
-        }
+        // Curator: enter PIN (hardcoded), present mode.
         .alert("Enter Curator PIN", isPresented: $showEnterCuratorPin) {
             TextField("PIN", text: $curatorPinEntry).keyboardType(.numberPad)
             Button("Unlock") {

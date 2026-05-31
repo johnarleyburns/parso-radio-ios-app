@@ -119,33 +119,55 @@ final class QueueManagerTests: XCTestCase {
     // (forcing the exhausted-loop path) must NEVER surface another channel's
     // tracks, and one channel's play history must not shrink another's pool.
     func testCuratedChannelsDoNotLeakAcrossEachOther() async throws {
+        // Curated-category channels are now MANIFEST-ONLY (no search-pool
+        // fallback). The "no leak across channels" property is now enforced by
+        // the per-channel manifest entries being separate — exercise that path
+        // by injecting a manifestPool keyed by channel id.
         let sg = Channel.defaults.first { $0.id == "guitar-classical" }!
         let cm = Channel.defaults.first { $0.id == "chamber-music" }!
-        var all: [Track] = []
-        for i in 1...5 { all.append(makeStamped(id: "sg-\(i)", stamp: "guitar-classical")) }
-        for i in 1...5 { all.append(makeStamped(id: "cm-\(i)", stamp: "chamber-music")) }
-        await db.saveTracks(all)
+        let sgApproved = (1...5).map { makeStamped(id: "sg-\($0)", stamp: "x") }
+        let cmApproved = (1...5).map { makeStamped(id: "cm-\($0)", stamp: "x") }
+        await db.saveTracks(sgApproved + cmApproved)
+        let q = QueueManager(db: db, defaults: defaults, manifestPool: { channelId in
+            switch channelId {
+            case "guitar-classical": return sgApproved
+            case "chamber-music":    return cmApproved
+            default:                  return []
+            }
+        })
 
-        // Drain Classical Guitar far past its 5-track pool to force the
-        // exhausted -> reset -> re-fetch loop. It must only ever return its
-        // own stamped tracks.
+        // Drain Classical Guitar far past its 5-track pool — it must only ever
+        // return tracks from its OWN manifest entry, never leak across.
         for _ in 0..<30 {
-            guard let t = await queue.nextTrack(channel: sg, shuffleMode: false) else {
+            guard let t = await q.nextTrack(channel: sg, shuffleMode: false) else {
                 XCTFail("Classical Guitar pool should loop, not run dry"); return
             }
             XCTAssertTrue(t.id.hasPrefix("sg-"),
                 "Classical Guitar leaked a non-classical-guitar track: \(t.id)")
         }
-        // Chamber Music's pool must be its full 5 — NOT shrunk by Spanish
-        // Guitar's per-channel history.
         var cmSeen = Set<String>()
         for _ in 0..<5 {
-            guard let t = await queue.nextTrack(channel: cm, shuffleMode: false) else { break }
+            guard let t = await q.nextTrack(channel: cm, shuffleMode: false) else { break }
             XCTAssertTrue(t.id.hasPrefix("cm-"), "Chamber Music returned a foreign track: \(t.id)")
             cmSeen.insert(t.id)
         }
         XCTAssertEqual(cmSeen.count, 5,
             "Chamber Music pool must be independent of Classical Guitar history")
+    }
+
+    // Curated channels are MANIFEST-ONLY: when the manifest entry is empty, the
+    // channel returns nil (NOT the search pool). This is the explicit "die on
+    // the curated-quality hill" + live-curation-feedback policy. Non-Curated
+    // channels keep falling back to the search pool.
+    func testCuratedChannelReturnsNilWhenManifestEmpty() async throws {
+        let sg = Channel.defaults.first { $0.id == "guitar-classical" }!
+        // Seed a stamped DB track that WOULD show up via the old search pool.
+        await db.saveTracks([makeStamped(id: "sg-1", stamp: "guitar-classical")])
+        let q = QueueManager(db: db, defaults: defaults,
+                             manifestPool: { _ in [] })   // empty manifest
+        let t = await q.nextTrack(channel: sg, shuffleMode: true)
+        XCTAssertNil(t,
+            "Curated channel with empty manifest must NOT fall back to the search pool — manifest-only is the explicit policy")
     }
 
     // Item 7: confirmed album/book items are weighted higher so they surface

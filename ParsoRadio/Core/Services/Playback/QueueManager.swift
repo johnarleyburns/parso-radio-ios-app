@@ -21,7 +21,7 @@ final class QueueManager {
 
     init(db: DatabaseService, defaults: UserDefaults = .standard,
          manifestPool: @escaping (String) -> [Track]
-             = { CurationManifestStore.shared.pool(for: $0) }) {
+             = { LiveCurationStore.shared.pool(for: $0) }) {
         self.db = db
         self.defaults = defaults
         self.manifestPool = manifestPool
@@ -111,12 +111,19 @@ final class QueueManager {
 
         let recent = recents(channel.id)
 
-        // CURATOR MODE: a channel with shipped, non-empty curation plays its
-        // approved pool ONLY — no search, no composer-expand, the explicit
-        // human-approved list. Channels without a manifest entry fall through
-        // to the search pool below, so conversion is channel-by-channel and no
-        // channel is ever empty mid-rollout. See CURATOR-MODE-PLAN.md.
+        // CURATOR MODE: a channel with non-empty curation plays its approved
+        // pool ONLY — no search, no composer-expand, the explicit human-
+        // approved list. See CURATOR-MODE-PLAN.md.
+        //
+        // Manifest-only enforcement for the Curated category: regardless of
+        // whether the pool has entries yet, a "Curated" channel NEVER falls
+        // back to the search pool. While an uncurated Curated channel will be
+        // empty (return nil here → "no track" upstream), this is the user's
+        // explicit choice ("die on the hill" of curated quality) and it makes
+        // the on-device live-curation feedback loop work: as the curator
+        // approves tracks, the channel populates LIVE without an app rebuild.
         let curated = manifestPool(channel.id)
+        let isCuratedCategory = (channel.category == "Curated")
         if !curated.isEmpty {
             var approvedPool = curated.filter { !recent.contains($0.id) }
             if approvedPool.isEmpty {            // cycled all → reset, replay
@@ -137,6 +144,11 @@ final class QueueManager {
             if record { self.record(pick.id, channelId: channel.id) }
             return pick
         }
+
+        // Curated category, no approvals yet → return nil (channel empty
+        // until the curator approves something). Non-Curated channels fall
+        // through to the search pool below.
+        if isCuratedCategory { return nil }
 
         // Only a book/album's FIRST track is eligible in a channel: a
         // multi-part item plays its opening track and the user adds the whole

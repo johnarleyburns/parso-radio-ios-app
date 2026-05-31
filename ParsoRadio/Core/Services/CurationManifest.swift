@@ -53,6 +53,77 @@ final class CurationManifestStore {
     }
 }
 
+/// The LIVE curation store on the curator's device: every `setCuration` call
+/// triggers a `reload(from:)` which (1) rebuilds the in-memory approved-per-
+/// channel snapshot QueueManager reads from, and (2) atomically writes the
+/// current manifest to `Documents/curation.json`. So the curator sees their
+/// own verdicts take effect on playback immediately, AND the file is right
+/// there in the iOS Files app for inspection / sharing without an app
+/// rebuild. Falls back to the SHIPPED bundled manifest for any channel the
+/// curator hasn't touched (non-curator users on the App Store).
+final class LiveCurationStore {
+    static let shared = LiveCurationStore()
+
+    private let lock = NSLock()
+    private var approvedByChannel: [String: [Track]] = [:]
+
+    /// Re-read curated tracks from the DB; rewrite the live manifest file.
+    func reload(from db: DatabaseService) async {
+        let approved = await db.exportApprovedByChannel()
+        lock.lock()
+        approvedByChannel = approved
+        lock.unlock()
+        writeLiveManifest(approved)
+    }
+
+    /// QueueManager calls this on every track pick. Prefers the curator's live
+    /// DB; falls back to the BUNDLED manifest (so non-curator users still play
+    /// the shipped curation).
+    func pool(for channelId: String) -> [Track] {
+        lock.lock()
+        let live = approvedByChannel[channelId] ?? []
+        lock.unlock()
+        if !live.isEmpty { return live }
+        return CurationManifestStore.shared.pool(for: channelId)
+    }
+
+    /// True if the live DB has any approved tracks for this channel.
+    func hasLiveCuration(for channelId: String) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return !(approvedByChannel[channelId]?.isEmpty ?? true)
+    }
+
+    /// On-disk location of the live curation.json (Documents/, visible to the
+    /// Files app).
+    static var liveManifestURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("curation.json")
+    }
+
+    private func writeLiveManifest(_ approved: [String: [Track]]) {
+        var channels: [String: CurationManifest.ChannelCuration] = [:]
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        for (ch, tracks) in approved {
+            let entries = tracks.map {
+                CurationManifest.Entry(
+                    id: $0.id,
+                    title: $0.title,
+                    creator: $0.artist,
+                    duration: $0.duration,
+                    parentIdentifier: $0.parentIdentifier
+                )
+            }
+            channels[ch] = CurationManifest.ChannelCuration(
+                updatedAt: stamp, approved: entries)
+        }
+        let manifest = CurationManifest(version: 1, channels: channels)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(manifest) else { return }
+        try? data.write(to: Self.liveManifestURL, options: [.atomic])
+    }
+}
+
 extension CurationManifest.Entry {
     /// Turn a manifest entry into a playable Track. The streamURL is the IA
     /// download endpoint (per-file ids are already direct; item ids are resolved

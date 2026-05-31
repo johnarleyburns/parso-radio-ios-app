@@ -161,6 +161,10 @@ final class PlayerViewModel: ObservableObject {
             let count = await self.db.trackCount()
             if count > 5000 { await self.db.evictOldTracks() }
         }
+        // Seed the live curation snapshot from the DB on launch so curated
+        // channels show the curator's verdicts immediately (and so the
+        // Documents/curation.json file reflects the current DB).
+        Task { [db] in await LiveCurationStore.shared.reload(from: db) }
 
         // Issue 3: save isPlaying so cold-start can decide whether to auto-play.
         NotificationCenter.default.addObserver(

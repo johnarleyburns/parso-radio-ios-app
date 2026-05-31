@@ -3,48 +3,45 @@ import Combine
 
 /// Curator Mode: the admin-only flow for reviewing candidate tracks per channel,
 /// recording approve/reject/skip verdicts, and exporting the approved set as
-/// JSON (the bundled manifest that curated channels play from at runtime). PIN
-/// is **separate** from the Kids Mode parental PIN — different audience, different
-/// privilege. The "unlocked" state is session-only; every relaunch re-asks the
-/// PIN so the curator can hand the phone to anyone without leaving review
-/// access open.
+/// JSON (the bundled manifest curated channels play from at runtime). The PIN
+/// is HARDCODED ("128800") — this is a personal admin tool, not a per-user
+/// security boundary, and a fixed PIN keeps the build self-contained without a
+/// stored PIN that could drift between devices. The "unlocked" state is
+/// session-only; every relaunch re-asks the PIN.
 @MainActor
 final class CuratorController: ObservableObject {
     static let shared = CuratorController()
 
+    /// The single, hardcoded curator PIN.
+    static let pin = "128800"
+
     /// Session-only — NOT persisted. Every cold launch starts locked.
     @Published private(set) var isUnlocked = false
 
-    private let pinKey = "curator.pin"
-    private let defaults: UserDefaults
+    init() {}
 
-    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+    /// Always true — the PIN exists by definition (hardcoded).
+    var hasPin: Bool { true }
 
-    var hasPin: Bool { !(defaults.string(forKey: pinKey) ?? "").isEmpty }
-
-    /// Set a fresh 4-digit curator PIN. No-op if it isn't 4 digits.
-    func setPin(_ pin: String) {
-        let p = KidsModeController.normalize(pin)
-        guard p.count == 4 else { return }
-        defaults.set(p, forKey: pinKey)
-    }
-
-    /// Try to unlock with `pin`. Returns whether it succeeded.
+    /// Try to unlock with `pin`. Returns whether it succeeded. Strips non-digit
+    /// characters tolerantly — does NOT use KidsModeController.normalize because
+    /// that caps at 4 chars (the kids PIN length) which would silently break
+    /// this 6-digit one.
     @discardableResult
     func unlock(pin: String) -> Bool {
-        let stored = defaults.string(forKey: pinKey) ?? ""
-        guard !stored.isEmpty,
-              KidsModeController.normalize(pin) == stored else { return false }
+        let digits = String(pin.filter(\.isNumber))
+        guard digits == Self.pin else { return false }
         isUnlocked = true
         return true
     }
 
     func lock() { isUnlocked = false }
 
-    /// Channels eligible for curation — the registry-backed (iaQuery) ones.
-    /// Those are the channels whose pool transitions from search-based to the
-    /// approved-only manifest as their review is shipped.
+    /// Channels eligible for curation — ONLY the "Curated" category (curated
+    /// classical / world / Children's). Excludes News, Lectures, Audiobooks
+    /// (LibriVox book channels), For-You, Ambient. Curated audio classics
+    /// like Great Books still appear because they live in "Curated".
     static func curatedChannels() -> [Channel] {
-        Channel.defaults.filter { $0.iaQueryEntry != nil }
+        Channel.defaults.filter { $0.category == "Curated" && $0.iaQueryEntry != nil }
     }
 }
