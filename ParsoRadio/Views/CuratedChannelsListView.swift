@@ -17,6 +17,27 @@ struct CuratedChannelsListView: View {
 
     var body: some View {
         List {
+            // DEBUG: Show bootstrap state at the top of the list
+            #if DEBUG
+            Section {
+                let ordered = store.orderedChannels()
+                let allMeta = store.customChannels
+                Text("Channels: \(ordered.count) visible / \(allMeta.count) registered")
+                    .font(.caption2).foregroundStyle(.secondary)
+                Text("Deleted defaults: \(store.deletedDefaults.count)")
+                    .font(.caption2).foregroundStyle(.secondary)
+                Text("Docs dir files: \((try? FileManager.default.contentsOfDirectory(at: CustomChannelsStore.channelsDir, includingPropertiesForKeys: nil))?.count ?? 0)")
+                    .font(.caption2).foregroundStyle(.secondary)
+                ForEach(ordered.prefix(3), id: \.id) { m in
+                    let count = store.approvedTracks(for: m.id).count
+                    Text("  \(m.id): \(count) approved")
+                        .font(.caption2).foregroundStyle(count > 0 ? .green : .orange)
+                }
+            } header: {
+                Text("Debug").font(.caption).foregroundStyle(.tertiary)
+            }
+            #endif
+
             ForEach(store.orderedChannels(), id: \.id) { meta in
                 curatedRow(meta)
                     .contextMenu { rowContextMenu(meta) }

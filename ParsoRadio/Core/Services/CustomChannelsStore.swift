@@ -75,8 +75,37 @@ final class CustomChannelsStore: ObservableObject {
         ensureDirectory()
         loadBundledDefaults()
         loadMeta()
-        migrateLegacyManifest()
+        migrateFromLiveManifest()
         applyOrder()
+    }
+
+    /// Called AFTER DatabaseService is ready (async). Pulls approved tracks
+    /// from the SQLite DB for any channel whose per-channel file still has
+    /// no approved entries (i.e. the user curated on a prior build and the
+    /// tracks are in the DB but not yet in the per-channel JSON).
+    func bootstrapFromDatabase(db: DatabaseService) async {
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        var merged = 0
+        for chId in Channel.defaults
+            .filter({ $0.category == "Curated" && $0.iaQueryEntry != nil })
+            .map(\.id) {
+            // Only backfill if the per-channel file exists but has no approved tracks
+            guard var def = channelDefinition(for: chId),
+                  def.approved.isEmpty else { continue }
+            let approved = await db.fetchApprovedTracks(forChannelId: chId)
+            guard !approved.isEmpty else { continue }
+            def.approved = approved.map { t in
+                ChannelDefinition.ApprovedEntry(
+                    id: t.id, title: t.title, creator: t.artist,
+                    duration: t.duration, parentIdentifier: t.parentIdentifier)
+            }
+            def.updatedAt = stamp
+            writeChannelDefinition(def)
+            merged += 1
+        }
+        if merged > 0 {
+            Log.general.info("[CustomChannels] Backfilled \(merged) channels from SQLite DB")
+        }
     }
 
     private func ensureDirectory() {
@@ -86,12 +115,10 @@ final class CustomChannelsStore: ObservableObject {
 
     // MARK: - Migration (Phase A)
 
-    /// On first launch after update: read the LIVE `Documents/curation.json`
-    /// (written by LiveCurationStore) and the bundled defaults, then merge
-    /// any existing approved tracks into per-channel files so existing users
-    /// keep their hours of curation work. Only runs when per-channel files
-    /// do NOT yet exist for a channel (idempotent — never overwrites).
-    private func migrateLegacyManifest() {
+    /// Read the LIVE `Documents/curation.json` (written by LiveCurationStore
+    /// on prior launches) and merge any approved tracks into per-channel files.
+    /// Only runs when per-channel files exist but have no approved tracks yet.
+    private func migrateFromLiveManifest() {
         // 1. Try the live Documents/curation.json first (has the user's hours of work)
         let docsURL = LiveCurationStore.liveManifestURL
         let liveManifest: CurationManifest?
@@ -147,23 +174,31 @@ final class CustomChannelsStore: ObservableObject {
     /// prior curation, the migration step re-merges approved tracks so
     /// no curation work is lost.
     private func loadBundledDefaults() {
-        guard let bundleDir = Bundle.main.url(forResource: "curated-channels",
-                                                withExtension: nil) else { return }
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: bundleDir, includingPropertiesForKeys: nil) else { return }
+        let shippedIds = Channel.defaults
+            .filter { $0.category == "Curated" && $0.iaQueryEntry != nil }
+            .map(\.id)
 
         let stamp = ISO8601DateFormatter().string(from: Date())
         let fm = FileManager.default
-        for file in files where file.pathExtension == "json" {
-            let chId = file.deletingPathExtension().lastPathComponent
+        var foundInBundle = 0
+        var copiedToDocs = 0
+
+        for chId in shippedIds {
+            // XcodeGen flattens directory groups into the bundle root,
+            // so each per-channel JSON sits at e.g. "chamber-music.json".
+            guard let bundleURL = Bundle.main.url(
+                forResource: chId, withExtension: "json") else {
+                continue
+            }
+            foundInBundle += 1
+
             let userFile = Self.channelsDir.appendingPathComponent("\(chId).json")
-            // Copy bundled default → Documents. Remove first so copyItem
-            // doesn't fail when the destination already exists (from a prior
-            // launch). The migration step re-merges approved tracks afterward
-            // so no curation work is lost.
             try? fm.removeItem(at: userFile)
-            try? fm.copyItem(at: file, to: userFile)
-            // Ensure a ChannelMeta entry exists for this shipped default
+            do {
+                try fm.copyItem(at: bundleURL, to: userFile)
+                copiedToDocs += 1
+            } catch { /* skip */ }
+
             if !customChannels.contains(where: { $0.id == chId }) {
                 let channel = Channel.defaults.first(where: { $0.id == chId })
                 let meta = ChannelMeta(
@@ -180,6 +215,7 @@ final class CustomChannelsStore: ObservableObject {
             }
         }
         saveMeta()
+        Log.general.info("[CustomChannels] Bundle: found \(foundInBundle)/\(shippedIds.count), copied \(copiedToDocs) to Documents")
     }
 
     // MARK: - Meta persistence

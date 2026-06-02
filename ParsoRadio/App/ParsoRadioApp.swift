@@ -86,6 +86,12 @@ struct ParsoMusicApp: App {
                     Task { await playlistVM.loadPlaylists() }
                 }
             }
+            .task {
+                // After app launches and splash settles, backfill per-channel
+                // curated files from any existing SQLite curation data so the
+                // user's prior curator work shows up in the Curated list.
+                await CustomChannelsStore.shared.bootstrapFromDatabase(db: ParsoMusicApp.sharedDB)
+            }
             .fullScreenCover(isPresented: $showTerms) {
                 TermsView(isPresented: $showTerms)
             }
