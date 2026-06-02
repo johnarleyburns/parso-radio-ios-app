@@ -9,6 +9,9 @@ struct CuratedChannelsListView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @StateObject private var store = CustomChannelsStore.shared
 
+    // Direct access to shared singleton for method calls (avoids StateObject
+    // dynamic-member-lookup shadowing of method calls in Swift 6/Xcode 16).
+
     @State private var showNewChannel = false
     @State private var editingChannel: ChannelMeta?
     @State private var showCurateChannel: ChannelMeta?
@@ -20,7 +23,7 @@ struct CuratedChannelsListView: View {
             // DEBUG: Show bootstrap state at the top of the list
             #if DEBUG
             Section {
-                let ordered = store.orderedChannels()
+                let ordered: [ChannelMeta] = store.orderedChannels()
                 let allMeta = store.customChannels
                 Text("Channels: \(ordered.count) visible / \(allMeta.count) registered")
                     .font(.caption2).foregroundStyle(.secondary)
@@ -74,7 +77,7 @@ struct CuratedChannelsListView: View {
                 }
                 .accessibilityLabel("New curated channel")
             }
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarLeading) {
                 EditButton()
             }
         }
@@ -393,6 +396,12 @@ struct CuratorChannelEditView: View {
     @State private var showSearchAdd = false
     @State private var filterMode: FilterMode = .review
 
+    // Channel settings
+    @State private var editedName: String = ""
+    @State private var showRename = false
+    @State private var editedQuery: String = ""
+    @State private var showEditQuery = false
+
     enum FilterMode: String, CaseIterable {
         case review = "Review"
         case approved = "Approved"
@@ -401,10 +410,42 @@ struct CuratorChannelEditView: View {
 
     // Verdict state for undo support
     @State private var verdictStates: [String: (status: String, undone: Bool)] = [:]
+    // Resolve timeout for curator auditions
+    @State private var auditionTimeout: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
             List {
+                // Channel Settings: rename + IA query
+                Section {
+                    Button {
+                        editedName = channelMeta.name
+                        showRename = true
+                    } label: {
+                        HStack {
+                            Label("Channel Name", systemImage: "pencil")
+                            Spacer()
+                            Text(channelMeta.name)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    Button {
+                        editedQuery = channelMeta.iaQuery ?? ""
+                        showEditQuery = true
+                    } label: {
+                        HStack {
+                            Label("IA Search Query", systemImage: "magnifyingglass")
+                            Spacer()
+                            Text(channelMeta.iaQuery ?? "None — search only")
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                } header: {
+                    Text("Channel Settings")
+                }
+
                 // Counts + filter picker
                 Section {
                     HStack(spacing: 12) {
@@ -501,6 +542,27 @@ struct CuratorChannelEditView: View {
                 if phase != .active { playerVM.stopAudition() }
             }
             .task { await reload() }
+            .alert("Rename Channel", isPresented: $showRename) {
+                TextField("Channel name", text: $editedName)
+                Button("Save") {
+                    let name = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !name.isEmpty else { return }
+                    CustomChannelsStore.shared.renameChannel(chId: channelMeta.id, newName: name)
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+            .alert("Edit IA Search Query", isPresented: $showEditQuery) {
+                TextField("IA query", text: $editedQuery)
+                Button("Save") {
+                    let q = editedQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+                    CustomChannelsStore.shared.updateQuery(
+                        chId: channelMeta.id,
+                        newQuery: q.isEmpty ? nil : q)
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("The query used by \"Load More Candidates\". Leave empty to curate purely by search.")
+            }
             .alert("Fetch failed", isPresented: $showFetchError) {
                 Button("OK", role: .cancel) {}
             } message: { Text(fetchError ?? "") }

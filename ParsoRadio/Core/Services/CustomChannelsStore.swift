@@ -73,8 +73,8 @@ final class CustomChannelsStore: ObservableObject {
 
     private init() {
         ensureDirectory()
-        loadBundledDefaults()
         loadMeta()
+        loadBundledDefaults()
         migrateFromLiveManifest()
         applyOrder()
     }
@@ -260,17 +260,30 @@ final class CustomChannelsStore: ObservableObject {
 
     // MARK: - Channel lifecycle
 
-    /// Ordered list of visible channels (shipped defaults not deleted + user custom).
+    /// Ordered list of visible channels (shipped defaults not deleted + user custom),
+    /// sorted alphabetically by name unless the user has manually reordered.
     func orderedChannels() -> [ChannelMeta] {
-        channelOrder.compactMap { id in
+        let list: [ChannelMeta] = channelOrder.compactMap { id in
             guard !deletedDefaults.contains(id) else { return nil }
             return customChannels.first(where: { $0.id == id })
         }
+        return list
     }
 
-    /// All curated channel IDs the user can see (after deletions).
-    func visibleChannelIds() -> [String] {
-        orderedChannels().map(\.id)
+    /// Populate channelOrder alphabetically on first launch (no saved order).
+    fileprivate func applyOrder() {
+        guard channelOrder.isEmpty else { return }
+        let shipped = customChannels
+            .filter { $0.isShippedDefault }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        channelOrder = shipped.map(\.id)
+        // Append any custom (non-shipped) channels after the alphabetized defaults
+        for meta in customChannels where !meta.isShippedDefault {
+            if !channelOrder.contains(meta.id) {
+                channelOrder.append(meta.id)
+            }
+        }
+        saveMeta()
     }
 
     func addChannel(name: String, icon: String, iaQuery: String?, initialTracks: [Track] = []) -> String {
@@ -471,6 +484,4 @@ final class CustomChannelsStore: ObservableObject {
         saveMeta()
         return finalId
     }
-
-    fileprivate func applyOrder() {}
 }

@@ -479,7 +479,6 @@ struct CuratorSearchAddView: View {
         let isLoading = live && playerVM.isLoading
         let isPlaying = live && playerVM.isPlaying && !isLoading
         let verdict   = existingVerdicts[group.id]
-        let alreadyAdded = addedIds.contains(group.id) || verdict == "review"
 
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
@@ -499,6 +498,7 @@ struct CuratorSearchAddView: View {
                     .font(.title3)
                     .accessibilityHidden(true)
             }
+            // Play/pause
             Button {
                 if live {
                     playerVM.togglePlayPause()
@@ -516,19 +516,58 @@ struct CuratorSearchAddView: View {
             }
             .buttonStyle(.plain)
             .frame(width: 32, height: 32)
-            .accessibilityLabel(isPlaying ? "Pause audition" : "Audition")
+            // Accept — adds to review + immediately approves
             Button {
-                Task { await add(group) }
+                Task { await directVerdict(group, "approved") }
             } label: {
-                Image(systemName: alreadyAdded ? "checkmark.circle.fill" : "plus.circle.fill")
+                Image(systemName: verdict == "approved" ? "checkmark.circle.fill" : "checkmark.circle")
                     .font(.title)
-                    .foregroundStyle(alreadyAdded ? Color.green : Color.accentColor)
+                    .foregroundStyle(verdict == "approved" ? .green : .secondary)
             }
             .buttonStyle(.plain)
-            .disabled(alreadyAdded || verdict == "approved" || verdict == "rejected")
-            .accessibilityLabel(alreadyAdded ? "Added to review queue" : "Add to review queue")
+            .disabled(verdict == "approved" || verdict == "rejected")
+            // Reject
+            Button {
+                Task { await directVerdict(group, "rejected") }
+            } label: {
+                Image(systemName: verdict == "rejected" ? "xmark.circle.fill" : "xmark.circle")
+                    .font(.title)
+                    .foregroundStyle(verdict == "rejected" ? .red : .secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(verdict == "approved" || verdict == "rejected")
         }
         .padding(.vertical, 4)
+    }
+
+    private func directVerdict(_ group: SearchViewModel.ResultGroup, _ status: String) async {
+        let t = searchTrack(group)
+        await db.saveTracks([t])
+        await db.ensureReviewSet(channelId: channel.id, trackIds: [t.id])
+        await db.setCuration(channelId: channel.id, trackId: t.id, status: status)
+        await LiveCurationStore.shared.reload(from: db)
+        // Write to per-channel file
+        if status == "approved",
+           var def = CustomChannelsStore.shared.channelDefinition(for: channel.id) {
+            if !def.approved.contains(where: { $0.id == t.id }) {
+                def.approved.append(ChannelDefinition.ApprovedEntry(
+                    id: t.id, title: t.title, creator: t.artist,
+                    duration: t.duration, parentIdentifier: t.parentIdentifier))
+                CustomChannelsStore.shared.writeChannelDefinition(def)
+            }
+        }
+        if status == "rejected",
+           var def = CustomChannelsStore.shared.channelDefinition(for: channel.id) {
+            if !def.rejected.contains(t.id) {
+                def.rejected.append(t.id)
+                CustomChannelsStore.shared.writeChannelDefinition(def)
+            }
+        }
+        existingVerdicts[group.id] = status
+        // If currently playing this track, move to next
+        if playerVM.currentTrack?.id == group.id {
+            playerVM.stopAudition()
+        }
     }
 
     private func verdictLabel(_ s: String) -> String {

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "childrens-books",
+    "name": "childrens-books",
+    "icon": "star",
+    "iaQuery": "(collection:librivoxaudio OR collection:audio_bookspoetry) AND (subject:\"Juvenile fiction\" OR subject:\"Children's Fiction\" OR subject:\"Juvenile literature\" OR subject:\"Fairy tales\" OR subject:\"Children's literature\" OR subject:\"Children's stories\" OR subject:\"Juvenile\" OR subject:\"Children\" OR subject:\"Picture books\")"
+  },
+  "updatedAt": "2026-05-31",
+  "approved": [],
+  "rejected": []
+}
