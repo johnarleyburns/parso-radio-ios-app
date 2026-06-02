@@ -73,9 +73,9 @@ final class CustomChannelsStore: ObservableObject {
 
     private init() {
         ensureDirectory()
-        migrateLegacyManifest()
-        loadMeta()
         loadBundledDefaults()
+        loadMeta()
+        migrateLegacyManifest()
         applyOrder()
     }
 
@@ -86,44 +86,66 @@ final class CustomChannelsStore: ObservableObject {
 
     // MARK: - Migration (Phase A)
 
-    /// On first launch after update: split the bundled `curation.json` into
-    /// per-channel files in `Documents/curated-channels/`, so existing users
-    /// keep their approved tracks.
+    /// On first launch after update: read the LIVE `Documents/curation.json`
+    /// (written by LiveCurationStore) and the bundled defaults, then merge
+    /// any existing approved tracks into per-channel files so existing users
+    /// keep their hours of curation work. Only runs when per-channel files
+    /// do NOT yet exist for a channel (idempotent — never overwrites).
     private func migrateLegacyManifest() {
+        // 1. Try the live Documents/curation.json first (has the user's hours of work)
+        let docsURL = LiveCurationStore.liveManifestURL
+        let liveManifest: CurationManifest?
+        if let data = try? Data(contentsOf: docsURL),
+           let m = try? JSONDecoder().decode(CurationManifest.self, from: data) {
+            liveManifest = m
+        } else {
+            liveManifest = nil
+        }
+
+        // 2. For each curated channel that already has a per-channel file
+        //    (copied from bundle by loadBundledDefaults), merge in approved
+        //    tracks from the live manifest.
         let shippedChannels = Channel.defaults
             .filter { $0.category == "Curated" && $0.iaQueryEntry != nil }
             .map(\.id)
+        let stamp = ISO8601DateFormatter().string(from: Date())
+
         for chId in shippedChannels {
             let dest = Self.channelsDir.appendingPathComponent("\(chId).json")
-            guard !FileManager.default.fileExists(atPath: dest.path) else { continue }
+            guard FileManager.default.fileExists(atPath: dest.path) else { continue }
 
-            let tracks = CurationManifestStore.shared.pool(for: chId)
-            let approvedEntries = tracks.map {
-                ChannelDefinition.ApprovedEntry(
-                    id: $0.id, title: $0.title, creator: $0.artist,
-                    duration: $0.duration, parentIdentifier: $0.parentIdentifier)
+            // Read the current per-channel file (already has metadata from bundle)
+            guard var def = channelDefinition(for: chId) else { continue }
+
+            // If it already has approved tracks (from a prior migration or curation),
+            // skip — never overwrite the user's existing per-channel file.
+            guard def.approved.isEmpty else { continue }
+
+            // Merge approved tracks from the live manifest
+            if let live = liveManifest {
+                let entries = live.approved(for: chId)
+                if !entries.isEmpty {
+                    def.approved = entries.map { entry in
+                        ChannelDefinition.ApprovedEntry(
+                            id: entry.id, title: entry.title,
+                            creator: entry.creator,
+                            duration: entry.duration,
+                            parentIdentifier: entry.parentIdentifier)
+                    }
+                    def.updatedAt = stamp
+                    writeChannelDefinition(def)
+                }
             }
-            guard !approvedEntries.isEmpty else { continue }
-
-            let entry = IAQueryRegistry.shared.entry(for: chId)
-            let def = ChannelDefinition(
-                version: 1,
-                channel: ChannelDefinition.Info(
-                    id: chId,
-                    name: Channel.defaults.first(where: { $0.id == chId })?.name ?? chId,
-                    icon: Channel.defaults.first(where: { $0.id == chId })?.icon ?? "star",
-                    iaQuery: entry?.iaQuery),
-                updatedAt: ISO8601DateFormatter().string(from: Date()),
-                approved: approvedEntries,
-                rejected: [])
-            writeChannelDefinition(def)
         }
     }
 
     // MARK: - Shipped defaults
 
     /// For every shipped channel that has a bundled per-channel file,
-    /// ensure it exists in the user's Documents if not already there.
+    /// ensure it exists in the user's Documents with current metadata
+    /// (name, icon, iaQuery). If a per-channel file already exists from
+    /// prior curation, the migration step re-merges approved tracks so
+    /// no curation work is lost.
     private func loadBundledDefaults() {
         guard let bundleDir = Bundle.main.url(forResource: "curated-channels",
                                                 withExtension: nil) else { return }
@@ -131,12 +153,16 @@ final class CustomChannelsStore: ObservableObject {
             at: bundleDir, includingPropertiesForKeys: nil) else { return }
 
         let stamp = ISO8601DateFormatter().string(from: Date())
+        let fm = FileManager.default
         for file in files where file.pathExtension == "json" {
             let chId = file.deletingPathExtension().lastPathComponent
             let userFile = Self.channelsDir.appendingPathComponent("\(chId).json")
-            if !FileManager.default.fileExists(atPath: userFile.path) {
-                try? FileManager.default.copyItem(at: file, to: userFile)
-            }
+            // Copy bundled default → Documents. Remove first so copyItem
+            // doesn't fail when the destination already exists (from a prior
+            // launch). The migration step re-merges approved tracks afterward
+            // so no curation work is lost.
+            try? fm.removeItem(at: userFile)
+            try? fm.copyItem(at: file, to: userFile)
             // Ensure a ChannelMeta entry exists for this shipped default
             if !customChannels.contains(where: { $0.id == chId }) {
                 let channel = Channel.defaults.first(where: { $0.id == chId })
