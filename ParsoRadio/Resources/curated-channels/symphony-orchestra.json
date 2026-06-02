@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "symphony-orchestra",
+    "name": "Symphony Orchestra",
+    "icon": "music.quarternote.3",
+    "iaQuery": "collection:musopen AND mediatype:audio AND subject:\"symphony\""
+  },
+  "updatedAt": "2026-05-31",
+  "approved": [],
+  "rejected": []
+}

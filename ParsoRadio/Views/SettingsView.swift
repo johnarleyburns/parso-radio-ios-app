@@ -22,12 +22,6 @@ struct SettingsView: View {
     @State private var showSetKidsPin = false
     @State private var kidsPinEntry = ""
 
-    @ObservedObject private var curator = CuratorController.shared
-    @State private var showEnterCuratorPin = false
-    @State private var curatorPinEntry = ""
-    @State private var showWrongCuratorPin = false
-    @State private var showCuratorMode = false
-
     var body: some View {
         List {
             Section("Appearance") {
@@ -71,20 +65,6 @@ struct SettingsView: View {
                 Text("Limits the app to the children's songs and stories — no search, no news, no purchases. A 4-digit PIN is needed to turn it off, so it's safe to hand the phone to a child.")
             }
 
-            // Curator Mode (admin) — hardcoded PIN, separate from Kids parental PIN.
-            Section {
-                Button {
-                    curatorPinEntry = ""
-                    showEnterCuratorPin = true
-                } label: {
-                    Label("Enter Curator Mode", systemImage: "checkmark.seal")
-                }
-            } header: {
-                Text("Curator")
-            } footer: {
-                Text("Review tracks per Curated channel (Accept / Reject) and export the approved set as the bundled curation manifest.")
-            }
-
             Section {
                 Button(role: .destructive) {
                     confirmClearHistory = true
@@ -108,30 +88,6 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .disabled(working)
-        // Curator: enter PIN (hardcoded), present mode.
-        .alert("Enter Curator PIN", isPresented: $showEnterCuratorPin) {
-            TextField("PIN", text: $curatorPinEntry).keyboardType(.numberPad)
-            Button("Unlock") {
-                if curator.unlock(pin: curatorPinEntry) {
-                    curatorPinEntry = ""
-                    showCuratorMode = true
-                } else {
-                    curatorPinEntry = ""
-                    showWrongCuratorPin = true
-                }
-            }
-            Button("Cancel", role: .cancel) { curatorPinEntry = "" }
-        }
-        .alert("Wrong PIN", isPresented: $showWrongCuratorPin) {
-            Button("OK", role: .cancel) {}
-        }
-        .sheet(isPresented: $showCuratorMode) {
-            CuratorModeView(
-                db: playerVM.db,
-                archiveService: playerVM.archiveService
-            )
-            .environmentObject(playerVM)
-        }
         .alert("Set a 4-digit PIN", isPresented: $showSetKidsPin) {
             TextField("PIN", text: $kidsPinEntry)
                 .keyboardType(.numberPad)

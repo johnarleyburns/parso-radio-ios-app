@@ -242,7 +242,7 @@ struct CuratorReviewView: View {
                 }
             } else {
                 Section("To Review (\(queue.count))") {
-                    ForEach(queue) { track in
+                    ForEach(queue, id: \.id) { track in
                         reviewRow(track)
                     }
                 }

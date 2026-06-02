@@ -70,9 +70,9 @@ final class LiveCurationStore {
     /// Re-read curated tracks from the DB; rewrite the live manifest file.
     func reload(from db: DatabaseService) async {
         let approved = await db.exportApprovedByChannel()
-        lock.lock()
-        approvedByChannel = approved
-        lock.unlock()
+        lock.withLock {
+            approvedByChannel = approved
+        }
         writeLiveManifest(approved)
     }
 
@@ -80,17 +80,21 @@ final class LiveCurationStore {
     /// DB; falls back to the BUNDLED manifest (so non-curator users still play
     /// the shipped curation).
     func pool(for channelId: String) -> [Track] {
-        lock.lock()
-        let live = approvedByChannel[channelId] ?? []
-        lock.unlock()
+        // Check per-channel file first (new customizable curated channels)
+        if let file = CustomChannelsStore.shared.channelDefinition(for: channelId),
+           !file.approved.isEmpty {
+            return CustomChannelsStore.shared.approvedTracks(for: channelId)
+        }
+        let live = lock.withLock { approvedByChannel[channelId] ?? [] }
         if !live.isEmpty { return live }
         return CurationManifestStore.shared.pool(for: channelId)
     }
 
     /// True if the live DB has any approved tracks for this channel.
     func hasLiveCuration(for channelId: String) -> Bool {
-        lock.lock(); defer { lock.unlock() }
-        return !(approvedByChannel[channelId]?.isEmpty ?? true)
+        lock.withLock {
+            !(approvedByChannel[channelId]?.isEmpty ?? true)
+        }
     }
 
     /// On-disk location of the live curation.json (Documents/, visible to the

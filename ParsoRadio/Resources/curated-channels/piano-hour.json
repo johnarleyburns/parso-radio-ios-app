@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "piano-hour",
+    "name": "Piano Hour",
+    "icon": "pianokeys",
+    "iaQuery": "collection:musopen AND mediatype:audio AND subject:\"piano\""
+  },
+  "updatedAt": "2026-05-31",
+  "approved": [],
+  "rejected": []
+}

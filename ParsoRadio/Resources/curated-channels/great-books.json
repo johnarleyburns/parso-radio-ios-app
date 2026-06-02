@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "great-books",
+    "name": "Great Books",
+    "icon": "books.vertical",
+    "iaQuery": "collection:librivoxaudio AND mediatype:audio AND subject:\"fiction\""
+  },
+  "updatedAt": "2026-05-31",
+  "approved": [],
+  "rejected": []
+}

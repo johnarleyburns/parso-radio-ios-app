@@ -1,0 +1,414 @@
+import Foundation
+import Combine
+
+// MARK: - Per-channel JSON model
+
+/// One file per channel in `Documents/curated-channels/<id>.json`.
+/// The same shape for imported / shared files.
+struct ChannelDefinition: Codable, Equatable {
+    struct Info: Codable, Equatable {
+        let id: String
+        var name: String
+        var icon: String
+        var iaQuery: String?
+    }
+    struct ApprovedEntry: Codable, Equatable {
+        let id: String
+        let title: String
+        let creator: String
+        let duration: Double
+        let parentIdentifier: String?
+    }
+    let version: Int
+    var channel: Info
+    var updatedAt: String
+    var approved: [ApprovedEntry]
+    var rejected: [String]
+}
+
+// MARK: - User metadata
+
+struct CustomChannelsMeta: Codable {
+    var customChannels: [ChannelMeta] = []
+    var deletedDefaults: [String] = []
+    var order: [String] = []
+}
+
+struct ChannelMeta: Codable, Equatable, Identifiable {
+    let id: String
+    var name: String
+    var icon: String
+    var iaQuery: String?
+    let createdAt: String
+    let isShippedDefault: Bool
+}
+
+// MARK: - CustomChannelsStore
+
+/// Manages per-user, per-channel curated channels.
+///
+/// On launch:
+/// 1. Reads each shipped default from the bundle (read-only).
+/// 2. Reads each user override / addition from `Documents/curated-channels/`.
+/// 3. Builds the runtime channel list from the union.
+final class CustomChannelsStore: ObservableObject {
+    static let shared = CustomChannelsStore()
+
+    /// Directory for per-channel JSON files (both user-created and shipped-default overrides).
+    static var channelsDir: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("curated-channels")
+    }
+
+    static var metaURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("custom-channels-meta.json")
+    }
+
+    @Published private(set) var customChannels: [ChannelMeta] = []
+    @Published private(set) var deletedDefaults: [String] = []
+    @Published private(set) var channelOrder: [String] = []
+
+    // MARK: - Init / Bootstrap
+
+    private init() {
+        ensureDirectory()
+        migrateLegacyManifest()
+        loadMeta()
+        loadBundledDefaults()
+        applyOrder()
+    }
+
+    private func ensureDirectory() {
+        try? FileManager.default.createDirectory(at: Self.channelsDir,
+                                                  withIntermediateDirectories: true)
+    }
+
+    // MARK: - Migration (Phase A)
+
+    /// On first launch after update: split the bundled `curation.json` into
+    /// per-channel files in `Documents/curated-channels/`, so existing users
+    /// keep their approved tracks.
+    private func migrateLegacyManifest() {
+        let shippedChannels = Channel.defaults
+            .filter { $0.category == "Curated" && $0.iaQueryEntry != nil }
+            .map(\.id)
+        for chId in shippedChannels {
+            let dest = Self.channelsDir.appendingPathComponent("\(chId).json")
+            guard !FileManager.default.fileExists(atPath: dest.path) else { continue }
+
+            let tracks = CurationManifestStore.shared.pool(for: chId)
+            let approvedEntries = tracks.map {
+                ChannelDefinition.ApprovedEntry(
+                    id: $0.id, title: $0.title, creator: $0.artist,
+                    duration: $0.duration, parentIdentifier: $0.parentIdentifier)
+            }
+            guard !approvedEntries.isEmpty else { continue }
+
+            let entry = IAQueryRegistry.shared.entry(for: chId)
+            let def = ChannelDefinition(
+                version: 1,
+                channel: ChannelDefinition.Info(
+                    id: chId,
+                    name: Channel.defaults.first(where: { $0.id == chId })?.name ?? chId,
+                    icon: Channel.defaults.first(where: { $0.id == chId })?.icon ?? "star",
+                    iaQuery: entry?.iaQuery),
+                updatedAt: ISO8601DateFormatter().string(from: Date()),
+                approved: approvedEntries,
+                rejected: [])
+            writeChannelDefinition(def)
+        }
+    }
+
+    // MARK: - Shipped defaults
+
+    /// For every shipped channel that has a bundled per-channel file,
+    /// ensure it exists in the user's Documents if not already there.
+    private func loadBundledDefaults() {
+        guard let bundleDir = Bundle.main.url(forResource: "curated-channels",
+                                                withExtension: nil) else { return }
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: bundleDir, includingPropertiesForKeys: nil) else { return }
+
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        for file in files where file.pathExtension == "json" {
+            let chId = file.deletingPathExtension().lastPathComponent
+            let userFile = Self.channelsDir.appendingPathComponent("\(chId).json")
+            if !FileManager.default.fileExists(atPath: userFile.path) {
+                try? FileManager.default.copyItem(at: file, to: userFile)
+            }
+            // Ensure a ChannelMeta entry exists for this shipped default
+            if !customChannels.contains(where: { $0.id == chId }) {
+                let channel = Channel.defaults.first(where: { $0.id == chId })
+                let meta = ChannelMeta(
+                    id: chId,
+                    name: channel?.name ?? chId,
+                    icon: channel?.icon ?? "star",
+                    iaQuery: IAQueryRegistry.shared.entry(for: chId)?.iaQuery,
+                    createdAt: stamp,
+                    isShippedDefault: true)
+                customChannels.append(meta)
+                if !channelOrder.contains(chId) {
+                    channelOrder.append(chId)
+                }
+            }
+        }
+        saveMeta()
+    }
+
+    // MARK: - Meta persistence
+
+    private func loadMeta() {
+        guard let data = try? Data(contentsOf: Self.metaURL),
+              let meta = try? JSONDecoder().decode(CustomChannelsMeta.self, from: data)
+        else { return }
+        customChannels = meta.customChannels
+        deletedDefaults = meta.deletedDefaults
+        channelOrder = meta.order
+    }
+
+    private func saveMeta() {
+        let meta = CustomChannelsMeta(
+            customChannels: customChannels,
+            deletedDefaults: deletedDefaults,
+            order: channelOrder)
+        guard let data = try? JSONEncoder().encode(meta) else { return }
+        try? data.write(to: Self.metaURL, options: .atomic)
+    }
+
+    // MARK: - Channel definition I/O
+
+    func channelDefinition(for chId: String) -> ChannelDefinition? {
+        let url = Self.channelsDir.appendingPathComponent("\(chId).json")
+        guard let data = try? Data(contentsOf: url),
+              let def = try? JSONDecoder().decode(ChannelDefinition.self, from: data)
+        else { return nil }
+        return def
+    }
+
+    func writeChannelDefinition(_ def: ChannelDefinition) {
+        let url = Self.channelsDir.appendingPathComponent("\(def.channel.id).json")
+        var updated = def
+        updated.updatedAt = ISO8601DateFormatter().string(from: Date())
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(updated) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    // MARK: - Channel lifecycle
+
+    /// Ordered list of visible channels (shipped defaults not deleted + user custom).
+    func orderedChannels() -> [ChannelMeta] {
+        channelOrder.compactMap { id in
+            guard !deletedDefaults.contains(id) else { return nil }
+            return customChannels.first(where: { $0.id == id })
+        }
+    }
+
+    /// All curated channel IDs the user can see (after deletions).
+    func visibleChannelIds() -> [String] {
+        orderedChannels().map(\.id)
+    }
+
+    func addChannel(name: String, icon: String, iaQuery: String?, initialTracks: [Track] = []) -> String {
+        let chId = name.lowercased()
+            .replacingOccurrences(of: " ", with: "-")
+            .filter { $0.isLetter || $0.isNumber || $0 == "-" }
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        let meta = ChannelMeta(
+            id: chId, name: name, icon: icon, iaQuery: iaQuery,
+            createdAt: stamp, isShippedDefault: false)
+        customChannels.append(meta)
+        channelOrder.append(chId)
+
+        let approvedEntries = initialTracks.map {
+            ChannelDefinition.ApprovedEntry(
+                id: $0.id, title: $0.title, creator: $0.artist,
+                duration: $0.duration, parentIdentifier: $0.parentIdentifier)
+        }
+        let def = ChannelDefinition(
+            version: 1,
+            channel: ChannelDefinition.Info(id: chId, name: name, icon: icon, iaQuery: iaQuery),
+            updatedAt: stamp,
+            approved: approvedEntries,
+            rejected: [])
+        writeChannelDefinition(def)
+        saveMeta()
+        return chId
+    }
+
+    func renameChannel(chId: String, newName: String) {
+        guard var def = channelDefinition(for: chId) else { return }
+        def.channel = ChannelDefinition.Info(
+            id: def.channel.id, name: newName, icon: def.channel.icon,
+            iaQuery: def.channel.iaQuery)
+        writeChannelDefinition(def)
+
+        if let idx = customChannels.firstIndex(where: { $0.id == chId }) {
+            customChannels[idx].name = newName
+        }
+        saveMeta()
+    }
+
+    func updateIcon(chId: String, newIcon: String) {
+        guard var def = channelDefinition(for: chId) else { return }
+        def.channel = ChannelDefinition.Info(
+            id: def.channel.id, name: def.channel.name, icon: newIcon,
+            iaQuery: def.channel.iaQuery)
+        writeChannelDefinition(def)
+
+        if let idx = customChannels.firstIndex(where: { $0.id == chId }) {
+            customChannels[idx].icon = newIcon
+        }
+        saveMeta()
+    }
+
+    func updateQuery(chId: String, newQuery: String?) {
+        guard var def = channelDefinition(for: chId) else { return }
+        def.channel = ChannelDefinition.Info(
+            id: def.channel.id, name: def.channel.name, icon: def.channel.icon,
+            iaQuery: newQuery)
+        writeChannelDefinition(def)
+
+        if let idx = customChannels.firstIndex(where: { $0.id == chId }) {
+            customChannels[idx].iaQuery = newQuery
+        }
+        saveMeta()
+    }
+
+    func duplicateChannel(chId: String) -> String? {
+        guard let def = channelDefinition(for: chId) else { return nil }
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        let newId = "\(chId)-copy"
+        let meta = ChannelMeta(
+            id: newId,
+            name: "\(def.channel.name) Copy",
+            icon: def.channel.icon,
+            iaQuery: def.channel.iaQuery,
+            createdAt: stamp,
+            isShippedDefault: false)
+        customChannels.append(meta)
+        if let idx = channelOrder.firstIndex(of: chId) {
+            channelOrder.insert(newId, at: idx + 1)
+        } else {
+            channelOrder.append(newId)
+        }
+
+        var copy = def
+        copy.channel = ChannelDefinition.Info(
+            id: newId, name: meta.name, icon: meta.icon, iaQuery: meta.iaQuery)
+        copy.approved = []   // fresh review queue for the copy
+        copy.rejected = []
+        writeChannelDefinition(copy)
+        saveMeta()
+        return newId
+    }
+
+    func deleteChannel(chId: String) {
+        if customChannels.first(where: { $0.id == chId && $0.isShippedDefault }) != nil {
+            // Shipped default: record in deletedDefaults (don't delete file).
+            if !deletedDefaults.contains(chId) {
+                deletedDefaults.append(chId)
+            }
+        } else {
+            // Custom channel: remove the file.
+            let url = Self.channelsDir.appendingPathComponent("\(chId).json")
+            try? FileManager.default.removeItem(at: url)
+            customChannels.removeAll(where: { $0.id == chId })
+        }
+        channelOrder.removeAll(where: { $0 == chId })
+        saveMeta()
+    }
+
+    func reorder(channels: [ChannelMeta]) {
+        channelOrder = channels.map(\.id)
+        saveMeta()
+    }
+
+    func restoreDefaults() {
+        deletedDefaults.removeAll()
+        saveMeta()
+    }
+
+    // MARK: - Approved pool (for QueueManager)
+
+    /// Approved tracks for a channel from its per-channel file.
+    func approvedTracks(for chId: String) -> [Track] {
+        guard let def = channelDefinition(for: chId) else { return [] }
+        return def.approved.map { entry in
+            Track(
+                id: entry.id, source: "internet_archive",
+                title: entry.title, artist: entry.creator,
+                duration: entry.duration,
+                streamURL: URL(string: "https://archive.org/download/\(entry.id)")
+                    ?? URL(string: "https://archive.org")!,
+                downloadURL: nil, localFilePath: nil,
+                license: .publicDomain, tags: [],
+                qualityScore: 1.0, rawCreator: entry.creator,
+                composer: nil, instruments: [],
+                metadataConfidence: 1.0,
+                parentIdentifier: entry.parentIdentifier)
+        }
+    }
+
+    /// ChannelMeta → a lightweight runtime Channel for playback.
+    func runtimeChannel(from meta: ChannelMeta) -> Channel {
+        Channel(
+            id: meta.id, name: meta.name, category: "Curated", icon: meta.icon,
+            contentType: .music, preferredSource: "internet_archive",
+            isDownloaded: false)
+    }
+
+    /// Approved tracks known for this channel (from per-channel file).
+    func hasApprovedTracks(for chId: String) -> Bool {
+        !(channelDefinition(for: chId)?.approved.isEmpty ?? true)
+    }
+
+    // MARK: - Import / Export
+
+    /// Export a channel definition file URL for sharing.
+    func exportURL(for chId: String) -> URL {
+        Self.channelsDir.appendingPathComponent("\(chId).json")
+    }
+
+    /// Import a channel from an external JSON file.
+    /// Returns the channel ID on success, or throws on failure.
+    func importChannel(from url: URL) throws -> String {
+        let data = try Data(contentsOf: url)
+        let def = try JSONDecoder().decode(ChannelDefinition.self, from: data)
+
+        let destURL = Self.channelsDir.appendingPathComponent("\(def.channel.id).json")
+        let exists = FileManager.default.fileExists(atPath: destURL.path)
+
+        let finalId: String
+        if exists {
+            // Duplicate with a new ID
+            finalId = "\(def.channel.id)-imported-\(Int(Date().timeIntervalSince1970))"
+        } else {
+            finalId = def.channel.id
+        }
+
+        var imported = def
+        imported.channel = ChannelDefinition.Info(
+            id: finalId, name: def.channel.name, icon: def.channel.icon,
+            iaQuery: def.channel.iaQuery)
+        writeChannelDefinition(imported)
+
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        let meta = ChannelMeta(
+            id: finalId, name: def.channel.name, icon: def.channel.icon,
+            iaQuery: def.channel.iaQuery,
+            createdAt: stamp, isShippedDefault: false)
+        if !customChannels.contains(where: { $0.id == finalId }) {
+            customChannels.append(meta)
+        }
+        if !channelOrder.contains(finalId) {
+            channelOrder.append(finalId)
+        }
+        saveMeta()
+        return finalId
+    }
+
+    fileprivate func applyOrder() {}
+}

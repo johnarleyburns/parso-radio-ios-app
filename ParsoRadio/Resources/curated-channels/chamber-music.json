@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "chamber-music",
+    "name": "Chamber Music",
+    "icon": "music.quarternote.3",
+    "iaQuery": "collection:musopen AND mediatype:audio AND title:(string quartet OR piano trio OR cello sonata OR flute OR clarinet)"
+  },
+  "updatedAt": "2026-05-31",
+  "approved": [],
+  "rejected": []
+}

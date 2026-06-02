@@ -34,4 +34,5 @@ protocol AudioEngine: AnyObject {
     func setContentMode(_ mode: AudioPlayerService.ContentMode)
     func setPlaybackRate(_ rate: Float)
     func syncPlaybackState()
+    func invalidateStreamingCache(for trackID: String)
 }

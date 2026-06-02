@@ -9,86 +9,95 @@ final class DatabaseService: @unchecked Sendable {
     private let db: Connection
     private let queue = DispatchQueue(label: "guru.parso.db", qos: .utility)
 
+    /// Shared instance using the default Documents/parso_radio.sqlite path.
+    /// Fatal error if the database cannot be opened (required for app operation).
+    static let shared: DatabaseService = {
+        guard let service = try? DatabaseService() else {
+            fatalError("Cannot open database at default path")
+        }
+        return service
+    }()
+
     // MARK: - Tracks table
     private let tracks        = Table("tracks")
-    private let colId         = Expression<String>("id")
-    private let colSource     = Expression<String>("source")
-    private let colTitle      = Expression<String>("title")
-    private let colArtist     = Expression<String>("artist")
-    private let colDuration   = Expression<Double>("duration")
-    private let colStreamURL  = Expression<String>("stream_url")
-    private let colDownURL    = Expression<String?>("download_url")
-    private let colLocalPath  = Expression<String?>("local_file_path")
-    private let colLicense    = Expression<String>("license_type")
-    private let colTags       = Expression<String>("tags")
-    private let colQuality    = Expression<Double>("quality_score")
-    private let colRawCreator = Expression<String>("raw_creator")
-    private let colComposer   = Expression<String?>("composer")
-    private let colInstruments = Expression<String>("instruments")
-    private let colConfidence = Expression<Double>("metadata_confidence")
-    private let colFetchedAt  = Expression<Int64>("fetched_at")
+    private let colId         = Column<String>("id").expr
+    private let colSource     = Column<String>("source").expr
+    private let colTitle      = Column<String>("title").expr
+    private let colArtist     = Column<String>("artist").expr
+    private let colDuration   = Column<Double>("duration").expr
+    private let colStreamURL  = Column<String>("stream_url").expr
+    private let colDownURL    = Column<String?>("download_url").expr
+    private let colLocalPath  = Column<String?>("local_file_path").expr
+    private let colLicense    = Column<String>("license_type").expr
+    private let colTags       = Column<String>("tags").expr
+    private let colQuality    = Column<Double>("quality_score").expr
+    private let colRawCreator = Column<String>("raw_creator").expr
+    private let colComposer   = Column<String?>("composer").expr
+    private let colInstruments = Column<String>("instruments").expr
+    private let colConfidence = Column<Double>("metadata_confidence").expr
+    private let colFetchedAt  = Column<Int64>("fetched_at").expr
 
     // Tracks — new columns
-    private let colAddedDate  = Expression<Double?>("added_date")
-    private let colIsLocal    = Expression<Bool>("is_local")
-    private let colPartNumber = Expression<Int?>("part_number")
-    private let colTotalParts = Expression<Int?>("total_parts")
-    private let colParentId   = Expression<String?>("parent_identifier")
-    private let colArtworkURL = Expression<String?>("artwork_url")
+    private let colAddedDate  = Column<Double?>("added_date").expr
+    private let colIsLocal    = Column<Bool>("is_local").expr
+    private let colPartNumber = Column<Int?>("part_number").expr
+    private let colTotalParts = Column<Int?>("total_parts").expr
+    private let colParentId   = Column<String?>("parent_identifier").expr
+    private let colArtworkURL = Column<String?>("artwork_url").expr
     // nil = not yet probed, false = single-file, true = multi-file (book/album)
-    private let colIsMultiPart = Expression<Bool?>("is_multi_part")
+    private let colIsMultiPart = Column<Bool?>("is_multi_part").expr
 
     // MARK: - Playback positions table
     private let positions    = Table("playback_positions")
-    private let colChannelId = Expression<String>("channel_id")
-    private let colTrackId   = Expression<String>("track_id")
-    private let colPosSecs   = Expression<Double>("position_seconds")
+    private let colChannelId = Column<String>("channel_id").expr
+    private let colTrackId   = Column<String>("track_id").expr
+    private let colPosSecs   = Column<Double>("position_seconds").expr
 
     // MARK: - Playlists table
     private let playlists        = Table("playlists")
-    private let colPlaylistId    = Expression<String>("id")
-    private let colPlaylistName  = Expression<String>("name")
-    private let colCreatedAt     = Expression<Double>("created_at")
-    private let colUpdatedAt     = Expression<Double>("updated_at")
-    private let colIsFavorites   = Expression<Bool>("is_favorites")
-    private let colPlaylistOrder = Expression<Int?>("sort_order")
+    private let colPlaylistId    = Column<String>("id").expr
+    private let colPlaylistName  = Column<String>("name").expr
+    private let colCreatedAt     = Column<Double>("created_at").expr
+    private let colUpdatedAt     = Column<Double>("updated_at").expr
+    private let colIsFavorites   = Column<Bool>("is_favorites").expr
+    private let colPlaylistOrder = Column<Int?>("sort_order").expr
     // Parental flag: parents mark playlists kid-safe; only those appear in Kids
     // Mode (and they're read-only there). Added via idempotent migration so
     // existing rows default to false.
-    private let colPlaylistKidSafe = Expression<Bool>("is_kid_safe")
+    private let colPlaylistKidSafe = Column<Bool>("is_kid_safe").expr
 
     // MARK: - Playlist tracks table
     private let playlistTracks   = Table("playlist_tracks")
-    private let colPTId          = Expression<String>("id")
-    private let colPTPlaylistId  = Expression<String>("playlist_id")
-    private let colPTTrackId     = Expression<String>("track_id")
-    private let colPTSortOrder   = Expression<Int>("sort_order")
-    private let colPTAddedAt     = Expression<Double>("added_at")
+    private let colPTId          = Column<String>("id").expr
+    private let colPTPlaylistId  = Column<String>("playlist_id").expr
+    private let colPTTrackId     = Column<String>("track_id").expr
+    private let colPTSortOrder   = Column<Int>("sort_order").expr
+    private let colPTAddedAt     = Column<Double>("added_at").expr
 
     // MARK: - Track play history table
     private let playHistory      = Table("track_play_history")
-    private let colPHChannelId   = Expression<String>("channel_id")
-    private let colPHTrackId     = Expression<String>("track_id")
-    private let colPHPlayedAt    = Expression<Double>("played_at")
+    private let colPHChannelId   = Column<String>("channel_id").expr
+    private let colPHTrackId     = Column<String>("track_id").expr
+    private let colPHPlayedAt    = Column<Double>("played_at").expr
 
     // MARK: - Bookmarks table (within-track timestamps)
     private let bookmarks         = Table("bookmarks")
-    private let colBMId           = Expression<String>("id")
-    private let colBMTrackId      = Expression<String>("track_id")
-    private let colBMPositionSecs = Expression<Double>("position_seconds")
-    private let colBMLabel        = Expression<String?>("label")
-    private let colBMCreatedAt    = Expression<Double>("created_at")
-    private let colBMIsAutosave   = Expression<Bool>("is_autosave")
+    private let colBMId           = Column<String>("id").expr
+    private let colBMTrackId      = Column<String>("track_id").expr
+    private let colBMPositionSecs = Column<Double>("position_seconds").expr
+    private let colBMLabel        = Column<String?>("label").expr
+    private let colBMCreatedAt    = Column<Double>("created_at").expr
+    private let colBMIsAutosave   = Column<Bool>("is_autosave").expr
 
     // Curator Mode: per-(channel, track) verdict. status ∈ review/approved/
     // rejected. The approved set is a curated channel's play pool + what exports
     // to the bundled manifest; rejected is auto-excluded from future candidates.
     private let curation       = Table("curation")
-    private let colCurChannel  = Expression<String>("channel_id")
-    private let colCurTrack    = Expression<String>("track_id")
-    private let colCurStatus   = Expression<String>("status")
-    private let colCurReviewedAt = Expression<Double>("reviewed_at")
-    private let colCurNote     = Expression<String?>("note")
+    private let colCurChannel  = Column<String>("channel_id").expr
+    private let colCurTrack    = Column<String>("track_id").expr
+    private let colCurStatus   = Column<String>("status").expr
+    private let colCurReviewedAt = Column<Double>("reviewed_at").expr
+    private let colCurNote     = Column<String?>("note").expr
 
     init(path: String? = nil) throws {
         if let path {
@@ -481,6 +490,23 @@ final class DatabaseService: @unchecked Sendable {
             queue.async { [self] in
                 let ids = (try? db.prepare(curation.select(colCurTrack)
                     .filter(colCurChannel == channelId && colCurStatus == "approved")))?
+                    .map { $0[colCurTrack] } ?? []
+                var out: [Track] = []
+                for id in ids {
+                    if let row = try? db.pluck(tracks.filter(colId == id)),
+                       let t = rowToTrack(row) { out.append(t) }
+                }
+                cont.resume(returning: out)
+            }
+        }
+    }
+
+    /// Rejected tracks for a channel, joined to full Track rows.
+    func fetchRejectedTracks(forChannelId channelId: String) async -> [Track] {
+        await withCheckedContinuation { cont in
+            queue.async { [self] in
+                let ids = (try? db.prepare(curation.select(colCurTrack)
+                    .filter(colCurChannel == channelId && colCurStatus == "rejected")))?
                     .map { $0[colCurTrack] } ?? []
                 var out: [Track] = []
                 for id in ids {

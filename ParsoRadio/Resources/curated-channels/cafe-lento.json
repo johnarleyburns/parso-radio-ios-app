@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "cafe-lento",
+    "name": "Caf\u00e9 Lento",
+    "icon": "cup.and.saucer",
+    "iaQuery": "collection:musopen AND mediatype:audio AND subject:\"classical\""
+  },
+  "updatedAt": "2026-05-31",
+  "approved": [],
+  "rejected": []
+}

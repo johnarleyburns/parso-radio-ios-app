@@ -6,6 +6,9 @@ import SwiftUI
 struct ChannelInfoView: View {
     let channel: Channel
 
+    @EnvironmentObject var playerVM: PlayerViewModel
+    @State private var showCurator = false
+
     // Pushed inside the Main Menu's navigation stack — the standard back
     // chevron returns to the menu list (no own NavigationStack / Done button).
     var body: some View {
@@ -27,6 +30,19 @@ struct ChannelInfoView: View {
                 }
                 .padding(.vertical, 4)
                 .accessibilityElement(children: .combine)
+            }
+
+            // Curate this Channel (for user-curated or shipped channels)
+            if channel.category == "Curated",
+               CustomChannelsStore.shared.customChannels.contains(where: { $0.id == channel.id }) {
+                Section {
+                    Button {
+                        showCurator = true
+                    } label: {
+                        Label("Curate this Channel", systemImage: "checklist")
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
             }
 
             Section("About") {
@@ -61,6 +77,12 @@ struct ChannelInfoView: View {
         }
         .navigationTitle("Channel Info")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showCurator) {
+            if let meta = CustomChannelsStore.shared.customChannels.first(where: { $0.id == channel.id }) {
+                CuratorChannelEditView(channelMeta: meta, onDismiss: { showCurator = false })
+                    .environmentObject(playerVM)
+            }
+        }
     }
 
     @ViewBuilder

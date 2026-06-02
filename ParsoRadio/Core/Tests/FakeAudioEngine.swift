@@ -46,6 +46,7 @@ final class FakeAudioEngine: AudioEngine {
     func setContentMode(_ mode: AudioPlayerService.ContentMode) {}
     func setPlaybackRate(_ rate: Float) { playbackRate = rate }
     func syncPlaybackState() {}
+    func invalidateStreamingCache(for trackID: String) {}
 
     // MARK: Test drivers (simulate the engine's async callbacks)
 

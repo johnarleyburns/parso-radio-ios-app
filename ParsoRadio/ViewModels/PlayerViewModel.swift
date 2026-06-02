@@ -1121,6 +1121,7 @@ final class PlayerViewModel: ObservableObject {
             errorMessage = "Couldn't start playback — check your connection and try again."
         case .skip:
             Log.playback.error("Track stalled (no audio in \(self.stallTimeout)s) — skipping")
+            audioPlayer.invalidateStreamingCache(for: currentTrack?.id ?? "")
             audioPlayer.skip()
             isPlaying = false
             currentPosition = 0
@@ -1403,6 +1404,9 @@ final class PlayerViewModel: ObservableObject {
         }
         // Permanent, or out of retries for this item → give up on it.
         loadAttempts[track.id] = nil
+        // Invalidate the streaming cache for this track so a re-visit starts
+        // fresh (avoids "spins forever on re-visit" from a partial/corrupted cache).
+        audioPlayer.invalidateStreamingCache(for: track.id)
         // A one-off play with no channel/playlist to advance within (a tapped
         // search result) has nowhere to go — advanceToNext would return doing
         // NOTHING, stranding the user on a silent, spinner-less screen (item 9).

@@ -204,8 +204,8 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
             let time = CMTime(seconds: target, preferredTimescale: 600)
             player?.seek(to: time,
                          toleranceBefore: .zero,
-                         toleranceAfter: CMTime(seconds: 1, preferredTimescale: 1)) { [weak self] _ in
-                Task { @MainActor [weak self] in startIfNeeded(target) }
+                         toleranceAfter: CMTime(seconds: 1, preferredTimescale: 1)) { _ in
+                Task { @MainActor in startIfNeeded(target) }
             }
         } else {
             startIfNeeded(currentTime)
@@ -547,6 +547,14 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         currentCachingDelegate = nil
         pendingStartSeek = 0
         player = nil
+    }
+
+    /// Delete the streaming cache file for a track so a re-visit starts fresh.
+    /// Call when a track has failed to stream — avoids "spins forever on
+    /// re-visit" from a partially-written or corrupted cache file.
+    func invalidateStreamingCache(for trackID: String) {
+        let url = streamingCachePath(for: trackID)
+        try? FileManager.default.removeItem(at: url)
     }
 
     /// Filesystem path for the experimental streaming-cache file for one track.

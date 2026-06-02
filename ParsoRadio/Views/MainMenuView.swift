@@ -105,9 +105,17 @@ struct MainMenuView: View {
                 case .channelInfo(let ch):
                     ChannelInfoView(channel: ch)
                 case .channelList(let category):
-                    ChannelListScreen(category: category,
-                                      channels: channels(in: category),
-                                      onSelect: { channel in onSelectChannel(channel) })
+                    if category == "Curated" {
+                        CuratedChannelsListView(
+                            onSelectChannel: { channel in
+                                onSelectChannel(channel)
+                                dismissAll()
+                            })
+                    } else {
+                        ChannelListScreen(category: category,
+                                          channels: channels(in: category),
+                                          onSelect: { channel in onSelectChannel(channel) })
+                    }
                 case .playlists:
                     PlaylistsScreen(
                         dismissAll: dismissAll,

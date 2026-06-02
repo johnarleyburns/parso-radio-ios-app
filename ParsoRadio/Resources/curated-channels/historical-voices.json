@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "historical-voices",
+    "name": "Historical Voices",
+    "icon": "mic",
+    "iaQuery": "collection:78rpm OR collection:artmuz AND mediatype:audio"
+  },
+  "updatedAt": "2026-05-31",
+  "approved": [],
+  "rejected": []
+}

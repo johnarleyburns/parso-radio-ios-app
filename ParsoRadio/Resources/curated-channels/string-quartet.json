@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "string-quartet",
+    "name": "String Quartet",
+    "icon": "music.quarternote.3",
+    "iaQuery": "collection:musopen AND mediatype:audio AND subject:\"string quartet\""
+  },
+  "updatedAt": "2026-05-31",
+  "approved": [],
+  "rejected": []
+}
