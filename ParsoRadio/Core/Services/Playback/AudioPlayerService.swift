@@ -149,8 +149,21 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
             // on .failed here — only a true 10 s resolve-timeout (in
             // PlayerViewModel.playTrack) auto-skips a track.
             statusObserver = item.observe(\.status, options: [.new, .initial]) { [weak self] item, _ in
-                guard item.status == .readyToPlay else { return }
-                Task { @MainActor [weak self] in self?.handleItemReady() }
+                switch item.status {
+                case .readyToPlay:
+                    Task { @MainActor [weak self] in self?.handleItemReady() }
+                case .failed:
+                    // Non-audio content (PDFs, images, text) causes AVPlayer to
+                    // fail with decode/format errors. Network errors are handled
+                    // by the URL resolution timeout in PlayerViewModel.
+                    if let err = item.error as? NSError,
+                       err.domain == AVFoundationErrorDomain
+                        || err.domain == NSOSStatusErrorDomain {
+                        Task { @MainActor [weak self] in self?.onNonAudio?() }
+                    }
+                default:
+                    break
+                }
             }
         }
 

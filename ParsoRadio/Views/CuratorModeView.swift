@@ -195,6 +195,7 @@ struct CuratorReviewView: View {
     // Tracks that failed to play — persistent yellow warning icon
     @State private var failedTrackIds: Set<String> = []
     @State private var flashTrackId: String?
+    @State private var infoTrack: Track?
 
     var body: some View {
         List {
@@ -280,6 +281,9 @@ struct CuratorReviewView: View {
                                  archiveService: archiveService)
                 .environmentObject(playerVM)
         }
+        .sheet(item: $infoTrack) { track in
+            trackInfoSheet(track)
+        }
         .onChange(of: showSearchAdd) { _, shown in
             if !shown { Task { await reload() } }   // refresh queue on dismiss
         }
@@ -326,6 +330,7 @@ struct CuratorReviewView: View {
                     Text(track.title).font(.body).lineLimit(2)
                 }
                 Text(track.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    .onTapGesture { infoTrack = track }
                 if track.duration > 0 {
                     Text(formatTime(track.duration))
                         .font(.caption2).foregroundStyle(.tertiary).monospacedDigit()
@@ -443,6 +448,38 @@ struct CuratorReviewView: View {
     private func formatTime(_ s: Double) -> String {
         let t = Int(s); let m = t / 60; let sec = t % 60
         return String(format: "%d:%02d", m, sec)
+    }
+
+    @ViewBuilder
+    private func trackInfoSheet(_ track: Track) -> some View {
+        NavigationStack {
+            List {
+                Section("Track Info") {
+                    Text(track.title).font(.headline)
+                    Text(track.artist).foregroundStyle(.secondary)
+                    if track.duration > 0 {
+                        Text(formatTime(track.duration))
+                            .font(.caption).foregroundStyle(.tertiary).monospacedDigit()
+                    }
+                }
+                Section("Source") {
+                    Text(track.streamURL.absoluteString)
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                }
+                Section {
+                    Text("ID: \(track.id)")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                }
+            }
+            .navigationTitle("Track Info")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { infoTrack = nil }
+                }
+            }
+        }
     }
 }
 

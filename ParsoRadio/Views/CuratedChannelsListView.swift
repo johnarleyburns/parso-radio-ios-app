@@ -398,6 +398,11 @@ struct CuratorChannelEditView: View {
     @State private var verdictStates: [String: (status: String, undone: Bool)] = [:]
     // Resolve timeout for curator auditions
     @State private var auditionTimeout: Task<Void, Never>?
+    // Tracks that failed to play — show a yellow warning icon
+    @State private var failedTrackIds: Set<String> = []
+    @State private var flashTrackId: String?
+    // Track info popup when tapping name/author area
+    @State private var infoTrack: Track?    // triggers brief yellow flash
 
     var body: some View {
         NavigationStack {
@@ -519,6 +524,36 @@ struct CuratorChannelEditView: View {
                     showQueryEditor = false
                 }
             }
+            .sheet(item: $infoTrack) { track in
+                NavigationStack {
+                    List {
+                        Section("Track Info") {
+                            Text(track.title).font(.headline)
+                            Text(track.artist).foregroundStyle(.secondary)
+                            if track.duration > 0 {
+                                Text(formatTime(track.duration))
+                                    .font(.caption).foregroundStyle(.tertiary).monospacedDigit()
+                            }
+                        }
+                        Section("Source") {
+                            Text(track.streamURL.absoluteString)
+                                .font(.caption.monospaced())
+                                .textSelection(.enabled)
+                        }
+                        Section {
+                            Text("ID: \(track.id)")
+                                .font(.caption2).foregroundStyle(.tertiary)
+                        }
+                    }
+                    .navigationTitle("Track Info")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { infoTrack = nil }
+                        }
+                    }
+                }
+            }
             .sheet(isPresented: $showSearchAdd) {
                 CuratorSearchAddView(channel: runtimeChannel, db: db,
                                      archiveService: archiveService)
@@ -532,6 +567,17 @@ struct CuratorChannelEditView: View {
                 if phase != .active { playerVM.stopAudition() }
             }
             .task { await reload() }
+            .onChange(of: playerVM.errorMessage) { _, msg in
+                if let id = playerVM.currentTrack?.id, msg != nil {
+                    failedTrackIds.insert(id)
+                    flashTrackId = id
+                    // Brief yellow flash, then settle to persistent icon
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 800_000_000)
+                        flashTrackId = nil
+                    }
+                }
+            }
             .alert("Rename Channel", isPresented: $showRename) {
                 TextField("Channel name", text: $editedName)
                 Button("Save") {
@@ -560,11 +606,23 @@ struct CuratorChannelEditView: View {
         let isLive = playerVM.currentTrack?.id == track.id
         let isLoading = isLive && playerVM.isLoading
         let isPlaying = isLive && playerVM.isPlaying && !isLoading
+        let hasFailed = failedTrackIds.contains(track.id)
+        let isFlashing = flashTrackId == track.id
 
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(track.title).font(.body).lineLimit(2)
+                HStack(spacing: 4) {
+                    if hasFailed {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.yellow)
+                            .scaleEffect(isFlashing ? 1.4 : 1.0)
+                            .animation(isFlashing ? .easeInOut(duration: 0.3).repeatCount(2, autoreverses: true) : .default, value: isFlashing)
+                    }
+                    Text(track.title).font(.body).lineLimit(2)
+                }
                 Text(track.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    .onTapGesture { infoTrack = track }
                 if track.duration > 0 {
                     Text(formatTime(track.duration))
                         .font(.caption2).foregroundStyle(.tertiary).monospacedDigit()
