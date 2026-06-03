@@ -147,20 +147,19 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
             // start playback (so a long audiobook never audibly starts at
             // 0:00 and jumps).
             statusObserver = item.observe(\.status, options: [.new, .initial]) { [weak self] item, _ in
-                guard item.status == .readyToPlay else { return }
-                Task { @MainActor [weak self] in self?.handleItemReady() }
+                switch item.status {
+                case .readyToPlay:
+                    Task { @MainActor [weak self] in self?.handleItemReady() }
+                case .failed:
+                    if let err = item.error as? NSError,
+                       err.domain == AVFoundationErrorDomain
+                        || err.domain == NSOSStatusErrorDomain {
+                        Task { @MainActor [weak self] in self?.onNonAudio?() }
+                    }
+                default:
+                    break
+                }
             }
-        }
-
-        // 10-second audio deadline. If no time tick fires within 10 s of
-        // play(), the track is unplayable (non-audio, dead URL, stuck
-        // metadata). Catches ALL failure modes: .readyToPlay silent,
-        // .failed, .unknown stuck, etc. Cancelled on first time tick.
-        nonAudioTimer?.cancel()
-        nonAudioTimer = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
-            guard !Task.isCancelled else { return }
-            await MainActor.run { self?.onNonAudio?() }
         }
 
         // Tag this player's ticks with a token. A periodic-time block already
@@ -211,6 +210,21 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
            d.isNumeric, d.seconds < 0.5 {
             onNonAudio?()
             return
+        }
+        // Post-ready deadline: if no audio within 10 s of .readyToPlay,
+        // it's non-audio. Cancelled on first time tick. Safe for normal
+        // playback: .readyToPlay means buffers are loaded, so 10 s is
+        // plenty even on slow connections (20 s stall watchdog is the
+        // ultimate safety net).
+        nonAudioTimer?.cancel()
+        nonAudioTimer = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self,
+                      (self.player?.currentTime().seconds ?? 0) < 0.1 else { return }
+                self.onNonAudio?()
+            }
         }
         if let d = duration { onReady?(d) }
         let target = pendingStartSeek
