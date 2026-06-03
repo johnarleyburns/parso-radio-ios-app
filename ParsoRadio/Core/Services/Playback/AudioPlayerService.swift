@@ -145,26 +145,22 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
             }
             // .readyToPlay → safe to apply the deferred resume seek, THEN
             // start playback (so a long audiobook never audibly starts at
-            // 0:00 and jumps). Per the user spec we deliberately do NOT skip
-            // on .failed here — only a true 10 s resolve-timeout (in
-            // PlayerViewModel.playTrack) auto-skips a track.
+            // 0:00 and jumps).
             statusObserver = item.observe(\.status, options: [.new, .initial]) { [weak self] item, _ in
-                switch item.status {
-                case .readyToPlay:
-                    Task { @MainActor [weak self] in self?.handleItemReady() }
-                case .failed:
-                    // Non-audio content (PDFs, images, text) causes AVPlayer to
-                    // fail with decode/format errors. Network errors are handled
-                    // by the URL resolution timeout in PlayerViewModel.
-                    if let err = item.error as? NSError,
-                       err.domain == AVFoundationErrorDomain
-                        || err.domain == NSOSStatusErrorDomain {
-                        Task { @MainActor [weak self] in self?.onNonAudio?() }
-                    }
-                default:
-                    break
-                }
+                guard item.status == .readyToPlay else { return }
+                Task { @MainActor [weak self] in self?.handleItemReady() }
             }
+        }
+
+        // 10-second audio deadline. If no time tick fires within 10 s of
+        // play(), the track is unplayable (non-audio, dead URL, stuck
+        // metadata). Catches ALL failure modes: .readyToPlay silent,
+        // .failed, .unknown stuck, etc. Cancelled on first time tick.
+        nonAudioTimer?.cancel()
+        nonAudioTimer = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { self?.onNonAudio?() }
         }
 
         // Tag this player's ticks with a token. A periodic-time block already
@@ -207,34 +203,14 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     }
 
     // Called once the item is .readyToPlay. Applies any deferred resume seek,
-    // reports the now-known duration (so the UI shows progress even when
-    // starting paused), and starts playback only if autoPlay was requested.
+    // reports the now-known duration, and starts playback if autoPlay was
+    // requested. Non-audio detection: immediate skip if duration < 0.5s (the
+    // 10-second deadline from play() handles the slower cases).
     private func handleItemReady() {
-        // Tier 1: immediate non-audio — duration is near-zero.
         if let d = player?.currentItem?.duration,
            d.isNumeric, d.seconds < 0.5 {
             onNonAudio?()
             return
-        }
-        // Tier 2: deferred — item is .readyToPlay with a plausible duration
-        // but no actual audio frames ever arrive. 8-second timer (conservative:
-        // slow networks can delay the first frame after .readyToPlay, but 8s
-        // is enough for even EDGE to deliver a single audio packet). Cancelled
-        // by the first onTimeUpdate tick. Also guarded: if currentTime has
-        // started advancing (slow-but-actual playback), skip the timer.
-        nonAudioTimer?.cancel()
-        nonAudioTimer = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 8_000_000_000)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                // Safety: if the player has somehow advanced past 0 (slow
-                // but genuine playback), don't flag as non-audio.
-                guard let self,
-                      (self.player?.currentTime().seconds ?? 0) < 0.1 else { return }
-                self.nonAudioTimer?.cancel()
-                self.nonAudioTimer = nil
-                self.onNonAudio?()
-            }
         }
         if let d = duration { onReady?(d) }
         let target = pendingStartSeek

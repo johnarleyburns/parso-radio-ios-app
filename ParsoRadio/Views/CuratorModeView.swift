@@ -329,8 +329,9 @@ struct CuratorReviewView: View {
                     }
                     Text(track.title).font(.body).lineLimit(2)
                 }
+                .contentShape(Rectangle())
+                .onTapGesture { infoTrack = track }
                 Text(track.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                    .onTapGesture { infoTrack = track }
                 if track.duration > 0 {
                     Text(formatTime(track.duration))
                         .font(.caption2).foregroundStyle(.tertiary).monospacedDigit()
