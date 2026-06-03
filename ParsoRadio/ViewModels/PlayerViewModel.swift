@@ -1035,6 +1035,12 @@ final class PlayerViewModel: ObservableObject {
                let auto = await db.fetchAutosaveBookmark(forTrack: track.id) {
                 effectiveSeek = auto.positionSeconds
             }
+            // News autoseek: skip introductory filler (see Channel.swift).
+            // Only applies when no explicit seek/autosave, and not resuming.
+            if seekTo == nil, effectiveSeek == 0,
+               let offset = currentChannel?.startOffsetSeconds {
+                effectiveSeek = offset
+            }
             // Context changed (channel/playlist/search switch) OR a newer
             // playTrack superseded this one (rapid Back/Skip) → abandon before
             // committing audio. The winning load owns currentTrack/spinner.

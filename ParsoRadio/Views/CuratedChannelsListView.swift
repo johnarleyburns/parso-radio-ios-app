@@ -45,17 +45,6 @@ struct CuratedChannelsListView: View {
                 curatedRow(meta)
                     .contextMenu { rowContextMenu(meta) }
             }
-            .onMove { from, to in
-                var channels = store.orderedChannels()
-                channels.move(fromOffsets: from, toOffset: to)
-                store.reorder(channels: channels)
-            }
-            .onDelete { indexSet in
-                for idx in indexSet {
-                    let meta = store.orderedChannels()[idx]
-                    store.deleteChannel(chId: meta.id)
-                }
-            }
 
             if store.orderedChannels().isEmpty {
                 Section {
@@ -76,9 +65,6 @@ struct CuratedChannelsListView: View {
                     Image(systemName: "plus")
                 }
                 .accessibilityLabel("New curated channel")
-            }
-            ToolbarItem(placement: .topBarLeading) {
-                EditButton()
             }
         }
         .sheet(isPresented: $showNewChannel) {

@@ -30,6 +30,9 @@ struct Channel: Codable, Identifiable, Hashable {
     // Short user-facing blurb for ChannelInfoView. Falls back to
     // `detailDescription` (derived from composers / instruments / tags) when nil.
     let summary: String?
+    // Auto-seek past introductory filler for news/podcast channels.
+    // Channels with this set start playback at the given second offset.
+    let startOffsetSeconds: Double?
 
     init(
         id: String, name: String, category: String, icon: String,
@@ -38,7 +41,7 @@ struct Channel: Codable, Identifiable, Hashable {
         contentType: ContentType = .music, spokenWordCollections: [String] = [],
         preferredSource: String? = nil, feedURL: String? = nil,
         isDownloaded: Bool = false, minTrackDuration: Double? = nil,
-        summary: String? = nil
+        summary: String? = nil, startOffsetSeconds: Double? = nil
     ) {
         self.id = id; self.name = name; self.category = category; self.icon = icon
         self.composers = composers; self.instruments = instruments; self.tags = tags
@@ -48,6 +51,7 @@ struct Channel: Codable, Identifiable, Hashable {
         self.isDownloaded = isDownloaded
         self.minTrackDuration = minTrackDuration
         self.summary = summary
+        self.startOffsetSeconds = startOffsetSeconds
     }
 
     var iaQueryEntry: IAQueryEntry? { IAQueryRegistry.shared.entry(for: id) }
@@ -247,28 +251,32 @@ extension Channel {
             category: "News", icon: "sunrise.fill",
             tags: ["news-nprup-first"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.npr.org/510318/podcast.xml"
+            feedURL: "https://feeds.npr.org/510318/podcast.xml",
+            startOffsetSeconds: 148  // skip 2:28 intro filler
         ),
         Channel(
             id: "news-pbs-newshour", name: "PBS NewsHour",
             category: "News", icon: "tv",
             tags: ["news-pbs-newshour"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.npr.org/510317/podcast.xml"
+            feedURL: "https://feeds.npr.org/510317/podcast.xml",
+            startOffsetSeconds: 30
         ),
         Channel(
             id: "news-democracy-now", name: "Democracy Now!",
             category: "News", icon: "megaphone.fill",
             tags: ["news-democracy-now"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://www.democracynow.org/podcast.xml"
+            feedURL: "https://www.democracynow.org/podcast.xml",
+            startOffsetSeconds: 17
         ),
         Channel(
             id: "news-npr-1a", name: "NPR 1A (Public Affairs)",
             category: "News", icon: "person.2.fill",
             tags: ["news-npr-1a"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.npr.org/510316/podcast.xml"
+            feedURL: "https://feeds.npr.org/510316/podcast.xml",
+            startOffsetSeconds: 24
         ),
         // International public broadcasters. Their canonical podcast feeds are
         // licence-fee / public-funded and ship ad-free worldwide (the "BBC has
@@ -279,21 +287,24 @@ extension Channel {
             category: "News", icon: "globe.europe.africa.fill",
             tags: ["news-bbc-global"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://podcasts.files.bbci.co.uk/p02nq0gn.rss"
+            feedURL: "https://podcasts.files.bbci.co.uk/p02nq0gn.rss",
+            startOffsetSeconds: 96   // skip 1:36 intro filler
         ),
         Channel(
             id: "news-dw-inside-europe", name: "DW Inside Europe",
             category: "News", icon: "building.columns.fill",
             tags: ["news-dw-inside-europe"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://partner.dw.com/xml/podcast_inside-europe"
+            feedURL: "https://partner.dw.com/xml/podcast_inside-europe",
+            startOffsetSeconds: 18
         ),
         Channel(
             id: "news-cbc-as-it-happens", name: "CBC As It Happens",
             category: "News", icon: "globe.americas.fill",
             tags: ["news-cbc-as-it-happens"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://www.cbc.ca/podcasting/includes/asithappens.xml"
+            feedURL: "https://www.cbc.ca/podcasting/includes/asithappens.xml",
+            startOffsetSeconds: 35
         ),
 
         // MARK: Curated — pure-Lucene IA channels

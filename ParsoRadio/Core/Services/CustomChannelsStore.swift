@@ -89,22 +89,23 @@ final class CustomChannelsStore: ObservableObject {
         for chId in Channel.defaults
             .filter({ $0.category == "Curated" && $0.iaQueryEntry != nil })
             .map(\.id) {
-            // Only backfill if the per-channel file exists but has no approved tracks
-            guard var def = channelDefinition(for: chId),
-                  def.approved.isEmpty else { continue }
-            let approved = await db.fetchApprovedTracks(forChannelId: chId)
-            guard !approved.isEmpty else { continue }
-            def.approved = approved.map { t in
+            guard var def = channelDefinition(for: chId) else { continue }
+            let dbApproved = await db.fetchApprovedTracks(forChannelId: chId)
+            guard !dbApproved.isEmpty else { continue }
+            let fileIds = Set(def.approved.map(\.id))
+            let missing = dbApproved.filter { !fileIds.contains($0.id) }
+            guard !missing.isEmpty else { continue }
+            def.approved.append(contentsOf: missing.map { t in
                 ChannelDefinition.ApprovedEntry(
                     id: t.id, title: t.title, creator: t.artist,
                     duration: t.duration, parentIdentifier: t.parentIdentifier)
-            }
+            })
             def.updatedAt = stamp
             writeChannelDefinition(def)
-            merged += 1
+            merged += missing.count
         }
         if merged > 0 {
-            Log.general.info("[CustomChannels] Backfilled \(merged) channels from SQLite DB")
+            Log.general.info("[CustomChannels] Backfilled \(merged) tracks from SQLite DB into per-channel files")
         }
     }
 
@@ -193,11 +194,15 @@ final class CustomChannelsStore: ObservableObject {
             foundInBundle += 1
 
             let userFile = Self.channelsDir.appendingPathComponent("\(chId).json")
-            try? fm.removeItem(at: userFile)
-            do {
-                try fm.copyItem(at: bundleURL, to: userFile)
-                copiedToDocs += 1
-            } catch { /* skip */ }
+            // Only copy on first launch — NEVER overwrite an existing file.
+            // The user's approved tracks live in this file and destroying it
+            // would lose hours of curation work (the 103-vs-129 discrepancy bug).
+            if !fm.fileExists(atPath: userFile.path) {
+                do {
+                    try fm.copyItem(at: bundleURL, to: userFile)
+                    copiedToDocs += 1
+                } catch { /* skip */ }
+            }
 
             if !customChannels.contains(where: { $0.id == chId }) {
                 let channel = Channel.defaults.first(where: { $0.id == chId })
@@ -285,14 +290,11 @@ final class CustomChannelsStore: ObservableObject {
 
     // MARK: - Channel lifecycle
 
-    /// Ordered list of visible channels (shipped defaults not deleted + user custom),
-    /// sorted alphabetically by name unless the user has manually reordered.
+    /// Always sorted alphabetically by name — no user-edit order.
     func orderedChannels() -> [ChannelMeta] {
-        let list: [ChannelMeta] = channelOrder.compactMap { id in
-            guard !deletedDefaults.contains(id) else { return nil }
-            return customChannels.first(where: { $0.id == id })
-        }
-        return list
+        customChannels
+            .filter { !deletedDefaults.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     /// Populate channelOrder alphabetically on first launch (no saved order).

@@ -145,8 +145,16 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
             // on .failed here — only a true 10 s resolve-timeout (in
             // PlayerViewModel.playTrack) auto-skips a track.
             statusObserver = item.observe(\.status, options: [.new, .initial]) { [weak self] item, _ in
-                guard item.status == .readyToPlay else { return }
-                Task { @MainActor [weak self] in self?.handleItemReady() }
+                switch item.status {
+                case .readyToPlay:
+                    Task { @MainActor [weak self] in self?.handleItemReady() }
+                case .failed:
+                    // Track is unplayable (dead URL, non-audio, corrupted file).
+                    // Fire onNonAudio so PlayerViewModel can skip + show toast.
+                    Task { @MainActor [weak self] in self?.onNonAudio?() }
+                default:
+                    break
+                }
             }
         }
 
