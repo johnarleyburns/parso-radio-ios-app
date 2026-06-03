@@ -430,6 +430,20 @@ struct CuratorChannelEditView: View {
                     }
                 }
 
+                // Playback error: show non-intrusive banner so curator
+                // sees when a track is unplayable instead of just a spinner.
+                if let err = playerVM.errorMessage {
+                    Section {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text(err)
+                                .font(.subheadline)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
                 // Add Candidates
                 Section {
                     Button {

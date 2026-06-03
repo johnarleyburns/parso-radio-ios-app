@@ -208,6 +208,19 @@ struct CuratorReviewView: View {
                 .monospacedDigit()
             }
 
+            // Playback error banner (e.g. non-audio material, dead URL)
+            if let err = playerVM.errorMessage {
+                Section {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text(err)
+                            .font(.subheadline)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
             Section {
                 Button {
                     Task { await loadMoreCandidates() }
