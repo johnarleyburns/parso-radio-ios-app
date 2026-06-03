@@ -574,6 +574,23 @@ final class DatabaseService: @unchecked Sendable {
                 for id in ids {
                     if let row = try? db.pluck(tracks.filter(colId == id)),
                        let t = rowToTrack(row) { out.append(t) }
+                    else {
+                        // Track metadata is missing from the tracks table
+                        // (e.g. from an old curator session). Show a
+                        // placeholder so the count matches and the curator
+                        // can still reject it.
+                        out.append(Track(
+                            id: id, source: "internet_archive",
+                            title: "(Metadata pending — tap to play)",
+                            artist: "Unknown", duration: 0,
+                            streamURL: URL(string: "https://archive.org/download/\(id)")
+                                ?? URL(string: "https://archive.org")!,
+                            downloadURL: nil, localFilePath: nil,
+                            license: .publicDomain, tags: [],
+                            qualityScore: 0, rawCreator: "Unknown",
+                            composer: nil, instruments: [],
+                            metadataConfidence: 0))
+                    }
                 }
                 cont.resume(returning: out)
             }

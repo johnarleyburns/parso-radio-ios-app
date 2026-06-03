@@ -66,6 +66,10 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
 
     var onNonAudio: (() -> Void)?
 
+    /// 3 s timer started on .readyToPlay — if no audio tick arrives by then,
+    /// the asset is non-audio (PDF/text that AVPlayer loaded but can't play).
+    private var nonAudioTimer: Task<Void, Never>?
+
     init() {
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
@@ -168,6 +172,9 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
             // extra Task hop, keeping progress updates frame-tight.
             MainActor.assumeIsolated {
                 guard let self, self.playToken == token else { return }
+                // First real time tick → cancel the non-audio suspicion timer
+                self.nonAudioTimer?.cancel()
+                self.nonAudioTimer = nil
                 self.onTimeUpdate?(time.seconds)
                 self.updateNowPlayingElapsed(time.seconds)
             }
@@ -190,25 +197,20 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     // reports the now-known duration (so the UI shows progress even when
     // starting paused), and starts playback only if autoPlay was requested.
     private func handleItemReady() {
-        // Two-tier non-audio detection (PDFs, text files, etc. that AVPlayer
-        // loads but contain no playable audio):
-        //
-        // 1. Duration < 0.5 s — AVPlayer can't decode any audio frames.
-        // 2. The asset reports zero audio tracks — definitive non-audio signal
-        //    even when the server sent a fake Content-Length / duration.
-        let hasRealAudio: Bool = {
-            guard let tracks = player?.currentItem?.asset.tracks(
-                withMediaType: .audio) else { return true } // not loaded yet, assume ok
-            return !tracks.isEmpty
-        }()
+        // Tier 1: immediate non-audio — duration is near-zero.
         if let d = player?.currentItem?.duration,
            d.isNumeric, d.seconds < 0.5 {
             onNonAudio?()
             return
         }
-        if !hasRealAudio {
-            onNonAudio?()
-            return
+        // Tier 2: deferred — item is .readyToPlay with a plausible duration
+        // but no actual audio frames ever arrive. 3-second timer; cancelled
+        // by the first onTimeUpdate tick.
+        nonAudioTimer?.cancel()
+        nonAudioTimer = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { self?.onNonAudio?() }
         }
         if let d = duration { onReady?(d) }
         let target = pendingStartSeek
@@ -548,6 +550,8 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     private func tearDownPlayer() {
         // Invalidate any in-flight periodic-time ticks from the outgoing player.
         playToken &+= 1
+        nonAudioTimer?.cancel()
+        nonAudioTimer = nil
         player?.pause()
         playerLooper?.disableLooping()
         playerLooper = nil

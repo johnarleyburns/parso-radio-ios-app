@@ -192,6 +192,9 @@ struct CuratorReviewView: View {
     @State private var fetchError: String?
     @State private var showFetchError = false
     @State private var showSearchAdd = false
+    // Tracks that failed to play — persistent yellow warning icon
+    @State private var failedTrackIds: Set<String> = []
+    @State private var flashTrackId: String?
 
     var body: some View {
         List {
@@ -287,6 +290,16 @@ struct CuratorReviewView: View {
             if phase != .active { playerVM.stopAudition() }
         }
         .task { await reload() }
+        .onChange(of: playerVM.errorMessage) { _, msg in
+            if let id = playerVM.currentTrack?.id, msg != nil {
+                failedTrackIds.insert(id)
+                flashTrackId = id
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    flashTrackId = nil
+                }
+            }
+        }
         .alert("Fetch failed", isPresented: $showFetchError) {
             Button("OK", role: .cancel) {}
         } message: { Text(fetchError ?? "") }
@@ -297,10 +310,21 @@ struct CuratorReviewView: View {
         let isLive    = playerVM.currentTrack?.id == track.id
         let isLoading = isLive && playerVM.isLoading
         let isPlaying = isLive && playerVM.isPlaying && !isLoading
+        let hasFailed = failedTrackIds.contains(track.id)
+        let isFlashing = flashTrackId == track.id
 
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(track.title).font(.body).lineLimit(2)
+                HStack(spacing: 4) {
+                    if hasFailed {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.yellow)
+                            .scaleEffect(isFlashing ? 1.4 : 1.0)
+                            .animation(isFlashing ? .easeInOut(duration: 0.3).repeatCount(2, autoreverses: true) : .default, value: isFlashing)
+                    }
+                    Text(track.title).font(.body).lineLimit(2)
+                }
                 Text(track.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 if track.duration > 0 {
                     Text(formatTime(track.duration))
