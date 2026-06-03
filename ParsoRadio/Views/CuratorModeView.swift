@@ -350,6 +350,7 @@ struct CuratorReviewView: View {
     private func reload() async {
         counts = await db.curationCounts(channelId: channel.id)
         queue = await db.reviewSetTracks(channelId: channel.id)
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
     private func verdict(_ track: Track, _ status: String) async {
@@ -426,8 +427,8 @@ struct CuratorSearchAddView: View {
     @State private var query = ""
     @State private var results: [SearchViewModel.ResultGroup] = []
     @State private var isSearching = false
-    @State private var addedIds = Set<String>()
-    @State private var existingVerdicts: [String: String] = [:]
+    @State private var existingVerdicts: [String: String] = [:]  // loaded from DB on search
+    @State private var sessionVerdicts = Set<String>()            // set during this session
     @State private var errorMessage: String?
     @State private var showError = false
 
@@ -479,12 +480,13 @@ struct CuratorSearchAddView: View {
         let isLoading = live && playerVM.isLoading
         let isPlaying = live && playerVM.isPlaying && !isLoading
         let verdict   = existingVerdicts[group.id]
+        let isSession  = sessionVerdicts.contains(group.id)
 
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(group.title).font(.body).lineLimit(2)
                 Text(group.creator).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                if let v = verdict {
+                if let v = verdict, !isSession {
                     Text(verdictLabel(v))
                         .font(.caption2)
                         .foregroundStyle(verdictColor(v))
@@ -516,7 +518,7 @@ struct CuratorSearchAddView: View {
             }
             .buttonStyle(.plain)
             .frame(width: 32, height: 32)
-            // Accept — adds to review + immediately approves
+            // Accept — always enabled, allows toggling from reject→approve
             Button {
                 Task { await directVerdict(group, "approved") }
             } label: {
@@ -525,8 +527,7 @@ struct CuratorSearchAddView: View {
                     .foregroundStyle(verdict == "approved" ? .green : .secondary)
             }
             .buttonStyle(.plain)
-            .disabled(verdict == "approved" || verdict == "rejected")
-            // Reject
+            // Reject — always enabled, allows toggling from approve→reject
             Button {
                 Task { await directVerdict(group, "rejected") }
             } label: {
@@ -535,36 +536,35 @@ struct CuratorSearchAddView: View {
                     .foregroundStyle(verdict == "rejected" ? .red : .secondary)
             }
             .buttonStyle(.plain)
-            .disabled(verdict == "approved" || verdict == "rejected")
         }
         .padding(.vertical, 4)
     }
 
     private func directVerdict(_ group: SearchViewModel.ResultGroup, _ status: String) async {
         let t = searchTrack(group)
+        // If track already exists, just update its status (handles toggling)
         await db.saveTracks([t])
-        await db.ensureReviewSet(channelId: channel.id, trackIds: [t.id])
         await db.setCuration(channelId: channel.id, trackId: t.id, status: status)
         await LiveCurationStore.shared.reload(from: db)
-        // Write to per-channel file
-        if status == "approved",
-           var def = CustomChannelsStore.shared.channelDefinition(for: channel.id) {
-            if !def.approved.contains(where: { $0.id == t.id }) {
-                def.approved.append(ChannelDefinition.ApprovedEntry(
-                    id: t.id, title: t.title, creator: t.artist,
-                    duration: t.duration, parentIdentifier: t.parentIdentifier))
-                CustomChannelsStore.shared.writeChannelDefinition(def)
+        // Update per-channel file: add to correct list, remove from opposite
+        if var def = CustomChannelsStore.shared.channelDefinition(for: channel.id) {
+            if status == "approved" {
+                if !def.approved.contains(where: { $0.id == t.id }) {
+                    def.approved.append(ChannelDefinition.ApprovedEntry(
+                        id: t.id, title: t.title, creator: t.artist,
+                        duration: t.duration, parentIdentifier: t.parentIdentifier))
+                }
+                def.rejected.removeAll(where: { $0 == t.id })
+            } else {
+                if !def.rejected.contains(t.id) {
+                    def.rejected.append(t.id)
+                }
+                def.approved.removeAll(where: { $0.id == t.id })
             }
-        }
-        if status == "rejected",
-           var def = CustomChannelsStore.shared.channelDefinition(for: channel.id) {
-            if !def.rejected.contains(t.id) {
-                def.rejected.append(t.id)
-                CustomChannelsStore.shared.writeChannelDefinition(def)
-            }
+            CustomChannelsStore.shared.writeChannelDefinition(def)
         }
         existingVerdicts[group.id] = status
-        // If currently playing this track, move to next
+        sessionVerdicts.insert(group.id)
         if playerVM.currentTrack?.id == group.id {
             playerVM.stopAudition()
         }
@@ -609,14 +609,6 @@ struct CuratorSearchAddView: View {
             errorMessage = error.localizedDescription
             showError = true
         }
-    }
-
-    private func add(_ group: SearchViewModel.ResultGroup) async {
-        let t = searchTrack(group)
-        await db.saveTracks([t])
-        await db.ensureReviewSet(channelId: channel.id, trackIds: [t.id])
-        addedIds.insert(group.id)
-        existingVerdicts[group.id] = "review"
     }
 
     private func searchTrack(_ group: SearchViewModel.ResultGroup) -> Track {

@@ -226,7 +226,32 @@ final class CustomChannelsStore: ObservableObject {
         else { return }
         customChannels = meta.customChannels
         deletedDefaults = meta.deletedDefaults
+        // Merge any new bundled channels that aren't in the saved order yet —
+        // insert them alphabetically so app updates don't break the sort.
         channelOrder = meta.order
+        let known = Set(channelOrder)
+        let newIds = customChannels
+            .filter { $0.isShippedDefault && !known.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            .map(\.id)
+        for newId in newIds {
+            let newName = customChannels.first(where: { $0.id == newId })?.name ?? ""
+            // Find alphabetical insertion point
+            var inserted = false
+            for i in channelOrder.indices {
+                let existingName = customChannels.first(where: { $0.id == channelOrder[i] })?.name ?? ""
+                if newName.localizedCaseInsensitiveCompare(existingName) == .orderedAscending {
+                    channelOrder.insert(newId, at: i)
+                    inserted = true
+                    break
+                }
+            }
+            if !inserted { channelOrder.append(newId) }
+        }
+        // Also append any custom channels not in the order
+        for meta in customChannels where !meta.isShippedDefault && !channelOrder.contains(meta.id) {
+            channelOrder.append(meta.id)
+        }
     }
 
     private func saveMeta() {
@@ -403,7 +428,14 @@ final class CustomChannelsStore: ObservableObject {
 
     func restoreDefaults() {
         deletedDefaults.removeAll()
-        saveMeta()
+        channelOrder.removeAll()
+        applyOrder()
+    }
+
+    /// Reset to alphabetical order, clearing any manual reordering.
+    func resetOrder() {
+        channelOrder.removeAll()
+        applyOrder()
     }
 
     // MARK: - Approved pool (for QueueManager)

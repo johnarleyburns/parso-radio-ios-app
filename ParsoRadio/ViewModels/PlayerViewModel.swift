@@ -260,6 +260,26 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
+        audioPlayer.onNonAudio = { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self, let track = self.currentTrack else { return }
+                Log.playback.warning("Non-audio material detected: \(track.id)")
+                self.errorMessage = "Non-audio material — skipping"
+                self.isLoading = false
+                self.loadingMessage = nil
+                self.isPlaying = false
+                self.audioPlayer.skip()
+                self.currentTrack = nil
+                self.trackDuration = nil
+                // Invalidate cache so re-visit doesn't hit the same bad file
+                self.audioPlayer.invalidateStreamingCache(for: track.id)
+                // Advance to next if in a channel/playlist
+                if self.currentChannel != nil || self.currentPlaylist != nil {
+                    await self.advanceToNext(autoPlay: true)
+                }
+            }
+        }
+
         audioPlayer.onTimeUpdate = { [weak self] seconds in
             Task { @MainActor [weak self] in
                 guard let self else { return }

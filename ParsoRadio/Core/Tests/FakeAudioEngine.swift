@@ -48,6 +48,8 @@ final class FakeAudioEngine: AudioEngine {
     func syncPlaybackState() {}
     func invalidateStreamingCache(for trackID: String) {}
 
+    var onNonAudio: (() -> Void)?
+
     // MARK: Test drivers (simulate the engine's async callbacks)
 
     /// Item reached `.readyToPlay`.

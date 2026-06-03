@@ -8,6 +8,18 @@ struct ChannelInfoView: View {
 
     @EnvironmentObject var playerVM: PlayerViewModel
     @State private var showCurator = false
+    @ObservedObject private var chStore = CustomChannelsStore.shared
+
+    /// For curated channels, look up the live name from CustomChannelsStore
+    /// so renames appear immediately. Falls back to the Channel model for
+    /// non-curated channels.
+    private var displayName: String {
+        if channel.category == "Curated",
+           let meta = chStore.customChannels.first(where: { $0.id == channel.id }) {
+            return meta.name
+        }
+        return channel.name
+    }
 
     // Pushed inside the Main Menu's navigation stack — the standard back
     // chevron returns to the menu list (no own NavigationStack / Done button).
@@ -21,7 +33,7 @@ struct ChannelInfoView: View {
                         .frame(width: 44, height: 44)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(channel.name)
+                        Text(displayName)
                             .font(.title3).fontWeight(.semibold)
                         Text(channel.category)
                             .font(.subheadline)

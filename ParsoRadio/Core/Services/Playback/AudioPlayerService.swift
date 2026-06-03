@@ -64,6 +64,8 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     // show the progress bar / elapsed time even when starting paused.
     var onReady: ((Double) -> Void)?
 
+    var onNonAudio: (() -> Void)?
+
     init() {
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
@@ -188,6 +190,13 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     // reports the now-known duration (so the UI shows progress even when
     // starting paused), and starts playback only if autoPlay was requested.
     private func handleItemReady() {
+        // Detect non-audio material (PDFs, text files returned in search results).
+        // AVPlayer reports .readyToPlay with zero duration for non-audio items.
+        if let d = player?.currentItem?.duration,
+           d.isNumeric, d.seconds == 0 {
+            onNonAudio?()
+            return
+        }
         if let d = duration { onReady?(d) }
         let target = pendingStartSeek
         pendingStartSeek = 0

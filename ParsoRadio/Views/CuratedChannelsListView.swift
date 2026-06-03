@@ -396,17 +396,17 @@ struct CuratorChannelEditView: View {
     @State private var showSearchAdd = false
     @State private var filterMode: FilterMode = .review
 
-    // Channel settings
-    @State private var editedName: String = ""
-    @State private var showRename = false
-    @State private var editedQuery: String = ""
-    @State private var showEditQuery = false
-
     enum FilterMode: String, CaseIterable {
         case review = "Review"
         case approved = "Approved"
         case rejected = "Rejected"
     }
+
+    // Channel settings
+    @State private var editedName: String = ""
+    @State private var showRename = false
+    @State private var editedQuery: String = ""
+    @State private var showQueryEditor = false   // full-page sheet
 
     // Verdict state for undo support
     @State private var verdictStates: [String: (status: String, undone: Bool)] = [:]
@@ -416,36 +416,6 @@ struct CuratorChannelEditView: View {
     var body: some View {
         NavigationStack {
             List {
-                // Channel Settings: rename + IA query
-                Section {
-                    Button {
-                        editedName = channelMeta.name
-                        showRename = true
-                    } label: {
-                        HStack {
-                            Label("Channel Name", systemImage: "pencil")
-                            Spacer()
-                            Text(channelMeta.name)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                    Button {
-                        editedQuery = channelMeta.iaQuery ?? ""
-                        showEditQuery = true
-                    } label: {
-                        HStack {
-                            Label("IA Search Query", systemImage: "magnifyingglass")
-                            Spacer()
-                            Text(channelMeta.iaQuery ?? "None — search only")
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                } header: {
-                    Text("Channel Settings")
-                }
-
                 // Counts + filter picker
                 Section {
                     HStack(spacing: 12) {
@@ -522,11 +492,31 @@ struct CuratorChannelEditView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showSearchAdd = true
+                    Menu {
+                        Button {
+                            editedName = channelMeta.name
+                            showRename = true
+                        } label: {
+                            Label("Edit Channel Name", systemImage: "pencil")
+                        }
+                        Button {
+                            editedQuery = channelMeta.iaQuery ?? ""
+                            showQueryEditor = true
+                        } label: {
+                            Label("Edit Search Query", systemImage: "magnifyingglass")
+                        }
                     } label: {
-                        Label("Add from Search", systemImage: "magnifyingglass.circle")
+                        Image(systemName: "ellipsis.circle")
                     }
+                }
+            }
+            .sheet(isPresented: $showQueryEditor) {
+                QueryEditorView(query: $editedQuery, channelName: channelMeta.name) {
+                    let q = editedQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+                    CustomChannelsStore.shared.updateQuery(
+                        chId: channelMeta.id,
+                        newQuery: q.isEmpty ? nil : q)
+                    showQueryEditor = false
                 }
             }
             .sheet(isPresented: $showSearchAdd) {
@@ -550,18 +540,6 @@ struct CuratorChannelEditView: View {
                     CustomChannelsStore.shared.renameChannel(chId: channelMeta.id, newName: name)
                 }
                 Button("Cancel", role: .cancel) {}
-            }
-            .alert("Edit IA Search Query", isPresented: $showEditQuery) {
-                TextField("IA query", text: $editedQuery)
-                Button("Save") {
-                    let q = editedQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-                    CustomChannelsStore.shared.updateQuery(
-                        chId: channelMeta.id,
-                        newQuery: q.isEmpty ? nil : q)
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("The query used by \"Load More Candidates\". Leave empty to curate purely by search.")
             }
             .alert("Fetch failed", isPresented: $showFetchError) {
                 Button("OK", role: .cancel) {}
@@ -652,12 +630,13 @@ struct CuratorChannelEditView: View {
 
     private func reload() async {
         counts = await db.curationCounts(channelId: channelMeta.id)
+        let raw: [Track]
         switch filterMode {
-        case .review:   queue = await db.reviewSetTracks(channelId: channelMeta.id)
-        case .approved: queue = await db.fetchApprovedTracks(forChannelId: channelMeta.id)
-        case .rejected: queue = await db.fetchRejectedTracks(forChannelId: channelMeta.id)
+        case .review:   raw = await db.reviewSetTracks(channelId: channelMeta.id)
+        case .approved: raw = await db.fetchApprovedTracks(forChannelId: channelMeta.id)
+        case .rejected: raw = await db.fetchRejectedTracks(forChannelId: channelMeta.id)
         }
-        // Clear verdict states that are no longer in the queue (pull-to-refresh)
+        queue = raw.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
         let ids = Set(queue.map(\.id))
         verdictStates = verdictStates.filter { ids.contains($0.key) }
     }
@@ -766,5 +745,44 @@ struct CuratorChannelEditView: View {
     private func formatTime(_ s: Double) -> String {
         let t = Int(s); let m = t / 60; let sec = t % 60
         return String(format: "%d:%02d", m, sec)
+    }
+}
+
+// MARK: - Full-page IA Query Editor
+
+struct QueryEditorView: View {
+    @Binding var query: String
+    let channelName: String
+    let onSave: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                TextEditor(text: $query)
+                    .font(.body.monospaced())
+                    .padding(12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(alignment: .topLeading) {
+                        if query.isEmpty {
+                            Text("Paste or type the Internet Archive search query…")
+                                .foregroundStyle(.tertiary)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 20)
+                                .allowsHitTesting(false)
+                        }
+                    }
+            }
+            .navigationTitle("Search Query — \(channelName)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { onSave() }
+                }
+            }
+        }
     }
 }
