@@ -145,16 +145,8 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
             // on .failed here — only a true 10 s resolve-timeout (in
             // PlayerViewModel.playTrack) auto-skips a track.
             statusObserver = item.observe(\.status, options: [.new, .initial]) { [weak self] item, _ in
-                switch item.status {
-                case .readyToPlay:
-                    Task { @MainActor [weak self] in self?.handleItemReady() }
-                case .failed:
-                    // Track is unplayable (dead URL, non-audio, corrupted file).
-                    // Fire onNonAudio so PlayerViewModel can skip + show toast.
-                    Task { @MainActor [weak self] in self?.onNonAudio?() }
-                default:
-                    break
-                }
+                guard item.status == .readyToPlay else { return }
+                Task { @MainActor [weak self] in self?.handleItemReady() }
             }
         }
 
@@ -198,10 +190,11 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     // reports the now-known duration (so the UI shows progress even when
     // starting paused), and starts playback only if autoPlay was requested.
     private func handleItemReady() {
-        // Detect non-audio material (PDFs, text files returned in search results).
-        // AVPlayer reports .readyToPlay with zero duration for non-audio items.
+        // Detect non-audio material (PDFs, text files, images returned in
+        // search results). AVPlayer reports .readyToPlay with near-zero
+        // duration for items that have no playable audio tracks.
         if let d = player?.currentItem?.duration,
-           d.isNumeric, d.seconds == 0 {
+           d.isNumeric, d.seconds < 0.5 {
             onNonAudio?()
             return
         }
