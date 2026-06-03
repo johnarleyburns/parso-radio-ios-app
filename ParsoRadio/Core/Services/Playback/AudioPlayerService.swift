@@ -204,13 +204,24 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
             return
         }
         // Tier 2: deferred — item is .readyToPlay with a plausible duration
-        // but no actual audio frames ever arrive. 3-second timer; cancelled
-        // by the first onTimeUpdate tick.
+        // but no actual audio frames ever arrive. 8-second timer (conservative:
+        // slow networks can delay the first frame after .readyToPlay, but 8s
+        // is enough for even EDGE to deliver a single audio packet). Cancelled
+        // by the first onTimeUpdate tick. Also guarded: if currentTime has
+        // started advancing (slow-but-actual playback), skip the timer.
         nonAudioTimer?.cancel()
         nonAudioTimer = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
             guard !Task.isCancelled else { return }
-            await MainActor.run { self?.onNonAudio?() }
+            await MainActor.run {
+                // Safety: if the player has somehow advanced past 0 (slow
+                // but genuine playback), don't flag as non-audio.
+                guard let self,
+                      (self.player?.currentTime().seconds ?? 0) < 0.1 else { return }
+                self.nonAudioTimer?.cancel()
+                self.nonAudioTimer = nil
+                self.onNonAudio?()
+            }
         }
         if let d = duration { onReady?(d) }
         let target = pendingStartSeek
