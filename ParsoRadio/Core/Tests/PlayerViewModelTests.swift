@@ -1344,3 +1344,100 @@ final class TrackLocalURLTests: XCTestCase {
         XCTAssertNil(remote.resolvedLocalURL, "non-local track has no local URL")
     }
 }
+
+// MARK: - Channel state preservation (openMenu / channel info navigation)
+
+extension PlayerViewModelTests {
+
+    /// Regression: `currentChannel` must stay set after `saveCurrentSpot()` so
+    /// the idleView does NOT show "Tap ☰ to select a channel" when the user is
+    /// already on a channel. `openMenu(contextual:)` calls `saveCurrentSpot()`
+    /// before opening the sheet; nothing in that flow should clear the channel.
+    func testCurrentChannelStaysSetAfterSaveCurrentSpot() async {
+        let channel = Channel.fmaJazzTestChannel
+        let track = makeFMATrack(id: "channel-spot-1", tags: ["jazz"])
+        await db.saveTracks([track])
+
+        // Preconditions: channel is not loaded yet.
+        XCTAssertNil(vm.currentChannel)
+
+        // Simulate loading a channel (the sync preamble: assignment + state reset)
+        vm.currentChannel = channel
+        vm.currentTrack = track
+        vm.isPlaying = true
+
+        XCTAssertNotNil(vm.currentChannel, "currentChannel must be set before menu opens")
+        XCTAssertEqual(vm.currentChannel?.id, channel.id)
+
+        // Simulate `openMenu(contextual:)` which calls `saveCurrentSpot()`.
+        // saveCurrentSpot needs a currentTrack with position and a non-ambient channel.
+        vm.saveCurrentSpot()
+
+        // After saveCurrentSpot, the channel must STILL be set — the menu
+        // flow does not clear channel context. If currentChannel became nil
+        // here, the idleView would show the misleading prompt.
+        XCTAssertNotNil(vm.currentChannel,
+            "currentChannel must remain set after saveCurrentSpot (menu open)")
+        XCTAssertEqual(vm.currentChannel?.id, channel.id,
+            "currentChannel must not change identity during menu lifecycle")
+    }
+
+    /// `currentChannel` must not be cleared when `saveCurrentSpot()` runs with
+    /// no `currentTrack` (e.g. the track finished while the menu was open).
+    func testCurrentChannelPreservedWhenSaveCurrentSpotWithNoTrack() async {
+        let channel = Channel.fmaJazzTestChannel
+        vm.currentChannel = channel
+        vm.currentTrack = nil
+        vm.isPlaying = false
+
+        // Calling saveCurrentSpot with no currentTrack is a no-op internally
+        // but must not side-effect currentChannel.
+        vm.saveCurrentSpot()
+
+        XCTAssertNotNil(vm.currentChannel,
+            "currentChannel must stay set even when saveCurrentSpot is a no-op")
+    }
+
+    /// `currentChannel` must remain set after `saveCurrentSpot()` even when
+    /// the previous channel had an error. The error-view branch and idle-view
+    /// branch are adjacent in the body; a nil channel causes the idle branch
+    /// to win over the error branch.
+    func testCurrentChannelPreservedAfterSaveCurrentSpotFollowingError() async {
+        let channel = Channel.fmaJazzTestChannel
+        vm.currentChannel = channel
+        vm.currentTrack = nil
+        vm.isPlaying = false
+        vm.errorMessage = "A previous load failed"
+
+        vm.saveCurrentSpot()
+
+        XCTAssertNotNil(vm.currentChannel,
+            "currentChannel must stay set after saveCurrentSpot even with error state")
+        XCTAssertNotNil(vm.errorMessage,
+            "errorMessage must persist so errorView is shown, not idleView")
+    }
+
+    /// When a channel is loaded and `currentTrack` is nil (e.g. track
+    /// finished), the ViewModel must still report the channel so the display
+    /// knows what is selected. The idleView in iPodView reads both conditions.
+    func testCurrentChannelStaysSetWhenTrackBecomesNil() async {
+        let channel = Channel.fmaJazzTestChannel
+        let track = makeFMATrack(id: "nil-track-1", tags: ["jazz"])
+        await db.saveTracks([track])
+
+        vm.currentChannel = channel
+        vm.currentTrack = track
+        vm.isPlaying = true
+
+        XCTAssertNotNil(vm.currentTrack)
+
+        // Simulate the track finishing (onTrackFinished callback path)
+        vm.currentTrack = nil
+        vm.isPlaying = false
+
+        XCTAssertNotNil(vm.currentChannel,
+            "currentChannel must stay set when currentTrack becomes nil so idleView does not show the wrong prompt")
+        XCTAssertNil(vm.currentTrack)
+        XCTAssertFalse(vm.isPlaying)
+    }
+}

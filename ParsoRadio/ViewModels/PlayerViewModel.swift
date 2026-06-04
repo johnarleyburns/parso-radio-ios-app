@@ -63,7 +63,7 @@ final class PlayerViewModel: ObservableObject {
     // Resolves the deterministic on-disk path for a downloaded track so
     // playback prefers a local file over re-streaming from the Internet Archive.
     private let fileStorage = FileStorageService()
-    var currentChannel: Channel?
+    @Published var currentChannel: Channel?
 
     // Look-ahead cache: pre-resolved IA audio URLs so track transitions are gap-free.
     private var prefetchedURLs: [String: URL] = [:]
