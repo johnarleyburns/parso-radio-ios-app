@@ -71,7 +71,8 @@ final class QueueManager {
         guard let parent = track.parentIdentifier,
               let currentPart = track.partNumber else { return nil }
         let allTracks = await db.fetchTracks(forChannel: channel)
-        let parts = allTracks
+        let approved = approvedFilter(allTracks, for: channel)
+        let parts = approved
             .filter { $0.parentIdentifier == parent }
             .sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
         guard let nextPart = parts.first(where: { ($0.partNumber ?? 0) == currentPart + 1 }) else {
@@ -85,7 +86,8 @@ final class QueueManager {
         guard let parent = track.parentIdentifier,
               let currentPart = track.partNumber else { return nil }
         let allTracks = await db.fetchTracks(forChannel: channel)
-        let parts = allTracks
+        let approved = approvedFilter(allTracks, for: channel)
+        let parts = approved
             .filter { $0.parentIdentifier == parent }
             .sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
         return parts.first(where: { ($0.partNumber ?? 0) == currentPart - 1 })
@@ -231,7 +233,7 @@ final class QueueManager {
 
     // Returns the first track of the next distinct parentIdentifier group
     private func nextBook(after parentId: String, channel: Channel) async -> Track? {
-        let all = await db.fetchTracks(forChannel: channel)
+        let all = approvedFilter(await db.fetchTracks(forChannel: channel), for: channel)
         let parents = orderedParents(from: all)
         guard let idx = parents.firstIndex(of: parentId),
               idx + 1 < parents.count else {
@@ -242,12 +244,20 @@ final class QueueManager {
     }
 
     private func previousBook(before parentId: String, channel: Channel) async -> Track? {
-        let all = await db.fetchTracks(forChannel: channel)
+        let all = approvedFilter(await db.fetchTracks(forChannel: channel), for: channel)
         let parents = orderedParents(from: all)
         guard let idx = parents.firstIndex(of: parentId), idx > 0 else {
             return firstPart(of: parents.last ?? "", in: all)
         }
         return firstPart(of: parents[idx - 1], in: all)
+    }
+
+    private func approvedFilter(_ tracks: [Track], for channel: Channel) -> [Track] {
+        let isCurated = channel.category == "Curated" && channel.iaQueryEntry != nil
+        guard isCurated else { return tracks }
+        let approvedIds = Set(manifestPool(channel.id).map(\.id))
+        guard !approvedIds.isEmpty else { return tracks } // no approvals yet — keep all (prevents deadlock: newly-created curated channel needs at least one track to show)
+        return tracks.filter { approvedIds.contains($0.id) }
     }
 
     private func orderedParents(from tracks: [Track]) -> [String] {

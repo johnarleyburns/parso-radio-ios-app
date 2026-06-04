@@ -293,7 +293,17 @@ final class PlayerViewModel: ObservableObject {
                 // progressing (never while buffering/stalled), so any tick means
                 // THIS track is genuinely playing — confirm it (which also breaks
                 // the consecutive-stall streak; a mere resolve must NOT reset it).
-                self.stallModel.confirmPlayback(generation: self.stallModel.loadGeneration)
+                //
+                // GUARD: AVPlayer's addPeriodicTimeObserver fires on a TIMER
+                // (every 0.25 s), NOT based on audio progress. A stuck/buffering
+                // item can fire with seconds == 0.0 indefinitely. Without this
+                // guard, a zero-second tick permanently disarms the stall
+                // watchdog (confirmPlayback sets confirmedGeneration, and
+                // evaluateStall then always returns .healthy), causing the
+                // "spins forever" bug on unplayable IA tracks (e.g. Navarra).
+                if seconds > 0 {
+                    self.stallModel.confirmPlayback(generation: self.stallModel.loadGeneration)
+                }
                 // The first time tick PAST zero means audio is genuinely
                 // progressing — hide the loading indicator. This MUST run even
                 // while isScrubbing: an interrupted wheel drag could otherwise
@@ -548,6 +558,17 @@ final class PlayerViewModel: ObservableObject {
                 await db.pruneChannelTracks(
                     forChannel: channel, keeping: Set(fetched.map(\.id)))
             }
+            // For Curated category channels: the IA query returns ALL matches,
+            // but ONLY human-approved tracks may play. Prune any stamped tracks
+            // that are NOT in the approved pool so they can't leak through
+            // part/book navigation or resume paths.
+            if channel.category == "Curated", channel.iaQueryEntry != nil {
+                let approvedIds = Set(LiveCurationStore.shared.pool(for: channel.id).map(\.id))
+                if !approvedIds.isEmpty {
+                    await db.pruneChannelTracks(
+                        forChannel: channel, keeping: approvedIds)
+                }
+            }
             downloadManager.prefetchNext(fetched)
             channelDescription = channel.detailDescription
             channelTrackCount = fetched.count
@@ -730,12 +751,23 @@ final class PlayerViewModel: ObservableObject {
     /// clearing a good lecture/news resume.
     private func resumeTrackBelongs(_ track: Track, toChannel channel: Channel) async -> Bool {
         guard channel.iaQueryEntry != nil else { return true }
-        if channel.matches(track) { return true }
-        if let pid = track.parentIdentifier, !pid.isEmpty,
-           let parent = await db.fetchTrack(id: pid) {
-            return channel.matches(parent)
+        // Stamp check: does the track carry this channel's isolation tag?
+        let stamped = channel.matches(track)
+        if !stamped {
+            if let pid = track.parentIdentifier, !pid.isEmpty,
+               let parent = await db.fetchTrack(id: pid) {
+                guard channel.matches(parent) else { return false }
+            } else { return false }
         }
-        return false
+        // Approval check: for Curated channels, the track must also be in the
+        // human-approved pool. A stamped track from a prior load is not enough.
+        if channel.category == "Curated" {
+            let approvedIds = Set(LiveCurationStore.shared.pool(for: channel.id).map(\.id))
+            guard !approvedIds.isEmpty, approvedIds.contains(track.id) else {
+                return false
+            }
+        }
+        return true
     }
 
     private func advanceToNext(autoPlay: Bool = true) async {
@@ -1967,7 +1999,16 @@ final class PlayerViewModel: ObservableObject {
 
         if let tid = savedTrackId, let t = await db.fetchTrack(id: tid),
            NetworkMonitor.shared.isOnline || t.localFilePath != nil {
-            if currentTrack?.id != tid {
+            // For Curated channels, verify the session-saved track is still
+            // approved. A track that was once playable may have been rejected
+            // since the last session.
+            let isCurated = channel.category == "Curated" && channel.iaQueryEntry != nil
+            let approved = isCurated
+                ? Set(LiveCurationStore.shared.pool(for: channel.id).map(\.id))
+                : nil
+            if isCurated, let approved, !approved.isEmpty, !approved.contains(tid) {
+                // Track was rejected or removed since last session — skip
+            } else if currentTrack?.id != tid {
                 // The exact last track differs from what the channel resumed
                 // (e.g. it was a one-off search result) → play that precise
                 // track + offset.

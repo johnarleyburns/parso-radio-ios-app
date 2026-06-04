@@ -195,7 +195,9 @@ final class QueueManagerTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeStamped(id: String, stamp: String) -> Track {
+    private func makeStamped(id: String, stamp: String,
+                              partNumber: Int? = nil,
+                              parentIdentifier: String? = nil) -> Track {
         Track(
             id: id, source: "internet_archive",
             title: "T \(id)", artist: "Various",
@@ -205,7 +207,8 @@ final class QueueManagerTests: XCTestCase {
             license: .publicDomain, tags: ["classical", Channel.stampToken(stamp)],
             qualityScore: 1.0,
             rawCreator: "", composer: nil, instruments: [],
-            metadataConfidence: 0.0
+            metadataConfidence: 0.0,
+            partNumber: partNumber, parentIdentifier: parentIdentifier
         )
     }
 
@@ -227,5 +230,75 @@ final class QueueManagerTests: XCTestCase {
             )
         }
         await db.saveTracks(tracks)
+    }
+
+    // MARK: - Curated channel approval enforcement (Fix B)
+
+    /// `nextPart` on a curated channel must return only approved tracks,
+    /// filtering out stamped-but-unapproved siblings of the same parent.
+    func testNextPartReturnsOnlyApprovedTracks() async throws {
+        let stamp = Channel.stampToken("guitar-classical")
+        let tracks = [
+            makeStamped(id: "sg-p1", stamp: "guitar-classical",
+                        partNumber: 1, parentIdentifier: "album-abc"),
+            makeStamped(id: "sg-p2", stamp: "guitar-classical",
+                        partNumber: 2, parentIdentifier: "album-abc"),
+        ]
+        await db.saveTracks(tracks)
+        // Only p1 is "approved"
+        let q = QueueManager(db: db, defaults: defaults, manifestPool: { _ in
+            tracks.filter { $0.id == "sg-p1" }
+        })
+        let sg = Channel.defaults.first { $0.id == "guitar-classical" }!
+
+        let next = await q.nextPart(after: tracks[0], channel: sg)
+        // sg-p2 is stamped but NOT approved — it's filtered out by approvedFilter.
+        // The fallback (last part → nextBook) wraps to the only approved track (sg-p1).
+        // The key invariant: sg-p2 is NEVER returned because it's not approved.
+        XCTAssertNotNil(next)
+        XCTAssertNotEqual(next?.id, "sg-p2",
+            "Unapproved sibling track must NEVER be returned by nextPart")
+    }
+
+    /// `previousPart` must also filter to approved-only for curated channels.
+    func testPreviousPartReturnsOnlyApprovedTracks() async throws {
+        let tracks = [
+            makeStamped(id: "sg-q1", stamp: "guitar-classical",
+                        partNumber: 1, parentIdentifier: "album-xyz"),
+            makeStamped(id: "sg-q2", stamp: "guitar-classical",
+                        partNumber: 2, parentIdentifier: "album-xyz"),
+        ]
+        await db.saveTracks(tracks)
+        // Only q2 is "approved"
+        let q = QueueManager(db: db, defaults: defaults, manifestPool: { _ in
+            tracks.filter { $0.id == "sg-q2" }
+        })
+        let sg = Channel.defaults.first { $0.id == "guitar-classical" }!
+
+        let prev = await q.previousPart(before: tracks[1], channel: sg)
+        // sg-q1 is stamped but NOT approved — must NOT be returned
+        XCTAssertNil(prev,
+            "Part navigation must NOT return unapproved previous parts on curated channels")
+    }
+
+    /// Non-curated channels (e.g. LibriVox audiobooks) must NOT be affected
+    /// by the approval filter — they should still return all stamped tracks.
+    func testNextPartUnfilteredForNonCuratedChannel() async throws {
+        let tracks = [
+            makeStamped(id: "lv-ch1", stamp: "lv-science-fiction",
+                        partNumber: 1, parentIdentifier: "lv-book-1"),
+            makeStamped(id: "lv-ch2", stamp: "lv-science-fiction",
+                        partNumber: 2, parentIdentifier: "lv-book-1"),
+        ]
+        await db.saveTracks(tracks)
+        // Empty manifest (non-curated channel)
+        let q = QueueManager(db: db, defaults: defaults, manifestPool: { _ in [] })
+        let lv = Channel.defaults.first { $0.id == "lv-science-fiction" }!
+
+        let next = await q.nextPart(after: tracks[0], channel: lv)
+        // lv-arts is Audiobooks category (NOT Curated) — all tracks should be visible
+        XCTAssertNotNil(next,
+            "Non-Curated audiobook channels must NOT be affected by approval filter")
+        XCTAssertEqual(next?.id, "lv-ch2")
     }
 }
