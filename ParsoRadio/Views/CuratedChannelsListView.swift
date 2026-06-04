@@ -709,22 +709,23 @@ struct CuratorChannelEditView: View {
         await db.setCuration(channelId: channelMeta.id, trackId: track.id, status: status)
         await LiveCurationStore.shared.reload(from: db)
 
-        // Write the approved track to the per-channel JSON file
-        if status == "approved",
-           var def = CustomChannelsStore.shared.channelDefinition(for: channelMeta.id) {
-            if !def.approved.contains(where: { $0.id == track.id }) {
-                def.approved.append(ChannelDefinition.ApprovedEntry(
-                    id: track.id, title: track.title, creator: track.artist,
-                    duration: track.duration, parentIdentifier: track.parentIdentifier))
-                CustomChannelsStore.shared.writeChannelDefinition(def)
+        // Write the track to the per-channel JSON file WITH cross-removal:
+        // approving removes from rejected, rejecting removes from approved.
+        if var def = CustomChannelsStore.shared.channelDefinition(for: channelMeta.id) {
+            if status == "approved" {
+                def.rejected.removeAll(where: { $0 == track.id })
+                if !def.approved.contains(where: { $0.id == track.id }) {
+                    def.approved.append(ChannelDefinition.ApprovedEntry(
+                        id: track.id, title: track.title, creator: track.artist,
+                        duration: track.duration, parentIdentifier: track.parentIdentifier))
+                }
+            } else if status == "rejected" {
+                def.approved.removeAll(where: { $0.id == track.id })
+                if !def.rejected.contains(track.id) {
+                    def.rejected.append(track.id)
+                }
             }
-        }
-        if status == "rejected",
-           var def = CustomChannelsStore.shared.channelDefinition(for: channelMeta.id) {
-            if !def.rejected.contains(track.id) {
-                def.rejected.append(track.id)
-                CustomChannelsStore.shared.writeChannelDefinition(def)
-            }
+            CustomChannelsStore.shared.writeChannelDefinition(def)
         }
 
         // Mark verdict for undo

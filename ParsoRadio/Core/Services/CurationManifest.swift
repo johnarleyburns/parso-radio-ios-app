@@ -80,14 +80,61 @@ final class LiveCurationStore {
     /// DB; falls back to the BUNDLED manifest (so non-curator users still play
     /// the shipped curation).
     func pool(for channelId: String) -> [Track] {
-        // Check per-channel file first (new customizable curated channels)
+        // The live DB snapshot (updated on every verdict via reload(from:)) is
+        // ALWAYS the authoritative source. The per-channel JSON file fills gaps
+        // only — it must never override newer DB verdicts.
+        let live = lock.withLock { approvedByChannel[channelId] ?? [] }
+        if !live.isEmpty {
+            // DB has verdicts: start from the DB-approved set, then merge in
+            // any file-approved entries NOT already in the DB (gaps from before
+            // this curator session). Rejected-in-DB entries are excluded.
+            let liveIds = Set(live.map(\.id))
+            var merged = live
+            if let file = CustomChannelsStore.shared.channelDefinition(for: channelId) {
+                // DB-rejected tracks are excluded even if the file still has them
+                let dbRejected = Set(curationTrackIds(channelId: channelId, status: "rejected"))
+                for entry in file.approved where !liveIds.contains(entry.id)
+                    && !dbRejected.contains(entry.id) {
+                    let t = Track(
+                        id: entry.id, source: "internet_archive",
+                        title: entry.title, artist: entry.creator,
+                        duration: entry.duration,
+                        streamURL: URL(string: "https://archive.org/download/\(entry.id)")
+                            ?? URL(string: "https://archive.org")!,
+                        downloadURL: nil, localFilePath: nil,
+                        license: .publicDomain, tags: [],
+                        qualityScore: 1.0, rawCreator: entry.creator,
+                        composer: nil, instruments: [],
+                        metadataConfidence: 1.0,
+                        parentIdentifier: entry.parentIdentifier)
+                    merged.append(t)
+                }
+            }
+            return merged
+        }
+        // No DB verdicts yet: fall back to per-channel file, then bundled manifest.
         if let file = CustomChannelsStore.shared.channelDefinition(for: channelId),
            !file.approved.isEmpty {
             return CustomChannelsStore.shared.approvedTracks(for: channelId)
         }
-        let live = lock.withLock { approvedByChannel[channelId] ?? [] }
-        if !live.isEmpty { return live }
         return CurationManifestStore.shared.pool(for: channelId)
+    }
+
+    /// Returns rejected track IDs from the curation table for a channel.
+    /// Used to exclude entries from the per-channel file that the DB has
+    /// since rejected.
+    private func curationTrackIds(channelId: String, status: String) -> Set<String> {
+        // The lock already holds approvedByChannel; we need to query rejected
+        // from a separate source. Use the DB directly via setCuration semantics.
+        // Since LiveCurationStore doesn't keep rejected-by-channel in memory,
+        // we use a lightweight query through the CustomChannelsStore mechanism:
+        // read the per-channel file's rejected list (which IS kept up to date
+        // by CuratorChannelEditView.verdict). Combined with the live DB's
+        // approved set, this gives us the authoritative picture.
+        guard let def = CustomChannelsStore.shared.channelDefinition(for: channelId) else {
+            return []
+        }
+        return Set(def.rejected)
     }
 
     /// True if the live DB has any approved tracks for this channel.

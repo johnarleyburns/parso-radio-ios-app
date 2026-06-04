@@ -407,10 +407,27 @@ struct CuratorReviewView: View {
         // sprint through reviews without an extra tap per track.
         let wasPlaying = playerVM.currentTrack?.id == track.id
         await db.setCuration(channelId: channel.id, trackId: track.id, status: status)
-        // Live update: refresh the in-memory manifest snapshot AND rewrite
-        // Documents/curation.json so the channel's pool reflects this verdict
-        // immediately (no app rebuild required).
+        // Live update: refresh the in-memory manifest snapshot so the channel's
+        // pool reflects this verdict immediately (no app rebuild required).
         await LiveCurationStore.shared.reload(from: db)
+        // Also update the per-channel JSON file so the verdict persists across
+        // launches AND so pool(for:) correctly excludes rejected-once-approved tracks.
+        if var def = CustomChannelsStore.shared.channelDefinition(for: channel.id) {
+            if status == "approved" {
+                def.rejected.removeAll(where: { $0 == track.id })
+                if !def.approved.contains(where: { $0.id == track.id }) {
+                    def.approved.append(ChannelDefinition.ApprovedEntry(
+                        id: track.id, title: track.title, creator: track.artist,
+                        duration: track.duration, parentIdentifier: track.parentIdentifier))
+                }
+            } else if status == "rejected" {
+                def.approved.removeAll(where: { $0.id == track.id })
+                if !def.rejected.contains(track.id) {
+                    def.rejected.append(track.id)
+                }
+            }
+            CustomChannelsStore.shared.writeChannelDefinition(def)
+        }
         await reload()
         guard wasPlaying else { return }
         if let next = queue.first {
