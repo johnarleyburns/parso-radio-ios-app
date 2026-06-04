@@ -295,7 +295,12 @@ struct CuratorReviewView: View {
         }
         .task { await reload() }
         .onChange(of: playerVM.errorMessage) { _, msg in
-            if let id = playerVM.currentTrack?.id, msg != nil {
+            // When an audition track fails, currentTrack is cleared BEFORE
+            // errorMessage is set (handleLoadFailure / handleStallIfNeeded).
+            // Use failedAuditionTrackId — captured before the clear — so the
+            // correct row gets the yellow warning icon and flash.
+            let failedId = playerVM.currentTrack?.id ?? playerVM.failedAuditionTrackId
+            if let id = failedId, msg != nil {
                 failedTrackIds.insert(id)
                 flashTrackId = id
                 Task { @MainActor in

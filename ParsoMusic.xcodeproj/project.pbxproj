@@ -711,7 +711,7 @@
 			path = Storage;
 			sourceTree = "<group>";
 		};
-		"TEMP_56348540-929F-46C8-9E4D-32B6A0E2AC1F" /* Integration */ = {
+		"TEMP_DAD75C41-2DC1-4184-9ED6-E486143CC468" /* Integration */ = {
 			isa = PBXGroup;
 			children = (
 			);

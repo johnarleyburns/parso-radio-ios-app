@@ -65,6 +65,12 @@ final class PlayerViewModel: ObservableObject {
     private let fileStorage = FileStorageService()
     @Published var currentChannel: Channel?
 
+    /// When a curator audition fails (no channel, no playlist), the track ID
+    /// is captured here BEFORE `currentTrack` is cleared. Curator views use
+    /// this to show a yellow warning icon and flash on the specific failed
+    /// row even though `currentTrack` is nil by the time errorMessage fires.
+    @Published var failedAuditionTrackId: String?
+
     // Look-ahead cache: pre-resolved IA audio URLs so track transitions are gap-free.
     private var prefetchedURLs: [String: URL] = [:]
     // In-session multi-file probe cache, keyed by bare IA identifier.
@@ -1058,6 +1064,7 @@ final class PlayerViewModel: ObservableObject {
             }
             isPlaying = autoPlay
             errorMessage = nil
+            failedAuditionTrackId = nil
             consecutiveLoadFailures = 0
             loadAttempts[track.id] = nil   // resolved/loaded OK → clear retry count
             assertKidsModeInvariant()      // DEBUG-only Kids Mode leak detector
@@ -1158,11 +1165,15 @@ final class PlayerViewModel: ObservableObject {
             // silently and isLoading stayed true — the curator-audition stuck-
             // spinner bug).
             if currentChannel == nil, currentPlaylist == nil {
+                // Capture the failed track ID BEFORE clearing currentTrack so
+                // curator views can identify which row failed (they check
+                // failedAuditionTrackId in .onChange(of: errorMessage)).
+                failedAuditionTrackId = currentTrack?.id
                 currentTrack = nil
                 trackDuration = nil
                 isLoading = false
                 loadingMessage = nil
-                errorMessage = "Couldn't play this track. It may be unavailable."
+                errorMessage = "Couldn't play this track — it may be unavailable or in an unsupported format."
                 return
             }
             // Advance to the next track, keeping the original play intent so a
@@ -1190,6 +1201,7 @@ final class PlayerViewModel: ObservableObject {
         isPlaying = false
         isLoading = false
         loadingMessage = nil
+        failedAuditionTrackId = nil
         errorMessage = nil
         playbackContextToken &+= 1   // invalidate any in-flight playTrack
     }
@@ -1438,12 +1450,27 @@ final class PlayerViewModel: ObservableObject {
         // NOTHING, stranding the user on a silent, spinner-less screen (item 9).
         // Surface a clear error instead.
         if currentChannel == nil, currentPlaylist == nil {
+            // Capture the failed track ID BEFORE clearing currentTrack so
+            // curator views can show the yellow warning icon on the correct row.
+            failedAuditionTrackId = currentTrack?.id
             currentTrack = nil
             trackDuration = nil
             isPlaying = false
             isLoading = false
             loadingMessage = nil
-            errorMessage = "Couldn't play this track. It may be unavailable — try another."
+            // Distinguish the reason so the curator knows what to fix.
+            if let urlError = error as? URLError {
+                switch urlError.code {
+                case .unsupportedURL:
+                    errorMessage = "No playable audio file found on this IA item."
+                case .timedOut:
+                    errorMessage = "Timed out looking for playable audio — server may be slow."
+                default:
+                    errorMessage = "Couldn't play this track. It may be unavailable — try another."
+                }
+            } else {
+                errorMessage = "Couldn't play this track. It may be unavailable — try another."
+            }
             return
         }
         consecutiveLoadFailures += 1
@@ -1501,6 +1528,7 @@ final class PlayerViewModel: ObservableObject {
         artworkDominantColor = .accentColor
         currentPosition = 0
         errorMessage = nil
+        failedAuditionTrackId = nil
         isPlaying = false
         currentTrack = pre
         trackDuration = (pre?.duration ?? 0) > 0 ? pre?.duration : nil
