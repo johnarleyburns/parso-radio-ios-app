@@ -75,7 +75,6 @@ final class CustomChannelsStore: ObservableObject {
         ensureDirectory()
         loadMeta()
         loadBundledDefaults()
-        migrateFromLiveManifest()
         applyOrder()
     }
 
@@ -83,88 +82,57 @@ final class CustomChannelsStore: ObservableObject {
     /// from the SQLite DB for any channel whose per-channel file still has
     /// no approved entries (i.e. the user curated on a prior build and the
     /// tracks are in the DB but not yet in the per-channel JSON).
-    func bootstrapFromDatabase(db: DatabaseService) async {
-        let stamp = ISO8601DateFormatter().string(from: Date())
-        var merged = 0
-        for chId in Channel.defaults
-            .filter({ $0.category == "Curated" && $0.iaQueryEntry != nil })
-            .map(\.id) {
-            guard var def = channelDefinition(for: chId) else { continue }
-            let dbApproved = await db.fetchApprovedTracks(forChannelId: chId)
-            guard !dbApproved.isEmpty else { continue }
-            let fileIds = Set(def.approved.map(\.id))
-            let missing = dbApproved.filter { !fileIds.contains($0.id) }
-            guard !missing.isEmpty else { continue }
-            def.approved.append(contentsOf: missing.map { t in
-                ChannelDefinition.ApprovedEntry(
-                    id: t.id, title: t.title, creator: t.artist,
-                    duration: t.duration, parentIdentifier: t.parentIdentifier)
-            })
-            def.updatedAt = stamp
-            writeChannelDefinition(def)
-            merged += missing.count
+    /// One-time import: on launch, for each shipped Curated channel where the
+    /// DB has NO verdicts yet (user hasn't claimed it), import the approved
+    /// tracks from the bundled per-channel JSON file into the SQLite curation
+    /// table. Once a channel has ANY verdict, the user owns it — the JSON is
+    /// never consulted again for that channel.
+    ///
+    /// Also serves as RECOVERY: if the DB was wiped but the per-channel JSON
+    /// file still has approved entries (from a prior export or bootstrap),
+    /// those verdicts are restored.
+    func importBundledCurationsIfNeeded(db: DatabaseService) async {
+        let shippedChannels = Channel.defaults
+            .filter { $0.category == "Curated" && $0.iaQueryEntry != nil }
+        var imported = 0
+        var recovered = 0
+
+        for ch in shippedChannels {
+            let counts = await db.curationCounts(channelId: ch.id)
+            let isUnclaimed = (counts.approved == 0 && counts.rejected == 0 && counts.review == 0)
+
+            guard let def = channelDefinition(for: ch.id) else { continue }
+
+            if isUnclaimed && !def.approved.isEmpty {
+                // Fresh install: import bundled approved tracks as DB verdicts
+                for entry in def.approved {
+                    await db.setCuration(channelId: ch.id, trackId: entry.id,
+                                          status: "approved")
+                }
+                imported += def.approved.count
+            } else if !isUnclaimed && counts.approved == 0 && !def.approved.isEmpty {
+                // RECOVERY: DB was wiped but approved tracks exist in JSON file
+                for entry in def.approved {
+                    await db.setCuration(channelId: ch.id, trackId: entry.id,
+                                          status: "approved", note: "recovered")
+                }
+                recovered += def.approved.count
+            }
         }
-        if merged > 0 {
-            Log.general.info("[CustomChannels] Backfilled \(merged) tracks from SQLite DB into per-channel files")
+
+        if imported > 0 || recovered > 0 {
+            Log.general.info(
+                "[CustomChannels] Imported \(imported) bundled + recovered \(recovered) verdicts from JSON files")
+        }
+        // Refresh the in-memory store after import/recovery
+        if imported > 0 || recovered > 0 {
+            await LiveCurationStore.shared.reload(from: db)
         }
     }
 
     private func ensureDirectory() {
         try? FileManager.default.createDirectory(at: Self.channelsDir,
                                                   withIntermediateDirectories: true)
-    }
-
-    // MARK: - Migration (Phase A)
-
-    /// Read the LIVE `Documents/curation.json` (written by LiveCurationStore
-    /// on prior launches) and merge any approved tracks into per-channel files.
-    /// Only runs when per-channel files exist but have no approved tracks yet.
-    private func migrateFromLiveManifest() {
-        // 1. Try the live Documents/curation.json first (has the user's hours of work)
-        let docsURL = LiveCurationStore.liveManifestURL
-        let liveManifest: CurationManifest?
-        if let data = try? Data(contentsOf: docsURL),
-           let m = try? JSONDecoder().decode(CurationManifest.self, from: data) {
-            liveManifest = m
-        } else {
-            liveManifest = nil
-        }
-
-        // 2. For each curated channel that already has a per-channel file
-        //    (copied from bundle by loadBundledDefaults), merge in approved
-        //    tracks from the live manifest.
-        let shippedChannels = Channel.defaults
-            .filter { $0.category == "Curated" && $0.iaQueryEntry != nil }
-            .map(\.id)
-        let stamp = ISO8601DateFormatter().string(from: Date())
-
-        for chId in shippedChannels {
-            let dest = Self.channelsDir.appendingPathComponent("\(chId).json")
-            guard FileManager.default.fileExists(atPath: dest.path) else { continue }
-
-            // Read the current per-channel file (already has metadata from bundle)
-            guard var def = channelDefinition(for: chId) else { continue }
-
-            // If it already has approved tracks (from a prior migration or curation),
-            // skip — never overwrite the user's existing per-channel file.
-            guard def.approved.isEmpty else { continue }
-
-            // Merge approved tracks from the live manifest
-            if let live = liveManifest {
-                let entries = live.approved(for: chId)
-                if !entries.isEmpty {
-                    def.approved = entries.map { entry in
-                        ChannelDefinition.ApprovedEntry(
-                            id: entry.id, title: entry.title,
-                            creator: entry.creator,
-                            duration: entry.duration,
-                            parentIdentifier: entry.parentIdentifier)
-                    }
-                    def.updatedAt = stamp
-                    writeChannelDefinition(def)
-                }
-            }
-        }
     }
 
     // MARK: - Shipped defaults

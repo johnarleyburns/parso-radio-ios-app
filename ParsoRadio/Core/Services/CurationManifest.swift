@@ -67,74 +67,25 @@ final class LiveCurationStore {
     private let lock = NSLock()
     private var approvedByChannel: [String: [Track]] = [:]
 
-    /// Re-read curated tracks from the DB; rewrite the live manifest file.
+    /// Re-read curated tracks from the DB; refresh the in-memory snapshot.
+    /// The DB is the sole source of truth. JSON files are for import/export
+    /// only — they are NEVER written to by runtime verdicts.
     func reload(from db: DatabaseService) async {
         let approved = await db.exportApprovedByChannel()
         lock.withLock {
             approvedByChannel = approved
         }
-        writeLiveManifest(approved)
     }
 
     /// QueueManager calls this on every track pick. Prefers the curator's live
     /// DB; falls back to the BUNDLED manifest (so non-curator users still play
     /// the shipped curation).
     func pool(for channelId: String) -> [Track] {
-        // The live DB snapshot (updated on every verdict via reload(from:)) is
-        // ALWAYS the authoritative source. The per-channel JSON file fills gaps
-        // only — it must never override newer DB verdicts.
-        let live = lock.withLock { approvedByChannel[channelId] ?? [] }
-        if !live.isEmpty {
-            // DB has verdicts: start from the DB-approved set, then merge in
-            // any file-approved entries NOT already in the DB (gaps from before
-            // this curator session). Rejected-in-DB entries are excluded.
-            let liveIds = Set(live.map(\.id))
-            var merged = live
-            if let file = CustomChannelsStore.shared.channelDefinition(for: channelId) {
-                // DB-rejected tracks are excluded even if the file still has them
-                let dbRejected = Set(curationTrackIds(channelId: channelId, status: "rejected"))
-                for entry in file.approved where !liveIds.contains(entry.id)
-                    && !dbRejected.contains(entry.id) {
-                    let t = Track(
-                        id: entry.id, source: "internet_archive",
-                        title: entry.title, artist: entry.creator,
-                        duration: entry.duration,
-                        streamURL: URL(string: "https://archive.org/download/\(entry.id)")
-                            ?? URL(string: "https://archive.org")!,
-                        downloadURL: nil, localFilePath: nil,
-                        license: .publicDomain, tags: [],
-                        qualityScore: 1.0, rawCreator: entry.creator,
-                        composer: nil, instruments: [],
-                        metadataConfidence: 1.0,
-                        parentIdentifier: entry.parentIdentifier)
-                    merged.append(t)
-                }
-            }
-            return merged
-        }
-        // No DB verdicts yet: fall back to per-channel file, then bundled manifest.
-        if let file = CustomChannelsStore.shared.channelDefinition(for: channelId),
-           !file.approved.isEmpty {
-            return CustomChannelsStore.shared.approvedTracks(for: channelId)
-        }
-        return CurationManifestStore.shared.pool(for: channelId)
-    }
-
-    /// Returns rejected track IDs from the curation table for a channel.
-    /// Used to exclude entries from the per-channel file that the DB has
-    /// since rejected.
-    private func curationTrackIds(channelId: String, status: String) -> Set<String> {
-        // The lock already holds approvedByChannel; we need to query rejected
-        // from a separate source. Use the DB directly via setCuration semantics.
-        // Since LiveCurationStore doesn't keep rejected-by-channel in memory,
-        // we use a lightweight query through the CustomChannelsStore mechanism:
-        // read the per-channel file's rejected list (which IS kept up to date
-        // by CuratorChannelEditView.verdict). Combined with the live DB's
-        // approved set, this gives us the authoritative picture.
-        guard let def = CustomChannelsStore.shared.channelDefinition(for: channelId) else {
-            return []
-        }
-        return Set(def.rejected)
+        // The DB is the sole source of truth for all curation verdicts.
+        // JSON files are for import/export/sharing only — NEVER for runtime
+        // playback decisions. This prevents stale-file bugs where a rejected
+        // track in the DB would still play because the JSON file had it.
+        lock.withLock { approvedByChannel[channelId] ?? [] }
     }
 
     /// True if the live DB has any approved tracks for this channel.
@@ -142,36 +93,6 @@ final class LiveCurationStore {
         lock.withLock {
             !(approvedByChannel[channelId]?.isEmpty ?? true)
         }
-    }
-
-    /// On-disk location of the live curation.json (Documents/, visible to the
-    /// Files app).
-    static var liveManifestURL: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("curation.json")
-    }
-
-    private func writeLiveManifest(_ approved: [String: [Track]]) {
-        var channels: [String: CurationManifest.ChannelCuration] = [:]
-        let stamp = ISO8601DateFormatter().string(from: Date())
-        for (ch, tracks) in approved {
-            let entries = tracks.map {
-                CurationManifest.Entry(
-                    id: $0.id,
-                    title: $0.title,
-                    creator: $0.artist,
-                    duration: $0.duration,
-                    parentIdentifier: $0.parentIdentifier
-                )
-            }
-            channels[ch] = CurationManifest.ChannelCuration(
-                updatedAt: stamp, approved: entries)
-        }
-        let manifest = CurationManifest(version: 1, channels: channels)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let data = try? encoder.encode(manifest) else { return }
-        try? data.write(to: Self.liveManifestURL, options: [.atomic])
     }
 }
 

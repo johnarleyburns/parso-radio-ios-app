@@ -87,10 +87,13 @@ struct ParsoMusicApp: App {
                 }
             }
             .task {
-                // After app launches and splash settles, backfill per-channel
-                // curated files from any existing SQLite curation data so the
-                // user's prior curator work shows up in the Curated list.
-                await CustomChannelsStore.shared.bootstrapFromDatabase(db: ParsoMusicApp.sharedDB)
+                // One-time import: seed the curation DB from bundled per-channel
+                // JSON files for channels the user hasn't claimed yet. Once a
+                // channel has any verdicts, the user owns it — JSON is never
+                // consulted again for that channel. Also recovers lost verdicts
+                // if the DB was wiped but the JSON file still has approved tracks.
+                await CustomChannelsStore.shared.importBundledCurationsIfNeeded(
+                    db: ParsoMusicApp.sharedDB)
             }
             .fullScreenCover(isPresented: $showTerms) {
                 TermsView(isPresented: $showTerms)

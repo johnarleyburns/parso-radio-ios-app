@@ -167,19 +167,16 @@ final class CurationTests: XCTestCase {
     }
 
     func test_liveStore_writesManifestFileToDocuments() async throws {
-        // Wipe DB state to start clean.
+        // reload(from:) refreshes the in-memory pool from DB — no file writes.
         await LiveCurationStore.shared.reload(from: db)
         await db.saveTracks([track("doc-1")])
         await db.setCuration(channelId: "guitar-classical", trackId: "doc-1",
                               status: "approved")
         await LiveCurationStore.shared.reload(from: db)
-        let url = LiveCurationStore.liveManifestURL
-        let data = try Data(contentsOf: url)
-        let manifest = try JSONDecoder().decode(CurationManifest.self, from: data)
-        XCTAssertEqual(manifest.version, 1)
-        let approved = manifest.approved(for: "guitar-classical")
-        XCTAssertTrue(approved.contains { $0.id == "doc-1" },
-            "Documents/curation.json must include just-approved tracks (no app rebuild required)")
+        // DB-approved track must appear in the pool
+        let pool = LiveCurationStore.shared.pool(for: "guitar-classical")
+        XCTAssertTrue(pool.contains(where: { $0.id == "doc-1" }),
+            "DB-approved track must appear in pool after reload")
     }
 
     func test_manifestDecodesAndQueries() throws {
@@ -196,8 +193,9 @@ final class CurationTests: XCTestCase {
 
     // MARK: - Curation orphan cleanup
 
-    /// When tracks are evicted by evictOldTracks, their curation rows must also
-    /// be deleted so curationCounts and reviewSetTracks stay in sync.
+    /// When tracks are evicted by evictOldTracks, their curation rows MUST
+    /// be preserved — verdicts are tiny and must survive so they re-apply
+    /// when the track is re-fetched on the next channel refresh.
     func test_evictOldTracksCleansCurationRows() async {
         let t = track("evict-orphan")
         await db.saveTracks([t])
@@ -209,8 +207,8 @@ final class CurationTests: XCTestCase {
         await db.evictOldTracks(olderThan: -1)
 
         counts = await db.curationCounts(channelId: "ch")
-        XCTAssertEqual(counts.review, 0,
-            "Orphaned curation row must be deleted when track is evicted")
+        XCTAssertEqual(counts.review, 1,
+            "Curation row must survive track eviction — verdicts are preserved")
     }
 
     /// pruneChannelTracks must clean up curation rows for deleted tracks.
@@ -232,7 +230,9 @@ final class CurationTests: XCTestCase {
             "Curation row must be deleted when track is pruned")
     }
 
-    /// verify that curationCounts stays in sync after track eviction
+    /// Curation rows survive track eviction — verdicts are preserved even
+    /// when the underlying track is aged out. When re-fetched from IA,
+    /// the verdict immediately applies.
     func test_curationCountsDoesNotCountOrphanedTracks() async {
         let t1 = track("keep-me"), t2 = track("evict-me")
         await db.saveTracks([t1, t2])
@@ -241,55 +241,124 @@ final class CurationTests: XCTestCase {
         var counts = await db.curationCounts(channelId: "ch")
         XCTAssertEqual(counts.review, 2)
 
-        // Protect t1 from eviction by marking it downloaded
         await db.markDownloaded(trackID: t1.id, localPath: "/tmp/keep-me.mp3")
-        // Evict: t1 survives (has localPath), t2 is deleted + curation cleaned
         await db.evictOldTracks(olderThan: -1)
 
         counts = await db.curationCounts(channelId: "ch")
-        XCTAssertEqual(counts.review, 1,
-            "Only the surviving track's curation row should remain — t2's row must be deleted with the track")
+        // Both verdicts preserved despite t2 being evicted from the tracks table
+        XCTAssertEqual(counts.review, 2,
+            "Verdicts must survive track eviction — both curation rows preserved")
     }
 
     // MARK: - LiveCurationStore pool(for:) prioritizes live DB
 
-    /// When both the per-channel JSON file AND the live DB have approved
-    /// tracks, the live DB must take priority. A track rejected in the DB
-    /// must not appear even if the file still lists it as approved.
+    /// pool(for:) is DB-only: DB-rejected tracks must not appear even if the
+    /// JSON file lists them as approved. The DB is the sole source of truth.
     func test_poolPrioritizesLiveDBOverStaleFileApproved() async {
         let channelId = "guitar-classical"
         let approvedTrack = track("live-approved")
-        let fileApprovedButDBRejected = track("file-yes-db-no")
-        await db.saveTracks([approvedTrack, fileApprovedButDBRejected])
+        let rejectedTrack = track("db-rejected")
+        await db.saveTracks([approvedTrack, rejectedTrack])
 
         // Set DB verdicts: approved for one, rejected for the other
         await db.setCuration(channelId: channelId, trackId: approvedTrack.id,
                               status: "approved")
-        await db.setCuration(channelId: channelId, trackId: fileApprovedButDBRejected.id,
+        await db.setCuration(channelId: channelId, trackId: rejectedTrack.id,
                               status: "rejected")
 
         // Reload live store from DB
         await LiveCurationStore.shared.reload(from: db)
 
-        // The pool must include only the DB-approved track, not the rejected one
+        // The pool must include only the DB-approved track
         let pool = LiveCurationStore.shared.pool(for: channelId)
         XCTAssertTrue(pool.contains(where: { $0.id == approvedTrack.id }),
-            "Live-DB-approved track must be in the pool")
-        XCTAssertFalse(pool.contains(where: { $0.id == fileApprovedButDBRejected.id }),
-            "Live-DB-rejected track must NOT be in the pool even if file had it")
+            "DB-approved track must be in the pool")
+        XCTAssertFalse(pool.contains(where: { $0.id == rejectedTrack.id }),
+            "DB-rejected track must NOT be in the pool")
     }
 
-    /// When the live DB has no verdicts (empty), the per-channel file data
-    /// is used as a fallback. This handles cold starts before curation.
+    /// pool(for:) is DB-only: empty DB means empty pool, no JSON fallback.
     func test_poolFallsBackToFileWhenDBEmpty() async {
         let channelId = "guitar-classical"
         let fileTrack = track("file-only")
         await db.saveTracks([fileTrack])
 
-        // No DB verdicts → pool returns empty (file is checked as fallback but
-        // the test file is empty unless we mock; just verify no crash on empty)
+        // Empty DB → pool is empty (no JSON fallback)
+        await LiveCurationStore.shared.reload(from: db)
         let pool = LiveCurationStore.shared.pool(for: channelId)
-        // Should not crash; pool may be empty if file is also empty
-        XCTAssertNotNil(pool)
+        XCTAssertTrue(pool.isEmpty,
+            "Empty DB must produce empty pool (no JSON file or manifest fallback)")
+    }
+
+    /// pool(for:) reads ONLY from the in-memory DB snapshot — no JSON file
+    /// fallback, no bundled manifest. DB is the sole source of truth.
+    func test_poolReadsOnlyFromDBSnapshot() async {
+        let channelId = "guitar-classical"
+        let track = track("db-only-track")
+        await db.saveTracks([track])
+
+        // Set a DB verdict → appears in pool
+        await db.setCuration(channelId: channelId, trackId: track.id,
+                              status: "approved")
+        await LiveCurationStore.shared.reload(from: db)
+
+        let pool = LiveCurationStore.shared.pool(for: channelId)
+        XCTAssertTrue(pool.contains(where: { $0.id == track.id }),
+            "DB-approved track must appear in pool")
+
+        // Reload from empty DB → pool becomes empty, even if JSON files exist
+        let emptyDB = try! DatabaseService(path: ":memory:")
+        await LiveCurationStore.shared.reload(from: emptyDB)
+        let emptyPool = LiveCurationStore.shared.pool(for: channelId)
+        XCTAssertTrue(emptyPool.isEmpty,
+            "pool must be empty when DB has no approved tracks (no JSON fallback)")
+    }
+
+    /// When the DB has zero verdicts for a channel, importBundledCurationsIfNeeded
+    /// imports from the per-channel JSON. When the DB already has verdicts,
+    /// it must skip the channel (user owns it).
+    func test_importBundledCurationsSkipsClaimedChannels() async {
+        let channelId = "guitar-classical"
+        let track = track("already-claimed")
+        await db.saveTracks([track])
+
+        // Pre-populate DB with a verdict → channel is "claimed"
+        await db.setCuration(channelId: channelId, trackId: track.id,
+                              status: "approved")
+
+        // importBundledCurationsIfNeeded should skip this channel
+        await CustomChannelsStore.shared.importBundledCurationsIfNeeded(db: db)
+
+        // The original verdict should still be there, unchanged
+        let counts = await db.curationCounts(channelId: channelId)
+        XCTAssertEqual(counts.approved, 1,
+            "Claimed channel must not be overwritten by import")
+    }
+
+    /// Recovery: if the DB has zero approved tracks but the JSON file has
+    /// entries, importBundledCurationsIfNeeded restores them.
+    /// Note: this tests the RECOVERY path (isUnclaimed=false because there
+    /// are rejected rows, but counts.approved=0 and file has approved).
+    func test_recoveryImportsLostVerdictsFromJSON() async {
+        let channelId = "guitar-classical"
+        let track = track("recovered-track")
+        await db.saveTracks([track])
+
+        // Simulate: user has verdicts (rejected tracks exist), but all
+        // approved tracks were lost. The JSON file still has approved entries.
+        await db.setCuration(channelId: channelId, trackId: "some-other-id",
+                              status: "rejected")
+        // approved count = 0, but the channel IS claimed (has verdicts)
+
+        // importBundledCurationsIfNeeded should see approved=0 AND
+        // file.approved non-empty AND isUnclaimed=false → RECOVERY path
+        await CustomChannelsStore.shared.importBundledCurationsIfNeeded(db: db)
+
+        // After import, the pool should reflect whatever was in the JSON file
+        // (we can't control the JSON file content in tests, so just verify
+        // the method doesn't crash and the original rejected verdict survives)
+        let counts = await db.curationCounts(channelId: channelId)
+        XCTAssertEqual(counts.rejected, 1,
+            "Rejected verdicts must survive import")
     }
 }

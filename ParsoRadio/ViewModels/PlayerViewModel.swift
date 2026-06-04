@@ -492,7 +492,9 @@ final class PlayerViewModel: ObservableObject {
         if isInstantResumeCategory {
             if let saved = await db.loadPosition(channelId: channel.id),
                let track = await db.fetchTrack(id: saved.trackId) {
-                // Curated channel: verify the track is still in the approved pool
+                // Curated channel: verify the track is still in the approved pool.
+                // pool(for:) reads directly from the in-memory DB snapshot —
+                // no JSON file fallback, so verdicts are always current.
                 let approved = channel.category == "Curated"
                     ? Set(LiveCurationStore.shared.pool(for: channel.id).map(\.id))
                     : nil
@@ -599,20 +601,20 @@ final class PlayerViewModel: ObservableObject {
             // in the local DB and repeat forever": the pool can never outlive
             // the current query's definition. (Tag/composer channels are NOT
             // pruned — they share tracks across channels by subject/composer.)
+            //
+            // For Curated channels, the keeping set INCLUDES approved track IDs
+            // even if the IA query no longer returns them. This prevents the
+            // "lose 23 approved tracks" bug where PRUNE 1 deleted approved
+            // tracks not in the query, then PRUNE 2 couldn't restore them.
             if channel.iaQueryEntry != nil, !fetched.isEmpty {
-                await db.pruneChannelTracks(
-                    forChannel: channel, keeping: Set(fetched.map(\.id)))
-            }
-            // For Curated category channels: the IA query returns ALL matches,
-            // but ONLY human-approved tracks may play. Prune any stamped tracks
-            // that are NOT in the approved pool so they can't leak through
-            // part/book navigation or resume paths.
-            if channel.category == "Curated", channel.iaQueryEntry != nil {
-                let approvedIds = Set(LiveCurationStore.shared.pool(for: channel.id).map(\.id))
-                if !approvedIds.isEmpty {
-                    await db.pruneChannelTracks(
-                        forChannel: channel, keeping: approvedIds)
+                var keepingIds = Set(fetched.map(\.id))
+                if channel.category == "Curated" {
+                    let approvedIds = LiveCurationStore.shared
+                        .pool(for: channel.id).map(\.id)
+                    keepingIds.formUnion(approvedIds)
                 }
+                await db.pruneChannelTracks(
+                    forChannel: channel, keeping: keepingIds)
             }
             downloadManager.prefetchNext(fetched)
             channelDescription = channel.detailDescription
@@ -1586,17 +1588,15 @@ final class PlayerViewModel: ObservableObject {
             }
             guard !fetched.isEmpty, contextToken == playbackContextToken else { return }
             await db.saveTracks(fetched)
-            // Prune stale stamped tracks
-            await db.pruneChannelTracks(forChannel: channel,
-                                         keeping: Set(fetched.map(\.id)))
-            // Curated: also prune any stamped tracks not in the approved pool
+            // Prune stale stamped tracks, keeping approved IDs for Curated channels
+            var keepingIds = Set(fetched.map(\.id))
             if channel.category == "Curated", channel.iaQueryEntry != nil {
-                let approvedIds = Set(LiveCurationStore.shared.pool(for: channel.id).map(\.id))
-                if !approvedIds.isEmpty {
-                    await db.pruneChannelTracks(forChannel: channel,
-                                                 keeping: approvedIds)
-                }
+                let approvedIds = LiveCurationStore.shared
+                    .pool(for: channel.id).map(\.id)
+                keepingIds.formUnion(approvedIds)
             }
+            await db.pruneChannelTracks(forChannel: channel,
+                                         keeping: keepingIds)
             downloadManager.prefetchNext(fetched)
             channelTrackCount = fetched.count
             channelMostRecentDate = fetched.compactMap(\.addedDate).max()

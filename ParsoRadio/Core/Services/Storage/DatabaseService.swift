@@ -298,9 +298,15 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
                 }
                 // Clean up orphaned curation rows for pruned tracks so
                 // curationCounts and reviewSetTracks remain in sync.
+                // Channel-filtered: only delete verdicts for THIS channel.
+                // Without the colCurChannel guard, pruning classical-guitar
+                // tracks would nuke chamber-music verdicts for the same IA ids.
                 if !staleIds.isEmpty {
                     _ = try? self.db.run(
-                        self.curation.filter(staleIds.contains(self.colCurTrack)).delete())
+                        self.curation
+                            .filter(staleIds.contains(self.colCurTrack)
+                                    && self.colCurChannel == channel.id)
+                            .delete())
                 }
                 continuation.resume()
             }
@@ -422,15 +428,15 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
                     .filter(self.colFetchedAt < cutoff)
                     .filter(self.colIsLocal == false)
                     .filter(self.colLocalPath == nil)
-                // Collect evicted track IDs so we can clean up orphaned curation rows
+                // Collect evicted track IDs (used for downstream cache invalidation)
                 let evictedIds = (try? db.prepare(safeToDelete.select(colId)))?
                     .map { $0[colId] } ?? []
                 _ = try? self.db.run(safeToDelete.delete())
-                // Clean up orphaned curation rows that reference evicted tracks
-                if !evictedIds.isEmpty {
-                    _ = try? self.db.run(
-                        self.curation.filter(evictedIds.contains(colCurTrack)).delete())
-                }
+                // Intentionally NOT deleting curation rows here — verdicts are
+                // tiny (a few bytes per row) and must survive track eviction.
+                // When the track is re-fetched from IA on the next channel
+                // refresh, the verdict will immediately apply again without
+                // the curator needing to re-approve/reject.
                 // Also clean up old play history
                 let historyCutoff = Date().timeIntervalSince1970 - Double(days) * 86400
                 _ = try? self.db.run(self.playHistory.filter(self.colPHPlayedAt < historyCutoff).delete())
