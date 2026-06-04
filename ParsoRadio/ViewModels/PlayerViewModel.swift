@@ -480,6 +480,51 @@ final class PlayerViewModel: ObservableObject {
         // Hoisted so the post-fetch resume / News-newest logic can see it.
         var fetched: [Track] = []
 
+        // INSTANT RESUME: for channels where the last-played track is always
+        // cached in the DB (curated, audiobook, lecture), check the saved
+        // position BEFORE hitting the network. If the track is in the DB and
+        // still approved (curated), play it immediately without a loading
+        // spinner. The IA query still runs in the background to refresh the
+        // pool for subsequent tracks.
+        let isInstantResumeCategory = channel.category == "Curated"
+            || channel.category == "Audiobooks"
+            || channel.category == "Lectures"
+        if isInstantResumeCategory {
+            if let saved = await db.loadPosition(channelId: channel.id),
+               let track = await db.fetchTrack(id: saved.trackId) {
+                // Curated channel: verify the track is still in the approved pool
+                let approved = channel.category == "Curated"
+                    ? Set(LiveCurationStore.shared.pool(for: channel.id).map(\.id))
+                    : nil
+                let isInstant = approved?.contains(track.id) ?? true
+                if isInstant || approved?.isEmpty == true {
+                    // Play instantly — no spinner, no waiting for the network
+                    isLoading = false
+                    loadingMessage = nil
+                    if approved?.isEmpty == true {
+                        // Channel has no approved tracks yet; skip the background
+                        // fetch too — the user needs to curate first.
+                        channelDescription = channel.detailDescription
+                        return
+                    }
+                    // Play the cached track and launch a background refresh
+                    await playTrack(track,
+                                    seekTo: saved.seconds > 1 ? saved.seconds : nil,
+                                    autoPlay: autoPlay)
+                    // Background: fetch fresh tracks to update the pool while
+                    // the user is already listening. This uses a separate context
+                    // token so it doesn't interfere with the playing track.
+                    let backgroundToken = playbackContextToken
+                    Task.detached { [weak self] in
+                        guard let self else { return }
+                        await self.refreshChannelPool(channel: channel,
+                                                       contextToken: backgroundToken)
+                    }
+                    return
+                }
+            }
+        }
+
         do {
             if channel.category == "For You" {
                 // Dynamic "for you" channels: build the query from listening
@@ -1524,6 +1569,38 @@ final class PlayerViewModel: ObservableObject {
         isLoading = true
         loadingMessage = "Skipping unavailable track…"
         await advanceToNext(autoPlay: autoPlay)
+    }
+
+    /// Background refresh: fetch updated tracks for a curated/audiobook/lecture
+    /// channel while the user is already listening to the instantly-resumed
+    /// cached track. Does NOT modify currentTrack or playback state — only
+    /// updates the DB pool.
+    private func refreshChannelPool(channel: Channel, contextToken: Int) async {
+        var fetched: [Track] = []
+        do {
+            if let entry = channel.iaQueryEntry {
+                fetched = try await archiveService.fetchTracks(
+                    iaQuery: entry.iaQuery, matchTags: entry.matchTags)
+            } else if channel.contentType == .spokenWord {
+                fetched = try await archiveService.fetchSpokenWordTracks(channel: channel)
+            }
+            guard !fetched.isEmpty, contextToken == playbackContextToken else { return }
+            await db.saveTracks(fetched)
+            // Prune stale stamped tracks
+            await db.pruneChannelTracks(forChannel: channel,
+                                         keeping: Set(fetched.map(\.id)))
+            // Curated: also prune any stamped tracks not in the approved pool
+            if channel.category == "Curated", channel.iaQueryEntry != nil {
+                let approvedIds = Set(LiveCurationStore.shared.pool(for: channel.id).map(\.id))
+                if !approvedIds.isEmpty {
+                    await db.pruneChannelTracks(forChannel: channel,
+                                                 keeping: approvedIds)
+                }
+            }
+            downloadManager.prefetchNext(fetched)
+            channelTrackCount = fetched.count
+            channelMostRecentDate = fetched.compactMap(\.addedDate).max()
+        } catch { /* background refresh failure is silent — user is already playing */ }
     }
 
     private func prefetchNextURL(channel: Channel) async {

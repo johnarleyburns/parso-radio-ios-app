@@ -574,22 +574,17 @@ struct iPodView: View {
 
     /// Shown when a channel IS selected but no track is currently loaded (e.g.
     /// the previous track finished while the user was browsing the menu).
-    /// Avoids the misleading "Tap ☰ to select a channel" prompt when the user
-    /// is already on a channel.
+    /// Shows only the channel name — no action prompt. The user is already on a
+    /// channel; there's nothing to "select."
     @ViewBuilder
     private var channelPromptView: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            Text(displayChannel.name)
-                .font(.system(size: mainRegularSize))
-                .foregroundStyle(.white.opacity(0.8))
-                .lineLimit(1)
-            Text("Tap \(Image(systemName: "forward.fill")) for next track")
-                .font(.system(size: mainRegularSize - 1))
-                .foregroundStyle(.white.opacity(0.5))
-        }
-        .frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.horizontal, 14)
-        .padding(.bottom, 8)
+        Text(displayChannel.name)
+            .font(.system(size: mainRegularSize))
+            .foregroundStyle(.white.opacity(0.8))
+            .multilineTextAlignment(.trailing)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 8)
     }
 
     // The track box now carries ONLY the position display: elapsed / remaining
