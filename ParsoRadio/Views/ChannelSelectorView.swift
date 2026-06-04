@@ -92,7 +92,7 @@ struct ChannelSelectorView: View {
                 HStack(spacing: 14) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(categoryGradient(for: channel.category))
+                            .fill(ChannelCategoryStyle.gradient(for: channel.category))
                             .frame(width: 36, height: 36)
                         Image(systemName: channel.icon)
                             .font(.system(size: 15, weight: .medium))

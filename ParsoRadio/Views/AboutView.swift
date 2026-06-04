@@ -68,11 +68,7 @@ struct AboutView: View {
         HStack(spacing: 18) {
             ZStack {
                 RoundedRectangle(cornerRadius: 18)
-                    .fill(LinearGradient(
-                        colors: [Color(red: 0.42, green: 0.20, blue: 0.80),
-                                 Color(red: 0.10, green: 0.22, blue: 0.65)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    ))
+                    .fill(BrandGradient.linear)
                     .frame(width: 72, height: 72)
                     .shadow(color: .black.opacity(0.2), radius: 8, y: 3)
                 Image(systemName: "dot.radiowaves.left.and.right")

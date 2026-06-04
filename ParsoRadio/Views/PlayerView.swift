@@ -41,7 +41,8 @@ struct PlayerView: View {
     private var artwork: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 28)
-                .fill(categoryGradient(for: channel.category))
+                    .fill(ChannelCategoryStyle.gradient(for: channel.category))
+                            .frame(width: 44, height: 44)
                 .frame(width: 260, height: 260)
                 .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
 
@@ -99,8 +100,8 @@ struct PlayerView: View {
                     .padding(.top, 2)
                 } else {
                     HStack(spacing: 8) {
-                        licenseTag(track.license)
-                        sourceTag(track.source)
+                        LicenseDisplay.label(track.license)
+                        SourceDisplay.tag(track.source)
                     }
                     .padding(.top, 4)
                 }
@@ -135,7 +136,7 @@ struct PlayerView: View {
                 } label: {
                     ZStack {
                         Circle()
-                            .fill(categoryGradient(for: channel.category))
+                            .fill(ChannelCategoryStyle.gradient(for: channel.category))
                             .frame(width: 80, height: 80)
                             .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
                         Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
@@ -153,16 +154,16 @@ struct PlayerView: View {
         VStack(spacing: 4) {
             if let duration = playerVM.trackDuration, duration > 0 {
                 ProgressView(value: playerVM.currentPosition, total: duration)
-                    .tint(progressTint(for: channel.category))
+                    .tint(ChannelCategoryStyle.color(for: channel.category))
             } else {
                 ProgressView()
                     .progressViewStyle(.linear)
             }
             HStack {
-                Text(formatTime(playerVM.currentPosition))
+                Text(playerVM.currentPosition.formattedTime)
                 Spacer()
                 if let duration = playerVM.trackDuration {
-                    Text(formatTime(duration))
+                    Text(duration.formattedTime)
                 }
             }
             .font(.caption2)
@@ -172,71 +173,6 @@ struct PlayerView: View {
         .padding(.horizontal, 4)
     }
 
-    private func progressTint(for category: String) -> Color {
-        switch category {
-        case "Classical":    return Color(red: 0.42, green: 0.20, blue: 0.80)
-        case "Audiobooks":   return Color(red: 0.55, green: 0.35, blue: 0.10)
-        case "Contemporary": return Color(red: 0.20, green: 0.40, blue: 0.20)
-        case "Lectures":     return Color(red: 0.00, green: 0.13, blue: 0.28)
-        case "News":         return Color(red: 0.10, green: 0.20, blue: 0.40)
-        case "Ambient":      return Color(red: 0.08, green: 0.38, blue: 0.28)
-        default:             return .accentColor
-        }
-    }
-
-    private func formatTime(_ seconds: Double) -> String {
-        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
-        let total = Int(seconds)
-        let h = total / 3600
-        let m = (total % 3600) / 60
-        let s = total % 60
-        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
-    }
-
-    // MARK: - Labels
-
-    @ViewBuilder
-    private func licenseTag(_ license: LicenseType) -> some View {
-        switch license {
-        case .cc0:
-            badge("CC0", color: .blue)
-        case .ccBy:
-            badge("CC BY", color: .orange)
-        case .publicDomain:
-            badge("Public Domain", color: .green)
-        case .rejected:
-            EmptyView()
-        }
-    }
-
-    @ViewBuilder
-    private func sourceTag(_ source: String) -> some View {
-        switch source {
-        case "fma":
-            badge("Free Music Archive", color: .gray)
-        case "musopen":
-            badge("Musopen", color: .purple)
-        case "podcast":
-            badge("Podcast", color: Color(red: 0.10, green: 0.20, blue: 0.40))
-        case "nps":
-            badge("NPS", color: Color(red: 0.08, green: 0.38, blue: 0.28))
-        case "freesound":
-            badge("Freesound", color: Color(red: 0.08, green: 0.38, blue: 0.28))
-        default:
-            badge("Internet Archive", color: .gray)
-        }
-    }
-
-    private func badge(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(.caption2)
-            .fontWeight(.medium)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(color.opacity(0.12))
-            .foregroundStyle(color)
-            .clipShape(Capsule())
-    }
 }
 
 #Preview {

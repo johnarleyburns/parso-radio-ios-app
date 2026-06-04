@@ -64,16 +64,16 @@ struct ChannelInfoView: View {
             }
 
             Section("Details") {
-                infoRow("Category",     channel.category)
-                infoRow("Content type", channel.contentType.displayName)
-                infoRow("Source",       channel.sourceName)
+                SharedViews.infoRow("Category",     channel.category)
+                SharedViews.infoRow("Content type", channel.contentType.displayName)
+                SharedViews.infoRow("Source",       channel.sourceName)
                 if channel.iaQueryEntry != nil {
-                    infoRow("Discovery", "Pure Internet Archive search")
+                    SharedViews.infoRow("Discovery", "Pure Internet Archive search")
                 } else if let feed = channel.feedURL {
-                    infoRow("Feed", feed)
+                    SharedViews.infoRow("Feed", feed)
                 }
                 if let minDur = channel.minTrackDuration {
-                    infoRow("Min duration",
+                    SharedViews.infoRow("Min duration",
                             "\(Int(minDur)) seconds (shorter tracks are skipped)")
                 }
             }
@@ -95,16 +95,6 @@ struct ChannelInfoView: View {
                     .environmentObject(playerVM)
             }
         }
-    }
-
-    @ViewBuilder
-    private func infoRow(_ label: String, _ value: String) -> some View {
-        HStack {
-            Text(label).foregroundStyle(.secondary)
-            Spacer()
-            Text(value).multilineTextAlignment(.trailing)
-        }
-        .accessibilityElement(children: .combine)
     }
 }
 

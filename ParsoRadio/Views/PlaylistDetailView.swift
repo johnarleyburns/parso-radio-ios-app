@@ -39,7 +39,7 @@ struct PlaylistDetailView: View {
                     .buttonStyle(.bordered)
                     .accessibilityHint(resume == nil
                         ? "Plays this playlist from the beginning"
-                        : "Resumes “\(resume!.track.title)” at \(clock(resume!.seconds))")
+                            : "Resumes “\(resume!.track.title)” at \(resume!.seconds.formattedTime)")
 
                     Button {
                         Task {
@@ -117,7 +117,7 @@ struct PlaylistDetailView: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                         if track.id == resume?.track.id {
-                            Label("Last played · \(clock(resume?.seconds ?? 0))",
+                            Label("Last played · \((resume?.seconds ?? 0).formattedTime)",
                                   systemImage: "bookmark.fill")
                                 .font(.caption2)
                                 .foregroundStyle(Color.accentColor)
@@ -176,15 +176,6 @@ struct PlaylistDetailView: View {
             await playlistVM.loadTracks(for: playlist)
             resume = await playerVM.savedPlaylistResume(playlist)
         }
-    }
-
-    private func clock(_ s: Double) -> String {
-        guard s.isFinite, s >= 0 else { return "0:00" }
-        let t = Int(s)
-        let h = t / 3600, m = (t % 3600) / 60, sec = t % 60
-        return h > 0
-            ? String(format: "%d:%02d:%02d", h, m, sec)
-            : String(format: "%d:%02d", m, sec)
     }
 
     /// Trailing-edge per-track download UI. Three states: in-progress

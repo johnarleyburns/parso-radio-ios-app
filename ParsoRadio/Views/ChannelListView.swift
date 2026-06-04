@@ -64,7 +64,7 @@ struct ChannelListView: View {
             HStack(spacing: 14) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(categoryGradient(for: playerVM.currentChannel?.category ?? ""))
+                        .fill(ChannelCategoryStyle.gradient(for: playerVM.currentChannel?.category ?? ""))
                         .frame(width: 44, height: 44)
                     Image(systemName: playerVM.currentChannel?.icon ?? "music.note")
                         .font(.system(size: 18, weight: .medium))
@@ -121,7 +121,7 @@ private struct ChannelRow: View {
             HStack(spacing: 16) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(categoryGradient(for: channel.category))
+                        .fill(ChannelCategoryStyle.gradient(for: channel.category))
                         .frame(width: 44, height: 44)
                     Image(systemName: channel.icon)
                         .font(.system(size: 18, weight: .medium))
@@ -162,40 +162,6 @@ private struct ChannelRow: View {
             .padding(.horizontal, 12)
         }
         .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Gradient helper (shared with PlayerView)
-
-func categoryGradient(for category: String) -> LinearGradient {
-    switch category {
-    case "Classical":
-        return LinearGradient(colors: [Color(red: 0.42, green: 0.20, blue: 0.80),
-                                       Color(red: 0.62, green: 0.10, blue: 0.52)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
-    case "Audiobooks":
-        return LinearGradient(colors: [Color(red: 0.55, green: 0.35, blue: 0.10),
-                                       Color(red: 0.80, green: 0.55, blue: 0.20)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
-    case "Contemporary":
-        return LinearGradient(colors: [Color(red: 0.20, green: 0.40, blue: 0.20),
-                                       Color(red: 0.35, green: 0.65, blue: 0.30)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
-    case "Lectures":
-        return LinearGradient(colors: [Color(red: 0.00, green: 0.13, blue: 0.28),
-                                       Color(red: 0.50, green: 0.38, blue: 0.10)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
-    case "News":
-        return LinearGradient(colors: [Color(red: 0.10, green: 0.20, blue: 0.40),
-                                       Color(red: 0.20, green: 0.40, blue: 0.60)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
-    case "Ambient":
-        return LinearGradient(colors: [Color(red: 0.08, green: 0.38, blue: 0.28),
-                                       Color(red: 0.18, green: 0.58, blue: 0.42)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
-    default:
-        return LinearGradient(colors: [Color.gray, Color.gray.opacity(0.6)],
-                              startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 }
 

@@ -411,8 +411,8 @@ struct iPodView: View {
         Rectangle()
             .fill(
                 LinearGradient(
-                    colors: [categoryColor(for: displayChannel.category).opacity(0.6),
-                             categoryColor(for: displayChannel.category).opacity(0.2)],
+                    colors: [ChannelCategoryStyle.color(for: displayChannel.category).opacity(0.6),
+                             ChannelCategoryStyle.color(for: displayChannel.category).opacity(0.2)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -576,13 +576,13 @@ struct iPodView: View {
         } else if let dur = playerVM.trackDuration, dur > 0 {
             VStack(spacing: 6) {
                 HStack(spacing: 0) {
-                    Text(formatTime(playerVM.currentPosition))
+                    Text(playerVM.currentPosition.formattedTime)
                         .font(.system(size: mainRegularSize))
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.75))
                         .accessibilityHidden(true)
                     Spacer()
-                    Text("-" + formatTime(max(0, dur - playerVM.currentPosition)))
+                    Text("-" + max(0, dur - playerVM.currentPosition).formattedTime)
                         .font(.system(size: mainRegularSize))
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.75))
@@ -637,7 +637,7 @@ struct iPodView: View {
         .accessibilityElement()
         .accessibilityLabel("Playback position")
         .accessibilityValue(
-            "\(formatTime(playerVM.currentPosition)) of \(formatTime(duration)), \(formatTime(max(0, duration - playerVM.currentPosition))) remaining")
+            "\(playerVM.currentPosition.formattedTime) of \(duration.formattedTime), \(max(0, duration - playerVM.currentPosition).formattedTime) remaining")
         .accessibilityHint("Swipe up or down to seek by 15 seconds")
         .accessibilityAdjustableAction { direction in
             switch direction {
@@ -658,35 +658,35 @@ struct iPodView: View {
             List {
                 if let track = playerVM.currentTrack {
                     Section("Now Playing") {
-                        infoRow("Title", track.title)
-                        if let a = cleaned(track.artist) { infoRow("Artist", a) }
-                        if let c = cleaned(track.composer) { infoRow("Composer", c.capitalized) }
+                            SharedViews.infoRow("Title", track.title)
+                        if let a = cleaned(track.artist) { SharedViews.infoRow("Artist", a) }
+                        if let c = cleaned(track.composer) { SharedViews.infoRow("Composer", c.capitalized) }
                         if let dur = trackInfoDuration(track) {
-                            infoRow("Duration", formatTime(dur))
+                                SharedViews.infoRow("Duration", dur.formattedTime)
                         }
                         // Multi-part item: surface the whole-work totals so the
                         // user knows the scope (e.g. Don Quixote: 124 chapters,
                         // 38:42:10) and where they are within it.
                         if playerVM.currentTrackIsMultiPart,
                            playerVM.currentItemChapterCount > 1 {
-                            infoRow(usesChapterTerminology ? "Chapters" : "Tracks",
+                                SharedViews.infoRow(usesChapterTerminology ? "Chapters" : "Tracks",
                                     "\(playerVM.currentItemChapterCount)")
                             if playerVM.currentItemTotalDuration > 0 {
-                                infoRow("Total Time",
-                                        formatTime(playerVM.currentItemTotalDuration))
+                                    SharedViews.infoRow("Total Time",
+                                        playerVM.currentItemTotalDuration.formattedTime)
                             }
                             if let idx = playerVM.currentItemPartIndex {
-                                infoRow(usesChapterTerminology ? "Chapter" : "Track",
+                                    SharedViews.infoRow(usesChapterTerminology ? "Chapter" : "Track",
                                         "\(idx) of \(playerVM.currentItemChapterCount)")
                             }
                         }
                         if let date = track.bestDate {
-                            infoRow(track.dateLabel,
+                                SharedViews.infoRow(track.dateLabel,
                                     date.formatted(.dateTime.year().month().day()))
                         }
                         DisclosureGroup("Full Metadata", isExpanded: $showFullMetadata) {
                             ForEach(fullMetadata(track), id: \.0) { pair in
-                                infoRow(pair.0, pair.1)
+                                    SharedViews.infoRow(pair.0, pair.1)
                             }
                         }
                     }
@@ -819,15 +819,6 @@ struct iPodView: View {
         }
     }
 
-    private func infoRow(_ label: String, _ value: String) -> some View {
-        HStack {
-            Text(label).foregroundStyle(.secondary)
-            Spacer()
-            Text(value).multilineTextAlignment(.trailing)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
     // MARK: - More Options helper rows
 
     private var playbackSpeedRow: some View {
@@ -889,7 +880,7 @@ struct iPodView: View {
         if playerVM.sleepAtEndOfTrack { return "End of Track" }
         if let ends = playerVM.sleepTimerEndsAt {
             let remaining = max(0, ends.timeIntervalSince(sleepTimerNow))
-            return formatTime(remaining)
+            return remaining.formattedTime
         }
         return "Off"
     }
@@ -900,7 +891,7 @@ struct iPodView: View {
             Button {
                 Task { await playerVM.addBookmarkAtCurrentPosition() }
             } label: {
-                Label("Bookmark This Spot (\(formatTime(playerVM.currentPosition)))",
+                Label("Bookmark This Spot (\(playerVM.currentPosition.formattedTime))",
                       systemImage: "bookmark")
             }
             .disabled(track.id != playerVM.currentTrack?.id)
@@ -916,10 +907,10 @@ struct iPodView: View {
                             .foregroundStyle(Color.accentColor)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(bm.label ?? formatTime(bm.positionSeconds))
+                            Text(bm.label ?? bm.positionSeconds.formattedTime)
                                 .font(.body)
                             if bm.label != nil {
-                                Text(formatTime(bm.positionSeconds))
+                                Text(bm.positionSeconds.formattedTime)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -947,28 +938,6 @@ struct iPodView: View {
     /// `ShareURLBuilder` so it's directly unit-testable.
     private func shareURL(for track: Track) -> URL? {
         ShareURLBuilder.url(for: track)
-    }
-
-    private func licenseName(_ l: LicenseType) -> String {
-        switch l {
-        case .cc0:          return "CC0"
-        case .ccBy:         return "CC BY"
-        case .publicDomain: return "Public Domain"
-        case .rejected:     return "Unknown"
-        }
-    }
-
-    private func sourceName(_ s: String) -> String {
-        switch s {
-        case "internet_archive": return "Internet Archive"
-        case "fma":              return "Free Music Archive"
-        case "oxford_lectures":  return "Oxford University"
-        case "podcast":          return "Podcast"
-        case "nps":              return "National Park Service"
-        case "freesound":        return "Freesound"
-        case "local":            return "My Files"
-        default:                  return s
-        }
     }
 
     // Prefer the live AVPlayer duration (accurate for IA tracks fetched with
@@ -1011,8 +980,8 @@ struct iPodView: View {
                   !v.isEmpty, v.lowercased() != "unknown" else { return }
             rows.append((label, v))
         }
-        add("License", licenseName(track.license))
-        add("Source", sourceName(track.source))
+        add("License", LicenseDisplay.name(track.license))
+        add("Source", SourceDisplay.name(track.source))
         add("Identifier", track.id)
         if let part = track.partNumber, let total = track.totalParts, total > 1 {
             add("Part", "\(part) of \(total)")
@@ -1040,10 +1009,6 @@ struct iPodView: View {
     }
 
     // MARK: - Layout geometry
-    //
-    // Helper functions (not @ViewBuilder `let` bindings, which can interact
-    // badly with SwiftUI's layout engine) shared by the screen panel and the
-    // wheel so they read as one physical device.
 
     // Effective layout width — capped on iPad (regular width) so the "device"
     // stays phone-sized and centered rather than filling the whole screen.
@@ -1098,24 +1063,6 @@ struct iPodView: View {
         return v
     }
 
-    private func categoryColor(for category: String) -> Color {
-        switch category {
-        case "Classical":    return Color(red: 0.42, green: 0.20, blue: 0.80)
-        case "Audiobooks":   return Color(red: 0.55, green: 0.35, blue: 0.10)
-        case "Contemporary": return Color(red: 0.20, green: 0.40, blue: 0.20)
-        case "Lectures":     return Color(red: 0.00, green: 0.13, blue: 0.28)
-        case "News":         return Color(red: 0.10, green: 0.20, blue: 0.40)
-        case "Ambient":      return Color(red: 0.08, green: 0.38, blue: 0.28)
-        default:             return Color(red: 0.20, green: 0.25, blue: 0.35)
-        }
-    }
-
-    private func formatTime(_ s: Double) -> String {
-        guard s.isFinite, s >= 0 else { return "0:00" }
-        let t = Int(s)
-        let h = t / 3600; let m = (t % 3600) / 60; let sec = t % 60
-        return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec) : String(format: "%d:%02d", m, sec)
-    }
 
 }
 

@@ -68,7 +68,7 @@ struct ChapterListView: View {
                     .foregroundStyle(isCurrent ? Color.accentColor : .primary)
                     .lineLimit(2)
                 if chapter.duration > 0 {
-                    Text(formatTime(chapter.duration))
+                    Text(chapter.duration.formattedTime)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -93,7 +93,7 @@ struct ChapterListView: View {
         let noun = count == 1 ? "chapter" : "chapters"
         let total = chapters.reduce(0.0) { $0 + max(0, $1.duration) }
         return total > 0
-            ? "\(count) \(noun) · \(formatTime(total))"
+            ? "\(count) \(noun) · \(total.formattedTime)"
             : "\(count) \(noun)"
     }
 
@@ -101,16 +101,7 @@ struct ChapterListView: View {
         let count = chapters.count
         let total = chapters.reduce(0.0) { $0 + max(0, $1.duration) }
         return total > 0
-            ? "\(count) chapters, total time \(formatTime(total))"
+            ? "\(count) chapters, total time \(total.formattedTime)"
             : "\(count) chapters"
-    }
-
-    private func formatTime(_ s: Double) -> String {
-        guard s.isFinite, s >= 0 else { return "0:00" }
-        let t = Int(s)
-        let h = t / 3600; let m = (t % 3600) / 60; let sec = t % 60
-        return h > 0
-            ? String(format: "%d:%02d:%02d", h, m, sec)
-            : String(format: "%d:%02d", m, sec)
     }
 }

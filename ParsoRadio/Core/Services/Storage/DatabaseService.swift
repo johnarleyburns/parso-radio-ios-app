@@ -5,7 +5,7 @@ import SQLite
 // serial `queue` below, so the otherwise non-Sendable SQLite `Connection` is
 // only ever touched from one thread at a time. This is what lets the async
 // wrappers capture `self` in their @Sendable continuation closures safely.
-final class DatabaseService: @unchecked Sendable {
+final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     private let db: Connection
     private let queue = DispatchQueue(label: "guru.parso.db", qos: .utility)
 
