@@ -712,7 +712,8 @@ struct CuratorChannelEditView: View {
         // Mark verdict for undo
         verdictStates[track.id] = (status: status, undone: false)
 
-        await reload()
+        // Update counts only (don't reload queue, so the track stays visible with its undo button)
+        counts = await db.curationCounts(channelId: channelMeta.id)
 
         guard wasPlaying else { return }
         // Auto-advance to NEXT candidate

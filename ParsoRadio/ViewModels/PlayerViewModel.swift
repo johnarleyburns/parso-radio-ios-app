@@ -130,6 +130,13 @@ final class PlayerViewModel: ObservableObject {
     // mid-resolve could begin playing under the channel we just switched to,
     // showing the channel's name (the "Cafe Lento plays part 9 of my book" bug).
     private var playbackContextToken = 0
+    private var isAuditioning = false
+    private var preAuditionState: (
+        channel: Channel?, playlist: Playlist?,
+        playlistTracks: [Track], playlistIndex: Int,
+        playHistory: [Track], shuffleMode: Bool,
+        track: Track?, position: Double, isPlaying: Bool
+    )?
 
     init(
         db: DatabaseService,
@@ -1283,6 +1290,28 @@ final class PlayerViewModel: ObservableObject {
         failedAuditionTrackId = nil
         errorMessage = nil
         playbackContextToken &+= 1   // invalidate any in-flight playTrack
+        isAuditioning = false
+
+        // Restore the pre-audition playback context so the user resumes
+        // exactly where they were before entering curation / search.
+        guard let pre = preAuditionState else { return }
+        preAuditionState = nil
+        currentChannel = pre.channel
+        currentPlaylist = pre.playlist
+        playlistTracks = pre.playlistTracks
+        playlistIndex = pre.playlistIndex
+        playHistory = pre.playHistory
+        shuffleMode = pre.shuffleMode
+        if let track = pre.track {
+            Task {
+                await playTrack(track, seekTo: pre.position > 1 ? pre.position : nil,
+                                recordHistory: false, autoPlay: pre.isPlaying)
+            }
+        } else if let channel = pre.channel {
+            Task { await load(channel: channel, autoPlay: pre.isPlaying) }
+        } else if let playlist = pre.playlist {
+            Task { await loadPlaylist(playlist, autoPlay: pre.isPlaying) }
+        }
     }
 
     // MARK: - Whole book/album
@@ -1649,6 +1678,13 @@ final class PlayerViewModel: ObservableObject {
     /// outside any channel / playlist context (the curator's verdict isn't
     /// playback, so no history / position recording is wanted).
     func auditionTrack(_ track: Track) async {
+        preAuditionState = (
+            channel: currentChannel, playlist: currentPlaylist,
+            playlistTracks: playlistTracks, playlistIndex: playlistIndex,
+            playHistory: playHistory, shuffleMode: shuffleMode,
+            track: currentTrack, position: currentPosition, isPlaying: isPlaying
+        )
+        isAuditioning = true
         currentChannel = nil
         currentPlaylist = nil
         playlistTracks = []
@@ -2025,6 +2061,7 @@ final class PlayerViewModel: ObservableObject {
         let d = UserDefaults.standard
         guard let track = currentTrack,
               currentChannel?.contentType != .ambientLoop else { return }
+        guard !isAuditioning else { return }
         if let pl = currentPlaylist {
             d.set("playlist", forKey: "session.kind")
             d.set(pl.id, forKey: "session.contextId")
