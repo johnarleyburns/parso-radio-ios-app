@@ -38,6 +38,19 @@ final class KidsModeController: ObservableObject {
         isEnabled = true
     }
 
+    /// Force-enable Kids Mode with an auto-generated PIN for age assurance
+    /// fallback (user under 13 or declined age sharing). The generated PIN
+    /// is shown to the user so parents can later disable Kids Mode by
+    /// entering it in Settings.
+    @discardableResult
+    func forceEnable() -> String {
+        let pin = String(format: "%04d", Int.random(in: 1000...9999))
+        defaults.set(pin, forKey: pinKey)
+        defaults.set(true, forKey: enabledKey)
+        isEnabled = true
+        return pin
+    }
+
     /// Turn Kids Mode OFF — only if `pin` matches. Returns whether it succeeded.
     @discardableResult
     func disable(pin: String) -> Bool {

@@ -209,7 +209,7 @@ struct AboutView: View {
                     .font(.title3)
                     .fontWeight(.bold)
                 Spacer()
-                Link("View Online", destination: URL(string: "https://parso.guru/parso-radio-privacy")!)
+                Link("View Online", destination: URL(string: "https://parso.guru/lorewave-privacy")!)
                     .font(.subheadline)
             }
 

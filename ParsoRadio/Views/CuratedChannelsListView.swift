@@ -580,6 +580,13 @@ struct CuratorChannelEditView: View {
                         try? await Task.sleep(nanoseconds: 800_000_000)
                         flashTrackId = nil
                     }
+                    // Auto-advance to the next un-verdicted candidate so the
+                    // curator isn't stuck on a dead track.
+                    if let next = queue.first(where: { verdictStates[$0.id] == nil && $0.id != id }) {
+                        Task { await playerVM.auditionTrack(next) }
+                    } else {
+                        playerVM.stopAudition()
+                    }
                 }
             }
             .alert("Rename Channel", isPresented: $showRename) {
@@ -735,7 +742,9 @@ struct CuratorChannelEditView: View {
                 def.rejected.removeAll(where: { $0 == track.id })
                 CustomChannelsStore.shared.writeChannelDefinition(def)
             }
-            await reload()
+            // Update counts only — don't reload the queue so the row stays in
+            // place (matches how verdict() avoids an @State queue reassignment).
+            counts = await db.curationCounts(channelId: channelMeta.id)
         }
     }
 

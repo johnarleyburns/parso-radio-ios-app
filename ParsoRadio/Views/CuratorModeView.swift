@@ -307,6 +307,13 @@ struct CuratorReviewView: View {
                     try? await Task.sleep(nanoseconds: 800_000_000)
                     flashTrackId = nil
                 }
+                // Auto-advance to the next candidate so the curator isn't
+                // stuck on a dead track.
+                if let next = queue.first(where: { $0.id != id }) {
+                    Task { await playerVM.auditionTrack(next) }
+                } else {
+                    playerVM.stopAudition()
+                }
             }
         }
         .alert("Fetch failed", isPresented: $showFetchError) {

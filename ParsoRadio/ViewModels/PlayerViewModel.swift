@@ -1678,12 +1678,18 @@ final class PlayerViewModel: ObservableObject {
     /// outside any channel / playlist context (the curator's verdict isn't
     /// playback, so no history / position recording is wanted).
     func auditionTrack(_ track: Track) async {
-        preAuditionState = (
-            channel: currentChannel, playlist: currentPlaylist,
-            playlistTracks: playlistTracks, playlistIndex: playlistIndex,
-            playHistory: playHistory, shuffleMode: shuffleMode,
-            track: currentTrack, position: currentPosition, isPlaying: isPlaying
-        )
+        // Only snapshot the pre-audition context ONCE — on the first track the
+        // curator plays. Subsequent auto-advances within the same curation session
+        // must NOT overwrite the snapshot, otherwise stopAudition() restores
+        // (nil, nil, ...) instead of the original channel/playlist context.
+        if !isAuditioning {
+            preAuditionState = (
+                channel: currentChannel, playlist: currentPlaylist,
+                playlistTracks: playlistTracks, playlistIndex: playlistIndex,
+                playHistory: playHistory, shuffleMode: shuffleMode,
+                track: currentTrack, position: currentPosition, isPlaying: isPlaying
+            )
+        }
         isAuditioning = true
         currentChannel = nil
         currentPlaylist = nil

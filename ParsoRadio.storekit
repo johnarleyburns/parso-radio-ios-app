@@ -1,0 +1,125 @@
+{
+  "identifier" : "2E5B4A3D",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayName" : "Small Tip",
+      "family" : "consumable",
+      "localizations" : [
+        {
+          "description" : "A small thank-you that helps keep Lorewave free and ad-free. We give 10% of proceeds to the Internet Archive.",
+          "displayName" : "Buy us a coffee",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "guru.parso.tip.small",
+      "price" : 1.99,
+      "referenceName" : "Small Tip",
+      "type" : "consumable"
+    },
+    {
+      "displayName" : "Supporter Tip",
+      "family" : "consumable",
+      "localizations" : [
+        {
+          "description" : "Support Lorewave's hosting and development — and unlock the supporter app icons. 10% of proceeds goes to the Internet Archive.",
+          "displayName" : "Supporter",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "guru.parso.tip.medium",
+      "price" : 4.99,
+      "referenceName" : "Supporter Tip",
+      "type" : "consumable"
+    },
+    {
+      "displayName" : "Patron Tip",
+      "family" : "consumable",
+      "localizations" : [
+        {
+          "description" : "A generous contribution to keep Lorewave free, ad-free, and independent. 10% of proceeds goes to the Internet Archive.",
+          "displayName" : "Patron",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "guru.parso.tip.generous",
+      "price" : 9.99,
+      "referenceName" : "Patron Tip",
+      "type" : "consumable"
+    },
+    {
+      "displayName" : "Parso Supporter (Monthly)",
+      "family" : "subscription",
+      "localizations" : [
+        {
+          "description" : "Keep Lorewave free and ad-free. Supporters get exclusive app icons, a supporter badge, and a direct line to shape the roadmap. 10% of proceeds goes to the Internet Archive. Renews monthly; cancel anytime in Settings.",
+          "displayName" : "Monthly Support",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "guru.parso.support.monthly",
+      "referenceName" : "Monthly Support",
+      "subscription" : {
+        "adHocOffers" : [],
+        "codeOffers" : [],
+        "groupID" : "2E5B4A3E",
+        "introductoryOffers" : [],
+        "promotionalOffers" : [],
+        "subscriptionPeriod" : "P1M"
+      },
+      "type" : "autoRenewable"
+    },
+    {
+      "displayName" : "Parso Supporter (Yearly)",
+      "family" : "subscription",
+      "localizations" : [
+        {
+          "description" : "Keep Lorewave free and ad-free for a full year. Supporters get exclusive app icons, a supporter badge, and a direct line to shape the roadmap. 10% of proceeds goes to the Internet Archive. Renews yearly; cancel anytime in Settings.",
+          "displayName" : "Yearly Support",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "guru.parso.support.yearly",
+      "referenceName" : "Yearly Support",
+      "subscription" : {
+        "adHocOffers" : [],
+        "codeOffers" : [],
+        "groupID" : "2E5B4A3E",
+        "introductoryOffers" : [],
+        "promotionalOffers" : [],
+        "subscriptionPeriod" : "P1Y"
+      },
+      "type" : "autoRenewable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "2E5B4A3A",
+    "_developerTeamID" : "2E5B4A3B",
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_localizedDescription" : "Support Lorewave and help keep it free and ad-free. 10% of proceeds goes to the Internet Archive.",
+    "_localizedName" : "Lorewave Support",
+    "_storefront" : "USA",
+    "_timeRate" : "1"
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "2E5B4A3E",
+      "localizations" : [
+        {
+          "displayName" : "Lorewave Support",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "Lorewave Support",
+      "subscriptions" : [
+        "guru.parso.support.monthly",
+        "guru.parso.support.yearly"
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 2,
+    "minor" : 0
+  }
+}

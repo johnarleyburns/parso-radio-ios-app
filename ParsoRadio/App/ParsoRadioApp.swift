@@ -46,6 +46,8 @@ struct ParsoMusicApp: App {
     @State private var showSplash: Bool = true
     @State private var showTerms: Bool = false
     @State private var showSupport: Bool = false
+    @State private var showAgeGate: Bool = false
+    @ObservedObject private var ageAssurance = AgeAssuranceService.shared
     @Environment(\.scenePhase) private var scenePhase
 
     private var preferredScheme: ColorScheme? {
@@ -78,11 +80,18 @@ struct ParsoMusicApp: App {
             }
             .onChange(of: showSplash) { _, isShowing in
                 if !isShowing && !tosAccepted {
-                    showTerms = true
+                    if ageAssurance.needsCheck {
+                        showAgeGate = true
+                    } else {
+                        showTerms = true
+                    }
                 }
             }
             .onChange(of: tosAccepted) { _, accepted in
                 if accepted {
+                    if ageAssurance.requiresKidsMode {
+                        KidsModeController.shared.forceEnable()
+                    }
                     Task { await playlistVM.loadPlaylists() }
                 }
             }
@@ -97,6 +106,11 @@ struct ParsoMusicApp: App {
             }
             .fullScreenCover(isPresented: $showTerms) {
                 TermsView(isPresented: $showTerms)
+            }
+            .fullScreenCover(isPresented: $showAgeGate) {
+                AgeGateView(isPresented: $showAgeGate) {
+                    showTerms = true
+                }
             }
             .preferredColorScheme(preferredScheme)
             // Contribution ask: a dismissible bottom card, only once the app is

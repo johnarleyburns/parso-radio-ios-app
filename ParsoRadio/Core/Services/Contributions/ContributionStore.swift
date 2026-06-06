@@ -14,6 +14,12 @@ import UIKit
 /// mechanism (validated on CI + device, like the audio resource loader).
 @MainActor
 final class ContributionStore: ObservableObject {
+    enum SubscriptionTier: Equatable {
+        case none
+        case monthly
+        case yearly
+    }
+
     // Configure these EXACT identifiers in App Store Connect.
     static let oneTimeIDs = [
         "guru.parso.tip.small",       // $1.99
@@ -29,6 +35,7 @@ final class ContributionStore: ObservableObject {
     @Published private(set) var oneTimeProducts: [Product] = []
     @Published private(set) var subscriptionProducts: [Product] = []
     @Published private(set) var hasActiveSubscription = false
+    @Published private(set) var activeSubscriptionProductID: String?
     /// One-time tips don't persist as StoreKit entitlements, so we remember that
     /// the user has ever contributed (unlocks the cosmetic perks / "Supporter").
     @Published private(set) var everContributed =
@@ -38,6 +45,15 @@ final class ContributionStore: ObservableObject {
 
     /// Supporter = ever tipped OR has an active support subscription.
     var isSupporter: Bool { everContributed || hasActiveSubscription }
+
+    /// Which subscription tier is active (if any). Used to show the correct
+    /// supporter badge (Beethoven for monthly, Emperor for yearly).
+    var subscriptionTier: SubscriptionTier {
+        guard hasActiveSubscription, let id = activeSubscriptionProductID else { return .none }
+        if id == Self.subscriptionIDs[1] { return .yearly }
+        if id == Self.subscriptionIDs[0] { return .monthly }
+        return .none
+    }
 
     private var updatesTask: Task<Void, Never>?
 
@@ -74,7 +90,10 @@ final class ContributionStore: ObservableObject {
                     return false
                 }
                 markContributed()
-                if transaction.productType == .autoRenewable { hasActiveSubscription = true }
+                if transaction.productType == .autoRenewable {
+                    hasActiveSubscription = true
+                    activeSubscriptionProductID = transaction.productID
+                }
                 await transaction.finish()
                 return true
             case .userCancelled, .pending:
@@ -96,14 +115,17 @@ final class ContributionStore: ObservableObject {
     /// Re-derive subscription status from the current entitlements.
     func refreshSubscriptionStatus() async {
         var active = false
+        var activeProductID: String?
         for await result in Transaction.currentEntitlements {
             guard case .verified(let t) = result else { continue }
             if Self.subscriptionIDs.contains(t.productID), t.revocationDate == nil {
                 active = true
+                activeProductID = t.productID
                 markContributed()
             }
         }
         hasActiveSubscription = active
+        activeSubscriptionProductID = active ? activeProductID : nil
     }
 
     /// Opens Apple's manage-subscriptions sheet — you can't cancel a sub in-app.

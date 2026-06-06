@@ -19,6 +19,8 @@ struct iPodView: View {
     @State private var showMainMenu = false
     @State private var showKidsMenu = false
     @ObservedObject private var kids = KidsModeController.shared
+    @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
+    @AppStorage("supporterBadgeHidden") private var supporterBadgeHidden = false
     @State private var showPlaylists = false
     @State private var showSearch = false
     @State private var showAddToPlaylist = false
@@ -117,6 +119,7 @@ struct iPodView: View {
                     // status bar (the VStack still respects the top safe area).
                     screenPanel(geo: geo)
                         .frame(height: max(160.0, geo.size.height * 0.50))
+                        .overlay(alignment: .bottomTrailing) { supporterBadge }
                         .padding(.horizontal, deviceMargin(geo))
 
                     // Two equal spacers center the wheel between the track box
@@ -290,6 +293,33 @@ struct iPodView: View {
             if !didShowWheelHelp {
                 didShowWheelHelp = true
                 showWheelHelp = true
+            }
+        }
+    }
+
+    // MARK: - Supporter Badge
+
+    @ViewBuilder
+    private var supporterBadge: some View {
+        if !supporterBadgeHidden,
+           contributionStore.isSupporter,
+           contributionStore.hasActiveSubscription {
+            let imageName: String = {
+                switch contributionStore.subscriptionTier {
+                case .yearly:  return "emperor_1024"
+                case .monthly: return "beethoven_1024"
+                case .none:    return ""
+                }
+            }()
+            if !imageName.isEmpty, let uiImage = UIImage(named: imageName) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: mainBoldSize + 4, height: mainBoldSize + 4)
+                    .clipShape(Circle())
+                    .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+                    .padding(.trailing, 10)
+                    .padding(.bottom, 8)
             }
         }
     }

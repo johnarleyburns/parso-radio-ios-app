@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var working = false
 
     @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
+    @AppStorage("supporterBadgeHidden") private var supporterBadgeHidden = false
     @ObservedObject private var kids = KidsModeController.shared
     @State private var showSetKidsPin = false
     @State private var kidsPinEntry = ""
@@ -40,6 +41,14 @@ struct SettingsView: View {
                     Label(contributionStore.isSupporter ? "Supporter — Thank You" : "Support Lorewave",
                           systemImage: contributionStore.isSupporter ? "heart.fill" : "heart")
                         .foregroundStyle(contributionStore.isSupporter ? Color.pink : Color.accentColor)
+                }
+                if contributionStore.hasActiveSubscription {
+                    Toggle(isOn: Binding(
+                        get: { !supporterBadgeHidden },
+                        set: { supporterBadgeHidden = !$0 }
+                    )) {
+                        Label("Show Supporter Badge", systemImage: "seal.fill")
+                    }
                 }
             } footer: {
                 Text("Keep Lorewave free and ad-free. We give 10% of proceeds to the Internet Archive.")

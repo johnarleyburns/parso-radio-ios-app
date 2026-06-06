@@ -91,4 +91,47 @@ final class AuditionTests: XCTestCase {
         vm.stopAudition()
         XCTAssertNil(vm.currentTrack)
     }
+
+    func test_preAuditionState_preservedAcrossMultipleCalls() async {
+        // Set up genuine channel playback
+        let channel = Channel.defaults.first { $0.id == "guitar-classical" }!
+        let originalTrack = makeTrack("original")
+        vm.currentChannel = channel
+        vm.currentTrack = originalTrack
+        vm.isPlaying = true
+        vm.currentPosition = 45.0
+
+        // First audition call saves the channel context
+        await vm.auditionTrack(makeTrack("candidate-1"))
+
+        // Verify the preAuditionState was saved
+        vm.stopAudition()
+        // The state should be restored — channel should be back
+        XCTAssertEqual(vm.currentChannel?.id, "guitar-classical",
+            "preAuditionState should restore the original channel after stopAudition")
+    }
+
+    func test_preAuditionState_notOverwrittenBySecondCall() async {
+        // Set up genuine channel playback
+        let channel = Channel.defaults.first { $0.id == "guitar-classical" }!
+        let originalTrack = makeTrack("original")
+        vm.currentChannel = channel
+        vm.currentTrack = originalTrack
+        vm.isPlaying = true
+        vm.currentPosition = 30.0
+
+        // First audition
+        await vm.auditionTrack(makeTrack("candidate-1"))
+        // preAuditionState should hold channel=guitar-classical, track=original, position=30.0
+
+        // Simulate current state being cleared (which auditionTrack does)
+        // The second call would have captured (nil, nil, ...) before the fix
+        await vm.auditionTrack(makeTrack("candidate-2"))
+        // After fix: preAuditionState is still the original, not (nil, nil, ...)
+
+        vm.stopAudition()
+        // After stop, the original channel should be restored
+        XCTAssertEqual(vm.currentChannel?.id, "guitar-classical",
+            "preAuditionState must NOT be overwritten by second auditionTrack call")
+    }
 }
