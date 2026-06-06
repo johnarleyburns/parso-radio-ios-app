@@ -134,4 +134,48 @@ final class AuditionTests: XCTestCase {
         XCTAssertEqual(vm.currentChannel?.id, "guitar-classical",
             "preAuditionState must NOT be overwritten by second auditionTrack call")
     }
+
+    // MARK: - stopAuditionWithoutRestore
+
+    func test_stopAuditionWithoutRestore_clearsAuditionAndDiscardsPreState() async {
+        // Set up genuine channel playback as pre-audition state
+        let channel = Channel.defaults.first { $0.id == "guitar-classical" }!
+        let originalTrack = makeTrack("original")
+        vm.currentChannel = channel
+        vm.currentTrack = originalTrack
+        vm.isPlaying = true
+        vm.currentPosition = 30.0
+
+        // Start audition
+        await vm.auditionTrack(makeTrack("candidate-1"))
+
+        // stopAuditionWithoutRestore must clear the audition AND discard preAuditionState
+        vm.stopAuditionWithoutRestore()
+
+        XCTAssertNil(vm.currentTrack, "audition track must be cleared")
+        XCTAssertFalse(vm.isLoading, "spinner must be off")
+        XCTAssertFalse(vm.isPlaying, "playback must stop")
+        // preAuditionState is discarded, so NO channel is restored
+        XCTAssertNil(vm.currentChannel,
+            "stopAuditionWithoutRestore must discard preAuditionState — no channel restoration")
+    }
+
+    func test_stopAuditionWithoutRestore_doesNotDisturbChannelPlayback() {
+        let channel = Channel.defaults.first { $0.id == "guitar-classical" }!
+        vm.currentChannel = channel
+        vm.currentTrack = makeTrack("ch1")
+        vm.isPlaying = true
+
+        vm.stopAuditionWithoutRestore()
+
+        XCTAssertEqual(vm.currentTrack?.id, "ch1",
+            "stopAuditionWithoutRestore must NOT touch genuine channel playback")
+        XCTAssertTrue(vm.isPlaying)
+        XCTAssertNotNil(vm.currentChannel)
+    }
+
+    func test_stopAuditionWithoutRestore_isIdempotent() {
+        vm.stopAuditionWithoutRestore()
+        XCTAssertNil(vm.currentTrack)
+    }
 }

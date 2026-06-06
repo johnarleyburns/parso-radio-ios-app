@@ -312,7 +312,7 @@ struct CuratorReviewView: View {
                 if let next = queue.first(where: { $0.id != id }) {
                     Task { await playerVM.auditionTrack(next) }
                 } else {
-                    playerVM.stopAudition()
+                    playerVM.stopAuditionWithoutRestore()
                 }
             }
         }
@@ -348,10 +348,17 @@ struct CuratorReviewView: View {
                     Text(formatTime(track.duration))
                         .font(.caption2).foregroundStyle(.tertiary).monospacedDigit()
                 }
+                if let pn = track.partNumber, let tp = track.totalParts, tp > 1 {
+                    Text("Part \(pn) of \(tp)")
+                        .font(.caption2)
+                        .foregroundStyle(.blue)
+                } else if track.parentIdentifier != nil || track.isMultiPart == true {
+                    Text("Multi-part")
+                        .font(.caption2)
+                        .foregroundStyle(.blue)
+                }
             }
             Spacer(minLength: 8)
-            // Animated waveform indicator while this row is the live, playing
-            // track — visual proof "this one is playing." iOS 17 symbolEffect.
             if isPlaying {
                 Image(systemName: "waveform")
                     .symbolEffect(.variableColor.iterative)
@@ -359,8 +366,6 @@ struct CuratorReviewView: View {
                     .font(.title3)
                     .accessibilityHidden(true)
             }
-            // Play/pause/loading: spinner while resolving, pause when the live
-            // row is playing, play otherwise. Tap toggles pause when live.
             Button {
                 if isLive {
                     playerVM.togglePlayPause()
@@ -411,18 +416,13 @@ struct CuratorReviewView: View {
     private func verdict(_ track: Track, _ status: String) async {
         let wasPlaying = playerVM.currentTrack?.id == track.id
         await db.setCuration(channelId: channel.id, trackId: track.id, status: status)
-        // Refresh the in-memory snapshot so the channel's approved pool
-        // reflects this verdict immediately. DB is the sole source of truth;
-        // JSON files are for import/export only.
         await LiveCurationStore.shared.reload(from: db)
         await reload()
         guard wasPlaying else { return }
         if let next = queue.first {
             await playerVM.auditionTrack(next)
         } else {
-            // No more candidates → stop audition so the spinner/pause icon
-            // doesn't linger on a track that no longer exists in the queue.
-            playerVM.stopAudition()
+            playerVM.stopAuditionWithoutRestore()
         }
     }
 
@@ -431,16 +431,13 @@ struct CuratorReviewView: View {
         isFetching = true
         defer { isFetching = false }
         do {
-            // Measure delta so we can tell the user when the channel is
-            // exhausted (IA returned nothing new — already-verdicted tracks are
-            // SKIPPED by ensureReviewSet, so "0 added" means we've seen them all).
             let before = await db.curationCounts(channelId: channel.id)
             let beforeTotal = before.review + before.approved + before.rejected
             let candidates = try await archiveService.fetchTracks(
                 iaQuery: entry.iaQuery, matchTags: entry.matchTags)
             await db.saveTracks(candidates)
             await db.ensureReviewSet(channelId: channel.id,
-                                     trackIds: candidates.map(\.id))
+                                      trackIds: candidates.map(\.id))
             await reload()
             let after = await db.curationCounts(channelId: channel.id)
             let afterTotal = after.review + after.approved + after.rejected
@@ -453,6 +450,15 @@ struct CuratorReviewView: View {
             fetchError = error.localizedDescription
             showFetchError = true
         }
+    }
+
+    private func addAllPartsToReview(_ track: Track) async {
+        let parentId = track.parentIdentifier ?? track.id
+        let parts = await db.fetchTracks(forParentIdentifier: parentId)
+        guard !parts.isEmpty else { return }
+        await db.saveTracks(parts)
+        await db.ensureReviewSet(channelId: channel.id, trackIds: parts.map(\.id))
+        await reload()
     }
 
     private func formatTime(_ s: Double) -> String {
@@ -470,6 +476,25 @@ struct CuratorReviewView: View {
                     if track.duration > 0 {
                         Text(formatTime(track.duration))
                             .font(.caption).foregroundStyle(.tertiary).monospacedDigit()
+                    }
+                    if let pn = track.partNumber, let tp = track.totalParts, tp > 1 {
+                        Text("Part \(pn) of \(tp)")
+                            .font(.caption).foregroundStyle(.blue)
+                    } else if track.parentIdentifier != nil || track.isMultiPart == true {
+                        Text("Multi-part item")
+                            .font(.caption).foregroundStyle(.blue)
+                    }
+                }
+                if track.parentIdentifier != nil || track.isMultiPart == true {
+                    Section("Multi-part Actions") {
+                        Button {
+                            Task {
+                                await addAllPartsToReview(track)
+                                infoTrack = nil
+                            }
+                        } label: {
+                            Label("Add All Parts to Review Queue", systemImage: "tray.full")
+                        }
                     }
                 }
                 Section("Source") {
@@ -495,10 +520,6 @@ struct CuratorReviewView: View {
 
 // MARK: - Phase 5: Search → Add to Review
 
-/// Free-text Internet Archive search inside Curator Mode. Tap a result to drop
-/// it into the channel's REVIEW queue (never directly approved — every
-/// candidate still earns approval by audition). Already-verdicted tracks for
-/// this channel are skipped (the reject set is sticky).
 struct CuratorSearchAddView: View {
     let channel: Channel
     let db: DatabaseService
@@ -511,8 +532,11 @@ struct CuratorSearchAddView: View {
     @State private var query = ""
     @State private var results: [SearchViewModel.ResultGroup] = []
     @State private var isSearching = false
-    @State private var existingVerdicts: [String: String] = [:]  // loaded from DB on search
-    @State private var sessionVerdicts = Set<String>()            // set during this session
+    @State private var existingVerdicts: [String: String] = [:]
+    @State private var sessionVerdicts = Set<String>()
+    @State private var failedTrackIds: Set<String> = []
+    @State private var flashTrackId: String?
+    @State private var infoGroup: SearchViewModel.ResultGroup? = nil
     @State private var errorMessage: String?
     @State private var showError = false
 
@@ -555,6 +579,20 @@ struct CuratorSearchAddView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase != .active { playerVM.stopAudition() }
             }
+            .sheet(item: $infoGroup) { group in
+                searchResultInfoSheet(group)
+            }
+            .onChange(of: playerVM.errorMessage) { _, msg in
+                let failedId = playerVM.currentTrack?.id ?? playerVM.failedAuditionTrackId
+                if let id = failedId, msg != nil {
+                    failedTrackIds.insert(id)
+                    flashTrackId = id
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 800_000_000)
+                        flashTrackId = nil
+                    }
+                }
+            }
         }
     }
 
@@ -565,10 +603,23 @@ struct CuratorSearchAddView: View {
         let isPlaying = live && playerVM.isPlaying && !isLoading
         let verdict   = existingVerdicts[group.id]
         let isSession  = sessionVerdicts.contains(group.id)
+        let hasFailed  = failedTrackIds.contains(group.id)
+        let isFlashing = flashTrackId == group.id
 
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(group.title).font(.body).lineLimit(2)
+                HStack(spacing: 4) {
+                    if hasFailed {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.yellow)
+                            .scaleEffect(isFlashing ? 1.4 : 1.0)
+                            .animation(isFlashing ? .easeInOut(duration: 0.3).repeatCount(2, autoreverses: true) : .default, value: isFlashing)
+                    }
+                    Text(group.title).font(.body).lineLimit(2)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { infoGroup = group }
                 Text(group.creator).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 if let v = verdict, !isSession {
                     Text(verdictLabel(v))
@@ -650,7 +701,7 @@ struct CuratorSearchAddView: View {
         existingVerdicts[group.id] = status
         sessionVerdicts.insert(group.id)
         if playerVM.currentTrack?.id == group.id {
-            playerVM.stopAudition()
+            playerVM.stopAuditionWithoutRestore()
         }
     }
 
@@ -692,6 +743,44 @@ struct CuratorSearchAddView: View {
             results = []
             errorMessage = error.localizedDescription
             showError = true
+        }
+    }
+
+    private func formatTime(_ s: Double) -> String {
+        let t = Int(s); let m = t / 60; let sec = t % 60
+        return String(format: "%d:%02d", m, sec)
+    }
+
+    @ViewBuilder
+    private func searchResultInfoSheet(_ group: SearchViewModel.ResultGroup) -> some View {
+        NavigationStack {
+            List {
+                Section("Track Info") {
+                    Text(group.title).font(.headline)
+                    Text(group.creator).foregroundStyle(.secondary)
+                    if group.duration > 0 {
+                        Text(formatTime(group.duration))
+                            .font(.caption).foregroundStyle(.tertiary).monospacedDigit()
+                    }
+                }
+                if let coll = group.collection,
+                   !coll.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Section("Collection") {
+                        Text(coll)
+                    }
+                }
+                Section {
+                    Text("ID: \(group.id)")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                }
+            }
+            .navigationTitle("Track Info")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { infoGroup = nil }
+                }
+            }
         }
     }
 

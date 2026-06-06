@@ -492,12 +492,22 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     }
 
     /// (review, approved, rejected) counts for a channel.
+    /// LEFT JOINs to the tracks table so orphaned curation rows (tracks evicted
+    /// by evictOldTracks) are NOT counted — prevents a count/badge mismatch.
     func curationCounts(channelId: String) async -> (review: Int, approved: Int, rejected: Int) {
         await withCheckedContinuation { cont in
             queue.async { [self] in
                 func n(_ s: String) -> Int {
-                    (try? db.scalar(curation
-                        .filter(colCurChannel == channelId && colCurStatus == s).count)) ?? 0
+                    let sql = """
+                        SELECT COUNT(*) FROM (
+                            SELECT c.channel_id FROM curation c
+                            INNER JOIN tracks t ON t.id = c.track_id
+                            WHERE c.channel_id = ? AND c.status = ?
+                        )
+                    """
+                    let val = (try? db.prepare(sql, channelId, s))?
+                        .compactMap { $0[0] as? Int64 }.first ?? 0
+                    return Int(truncatingIfNeeded: val)
                 }
                 cont.resume(returning: (n("review"), n("approved"), n("rejected")))
             }

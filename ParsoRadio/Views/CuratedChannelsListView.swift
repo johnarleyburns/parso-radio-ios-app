@@ -32,7 +32,7 @@ struct CuratedChannelsListView: View {
                 Text("Docs dir files: \((try? FileManager.default.contentsOfDirectory(at: CustomChannelsStore.channelsDir, includingPropertiesForKeys: nil))?.count ?? 0)")
                     .font(.caption2).foregroundStyle(.secondary)
                 ForEach(ordered.prefix(3), id: \.id) { m in
-                    let count = store.approvedTracks(for: m.id).count
+                    let count = LiveCurationStore.shared.pool(for: m.id).count
                     Text("  \(m.id): \(count) approved")
                         .font(.caption2).foregroundStyle(count > 0 ? .green : .orange)
                 }
@@ -85,7 +85,7 @@ struct CuratedChannelsListView: View {
 
     @ViewBuilder
     private func curatedRow(_ meta: ChannelMeta) -> some View {
-        let approvedCount = store.approvedTracks(for: meta.id).count
+        let approvedCount = LiveCurationStore.shared.pool(for: meta.id).count
         HStack(spacing: 8) {
             Button {
                 let ch = store.runtimeChannel(from: meta)
@@ -534,6 +534,25 @@ struct CuratorChannelEditView: View {
                                 Text(formatTime(track.duration))
                                     .font(.caption).foregroundStyle(.tertiary).monospacedDigit()
                             }
+                            if let pn = track.partNumber, let tp = track.totalParts, tp > 1 {
+                                Text("Part \(pn) of \(tp)")
+                                    .font(.caption).foregroundStyle(.blue)
+                            } else if track.parentIdentifier != nil || track.isMultiPart == true {
+                                Text("Multi-part item")
+                                    .font(.caption).foregroundStyle(.blue)
+                            }
+                        }
+                        if track.parentIdentifier != nil || track.isMultiPart == true {
+                            Section("Multi-part Actions") {
+                                Button {
+                                    Task {
+                                        await addAllPartsToReview(track)
+                                        infoTrack = nil
+                                    }
+                                } label: {
+                                    Label("Add All Parts to Review Queue", systemImage: "tray.full")
+                                }
+                            }
                         }
                         Section("Source") {
                             Text(track.streamURL.absoluteString)
@@ -639,6 +658,15 @@ struct CuratorChannelEditView: View {
                     Text(formatTime(track.duration))
                         .font(.caption2).foregroundStyle(.tertiary).monospacedDigit()
                 }
+                if let pn = track.partNumber, let tp = track.totalParts, tp > 1 {
+                    Text("Part \(pn) of \(tp)")
+                        .font(.caption2)
+                        .foregroundStyle(.blue)
+                } else if track.parentIdentifier != nil || track.isMultiPart == true {
+                    Text("Multi-part")
+                        .font(.caption2)
+                        .foregroundStyle(.blue)
+                }
                 if let vs = vs {
                     Text(vs.status == "approved" ? "Approved" : "Rejected")
                         .font(.caption2)
@@ -727,7 +755,7 @@ struct CuratorChannelEditView: View {
         if let next = queue.first(where: { verdictStates[$0.id] == nil }) {
             await playerVM.auditionTrack(next)
         } else {
-            playerVM.stopAudition()
+            playerVM.stopAuditionWithoutRestore()
         }
     }
 
@@ -745,6 +773,7 @@ struct CuratorChannelEditView: View {
             // Update counts only — don't reload the queue so the row stays in
             // place (matches how verdict() avoids an @State queue reassignment).
             counts = await db.curationCounts(channelId: channelMeta.id)
+            if filterMode != .review { await reload() }
         }
     }
 
@@ -795,6 +824,15 @@ struct CuratorChannelEditView: View {
         case .approved: return .green
         case .rejected: return .red
         }
+    }
+
+    private func addAllPartsToReview(_ track: Track) async {
+        let parentId = track.parentIdentifier ?? track.id
+        let parts = await db.fetchTracks(forParentIdentifier: parentId)
+        guard !parts.isEmpty else { return }
+        await db.saveTracks(parts)
+        await db.ensureReviewSet(channelId: channelMeta.id, trackIds: parts.map(\.id))
+        await reload()
     }
 
     private func formatTime(_ s: Double) -> String {

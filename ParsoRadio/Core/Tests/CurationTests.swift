@@ -35,6 +35,7 @@ final class CurationTests: XCTestCase {
     }
 
     func test_verdictReplacesInPlace() async {
+        await db.saveTracks([track("t1")])
         await db.setCuration(channelId: "c1", trackId: "t1", status: "review")
         await db.setCuration(channelId: "c1", trackId: "t1", status: "approved")
         let status = await db.curationStatus(channelId: "c1", trackId: "t1")
@@ -45,6 +46,7 @@ final class CurationTests: XCTestCase {
     }
 
     func test_counts() async {
+        await db.saveTracks([track("a"), track("b"), track("r"), track("v")])
         await db.setCuration(channelId: "c1", trackId: "a", status: "approved")
         await db.setCuration(channelId: "c1", trackId: "b", status: "approved")
         await db.setCuration(channelId: "c1", trackId: "r", status: "rejected")
@@ -196,6 +198,8 @@ final class CurationTests: XCTestCase {
     /// When tracks are evicted by evictOldTracks, their curation rows MUST
     /// be preserved — verdicts are tiny and must survive so they re-apply
     /// when the track is re-fetched on the next channel refresh.
+    /// However, curationCounts() now JOINs tracks, so orphaned rows are
+    /// EXCLUDED from the count (no badge/count mismatch).
     func test_evictOldTracksCleansCurationRows() async {
         let t = track("evict-orphan")
         await db.saveTracks([t])
@@ -206,9 +210,15 @@ final class CurationTests: XCTestCase {
         // Evict with days=-1 so all tracks (including just-saved) are eligible
         await db.evictOldTracks(olderThan: -1)
 
+        // Track is gone from the tracks table, so curationCounts returns 0
+        // (no badge mismatch). But the verdict row itself still exists.
         counts = await db.curationCounts(channelId: "ch")
-        XCTAssertEqual(counts.review, 1,
-            "Curation row must survive track eviction — verdicts are preserved")
+        XCTAssertEqual(counts.review, 0,
+            "Curation row excluded from count after track eviction (JOIN fix)")
+        // Verify the row still exists (it survives for re-import on re-fetch)
+        let status = await db.curationStatus(channelId: "ch", trackId: t.id)
+        XCTAssertEqual(status, "review",
+            "Curation verdict row survives eviction even though count excludes it")
     }
 
     /// pruneChannelTracks must clean up curation rows for deleted tracks.
@@ -231,9 +241,11 @@ final class CurationTests: XCTestCase {
     }
 
     /// Curation rows survive track eviction — verdicts are preserved even
-    /// when the underlying track is aged out. When re-fetched from IA,
-    /// the verdict immediately applies.
-    func test_curationCountsDoesNotCountOrphanedTracks() async {
+    /// when the underlying track is aged out. However, curationCounts() now
+    /// JOINs to tracks, so orphaned rows (track evicted) are EXCLUDED from
+    /// the count badge — preventing a count/badge mismatch where the badge
+    /// shows "3 tracks" but the queue is empty.
+    func test_curationCountsExcludesOrphanedAfterEviction() async {
         let t1 = track("keep-me"), t2 = track("evict-me")
         await db.saveTracks([t1, t2])
         await db.setCuration(channelId: "ch", trackId: t1.id, status: "review")
@@ -241,13 +253,15 @@ final class CurationTests: XCTestCase {
         var counts = await db.curationCounts(channelId: "ch")
         XCTAssertEqual(counts.review, 2)
 
+        // Mark t1 as downloaded so it survives eviction; t2 gets evicted
         await db.markDownloaded(trackID: t1.id, localPath: "/tmp/keep-me.mp3")
         await db.evictOldTracks(olderThan: -1)
 
+        // t2 was evicted from tracks table — curationCounts JOINs tracks,
+        // so the orphaned t2 curation row is NOT counted.
         counts = await db.curationCounts(channelId: "ch")
-        // Both verdicts preserved despite t2 being evicted from the tracks table
-        XCTAssertEqual(counts.review, 2,
-            "Verdicts must survive track eviction — both curation rows preserved")
+        XCTAssertEqual(counts.review, 1,
+            "Orphaned curation rows (track evicted) must NOT inflate the count")
     }
 
     // MARK: - LiveCurationStore pool(for:) prioritizes live DB
@@ -341,8 +355,9 @@ final class CurationTests: XCTestCase {
     /// are rejected rows, but counts.approved=0 and file has approved).
     func test_recoveryImportsLostVerdictsFromJSON() async {
         let channelId = "guitar-classical"
-        let track = track("recovered-track")
-        await db.saveTracks([track])
+        let recovered = track("recovered-track")
+        let other = track("some-other-id")
+        await db.saveTracks([recovered, other])
 
         // Simulate: user has verdicts (rejected tracks exist), but all
         // approved tracks were lost. The JSON file still has approved entries.
@@ -360,5 +375,88 @@ final class CurationTests: XCTestCase {
         let counts = await db.curationCounts(channelId: channelId)
         XCTAssertEqual(counts.rejected, 1,
             "Rejected verdicts must survive import")
+    }
+
+    // MARK: - curationCounts JOIN regression tests
+
+    /// After evictOldTracks removes a track, curationCounts must exclude
+    /// the orphaned curation rows. Verifies JOIN to tracks table works.
+    func test_curationCountsExcludesEvictedTracksFromAllStatuses() async {
+        let tracks = (0..<5).map { track("ct-\($0)") }
+        await db.saveTracks(tracks)
+        for t in tracks {
+            let s = ["approved", "approved", "rejected", "review", "review"][
+                tracks.firstIndex(where: { $0.id == t.id })!]
+            await db.setCuration(channelId: "ch", trackId: t.id, status: s)
+        }
+        var counts = await db.curationCounts(channelId: "ch")
+        XCTAssertEqual(counts.approved, 2)
+        XCTAssertEqual(counts.rejected, 1)
+        XCTAssertEqual(counts.review, 2)
+
+        // Evict ALL tracks (none downloaded)
+        await db.evictOldTracks(olderThan: -1)
+
+        // All tracks gone → all curation counts should be 0
+        counts = await db.curationCounts(channelId: "ch")
+        XCTAssertEqual(counts.approved, 0, "all tracks evicted → approved count 0")
+        XCTAssertEqual(counts.rejected, 0, "all tracks evicted → rejected count 0")
+        XCTAssertEqual(counts.review, 0, "all tracks evicted → review count 0")
+    }
+
+    /// curationCounts must NOT crash or return incorrect counts when the
+    /// curation table has rows but the tracks table is completely empty.
+    func test_curationCountsEmptyTracksTable() async {
+        await db.setCuration(channelId: "ch", trackId: "ghost-1", status: "approved")
+        await db.setCuration(channelId: "ch", trackId: "ghost-2", status: "review")
+        let counts = await db.curationCounts(channelId: "ch")
+        XCTAssertEqual(counts.approved, 0, "ghost track not in tracks table")
+        XCTAssertEqual(counts.review, 0, "ghost track not in tracks table")
+        XCTAssertEqual(counts.rejected, 0)
+    }
+
+    // MARK: - fetchTracksForParentIdentifier (multi-part add-all-to-review)
+
+    func test_fetchTracksForParentIdentifier_returnsOrderedParts() async {
+        let parent = UUID().uuidString
+        let p1 = Track(
+            id: "p1-id", source: "internet_archive", title: "Ch 1", artist: "A",
+            duration: 100, streamURL: URL(string: "https://archive.org/p1")!,
+            downloadURL: nil, localFilePath: nil, license: .publicDomain, tags: [],
+            qualityScore: 1, rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 1,
+            partNumber: 1, totalParts: 3, parentIdentifier: parent)
+        let p2 = Track(
+            id: "p2-id", source: "internet_archive", title: "Ch 2", artist: "A",
+            duration: 80, streamURL: URL(string: "https://archive.org/p2")!,
+            downloadURL: nil, localFilePath: nil, license: .publicDomain, tags: [],
+            qualityScore: 1, rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 1,
+            partNumber: 2, totalParts: 3, parentIdentifier: parent)
+        let p3 = Track(
+            id: "p3-id", source: "internet_archive", title: "Ch 3", artist: "A",
+            duration: 120, streamURL: URL(string: "https://archive.org/p3")!,
+            downloadURL: nil, localFilePath: nil, license: .publicDomain, tags: [],
+            qualityScore: 1, rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 1,
+            partNumber: 3, totalParts: 3, parentIdentifier: parent)
+        await db.saveTracks([p1, p2, p3])
+
+        let parts = await db.fetchTracks(forParentIdentifier: parent)
+        XCTAssertEqual(parts.count, 3)
+        // Ordered by partNumber ASC
+        let ids = parts.map(\.id)
+        XCTAssertEqual(ids, ["p1-id", "p2-id", "p3-id"])
+    }
+
+    /// ensureReviewSet with multi-part tracks must insert any that don't yet
+    /// have verdicts, and skip those that are already rejected.
+    func test_ensureReviewSetBulkMultiPart() async {
+        await db.saveTracks([track("a1"), track("a2"), track("r1")])
+        await db.setCuration(channelId: "ch", trackId: "r1", status: "rejected")
+        await db.ensureReviewSet(channelId: "ch", trackIds: ["a1", "a2", "r1"])
+        let review = await db.curationTrackIds(channelId: "ch", status: "review")
+        XCTAssertEqual(Set(review), ["a1", "a2"],
+            "New tracks must enter review; rejected must NOT be resurrected")
     }
 }

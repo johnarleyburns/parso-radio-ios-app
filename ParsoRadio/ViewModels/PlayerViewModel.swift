@@ -1314,6 +1314,28 @@ final class PlayerViewModel: ObservableObject {
         }
     }
 
+    /// Stop audition playback WITHOUT restoring the pre-audition channel/
+    /// playlist context. Use when a verdict was made on the playing track and
+    /// the user expects silence — not the old channel resuming. Also used when
+    /// the review queue is exhausted.
+    func stopAuditionWithoutRestore() {
+        guard currentChannel == nil, currentPlaylist == nil,
+              (currentTrack != nil || isLoading) else { return }
+        stallWatchdog?.cancel()
+        stallWatchdog = nil
+        audioPlayer.skip()
+        currentTrack = nil
+        trackDuration = nil
+        isPlaying = false
+        isLoading = false
+        loadingMessage = nil
+        failedAuditionTrackId = nil
+        errorMessage = nil
+        playbackContextToken &+= 1
+        isAuditioning = false
+        preAuditionState = nil
+    }
+
     // MARK: - Whole book/album
 
     // Silent, async probe run at the end of playTrack. The button only

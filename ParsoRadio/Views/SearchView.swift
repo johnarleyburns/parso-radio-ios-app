@@ -8,6 +8,9 @@ struct SearchView: View {
     @State private var showAddToPlaylist: Track? = nil
     @State private var showAddItemToPlaylist: SearchViewModel.ResultGroup? = nil
     @State private var selectedResult: SearchViewModel.ResultGroup? = nil
+    @State private var infoGroup: SearchViewModel.ResultGroup? = nil
+    @State private var failedTrackIds: Set<String> = []
+    @State private var flashTrackId: String?
     @FocusState private var searchFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
@@ -116,6 +119,20 @@ struct SearchView: View {
                 Button("Cancel", role: .cancel) {}
             }
             .onAppear { searchFocused = true }   // cursor ready immediately
+            .sheet(item: $infoGroup) { group in
+                trackInfoSheet(group)
+            }
+            .onChange(of: playerVM.errorMessage) { _, msg in
+                let failedId = playerVM.currentTrack?.id ?? playerVM.failedAuditionTrackId
+                if let id = failedId, msg != nil {
+                    failedTrackIds.insert(id)
+                    flashTrackId = id
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 800_000_000)
+                        flashTrackId = nil
+                    }
+                }
+            }
         }
     }
 
@@ -164,6 +181,8 @@ struct SearchView: View {
         List {
             ForEach(searchVM.displayedResults) { group in
                 let dur = searchVM.durations[group.id] ?? group.duration
+                let hasFailed = failedTrackIds.contains(group.id)
+                let isFlashing = flashTrackId == group.id
                 HStack(spacing: 10) {
                     Image(systemName: kindIcon(group))
                         .font(.system(size: 18))
@@ -171,8 +190,17 @@ struct SearchView: View {
                         .frame(width: 26)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(group.title)
-                            .font(.body).fontWeight(.medium).lineLimit(2)
+                        HStack(spacing: 4) {
+                            if hasFailed {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.yellow)
+                                    .scaleEffect(isFlashing ? 1.4 : 1.0)
+                                    .animation(isFlashing ? .easeInOut(duration: 0.3).repeatCount(2, autoreverses: true) : .default, value: isFlashing)
+                            }
+                            Text(group.title)
+                                .font(.body).fontWeight(.medium).lineLimit(2)
+                        }
                         Text(group.creator)
                             .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         HStack(spacing: 6) {
@@ -219,11 +247,11 @@ struct SearchView: View {
                     .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
-                .onTapGesture { selectedResult = group }
+                .onTapGesture { infoGroup = group }
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isButton)
-                .accessibilityHint("Opens actions: play, or add to a playlist")
-                .accessibilityAction { selectedResult = group }
+                .accessibilityHint("Opens track info")
+                .accessibilityAction { infoGroup = group }
                 .task { searchVM.loadItemInfo(group) }
             }
 
@@ -270,5 +298,48 @@ struct SearchView: View {
             composer: nil, instruments: [],
             metadataConfidence: 0.0, addedDate: group.addedDate
         )
+    }
+
+    @ViewBuilder
+    private func trackInfoSheet(_ group: SearchViewModel.ResultGroup) -> some View {
+        NavigationStack {
+            List {
+                Section("Track Info") {
+                    Text(group.title).font(.headline)
+                    Text(group.creator).foregroundStyle(.secondary)
+                    if group.duration > 0 {
+                        Text(formatTime(group.duration))
+                            .font(.caption).foregroundStyle(.tertiary).monospacedDigit()
+                    }
+                }
+                if let kind = searchVM.itemKinds[group.id] {
+                    Section("Type") {
+                        Text(kindLabel(kind))
+                    }
+                }
+                if let coll = group.collection,
+                   !coll.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Section("Collection") {
+                        Text(coll)
+                    }
+                }
+                Section {
+                    Text("ID: \(group.id)")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                }
+            }
+            .navigationTitle("Track Info")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { infoGroup = nil }
+                }
+            }
+        }
+    }
+
+    private func formatTime(_ s: Double) -> String {
+        let t = Int(s); let m = t / 60; let sec = t % 60
+        return String(format: "%d:%02d", m, sec)
     }
 }
