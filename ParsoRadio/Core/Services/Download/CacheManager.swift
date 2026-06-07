@@ -72,13 +72,16 @@ struct CacheManager {
 
     // MARK: - Clear caches
 
-    func clearStreamingCache() {
-        try? fileManager.removeItem(at: streamingDir)
+    func clearStreamingCache() async {
+        await Task.detached(priority: .utility) { [streamingDir, fileManager] in
+            try? fileManager.removeItem(at: streamingDir)
+        }.value
     }
 
-    func clearDownloads() {
-        // Clear audio files
-        try? fileManager.removeItem(at: audioDir)
+    func clearDownloads() async {
+        await Task.detached(priority: .utility) { [audioDir, fileManager] in
+            try? fileManager.removeItem(at: audioDir)
+        }.value
     }
 
     // MARK: - Private helpers

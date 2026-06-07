@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import PhotosUI
 
 struct ChannelExport: Codable {
     struct Info: Codable {
@@ -41,9 +42,13 @@ struct ChannelInfoView: View {
 
     @EnvironmentObject var playerVM: PlayerViewModel
     @State private var showCurator = false
+    @State private var showIconPicker = false
+    @State private var showImagePicker = false
+    @State private var selectedImageItem: PhotosPickerItem?
     @State private var isPreparingExport = false
     @State private var channelExport: ChannelExport?
     @ObservedObject private var chStore = CustomChannelsStore.shared
+    @State private var episodeCount: Int = 0
 
     /// For curated channels, look up the live name from CustomChannelsStore
     /// so renames appear immediately. Falls back to the Channel model for
@@ -67,11 +72,19 @@ struct ChannelInfoView: View {
         List {
             Section {
                 HStack(spacing: 14) {
-                    Image(systemName: channel.icon)
-                        .font(.system(size: 32, weight: .semibold))
-                        .foregroundStyle(Color.accentColor)
-                        .frame(width: 44, height: 44)
-                        .accessibilityHidden(true)
+                    if let urlStr = channel.imageURL, let url = URL(string: urlStr) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image.resizable().aspectRatio(contentMode: .fill)
+                                    .frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 8))
+                            default:
+                                channelIconView
+                            }
+                        }
+                    } else {
+                        channelIconView
+                    }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(displayName)
                             .font(.title3).fontWeight(.semibold)
@@ -94,34 +107,38 @@ struct ChannelInfoView: View {
                         Label("Curate this Channel", systemImage: "checklist")
                             .foregroundStyle(Color.accentColor)
                     }
+                    Button {
+                        showIconPicker = true
+                    } label: {
+                        Label("Edit Channel Icon", systemImage: "paintbrush")
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    Button {
+                        showImagePicker = true
+                    } label: {
+                        Label(channel.imageURL != nil ? "Change Channel Image" : "Set Channel Image",
+                              systemImage: "photo")
+                            .foregroundStyle(Color.accentColor)
+                    }
                 }
             }
 
             // Export this Channel (for curated channels with approved tracks)
             if hasApprovedTracks {
                 Section {
-                    if let export = channelExport {
+                    if isPreparingExport || channelExport == nil {
+                        HStack { ProgressView(); Text("Preparing export…")
+                            .foregroundStyle(.secondary) }
+                    } else if let export = channelExport {
                         ShareLink(item: export, preview: SharePreview(
                             "\(displayName) Curated Tracks",
                             image: Image(systemName: channel.icon))) {
                             Label("Export this Channel", systemImage: "square.and.arrow.up")
                                 .foregroundStyle(Color.accentColor)
                         }
-                    } else {
-                        Button {
-                            Task { await prepareExport() }
-                        } label: {
-                            if isPreparingExport {
-                                HStack { ProgressView(); Text("Preparing export…") }
-                            } else {
-                                Label("Export this Channel", systemImage: "square.and.arrow.up")
-                                    .foregroundStyle(Color.accentColor)
-                            }
-                        }
-                        .disabled(isPreparingExport)
                     }
                 } footer: {
-                    Text("Export all approved tracks as a JSON file you can share, import on another device, or merge back into the app's defaults using the merge-curation CLI tool.")
+                    Text("Export all approved and rejected tracks as a JSON file you can share, import on another device, or merge back into the app's defaults using the merge-curation CLI tool.")
                 }
             }
 
@@ -139,6 +156,9 @@ struct ChannelInfoView: View {
                     SharedViews.infoRow("Discovery", "Pure Internet Archive search")
                 } else if let feed = channel.feedURL {
                     SharedViews.infoRow("Feed", feed)
+                }
+                if channel.feedURL != nil, episodeCount > 0 {
+                    SharedViews.infoRow("Episodes", "\(episodeCount)")
                 }
                 if let minDur = channel.minTrackDuration {
                     SharedViews.infoRow("Min duration",
@@ -163,21 +183,63 @@ struct ChannelInfoView: View {
                     .environmentObject(playerVM)
             }
         }
+        .task {
+            if channel.feedURL != nil {
+                let tracks = await DatabaseService.shared.fetchTracks(forChannel: channel)
+                episodeCount = tracks.count
+            }
+            if hasApprovedTracks { await prepareExport() }
+        }
+        .sheet(isPresented: $showIconPicker) {
+            IconPickerView(selectedIcon: .constant(channel.icon),
+                           channelId: channel.id,
+                           chStore: chStore)
+        }
+        .photosPicker(isPresented: $showImagePicker, selection: $selectedImageItem,
+                      matching: .images)
+        .onChange(of: selectedImageItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    saveChannelImage(data)
+                }
+            }
+        }
+    }
+
+    private var channelIconView: some View {
+        Image(systemName: channel.icon)
+            .font(.system(size: 32, weight: .semibold))
+            .foregroundStyle(Color.accentColor)
+            .frame(width: 44, height: 44)
+            .accessibilityHidden(true)
+    }
+
+    private func saveChannelImage(_ data: Data) {
+        guard var def = CustomChannelsStore.shared.channelDefinition(for: channel.id)
+        else { return }
+        let url = CustomChannelsStore.channelsDir
+            .appendingPathComponent("\(channel.id).png")
+        try? data.write(to: url, options: .atomic)
+        def.channel = ChannelDefinition.Info(
+            id: def.channel.id, name: def.channel.name,
+            icon: def.channel.icon, iaQuery: def.channel.iaQuery,
+            imageFilename: "\(channel.id).png"
+        )
+        CustomChannelsStore.shared.writeChannelDefinition(def)
     }
 
     private func prepareExport() async {
         isPreparingExport = true
         defer { isPreparingExport = false }
 
-        let tracks = await DatabaseService.shared.fetchApprovedTracks(forChannelId: channel.id)
-        let entries = tracks.map {
+        let approvedTracks = await DatabaseService.shared.fetchApprovedTracks(forChannelId: channel.id)
+        let rejectedTracks = await DatabaseService.shared.fetchRejectedTracks(forChannelId: channel.id)
+        let approvedEntries = approvedTracks.map {
             ChannelExport.ApprovedEntry(
-                id: $0.id,
-                title: $0.title,
-                creator: $0.artist,
-                duration: $0.duration,
-                parentIdentifier: $0.parentIdentifier
-            )
+                id: $0.id, title: $0.title, creator: $0.artist,
+                duration: $0.duration, parentIdentifier: $0.parentIdentifier)
         }
         let info = ChannelExport.Info(
             id: channel.id,
@@ -189,8 +251,8 @@ struct ChannelInfoView: View {
             version: 1,
             channel: info,
             updatedAt: ISO8601DateFormatter().string(from: Date()),
-            approved: entries,
-            rejected: []
+            approved: approvedEntries,
+            rejected: rejectedTracks.map { $0.id }
         )
     }
 }

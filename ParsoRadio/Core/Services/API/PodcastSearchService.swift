@@ -51,7 +51,7 @@ final class PodcastSearchService {
         let (data, _) = try await session.data(for: request)
 
         let wrapper = try JSONDecoder().decode(SearchResponse.self, from: data)
-        return wrapper.results
+        return wrapper.results.filter { $0.trackCount > 0 && !$0.feedURL.isEmpty }
     }
 }
 

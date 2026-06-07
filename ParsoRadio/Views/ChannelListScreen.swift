@@ -5,9 +5,8 @@ struct ChannelListScreen: View {
     let channels: [Channel]
     let onSelect: (Channel) -> Void
 
-    @StateObject private var podcastStore = PodcastSubscriptionStore.shared
+    @ObservedObject private var podcastStore = PodcastSubscriptionStore.shared
     @State private var showAddPodcast = false
-    @State private var showPodcastSearch = false
 
     private var isPodcastsCategory: Bool { category == "Podcasts" }
 
@@ -63,15 +62,7 @@ struct ChannelListScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if isPodcastsCategory {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        showPodcastSearch = true
-                    } label: {
-                        Image(systemName: "magnifyingglass.circle.fill")
-                            .font(.body)
-                            .foregroundStyle(Color.accentColor)
-                    }
-                    .accessibilityLabel("Search podcasts")
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showAddPodcast = true
                     } label: {
@@ -79,15 +70,12 @@ struct ChannelListScreen: View {
                             .font(.body)
                             .foregroundStyle(Color.accentColor)
                     }
-                    .accessibilityLabel("Add podcast feed by URL")
+                    .accessibilityLabel("Add podcast feed")
                 }
             }
         }
         .sheet(isPresented: $showAddPodcast) {
             PodcastAddView(initialMode: .url)
-        }
-        .sheet(isPresented: $showPodcastSearch) {
-            PodcastAddView(initialMode: .search)
         }
     }
 }

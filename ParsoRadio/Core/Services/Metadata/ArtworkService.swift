@@ -64,6 +64,22 @@ final class ArtworkService {
         return image
     }
 
+    func artwork(fromURLString urlString: String?) async -> UIImage? {
+        guard let urlString, let url = URL(string: urlString) else { return nil }
+        // Check memory cache using the URL string as key
+        let key = "url:\(urlString)" as NSString
+        if let cached = memCache.object(forKey: key) {
+            return cached === Self.notFoundSentinel ? nil : cached
+        }
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let image = UIImage(data: data) else {
+            memCache.setObject(Self.notFoundSentinel, forKey: key)
+            return nil
+        }
+        memCache.setObject(image, forKey: key)
+        return image
+    }
+
     func prefetch(_ tracks: [Track]) {
         Task { [weak self] in
             for track in tracks.prefix(20) {

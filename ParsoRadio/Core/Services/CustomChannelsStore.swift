@@ -11,6 +11,7 @@ struct ChannelDefinition: Codable, Equatable {
         var name: String
         var icon: String
         var iaQuery: String?
+        var imageFilename: String?
     }
     struct ApprovedEntry: Codable, Equatable {
         let id: String
@@ -419,10 +420,18 @@ final class CustomChannelsStore: ObservableObject {
 
     /// ChannelMeta → a lightweight runtime Channel for playback.
     func runtimeChannel(from meta: ChannelMeta) -> Channel {
-        Channel(
+        var imageURL: String?
+        if let def = channelDefinition(for: meta.id),
+           let fn = def.channel.imageFilename, !fn.isEmpty {
+            let url = Self.channelsDir.appendingPathComponent(fn)
+            if FileManager.default.fileExists(atPath: url.path) {
+                imageURL = url.absoluteString
+            }
+        }
+        return Channel(
             id: meta.id, name: meta.name, category: "Curated", icon: meta.icon,
             contentType: .music, preferredSource: "internet_archive",
-            isDownloaded: false)
+            isDownloaded: false, imageURL: imageURL)
     }
 
     /// Approved tracks known for this channel (from per-channel file).

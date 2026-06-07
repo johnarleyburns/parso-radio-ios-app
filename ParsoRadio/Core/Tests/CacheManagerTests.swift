@@ -85,8 +85,8 @@ final class CacheManagerTests: XCTestCase {
         XCTAssertEqual(total, downloaded + streaming, "Total should equal downloaded + streaming")
     }
 
-    func testClearStreamingCacheClearsDir() {
-        CacheManager.shared.clearStreamingCache()
+    func testClearStreamingCacheClearsDir() async {
+        await CacheManager.shared.clearStreamingCache()
         let after = CacheManager.shared.streamingCacheBytes()
         XCTAssertEqual(after, 0, "Streaming cache should be empty after clear")
     }

@@ -22,7 +22,7 @@ struct SettingsView: View {
     @ObservedObject private var kids = KidsModeController.shared
     @State private var showSetKidsPin = false
     @State private var kidsPinEntry = ""
-    @AppStorage("maxCacheMB") private var maxCacheMB = 1024
+    @AppStorage("maxCacheMB") private var maxCacheMB = 250
     @AppStorage("wifiOnlyDownloads") private var wifiOnlyDownloads = true
     @ObservedObject private var networkMonitor = NetworkMonitor.shared
     @State private var confirmClearDownloads = false
@@ -155,6 +155,30 @@ struct SettingsView: View {
             }
 
             Section {
+                ForEach(playlistVM.playlists.filter { pl in
+                    !pl.isFavorites
+                }) { pl in
+                    HStack {
+                        Label(pl.name, systemImage: "music.note.list")
+                        Spacer()
+                        Button("Remove Downloads") {
+                            Task {
+                                working = true
+                                await offlineService.removeOffline(playlist: pl)
+                                cacheSizeTrigger &+= 1
+                                working = false
+                            }
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.red)
+                        .font(.caption)
+                    }
+                }
+            } header: {
+                Text("Downloads by Playlist")
+            }
+
+            Section {
                 Button(role: .destructive) {
                     confirmClearHistory = true
                 } label: {
@@ -219,8 +243,12 @@ struct SettingsView: View {
         }
         .alert("Clear Streaming Cache?", isPresented: $confirmClearStreamingCache) {
             Button("Clear Cache", role: .destructive) {
-                CacheManager.shared.clearStreamingCache()
-                cacheSizeTrigger &+= 1
+                Task {
+                    working = true
+                    await CacheManager.shared.clearStreamingCache()
+                    cacheSizeTrigger &+= 1
+                    working = false
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {

@@ -120,16 +120,14 @@ struct iPodView: View {
                     screenPanel(geo: geo)
                         .frame(height: max(160.0, geo.size.height * 0.50))
                         .padding(.horizontal, deviceMargin(geo))
-
-                    // Supporter badge below the track section, right-aligned
-                    // with the same horizontal margin as the track area.
-                    if !supporterBadgeHidden,
-                       contributionStore.isSupporter,
-                       contributionStore.hasActiveSubscription {
-                        HStack { Spacer(); supporterBadge }
-                            .padding(.horizontal, deviceMargin(geo))
-                            .padding(.top, 4)
-                    }
+                        .overlay(alignment: .bottomTrailing) {
+                            if !supporterBadgeHidden,
+                               contributionStore.isSupporter,
+                               contributionStore.hasActiveSubscription {
+                                supporterBadge
+                                    .offset(x: -8, y: 20)
+                            }
+                        }
 
                     // Two equal spacers center the wheel between the track box
                     // and the physical screen bottom. minLength guarantees the

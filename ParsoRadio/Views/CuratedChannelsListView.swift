@@ -8,10 +8,6 @@ import SwiftUI
 struct CuratedChannelsListView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @StateObject private var store = CustomChannelsStore.shared
-    @ObservedObject private var liveStore = LiveCurationStore.shared
-
-    // Direct access to shared singleton for method calls (avoids StateObject
-    // dynamic-member-lookup shadowing of method calls in Swift 6/Xcode 16).
 
     @State private var showNewChannel = false
     @State private var editingChannel: ChannelMeta?
@@ -20,19 +16,20 @@ struct CuratedChannelsListView: View {
     let onSelectChannel: (Channel) -> Void
 
     var body: some View {
+        let orderedChannels = store.orderedChannels()
+        let runtimeChannels = Dictionary(uniqueKeysWithValues:
+            orderedChannels.map { ($0.id, store.runtimeChannel(from: $0)) })
+
         List {
-            // DEBUG: Show bootstrap state at the top of the list
             #if DEBUG
             Section {
-                let ordered: [ChannelMeta] = store.orderedChannels()
-                let allMeta = store.customChannels
-                Text("Channels: \(ordered.count) visible / \(allMeta.count) registered")
+                Text("Channels: \(orderedChannels.count) visible / \(store.customChannels.count) registered")
                     .font(.caption2).foregroundStyle(.secondary)
                 Text("Deleted defaults: \(store.deletedDefaults.count)")
                     .font(.caption2).foregroundStyle(.secondary)
                 Text("Docs dir files: \((try? FileManager.default.contentsOfDirectory(at: CustomChannelsStore.channelsDir, includingPropertiesForKeys: nil))?.count ?? 0)")
                     .font(.caption2).foregroundStyle(.secondary)
-                ForEach(ordered.prefix(3), id: \.id) { m in
+                ForEach(orderedChannels.prefix(3), id: \.id) { m in
                     let count = LiveCurationStore.shared.pool(for: m.id).count
                     Text("  \(m.id): \(count) approved")
                         .font(.caption2).foregroundStyle(count > 0 ? .green : .orange)
@@ -42,12 +39,12 @@ struct CuratedChannelsListView: View {
             }
             #endif
 
-            ForEach(store.orderedChannels(), id: \.id) { meta in
-                curatedRow(meta)
+            ForEach(orderedChannels, id: \.id) { meta in
+                curatedRow(meta, channel: runtimeChannels[meta.id])
                     .contextMenu { rowContextMenu(meta) }
             }
 
-            if store.orderedChannels().isEmpty {
+            if orderedChannels.isEmpty {
                 Section {
                     ContentUnavailableView(
                         "No Curated Channels",
@@ -85,11 +82,11 @@ struct CuratedChannelsListView: View {
     // MARK: - Row
 
     @ViewBuilder
-    private func curatedRow(_ meta: ChannelMeta) -> some View {
+    private func curatedRow(_ meta: ChannelMeta, channel: Channel? = nil) -> some View {
         let approvedCount = LiveCurationStore.shared.pool(for: meta.id).count
         HStack(spacing: 8) {
             Button {
-                let ch = store.runtimeChannel(from: meta)
+                let ch = channel ?? store.runtimeChannel(from: meta)
                 onSelectChannel(ch)
             } label: {
                 HStack {
@@ -109,10 +106,10 @@ struct CuratedChannelsListView: View {
             }
 
             NavigationLink(value: MenuRoute.channelInfo(
-                store.runtimeChannel(from: meta))) {
+                channel ?? store.runtimeChannel(from: meta))) {
                 EmptyView()
             }
-            .frame(width: 0).opacity(0) // hidden, but drives (i) via Info link
+            .frame(width: 0).opacity(0)
         }
     }
 
