@@ -81,6 +81,8 @@ struct KidsMenuView: View {
             .alert("Enter PIN to exit Kids Mode", isPresented: $showExitPin) {
                 TextField("4-digit PIN", text: $pinEntry)
                     .keyboardType(.numberPad)
+                    .accessibilityLabel("Exit PIN")
+                    .accessibilityHint("Enter your 4-digit PIN to turn off Kids Mode")
                 Button("Exit") {
                     if kids.disable(pin: pinEntry) {
                         pinEntry = ""

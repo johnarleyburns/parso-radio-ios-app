@@ -138,6 +138,18 @@ targets:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/ParsoMusic.app/ParsoMusic"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
+  ParsoMusicUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ParsoRadio/UITests
+    dependencies:
+      - target: ParsoMusic
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   ParsoMusic:
     build:

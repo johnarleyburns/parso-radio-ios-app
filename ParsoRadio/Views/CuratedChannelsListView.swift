@@ -373,6 +373,7 @@ struct CuratorChannelEditView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var db = DatabaseService.shared
+    @State private var curationActions = CurationActions(db: DatabaseService.shared)
     @State private var archiveService = InternetArchiveService()
     @State private var queue: [Track] = []
     @State private var counts: (review: Int, approved: Int, rejected: Int) = (0, 0, 0)
@@ -546,7 +547,8 @@ struct CuratorChannelEditView: View {
                             Section("Multi-part Actions") {
                                 Button {
                                     Task {
-                                        await addAllPartsToReview(track)
+                                        await curationActions.addAllPartsToReview(track: track, channelId: channelMeta.id)
+                                        await reload()
                                         infoTrack = nil
                                     }
                                 } label: {
@@ -827,11 +829,7 @@ struct CuratorChannelEditView: View {
     }
 
     private func addAllPartsToReview(_ track: Track) async {
-        let parentId = track.parentIdentifier ?? track.id
-        let parts = await db.fetchTracks(forParentIdentifier: parentId)
-        guard !parts.isEmpty else { return }
-        await db.saveTracks(parts)
-        await db.ensureReviewSet(channelId: channelMeta.id, trackIds: parts.map(\.id))
+        await curationActions.addAllPartsToReview(track: track, channelId: channelMeta.id)
         await reload()
     }
 

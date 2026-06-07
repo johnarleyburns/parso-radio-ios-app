@@ -89,6 +89,8 @@ struct AgeGateView: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 80)
                     .multilineTextAlignment(.center)
+                    .accessibilityLabel("Parent gate answer")
+                    .accessibilityHint("Enter the sum of \(mathA) plus \(mathB)")
             }
 
             if parentGateError {
@@ -102,6 +104,7 @@ struct AgeGateView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(parentGateAnswer.isEmpty)
+            .accessibilityHint("Verifies you are an adult or teen to unlock all content")
 
             Button("Stay in Kids Mode") {
                 // User explicitly stays in Kids Mode → proceed with child bracket

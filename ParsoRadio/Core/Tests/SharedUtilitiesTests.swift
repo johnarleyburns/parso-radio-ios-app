@@ -68,7 +68,7 @@ final class SharedUtilitiesTests: XCTestCase {
     }
 
     func testCategoryGradientReturnsValidForAllKnownCategories() {
-        let categories = ["Classical", "Audiobooks", "Contemporary", "Lectures", "News", "Ambient"]
+        let categories = ["Classical", "Audiobooks", "Contemporary", "Lectures", "Podcasts", "Ambient"]
         for category in categories {
             let gradient = ChannelCategoryStyle.gradient(for: category)
             XCTAssertNotNil(gradient)
@@ -84,7 +84,7 @@ final class SharedUtilitiesTests: XCTestCase {
         XCTAssertEqual(ChannelCategoryStyle.icon(for: "Playlists"), "music.note.list")
         XCTAssertEqual(ChannelCategoryStyle.icon(for: "Curated"), "star.fill")
         XCTAssertEqual(ChannelCategoryStyle.icon(for: "Ambient"), "leaf.fill")
-        XCTAssertEqual(ChannelCategoryStyle.icon(for: "News"), "newspaper.fill")
+        XCTAssertEqual(ChannelCategoryStyle.icon(for: "Podcasts"), "newspaper.fill")
         XCTAssertEqual(ChannelCategoryStyle.icon(for: "Audiobooks"), "book.fill")
         XCTAssertEqual(ChannelCategoryStyle.icon(for: "Lectures"), "building.columns.fill")
     }

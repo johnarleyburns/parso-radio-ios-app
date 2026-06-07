@@ -12,7 +12,7 @@ struct ChannelSelectorView: View {
 
     // Curated appears first after Favorites; remaining categories in a fixed preferred order.
     private var sortedCategories: [String] {
-        let preferred = ["Curated", "Ambient", "Audiobooks", "Lectures", "News"]
+        let preferred = ["Curated", "Ambient", "Audiobooks", "Lectures", "Podcasts"]
         let available = Set(Channel.categories)
         let extra = Channel.categories.filter { !preferred.contains($0) }.sorted()
         return preferred.filter { available.contains($0) } + extra

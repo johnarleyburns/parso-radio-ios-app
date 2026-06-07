@@ -4,8 +4,8 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 2 For You + 18 Lectures + 7 News + 4 Ambient + 14 Curated
-        // + 21 Audiobooks (LibriVox) = 66. (Added BBC Global News, DW Inside
+        // 2 For You + 18 Lectures + 7 Podcasts + 4 Ambient + 14 Curated
+        // + 21 Audiobooks (LibriVox) = 66. (Added BBC Global Podcasts, DW Inside
         // Europe, CBC As It Happens — international public broadcasters,
         // ad-free podcast feeds; complement the 4 US public-radio channels.)
         XCTAssertEqual(Channel.defaults.count, 66)
@@ -259,33 +259,33 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    // News category: 7 channels — 4 US public radio (NPR Up First, PBS
-    // NewsHour, Democracy Now!, NPR 1A) + 3 international public broadcasters
-    // (BBC Global News, DW Inside Europe, CBC As It Happens). All ad-free in
+    // Podcasts category: 7 channels — 4 US public radio (NPR Up First, PBS
+    // PodcastsHour, Democracy Now!, NPR 1A) + 3 international public broadcasters
+    // (BBC Global Podcasts, DW Inside Europe, CBC As It Happens). All ad-free in
     // their canonical RSS feeds; curl-verified live with recent items.
-    func testNewsCategoryHasExpectedChannels() {
-        let newsChannels = Channel.defaults.filter { $0.category == "News" }
-        XCTAssertEqual(newsChannels.count, 7, "Expected 7 News channels")
+    func testPodcastsCategoryHasExpectedChannels() {
+        let newsChannels = Channel.defaults.filter { $0.category == "Podcasts" }
+        XCTAssertEqual(newsChannels.count, 7, "Expected 7 Podcasts channels")
     }
 
-    func testNewsChannelsHaveFeedURL() {
-        let newsChannels = Channel.defaults.filter { $0.category == "News" }
+    func testPodcastsChannelsHaveFeedURL() {
+        let newsChannels = Channel.defaults.filter { $0.category == "Podcasts" }
         for channel in newsChannels {
-            XCTAssertNotNil(channel.feedURL, "News channel '\(channel.id)' must have a feedURL")
-            XCTAssertFalse(channel.feedURL?.isEmpty == true, "News channel '\(channel.id)' feedURL must not be empty")
+            XCTAssertNotNil(channel.feedURL, "Podcasts channel '\(channel.id)' must have a feedURL")
+            XCTAssertFalse(channel.feedURL?.isEmpty == true, "Podcasts channel '\(channel.id)' feedURL must not be empty")
             // tags:[id] + preferredSource:"podcast" ensure channel.matches() isolates each feed's episodes.
             XCTAssertEqual(channel.tags, [channel.id],
-                "News channel '\(channel.id)' must have tags:[id] so matches() filters correctly")
+                "Podcasts channel '\(channel.id)' must have tags:[id] so matches() filters correctly")
             XCTAssertEqual(channel.preferredSource, "podcast",
-                "News channel '\(channel.id)' must have preferredSource 'podcast' to skip IA/FMA rows")
+                "Podcasts channel '\(channel.id)' must have preferredSource 'podcast' to skip IA/FMA rows")
         }
     }
 
-    func testNewsChannelsAreSpokenWord() {
-        let newsChannels = Channel.defaults.filter { $0.category == "News" }
+    func testPodcastsChannelsAreSpokenWord() {
+        let newsChannels = Channel.defaults.filter { $0.category == "Podcasts" }
         for channel in newsChannels {
             XCTAssertEqual(channel.contentType, .spokenWord,
-                "News channel '\(channel.id)' must be contentType .spokenWord")
+                "Podcasts channel '\(channel.id)' must be contentType .spokenWord")
         }
     }
 
@@ -356,7 +356,7 @@ final class ChannelTests: XCTestCase {
     // categories.
     func testMainMenuCategoryOrder() {
         let order = MainMenuView.orderedCategories()
-        XCTAssertEqual(order, ["Curated", "Ambient", "News",
+        XCTAssertEqual(order, ["Curated", "Ambient", "Podcasts",
                                "Audiobooks", "Lectures"])
         XCTAssertFalse(order.contains("For You"),
             "For You channels live inside Playlists, not the top-level menu")

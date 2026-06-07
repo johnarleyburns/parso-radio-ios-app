@@ -69,7 +69,7 @@ struct MainMenuView: View {
     // screen instead, alongside Recently Played, so the top-level menu stays
     // focused on real channel categories.
     private static let categoryOrder = [
-        "Curated", "Ambient", "News", "Audiobooks", "Lectures"
+        "Curated", "Ambient", "Podcasts", "Audiobooks", "Lectures"
     ]
 
     static func orderedCategories() -> [String] {
@@ -283,7 +283,7 @@ struct MainMenuView: View {
         case "For You":      return "sparkles"
         case "Curated":      return "star"
         case "Ambient":      return "leaf"
-        case "News":         return "newspaper"
+        case "Podcasts":    return "newspaper"
         case "Contemporary": return "guitars"
         case "Audiobooks":   return "book"
         case "Lectures":     return "graduationcap"

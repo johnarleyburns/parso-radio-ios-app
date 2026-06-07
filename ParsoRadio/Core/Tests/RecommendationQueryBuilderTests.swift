@@ -28,7 +28,7 @@ final class RecommendationQueryBuilderTests: XCTestCase {
 
     func testChannelWeightsHistogramAndProportions() {
         let cat = ["chamber-music": "Curated", "guitar-classical": "Curated",
-                   "piano-hour": "Curated", "news-pbs-newshour": "News",
+                   "piano-hour": "Curated", "news-pbs-newshour": "Podcasts",
                    "music-for-you": "For You"]
         // 6 chamber, 3 guitar, 1 piano, plus excluded plays (news, for-you).
         let h = history([("chamber-music", 6), ("guitar-classical", 3), ("piano-hour", 1),
@@ -45,7 +45,7 @@ final class RecommendationQueryBuilderTests: XCTestCase {
     }
 
     func testChannelWeightsEmptyWhenNoRelevantPlays() {
-        let cat = ["news-pbs-newshour": "News"]
+        let cat = ["news-pbs-newshour": "Podcasts"]
         let h = history([("news-pbs-newshour", 5)])
         let ws = RecommendationQueryBuilder.channelWeights(
             fromHistory: h, categoryFilter: ["Curated"], categoryById: cat)

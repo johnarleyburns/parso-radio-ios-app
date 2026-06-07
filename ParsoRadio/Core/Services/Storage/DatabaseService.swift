@@ -99,6 +99,13 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     private let colCurReviewedAt = Column<Double>("reviewed_at").expr
     private let colCurNote     = Column<String?>("note").expr
 
+    // User-subscribed podcast feeds
+    private let podcastSubs    = Table("podcast_subscriptions")
+    private let colPSId        = Expression<String>("id")
+    private let colPSName      = Expression<String>("name")
+    private let colPSFeedURL   = Expression<String>("feed_url")
+    private let colPSCreatedAt = Expression<Double>("created_at")
+
     init(path: String? = nil) throws {
         if let path {
             db = try Connection(path)
@@ -193,6 +200,14 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
             t.primaryKey(colCurChannel, colCurTrack)
         })
         try db.run("CREATE INDEX IF NOT EXISTS idx_cur_channel_status ON curation(channel_id, status)")
+
+        // User-subscribed podcast feeds
+        try db.run(podcastSubs.create(ifNotExists: true) { t in
+            t.column(colPSId,        primaryKey: true)
+            t.column(colPSName)
+            t.column(colPSFeedURL)
+            t.column(colPSCreatedAt)
+        })
 
         // Idempotent column migrations — try? silently ignores duplicate-column errors
         _ = try? db.run("ALTER TABLE tracks ADD COLUMN added_date   REAL")
@@ -1187,6 +1202,54 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     }
 
     // MARK: - Private
+
+    // MARK: - Podcast subscriptions
+
+    func fetchPodcastSubscriptions() async -> [PodcastSubscription] {
+        await withCheckedContinuation { (cont: CheckedContinuation<[PodcastSubscription], Never>) in
+            queue.async { [self] in
+                let rows = (try? db.prepare(podcastSubs.order(colPSCreatedAt.desc)))
+                var subs: [PodcastSubscription] = []
+                if let rows {
+                    for row in rows {
+                        let s = PodcastSubscription(
+                            id: row[colPSId],
+                            name: row[colPSName],
+                            feedURL: row[colPSFeedURL],
+                            createdAt: Date(timeIntervalSince1970: row[colPSCreatedAt])
+                        )
+                        subs.append(s)
+                    }
+                }
+                cont.resume(returning: subs)
+            }
+        }
+    }
+
+    func savePodcastSubscription(_ sub: PodcastSubscription) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? db.run(podcastSubs.insert(or: .replace,
+                    colPSId        <- sub.id,
+                    colPSName      <- sub.name,
+                    colPSFeedURL   <- sub.feedURL,
+                    colPSCreatedAt <- sub.createdAt.timeIntervalSince1970
+                ))
+                cont.resume()
+            }
+        }
+    }
+
+    func deletePodcastSubscription(_ sub: PodcastSubscription) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? db.run(podcastSubs.filter(colPSId == sub.id).delete())
+                cont.resume()
+            }
+        }
+    }
+
+    // MARK: - Track decode
 
     private func rowToTrack(_ row: Row) -> Track? {
         guard let streamURL = URL(string: row[colStreamURL]) else { return nil }

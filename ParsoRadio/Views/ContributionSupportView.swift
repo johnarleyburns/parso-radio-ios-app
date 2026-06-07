@@ -87,5 +87,7 @@ struct ContributionSupportView: View {
             }
         }
         .disabled(store.purchasingID != nil)
+        .accessibilityLabel("Purchase \(product.displayName) for \(product.displayPrice)")
+        .accessibilityHint(product.description)
     }
 }

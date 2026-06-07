@@ -49,7 +49,7 @@ final class PodcastRSSServiceTests: XCTestCase {
         let service = PodcastRSSService(session: session)
         let feedURL = URL(string: "https://example.com/feed.xml")!
         let channel = Channel(
-            id: "test", name: "Test", category: "News", icon: "antenna.radiowaves.left.and.right",
+            id: "test", name: "Test", category: "Podcasts", icon: "antenna.radiowaves.left.and.right",
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: feedURL.absoluteString
         )
@@ -82,7 +82,7 @@ final class PodcastRSSServiceTests: XCTestCase {
 
         let service = PodcastRSSService(session: session)
         let channel = Channel(
-            id: "test", name: "Test", category: "News", icon: "antenna.radiowaves.left.and.right",
+            id: "test", name: "Test", category: "Podcasts", icon: "antenna.radiowaves.left.and.right",
             contentType: .spokenWord,
             preferredSource: "podcast", feedURL: "https://example.com/feed.xml"
         )
@@ -111,7 +111,7 @@ final class PodcastRSSServiceTests: XCTestCase {
 
         let service = PodcastRSSService(session: session)
         let channel = Channel(
-            id: "test", name: "Test", category: "News", icon: "antenna.radiowaves.left.and.right",
+            id: "test", name: "Test", category: "Podcasts", icon: "antenna.radiowaves.left.and.right",
             contentType: .spokenWord,
             preferredSource: "podcast", feedURL: "https://example.com/feed.xml"
         )
@@ -124,7 +124,7 @@ final class PodcastRSSServiceTests: XCTestCase {
     func testChannelWithoutFeedURLReturnsEmpty() async throws {
         let service = PodcastRSSService(session: session)
         let channel = Channel(
-            id: "test", name: "Test", category: "News", icon: "antenna.radiowaves.left.and.right",
+            id: "test", name: "Test", category: "Podcasts", icon: "antenna.radiowaves.left.and.right",
             contentType: .spokenWord,
             preferredSource: "podcast"
         )
@@ -142,7 +142,7 @@ final class PodcastRSSServiceTests: XCTestCase {
 
         let service = PodcastRSSService(session: session)
         let channel = Channel(
-            id: "test", name: "Test", category: "News", icon: "antenna.radiowaves.left.and.right",
+            id: "test", name: "Test", category: "Podcasts", icon: "antenna.radiowaves.left.and.right",
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://example.com/feed.xml"
         )
@@ -168,7 +168,7 @@ final class PodcastRSSServiceTests: XCTestCase {
 
         let service = PodcastRSSService(session: session)
         let channel = Channel(
-            id: "test", name: "Test", category: "News", icon: "antenna.radiowaves.left.and.right",
+            id: "test", name: "Test", category: "Podcasts", icon: "antenna.radiowaves.left.and.right",
             contentType: .spokenWord,
             preferredSource: "podcast", feedURL: "https://example.com/feed.xml"
         )
@@ -195,7 +195,7 @@ final class PodcastRSSServiceTests: XCTestCase {
 
         let service = PodcastRSSService(session: session)
         let channel = Channel(
-            id: "test", name: "Test", category: "News", icon: "antenna.radiowaves.left.and.right",
+            id: "test", name: "Test", category: "Podcasts", icon: "antenna.radiowaves.left.and.right",
             contentType: .spokenWord,
             preferredSource: "podcast", feedURL: "https://example.com/feed.xml"
         )
@@ -212,7 +212,7 @@ final class PodcastRSSServiceTests: XCTestCase {
 
         let service = PodcastRSSService(session: session)
         let channel = Channel(
-            id: "test", name: "Test", category: "News", icon: "antenna.radiowaves.left.and.right",
+            id: "test", name: "Test", category: "Podcasts", icon: "antenna.radiowaves.left.and.right",
             contentType: .spokenWord,
             preferredSource: "podcast", feedURL: "https://example.com/feed.xml"
         )

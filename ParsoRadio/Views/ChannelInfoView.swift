@@ -1,4 +1,37 @@
 import SwiftUI
+import UniformTypeIdentifiers
+
+struct ChannelExport: Codable {
+    struct Info: Codable {
+        let id: String
+        let name: String
+        let icon: String
+        let iaQuery: String?
+    }
+    struct ApprovedEntry: Codable {
+        let id: String
+        let title: String
+        let creator: String
+        let duration: Double
+        let parentIdentifier: String?
+    }
+    let version: Int
+    let channel: Info
+    let updatedAt: String
+    let approved: [ApprovedEntry]
+    let rejected: [String]
+}
+
+extension ChannelExport: Transferable {
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .json)
+        DataRepresentation(exportedContentType: .json) { export in
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            return (try? encoder.encode(export)) ?? Data()
+        }
+    }
+}
 
 /// "About this channel" — shown when the user taps the channel name on the
 /// player. Surfaces the user-facing summary plus the technical knobs that
@@ -8,6 +41,8 @@ struct ChannelInfoView: View {
 
     @EnvironmentObject var playerVM: PlayerViewModel
     @State private var showCurator = false
+    @State private var isPreparingExport = false
+    @State private var channelExport: ChannelExport?
     @ObservedObject private var chStore = CustomChannelsStore.shared
 
     /// For curated channels, look up the live name from CustomChannelsStore
@@ -19,6 +54,11 @@ struct ChannelInfoView: View {
             return meta.name
         }
         return channel.name
+    }
+
+    private var hasApprovedTracks: Bool {
+        channel.category == "Curated"
+            && !LiveCurationStore.shared.pool(for: channel.id).isEmpty
     }
 
     // Pushed inside the Main Menu's navigation stack — the standard back
@@ -54,6 +94,34 @@ struct ChannelInfoView: View {
                         Label("Curate this Channel", systemImage: "checklist")
                             .foregroundStyle(Color.accentColor)
                     }
+                }
+            }
+
+            // Export this Channel (for curated channels with approved tracks)
+            if hasApprovedTracks {
+                Section {
+                    if let export = channelExport {
+                        ShareLink(item: export, preview: SharePreview(
+                            "\(displayName) Curated Tracks",
+                            image: Image(systemName: channel.icon))) {
+                            Label("Export this Channel", systemImage: "square.and.arrow.up")
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    } else {
+                        Button {
+                            Task { await prepareExport() }
+                        } label: {
+                            if isPreparingExport {
+                                HStack { ProgressView(); Text("Preparing export…") }
+                            } else {
+                                Label("Export this Channel", systemImage: "square.and.arrow.up")
+                                    .foregroundStyle(Color.accentColor)
+                            }
+                        }
+                        .disabled(isPreparingExport)
+                    }
+                } footer: {
+                    Text("Export all approved tracks as a JSON file you can share, import on another device, or merge back into the app's defaults using the merge-curation CLI tool.")
                 }
             }
 
@@ -95,6 +163,35 @@ struct ChannelInfoView: View {
                     .environmentObject(playerVM)
             }
         }
+    }
+
+    private func prepareExport() async {
+        isPreparingExport = true
+        defer { isPreparingExport = false }
+
+        let tracks = await DatabaseService.shared.fetchApprovedTracks(forChannelId: channel.id)
+        let entries = tracks.map {
+            ChannelExport.ApprovedEntry(
+                id: $0.id,
+                title: $0.title,
+                creator: $0.artist,
+                duration: $0.duration,
+                parentIdentifier: $0.parentIdentifier
+            )
+        }
+        let info = ChannelExport.Info(
+            id: channel.id,
+            name: displayName,
+            icon: channel.icon,
+            iaQuery: channel.iaQueryEntry?.iaQuery
+        )
+        channelExport = ChannelExport(
+            version: 1,
+            channel: info,
+            updatedAt: ISO8601DateFormatter().string(from: Date()),
+            approved: entries,
+            rejected: []
+        )
     }
 }
 

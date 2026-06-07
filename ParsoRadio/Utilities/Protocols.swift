@@ -68,4 +68,9 @@ protocol DatabaseServiceProtocol: AnyObject {
     // Offline counts
     func offlineTrackCount(forChannel channel: Channel) async -> Int
     func offlineTrackCount(forPlaylist playlistId: String) async -> Int
+
+    // Podcast subscriptions
+    func fetchPodcastSubscriptions() async -> [PodcastSubscription]
+    func savePodcastSubscription(_ sub: PodcastSubscription) async
+    func deletePodcastSubscription(_ sub: PodcastSubscription) async
 }

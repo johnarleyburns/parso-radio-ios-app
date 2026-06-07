@@ -15,9 +15,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "B47D07E8C9D52A86E7B7307A"
-               BuildableName = "ParsoMusic.app"
-               BlueprintName = "ParsoMusic"
+               BlueprintIdentifier = "BE1EBB6ECF49203DA4C0031D"
+               BuildableName = "ParsoMusicTests.xctest"
+               BlueprintName = "ParsoMusicTests"
                ReferencedContainer = "container:ParsoMusic.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -32,35 +32,13 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B47D07E8C9D52A86E7B7307A"
-            BuildableName = "ParsoMusic.app"
-            BlueprintName = "ParsoMusic"
+            BlueprintIdentifier = "BE1EBB6ECF49203DA4C0031D"
+            BuildableName = "ParsoMusicTests.xctest"
+            BlueprintName = "ParsoMusicTests"
             ReferencedContainer = "container:ParsoMusic.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "BE1EBB6ECF49203DA4C0031D"
-               BuildableName = "ParsoMusicTests.xctest"
-               BlueprintName = "ParsoMusicTests"
-               ReferencedContainer = "container:ParsoMusic.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "862780D62522B009DB593B5B"
-               BuildableName = "ParsoMusicIntegrationTests.xctest"
-               BlueprintName = "ParsoMusicIntegrationTests"
-               ReferencedContainer = "container:ParsoMusic.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>
@@ -75,16 +53,15 @@
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
+      <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B47D07E8C9D52A86E7B7307A"
-            BuildableName = "ParsoMusic.app"
-            BlueprintName = "ParsoMusic"
+            BlueprintIdentifier = "BE1EBB6ECF49203DA4C0031D"
+            BuildableName = "ParsoMusicTests.xctest"
+            BlueprintName = "ParsoMusicTests"
             ReferencedContainer = "container:ParsoMusic.xcodeproj">
          </BuildableReference>
-      </BuildableProductRunnable>
+      </MacroExpansion>
       <CommandLineArguments>
       </CommandLineArguments>
    </LaunchAction>
@@ -94,18 +71,17 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B47D07E8C9D52A86E7B7307A"
-            BuildableName = "ParsoMusic.app"
-            BlueprintName = "ParsoMusic"
-            ReferencedContainer = "container:ParsoMusic.xcodeproj">
-         </BuildableReference>
-      </BuildableProductRunnable>
       <CommandLineArguments>
       </CommandLineArguments>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "BE1EBB6ECF49203DA4C0031D"
+            BuildableName = "ParsoMusicTests.xctest"
+            BlueprintName = "ParsoMusicTests"
+            ReferencedContainer = "container:ParsoMusic.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

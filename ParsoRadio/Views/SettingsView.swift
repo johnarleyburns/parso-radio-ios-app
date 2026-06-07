@@ -32,6 +32,8 @@ struct SettingsView: View {
                     Text("Dark").tag("dark")
                 }
                 .pickerStyle(.segmented)
+                .accessibilityLabel("Appearance theme")
+                .accessibilityHint("Switches between system, light, and dark mode")
             }
 
             Section {
@@ -49,6 +51,7 @@ struct SettingsView: View {
                     )) {
                         Label("Show Supporter Badge", systemImage: "seal.fill")
                     }
+                    .accessibilityHint("Hides or shows the supporter badge on the Now Playing screen")
                 }
             } footer: {
                 Text("Keep Lorewave free and ad-free. We give 10% of proceeds to the Internet Archive.")
@@ -100,10 +103,13 @@ struct SettingsView: View {
         .alert("Set a 4-digit PIN", isPresented: $showSetKidsPin) {
             TextField("PIN", text: $kidsPinEntry)
                 .keyboardType(.numberPad)
+                .accessibilityLabel("Kids Mode PIN")
+                .accessibilityHint("Enter a 4-digit number to lock Kids Mode")
             Button("Turn On") {
                 kids.enable(pin: kidsPinEntry)
                 kidsPinEntry = ""
             }
+            .accessibilityHint("Enables Kids Mode with the entered PIN")
             Button("Cancel", role: .cancel) { kidsPinEntry = "" }
         } message: {
             Text("You'll need this PIN to turn Kids Mode off. Pick something a child won't guess.")

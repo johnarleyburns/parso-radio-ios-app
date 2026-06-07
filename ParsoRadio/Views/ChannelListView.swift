@@ -3,6 +3,8 @@ import SwiftUI
 struct ChannelListView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @State private var selectedChannel: Channel?
+    @State private var showAddPodcast = false
+    @StateObject private var podcastStore = PodcastSubscriptionStore.shared
 
     var body: some View {
         NavigationStack {
@@ -17,6 +19,9 @@ struct ChannelListView: View {
             .navigationDestination(item: $selectedChannel) { channel in
                 PlayerView(channel: channel)
             }
+            .sheet(isPresented: $showAddPodcast) {
+                PodcastAddView()
+            }
         }
         .animation(.spring(duration: 0.3), value: playerVM.currentTrack != nil)
     }
@@ -28,22 +33,18 @@ struct ChannelListView: View {
             VStack(spacing: 28) {
                 ForEach(Channel.categories, id: \.self) { category in
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(category)
-                            .font(.footnote)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
-                            .padding(.horizontal, 20)
+                        categoryHeader(for: category)
 
                         VStack(spacing: 8) {
                             ForEach(Channel.defaults.filter { $0.category == category }) { channel in
-                                let isActive = playerVM.currentChannel?.id == channel.id
-                                ChannelRow(
-                                    channel: channel,
-                                    isActive: isActive,
-                                    isLoading: isActive && playerVM.isLoading
-                                ) {
-                                    selectedChannel = channel
+                                channelRowView(for: channel)
+                            }
+                            if category == "Podcasts" {
+                                ForEach(podcastStore.subscriptions) { sub in
+                                    channelRowView(
+                                        for: podcastStore.channel(from: sub),
+                                        subtitle: sub.feedURL
+                                    )
                                 }
                             }
                         }
@@ -52,6 +53,41 @@ struct ChannelListView: View {
             }
             .padding(.top, 8)
             .padding(.bottom, playerVM.currentTrack != nil ? 80 : 16)
+        }
+    }
+
+    @ViewBuilder
+    private func categoryHeader(for category: String) -> some View {
+        HStack {
+            Text(category)
+                .font(.footnote)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            Spacer()
+            if category == "Podcasts" {
+                Button {
+                    showAddPodcast = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Add podcast feed")
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func channelRowView(for channel: Channel, subtitle: String? = nil) -> some View {
+        let isActive = playerVM.currentChannel?.id == channel.id
+        return ChannelRow(
+            channel: channel,
+            subtitle: subtitle,
+            isActive: isActive,
+            isLoading: isActive && playerVM.isLoading
+        ) {
+            selectedChannel = channel
         }
     }
 
@@ -112,6 +148,7 @@ struct ChannelListView: View {
 
 private struct ChannelRow: View {
     let channel: Channel
+    var subtitle: String?
     let isActive: Bool
     let isLoading: Bool
     let action: () -> Void
@@ -128,10 +165,18 @@ private struct ChannelRow: View {
                         .foregroundStyle(.white)
                 }
 
-                Text(channel.name)
-                    .font(.body)
-                    .fontWeight(isActive ? .semibold : .regular)
-                    .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(channel.name)
+                        .font(.body)
+                        .fontWeight(isActive ? .semibold : .regular)
+                        .foregroundStyle(.primary)
+                    if let sub = subtitle {
+                        Text(sub)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                }
 
                 Spacer()
 

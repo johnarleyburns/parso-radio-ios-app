@@ -105,7 +105,7 @@ struct Channel: Codable, Identifiable, Hashable {
         switch category {
         case "Lectures":
             return "\(name): lectures and talks from the University of Oxford's public podcast series."
-        case "News":
+        case "Podcasts":
             return "The latest episodes from \(name) — refreshed to the newest item each time you tune in."
         case "Audiobooks":
             return "\(name) audiobooks read by LibriVox volunteers — public-domain literature, a new book each time."
@@ -242,41 +242,38 @@ extension Channel {
             preferredSource: "oxford_lectures"
         ),
 
-        // MARK: News — Public radio & international broadcaster RSS feeds (all live-verified)
+        // MARK: Podcasts — Public radio & international broadcaster RSS feeds (all live-verified)
         // feedURL drives PodcastRSSService; contentType = spokenWord for track-level navigation.
         // tags: [id] must match what PodcastRSSService stores in Track.tags so channel.matches()
         // correctly isolates each channel's episodes; preferredSource: "podcast" skips IA/FMA DB rows.
+        // Episodes play from 0:00 to comply with podcast RSS terms of service.
         Channel(
             id: "news-nprup-first", name: "NPR Up First",
-            category: "News", icon: "sunrise.fill",
+            category: "Podcasts", icon: "sunrise.fill",
             tags: ["news-nprup-first"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.npr.org/510318/podcast.xml",
-            startOffsetSeconds: 148  // skip 2:28 intro filler
+            feedURL: "https://feeds.npr.org/510318/podcast.xml"
         ),
         Channel(
             id: "news-pbs-newshour", name: "PBS NewsHour",
-            category: "News", icon: "tv",
+            category: "Podcasts", icon: "tv",
             tags: ["news-pbs-newshour"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.npr.org/510317/podcast.xml",
-            startOffsetSeconds: 30
+            feedURL: "https://feeds.npr.org/510317/podcast.xml"
         ),
         Channel(
             id: "news-democracy-now", name: "Democracy Now!",
-            category: "News", icon: "megaphone.fill",
+            category: "Podcasts", icon: "megaphone.fill",
             tags: ["news-democracy-now"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://www.democracynow.org/podcast.xml",
-            startOffsetSeconds: 17
+            feedURL: "https://www.democracynow.org/podcast.xml"
         ),
         Channel(
             id: "news-npr-1a", name: "NPR 1A (Public Affairs)",
-            category: "News", icon: "person.2.fill",
+            category: "Podcasts", icon: "person.2.fill",
             tags: ["news-npr-1a"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.npr.org/510316/podcast.xml",
-            startOffsetSeconds: 24
+            feedURL: "https://feeds.npr.org/510316/podcast.xml"
         ),
         // International public broadcasters. Their canonical podcast feeds are
         // licence-fee / public-funded and ship ad-free worldwide (the "BBC has
@@ -284,27 +281,24 @@ extension Channel {
         // All curl-verified live with hundreds of recent items.
         Channel(
             id: "news-bbc-global", name: "BBC Global News",
-            category: "News", icon: "globe.europe.africa.fill",
+            category: "Podcasts", icon: "globe.europe.africa.fill",
             tags: ["news-bbc-global"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://podcasts.files.bbci.co.uk/p02nq0gn.rss",
-            startOffsetSeconds: 96   // skip 1:36 intro filler
+            feedURL: "https://podcasts.files.bbci.co.uk/p02nq0gn.rss"
         ),
         Channel(
             id: "news-dw-inside-europe", name: "DW Inside Europe",
-            category: "News", icon: "building.columns.fill",
+            category: "Podcasts", icon: "building.columns.fill",
             tags: ["news-dw-inside-europe"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://partner.dw.com/xml/podcast_inside-europe",
-            startOffsetSeconds: 18
+            feedURL: "https://partner.dw.com/xml/podcast_inside-europe"
         ),
         Channel(
             id: "news-cbc-as-it-happens", name: "CBC As It Happens",
-            category: "News", icon: "globe.americas.fill",
+            category: "Podcasts", icon: "globe.americas.fill",
             tags: ["news-cbc-as-it-happens"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://www.cbc.ca/podcasting/includes/asithappens.xml",
-            startOffsetSeconds: 35
+            feedURL: "https://www.cbc.ca/podcasting/includes/asithappens.xml"
         ),
 
         // MARK: Curated — pure-Lucene IA channels
