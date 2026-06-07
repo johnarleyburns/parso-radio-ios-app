@@ -1,27 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "1430"
-   wasCreatedForAppExtension = "YES"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
       runPostActionsOnFailure = "NO">
       <BuildActionEntries>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "2662C96533D5018619E0A0E8"
-               BuildableName = "LorewaveIntents.appex"
-               BlueprintName = "LorewaveIntents"
-               ReferencedContainer = "container:ParsoMusic.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
          <BuildActionEntry
             buildForTesting = "YES"
             buildForRunning = "YES"
@@ -47,9 +32,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "2662C96533D5018619E0A0E8"
-            BuildableName = "LorewaveIntents.appex"
-            BlueprintName = "LorewaveIntents"
+            BlueprintIdentifier = "B47D07E8C9D52A86E7B7307A"
+            BuildableName = "ParsoMusic.app"
+            BlueprintName = "ParsoMusic"
             ReferencedContainer = "container:ParsoMusic.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -82,22 +67,21 @@
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
-      selectedDebuggerIdentifier = ""
-      selectedLauncherIdentifier = "Xcode.IDEFoundation.Launcher.PosixSpawn"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
-      allowLocationSimulation = "YES"
-      launchAutomaticallySubstyle = "2">
+      allowLocationSimulation = "YES">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "2662C96533D5018619E0A0E8"
-            BuildableName = "LorewaveIntents.appex"
-            BlueprintName = "LorewaveIntents"
+            BlueprintIdentifier = "B47D07E8C9D52A86E7B7307A"
+            BuildableName = "ParsoMusic.app"
+            BlueprintName = "ParsoMusic"
             ReferencedContainer = "container:ParsoMusic.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -114,9 +98,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "2662C96533D5018619E0A0E8"
-            BuildableName = "LorewaveIntents.appex"
-            BlueprintName = "LorewaveIntents"
+            BlueprintIdentifier = "B47D07E8C9D52A86E7B7307A"
+            BuildableName = "ParsoMusic.app"
+            BlueprintName = "ParsoMusic"
             ReferencedContainer = "container:ParsoMusic.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

@@ -92,8 +92,6 @@ targets:
           DEVELOPMENT_TEAM: "$(CI_TEAM)"
           PROVISIONING_PROFILE_SPECIFIER: "$(CI_PROFILE)"
     dependencies:
-      - target: LorewaveIntents
-        embed: true
       - package: SQLite
 
   LorewaveIntents:
@@ -182,7 +180,6 @@ schemes:
     build:
       targets:
         ParsoMusic: all
-        LorewaveIntents: all
     run:
       config: Debug
     test:
