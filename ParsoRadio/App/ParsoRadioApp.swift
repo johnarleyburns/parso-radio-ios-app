@@ -19,7 +19,7 @@ struct ParsoMusicApp: App {
 
     @StateObject private var playerVM: PlayerViewModel = {
         let db = ParsoMusicApp.sharedDB
-        return PlayerViewModel(
+        let vm = PlayerViewModel(
             db: db,
             archiveService: InternetArchiveService(),
             fmaService: FMAService(),
@@ -27,6 +27,8 @@ struct ParsoMusicApp: App {
             audioPlayer: AudioPlayerService(),
             downloadManager: ParsoMusicApp.sharedDownloadManager
         )
+        AppIntentBridge.shared.playerVM = vm
+        return vm
     }()
 
     @StateObject private var playlistVM: PlaylistViewModel = {

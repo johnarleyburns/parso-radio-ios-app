@@ -22,6 +22,12 @@ struct SettingsView: View {
     @ObservedObject private var kids = KidsModeController.shared
     @State private var showSetKidsPin = false
     @State private var kidsPinEntry = ""
+    @AppStorage("maxCacheMB") private var maxCacheMB = 1024
+    @AppStorage("wifiOnlyDownloads") private var wifiOnlyDownloads = true
+    @ObservedObject private var networkMonitor = NetworkMonitor.shared
+    @State private var confirmClearDownloads = false
+    @State private var confirmClearStreamingCache = false
+    @State private var cacheSizeTrigger = 0
 
     var body: some View {
         List {
@@ -75,6 +81,77 @@ struct SettingsView: View {
                 Text("Kids Mode")
             } footer: {
                 Text("Limits the app to the children's songs and stories — no search, no news, no purchases. A 4-digit PIN is needed to turn it off, so it's safe to hand the phone to a child.")
+            }
+
+            // Storage & cache management
+            Section {
+                HStack {
+                    Label("Downloaded", systemImage: "arrow.down.circle")
+                    Spacer()
+                    Text(formattedBytes(CacheManager.shared.downloadedBytes()))
+                        .foregroundStyle(.secondary).monospacedDigit()
+                }
+                HStack {
+                    Label("Streaming Cache", systemImage: "waveform.circle")
+                    Spacer()
+                    Text(formattedBytes(CacheManager.shared.streamingCacheBytes()))
+                        .foregroundStyle(.secondary).monospacedDigit()
+                }
+                HStack {
+                    Label("Total Used", systemImage: "internaldrive")
+                    Spacer()
+                    Text(formattedBytes(CacheManager.shared.totalCacheBytes()))
+                        .foregroundStyle(.secondary).monospacedDigit()
+                }
+            } header: {
+                Text("Storage")
+            } footer: {
+                Text("Streaming cache speeds up replay and scrubbing. Downloaded tracks play offline.")
+            }
+
+            Section {
+                Picker("Cache Limit", selection: $maxCacheMB) {
+                    Text("100 MB").tag(100)
+                    Text("250 MB").tag(250)
+                    Text("500 MB").tag(500)
+                    Text("1 GB").tag(1024)
+                    Text("2 GB").tag(2048)
+                    Text("5 GB").tag(5120)
+                }
+                .onChange(of: maxCacheMB) { _, newLimit in
+                    let budget = Int64(newLimit) * 1_048_576
+                    CacheManager.shared.evictIfNeeded(maxBytes: budget)
+                    cacheSizeTrigger &+= 1
+                }
+            } header: {
+                Text("Cache Limit")
+            } footer: {
+                Text("When the limit is exceeded, least-recently-played tracks are removed first.")
+            }
+
+            Section {
+                Toggle(isOn: $wifiOnlyDownloads) {
+                    Label("Wi-Fi Only Downloads", systemImage: "wifi")
+                }
+            } header: {
+                Text("Downloads")
+            } footer: {
+                Text("When on, downloads and prefetch only happen on Wi-Fi. Streaming still works on cellular.")
+            }
+
+            Section {
+                Button(role: .destructive) {
+                    confirmClearStreamingCache = true
+                } label: {
+                    Label("Clear Streaming Cache", systemImage: "waveform.circle.badge.xmark")
+                }
+                Button(role: .destructive) {
+                    confirmClearDownloads = true
+                } label: {
+                    Label("Delete All Downloaded Tracks", systemImage: "arrow.down.circle.badge.xmark")
+                }
+            } footer: {
+                Text("Deleting downloads keeps your playlists and history intact. Streaming cache is temporary and rebuilt as you listen.")
             }
 
             Section {
@@ -140,5 +217,36 @@ struct SettingsView: View {
         } message: {
             Text("This permanently deletes ALL your data — listening history, every playlist, and all downloaded tracks. This cannot be undone.")
         }
+        .alert("Clear Streaming Cache?", isPresented: $confirmClearStreamingCache) {
+            Button("Clear Cache", role: .destructive) {
+                CacheManager.shared.clearStreamingCache()
+                cacheSizeTrigger &+= 1
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Deletes temporary streaming cache files. Downloaded tracks are kept.")
+        }
+        .alert("Delete All Downloads?", isPresented: $confirmClearDownloads) {
+            Button("Delete Downloads", role: .destructive) {
+                Task {
+                    working = true
+                    await offlineService.deleteAllDownloads()
+                    cacheSizeTrigger &+= 1
+                    working = false
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Deletes all downloaded tracks. Playlists, history, and streaming cache are kept.")
+        }
+    }
+
+    private func formattedBytes(_ bytes: Int64) -> String {
+        if bytes < 1024 { return "\(bytes) B" }
+        let kb = Double(bytes) / 1024.0
+        if kb < 1024 { return String(format: "%.1f KB", kb) }
+        let mb = kb / 1024.0
+        if mb < 1024 { return String(format: "%.1f MB", mb) }
+        return String(format: "%.2f GB", mb / 1024.0)
     }
 }

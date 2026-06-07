@@ -105,6 +105,7 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     private let colPSName      = Expression<String>("name")
     private let colPSFeedURL   = Expression<String>("feed_url")
     private let colPSCreatedAt = Expression<Double>("created_at")
+    private let colPSArtworkURL = Expression<String?>("artwork_url")
 
     init(path: String? = nil) throws {
         if let path {
@@ -235,6 +236,7 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
         // explicitly opt-in per playlist.
         _ = try? db.run(
             "ALTER TABLE playlists ADD COLUMN is_kid_safe INTEGER NOT NULL DEFAULT 0")
+        _ = try? db.run("ALTER TABLE podcast_subscriptions ADD COLUMN artwork_url TEXT")
 
         // Enable FK enforcement
         _ = try? db.run("PRAGMA foreign_keys = ON")
@@ -1216,6 +1218,7 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
                             id: row[colPSId],
                             name: row[colPSName],
                             feedURL: row[colPSFeedURL],
+                            artworkURL: row[colPSArtworkURL],
                             createdAt: Date(timeIntervalSince1970: row[colPSCreatedAt])
                         )
                         subs.append(s)
@@ -1233,7 +1236,8 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
                     colPSId        <- sub.id,
                     colPSName      <- sub.name,
                     colPSFeedURL   <- sub.feedURL,
-                    colPSCreatedAt <- sub.createdAt.timeIntervalSince1970
+                    colPSCreatedAt <- sub.createdAt.timeIntervalSince1970,
+                    colPSArtworkURL <- sub.artworkURL
                 ))
                 cont.resume()
             }

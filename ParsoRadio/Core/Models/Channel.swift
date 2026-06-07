@@ -33,6 +33,8 @@ struct Channel: Codable, Identifiable, Hashable {
     // Auto-seek past introductory filler for news/podcast channels.
     // Channels with this set start playback at the given second offset.
     let startOffsetSeconds: Double?
+    // Optional external image URL for channel-level artwork (podcast show art, etc.)
+    let imageURL: String?
 
     init(
         id: String, name: String, category: String, icon: String,
@@ -41,7 +43,8 @@ struct Channel: Codable, Identifiable, Hashable {
         contentType: ContentType = .music, spokenWordCollections: [String] = [],
         preferredSource: String? = nil, feedURL: String? = nil,
         isDownloaded: Bool = false, minTrackDuration: Double? = nil,
-        summary: String? = nil, startOffsetSeconds: Double? = nil
+        summary: String? = nil, startOffsetSeconds: Double? = nil,
+        imageURL: String? = nil
     ) {
         self.id = id; self.name = name; self.category = category; self.icon = icon
         self.composers = composers; self.instruments = instruments; self.tags = tags
@@ -52,6 +55,7 @@ struct Channel: Codable, Identifiable, Hashable {
         self.minTrackDuration = minTrackDuration
         self.summary = summary
         self.startOffsetSeconds = startOffsetSeconds
+        self.imageURL = imageURL
     }
 
     var iaQueryEntry: IAQueryEntry? { IAQueryRegistry.shared.entry(for: id) }

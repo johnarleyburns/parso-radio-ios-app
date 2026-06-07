@@ -47,6 +47,9 @@ private final class RSSXMLParser: NSObject, XMLParserDelegate {
             item.enclosureType = attrs["type"] ?? ""
             if let len = attrs["length"], let l = Int(len) { item.enclosureLength = l }
         }
+        if name == "itunes:image", let item = current {
+            item.itunesImageHref = attrs["href"] ?? ""
+        }
     }
 
     func parser(_ parser: XMLParser, foundCharacters string: String) {
@@ -82,6 +85,7 @@ private final class RSSItem {
     var enclosureLength = 0
     var itunesDuration = ""
     var pubDate = ""
+    var itunesImageHref: String? = nil
 
     func toTrack(channelId: String) -> Track? {
         guard !enclosureURL.isEmpty,
@@ -118,7 +122,7 @@ private final class RSSItem {
             instruments: [],
             metadataConfidence: 2.0,
             addedDate: pubDate,
-            artworkURLString: nil
+            artworkURLString: itunesImageHref
         )
     }
 

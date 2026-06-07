@@ -7,6 +7,7 @@ struct ChannelListScreen: View {
 
     @StateObject private var podcastStore = PodcastSubscriptionStore.shared
     @State private var showAddPodcast = false
+    @State private var showPodcastSearch = false
 
     private var isPodcastsCategory: Bool { category == "Podcasts" }
 
@@ -35,15 +36,13 @@ struct ChannelListScreen: View {
                     .buttonStyle(.plain)
                     .accessibilityHint("Plays this channel")
 
-                    if !isSubscribed {
-                        NavigationLink(value: MenuRoute.channelInfo(channel)) {
-                            Image(systemName: "info.circle")
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .fixedSize()
-                        .accessibilityLabel("\(channel.name) info")
+                    NavigationLink(value: MenuRoute.channelInfo(channel)) {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
                     }
+                    .buttonStyle(.plain)
+                    .fixedSize()
+                    .accessibilityLabel("\(channel.name) info")
                 }
                 .swipeActions(edge: .trailing) {
                     if isSubscribed {
@@ -64,7 +63,15 @@ struct ChannelListScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if isPodcastsCategory {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        showPodcastSearch = true
+                    } label: {
+                        Image(systemName: "magnifyingglass.circle.fill")
+                            .font(.body)
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    .accessibilityLabel("Search podcasts")
                     Button {
                         showAddPodcast = true
                     } label: {
@@ -72,12 +79,15 @@ struct ChannelListScreen: View {
                             .font(.body)
                             .foregroundStyle(Color.accentColor)
                     }
-                    .accessibilityLabel("Add podcast feed")
+                    .accessibilityLabel("Add podcast feed by URL")
                 }
             }
         }
         .sheet(isPresented: $showAddPodcast) {
-            PodcastAddView()
+            PodcastAddView(initialMode: .url)
+        }
+        .sheet(isPresented: $showPodcastSearch) {
+            PodcastAddView(initialMode: .search)
         }
     }
 }

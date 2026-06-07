@@ -20,7 +20,7 @@ struct ChannelListView: View {
                 PlayerView(channel: channel)
             }
             .sheet(isPresented: $showAddPodcast) {
-                PodcastAddView()
+                PodcastAddView(initialMode: .url)
             }
         }
         .animation(.spring(duration: 0.3), value: playerVM.currentTrack != nil)

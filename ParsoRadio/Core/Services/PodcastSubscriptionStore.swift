@@ -1,9 +1,10 @@
 import Foundation
 
 struct PodcastSubscription: Identifiable, Codable, Equatable {
-    let id: String          // UUID
-    var name: String        // User-displayed name
-    var feedURL: String     // RSS feed URL
+    let id: String
+    var name: String
+    var feedURL: String
+    var artworkURL: String?
     let createdAt: Date
 }
 
@@ -21,11 +22,12 @@ final class PodcastSubscriptionStore: ObservableObject {
         subscriptions = await DatabaseService.shared.fetchPodcastSubscriptions()
     }
 
-    func add(name: String, feedURL: String) async {
+    func add(name: String, feedURL: String, artworkURL: String? = nil) async {
         let sub = PodcastSubscription(
             id: UUID().uuidString,
             name: name,
             feedURL: feedURL,
+            artworkURL: artworkURL,
             createdAt: Date()
         )
         await DatabaseService.shared.savePodcastSubscription(sub)
@@ -46,7 +48,8 @@ final class PodcastSubscriptionStore: ObservableObject {
             tags: ["podcast-\(sub.id)"],
             contentType: .spokenWord,
             preferredSource: "podcast",
-            feedURL: sub.feedURL
+            feedURL: sub.feedURL,
+            imageURL: sub.artworkURL
         )
     }
 }

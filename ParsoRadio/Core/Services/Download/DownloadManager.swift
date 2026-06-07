@@ -22,6 +22,9 @@ final class DownloadManager {
     }
 
     func download(track: Track, onProgress: (@Sendable (Double) -> Void)? = nil) async {
+        // WiFi-only guard: skip downloads on cellular unless user disabled the toggle
+        if UserDefaults.standard.object(forKey: "wifiOnlyDownloads") as? Bool ?? true,
+           !NetworkMonitor.shared.isWiFi { return }
         // A whole-item IA track's downloadURL points at the item DIRECTORY, not a
         // playable file — downloading it just saves the directory listing as a
         // fake .mp3 that never plays (and which local-first would then serve).
@@ -31,6 +34,8 @@ final class DownloadManager {
         let dest = fileStorage.localURL(for: track.id)
         if FileManager.default.fileExists(atPath: dest.path) {
             await db.markDownloaded(trackID: track.id, localPath: dest.path)
+            CacheManager.shared.markAccessed(dest)
+            self.enforceCacheBudget()
             onProgress?(1.0)
             return
         }
@@ -57,6 +62,8 @@ final class DownloadManager {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             try? FileManager.default.moveItem(at: tmpURL, to: dest)
             await db.markDownloaded(trackID: track.id, localPath: dest.path)
+            CacheManager.shared.markAccessed(dest)
+            self.enforceCacheBudget()
             onProgress?(1.0)
         } catch {
             // Download failed — track remains stream-only
@@ -72,6 +79,12 @@ final class DownloadManager {
                 await download(track: track)
             }
         }
+    }
+
+    private func enforceCacheBudget() {
+        let maxMB = UserDefaults.standard.integer(forKey: "maxCacheMB")
+        let budget: Int64 = maxMB > 0 ? Int64(maxMB) * 1_048_576 : 1_073_741_824
+        CacheManager.shared.evictIfNeeded(maxBytes: budget)
     }
 }
 

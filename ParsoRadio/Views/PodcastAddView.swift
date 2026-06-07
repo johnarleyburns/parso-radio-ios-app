@@ -1,6 +1,10 @@
 import SwiftUI
 
+enum PodcastAddMode { case url, search }
+
 struct PodcastAddView: View {
+    let initialMode: PodcastAddMode
+
     @Environment(\.dismiss) private var dismiss
 
     @State private var feedURL = ""
@@ -10,6 +14,7 @@ struct PodcastAddView: View {
     @State private var errorMessage: String?
     @State private var showError = false
     @State private var subscribeName = ""
+    @State private var discoveredArtworkURL: String?
 
     @StateObject private var store = PodcastSubscriptionStore.shared
     @FocusState private var focusURL: Bool
@@ -50,7 +55,8 @@ struct PodcastAddView: View {
                             Spacer()
                             Button("Subscribe") {
                                 Task {
-                                    await store.add(name: subscribeName, feedURL: feedURL)
+                                    await store.add(name: subscribeName, feedURL: feedURL,
+                                                    artworkURL: discoveredArtworkURL)
                                     dismiss()
                                 }
                             }
@@ -73,6 +79,7 @@ struct PodcastAddView: View {
                             Button {
                                 feedURL = result.feedURL
                                 subscribeName = result.title
+                                discoveredArtworkURL = result.artworkURL
                             } label: {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(result.title).font(.body).foregroundStyle(.primary)
@@ -95,6 +102,9 @@ struct PodcastAddView: View {
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) {}
             } message: { Text(errorMessage ?? "") }
+            .onAppear {
+                if initialMode == .url { focusURL = true }
+            }
         }
     }
 

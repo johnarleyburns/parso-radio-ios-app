@@ -119,8 +119,17 @@ struct iPodView: View {
                     // status bar (the VStack still respects the top safe area).
                     screenPanel(geo: geo)
                         .frame(height: max(160.0, geo.size.height * 0.50))
-                        .overlay(alignment: .topTrailing) { supporterBadge }
                         .padding(.horizontal, deviceMargin(geo))
+
+                    // Supporter badge below the track section, right-aligned
+                    // with the same horizontal margin as the track area.
+                    if !supporterBadgeHidden,
+                       contributionStore.isSupporter,
+                       contributionStore.hasActiveSubscription {
+                        HStack { Spacer(); supporterBadge }
+                            .padding(.horizontal, deviceMargin(geo))
+                            .padding(.top, 4)
+                    }
 
                     // Two equal spacers center the wheel between the track box
                     // and the physical screen bottom. minLength guarantees the
