@@ -77,10 +77,14 @@ struct MainMenuView: View {
         return categoryOrder.filter(present.contains)
     }
 
+    @ObservedObject private var podcastStore = PodcastSubscriptionStore.shared
+
     private func channels(in category: String) -> [Channel] {
-        Channel.defaults
-            .filter { $0.category == category }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        var chs = Channel.defaults.filter { $0.category == category }
+        if category == "Podcasts" {
+            chs += podcastStore.subscriptions.map { podcastStore.channel(from: $0) }
+        }
+        return chs.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     var body: some View {

@@ -759,9 +759,9 @@
   ],
   "channel" : {
     "iaQuery" : "mediatype:audio AND ((subject:\"classical guitar\" OR subject:\"guitar music\" OR subject:\"spanish guitar\" OR subject:\"flamenco guitar\" OR subject:\"lute\" OR subject:\"renaissance guitar\") OR ((creator:\"Andrés Segovia\" OR creator:\"Andres Segovia\" OR creator:\"Narciso Yepes\" OR creator:\"Julian Bream\" OR creator:\"Pepe Romero\" OR creator:\"Angel Romero\" OR creator:\"Los Romeros\" OR creator:\"Celedonio Romero\" OR creator:\"Regino Sainz de la Maza\" OR creator:\"Paco de Lucía\" OR creator:\"Paco de Lucia\" OR creator:Sabicas OR creator:\"Mario Escudero\" OR creator:\"Carlos Montoya\" OR creator:\"Manuel Barrueco\" OR creator:\"David Russell\" OR creator:\"Christopher Parkening\" OR creator:\"Ana Vidović\" OR creator:\"Sharon Isbin\" OR creator:\"Kazuhito Yamashita\" OR creator:\"Alirio Díaz\" OR creator:\"Alirio Diaz\" OR creator:\"Laurindo Almeida\" OR creator:\"Liona Boyd\" OR creator:\"Eliot Fisk\" OR creator:\"Göran Söllscher\" OR creator:\"Oscar Ghiglia\" OR creator:\"Konrad Ragossnig\" OR creator:\"Turibio Santos\" OR creator:\"Carlos Bonell\" OR creator:\"Jorge Morel\" OR creator:\"Manuel López Ramos\" OR creator:\"Li Jie\" OR creator:\"Jie Li\" OR creator:\"Rey de la Torre\") OR ((creator:\"Fernando Sor\" OR creator:\"Isaac Albéniz\" OR creator:\"Francisco Tárrega\" OR creator:\"Francisco Tarrega\" OR creator:\"Enrique Granados\" OR creator:\"Joaquín Rodrigo\" OR creator:\"Agustín Barrios\" OR creator:\"Manuel Ponce\" OR creator:\"Heitor Villa-Lobos\" OR creator:\"Mauro Giuliani\" OR creator:\"Leo Brouwer\" OR creator:\"Gaspar Sanz\"))) AND NOT (subject:interview OR subject:talk OR subject:lecture OR title:interview OR subject:vocal OR subject:vocals OR subject:\"vocal music\" OR subject:song OR subject:songs OR subject:soprano OR subject:choral OR creator:\"Laura DeNardis\" OR creator:\"Salli Terri\"))",
-    "icon" : "star",
+    "icon" : "music.note",
     "id" : "guitar-classical",
-    "name" : "guitar-classical"
+    "name" : "Classical Guitar"
   },
   "rejected" : [
     "3.-you-need-an-excuse",
@@ -882,6 +882,6 @@
     "78_1-clavelitos-carnations-2-estrellita-little-star_amelita-galli-curci-valverd_gbia0288958a",
     "78_a-viola_frederick-fuller-heitor-villa-lobos-romero-villa-lobos_gbia0504949a"
   ],
-  "updatedAt" : "2026-06-07T23:08:54Z",
+  "updatedAt" : "2026-06-07T22:31:51Z",
   "version" : 1
 }

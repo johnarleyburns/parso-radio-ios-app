@@ -402,11 +402,9 @@ final class InternetArchiveServiceTests: XCTestCase {
             "the two tokens must be AND'd so both words must appear")
         XCTAssertFalse(q.contains("title:(") || q.contains("creator:("),
             "must NOT field-scope multiple words into one field")
-        // No sort override at all → IA returns Solr relevance order. (We still
-        // request addeddate as a RETURNED field via fl[], so assert on the
-        // sort parameter specifically, not the substring "addeddate".)
-        XCTAssertFalse(q.contains("sort"),
-            "search must rank by relevance — no sort override")
+        // Sort by downloads to approximate popularity.
+        XCTAssertTrue(q.contains("downloads desc"),
+            "search must sort by downloads desc")
     }
 
     func testFetchTracksForIdentifierSingleFileHasNoPartInfo() async throws {

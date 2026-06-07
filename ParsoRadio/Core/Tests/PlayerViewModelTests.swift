@@ -805,7 +805,7 @@ final class PlayerViewModelTests: XCTestCase {
             downloadURL: nil, localFilePath: "/tmp/g-dl.mp3",
             license: .publicDomain, tags: [stamp], qualityScore: 0.8,
             rawCreator: "", composer: nil, instruments: [], metadataConfidence: 2.0)
-        let otherChannel = makeIATrack(id: "x-1", tags: [Channel.stampToken("chamber-music")])
+        let otherChannel = makeIATrack(id: "x-1", tags: [Channel.stampToken("string-quartet")])
         await db.saveTracks([fresh, staleStream, staleDownloaded, otherChannel])
 
         await db.pruneChannelTracks(forChannel: guitar, keeping: ["g-fresh"])
@@ -1203,27 +1203,27 @@ final class IAQueryRegistryTests: XCTestCase {
             "Channel.matches must accept a stamped track regardless of its IA subjects")
     }
 
-    func testIAQueryRegistryLoadsChamberMusic() {
-        let entry = IAQueryRegistry.shared.entry(for: "chamber-music")
-        XCTAssertNotNil(entry, "ia_queries.json must contain a chamber-music entry")
-        XCTAssertTrue(entry?.iaQuery.contains("chamber music") ?? false)
+    func testIAQueryRegistryLoadsStringQuartet() {
+        let entry = IAQueryRegistry.shared.entry(for: "string-quartet")
+        XCTAssertNotNil(entry, "ia_queries.json must contain a string-quartet entry")
         XCTAssertTrue(entry?.iaQuery.contains("string quartet") ?? false)
+        XCTAssertTrue(entry?.iaQuery.contains("Beethoven") ?? false)
         // Curated query must keep the noise out.
-        for excluded in ["creator:Aeon", "subject:jazz", "collection:radioprograms"] {
+        for excluded in ["subject:jazz", "subject:rock", "collection:podcasts"] {
             XCTAssertTrue(entry?.iaQuery.contains(excluded) ?? false,
-                "chamber-music query must exclude '\(excluded)'")
+                "string-quartet query must exclude '\(excluded)'")
         }
-        XCTAssertEqual(entry?.matchTags, ["chamber-music"],
-            "matchTags is the chamber-music isolation stamp")
+        XCTAssertEqual(entry?.matchTags, ["string-quartet"],
+            "matchTags is the string-quartet isolation stamp")
     }
 
-    func testChamberMusicIsCuratedAndRegistryBacked() {
-        let chamber = Channel.defaults.first { $0.id == "chamber-music" }
-        XCTAssertNotNil(chamber, "chamber-music channel must exist")
-        XCTAssertEqual(chamber?.category, "Curated",
-            "chamber-music must live in the Curated section, not Classical")
-        XCTAssertNotNil(chamber?.iaQueryEntry,
-            "chamber-music must be registry-backed (pure-Lucene)")
+    func testStringQuartetIsCuratedAndRegistryBacked() {
+        let channel = Channel.defaults.first { $0.id == "string-quartet" }
+        XCTAssertNotNil(channel, "string-quartet channel must exist")
+        XCTAssertEqual(channel?.category, "Curated",
+            "string-quartet must live in the Curated section, not Classical")
+        XCTAssertNotNil(channel?.iaQueryEntry,
+            "string-quartet must be registry-backed (pure-Lucene)")
         // The stamp isolates it from the shared DB.
         let stamped = Track(
             id: "cm-1", source: "internet_archive",
@@ -1232,13 +1232,13 @@ final class IAQueryRegistryTests: XCTestCase {
             streamURL: URL(string: "https://archive.org/download/cm-1")!,
             downloadURL: nil, localFilePath: nil,
             license: .publicDomain,
-            tags: ["78rpm", Channel.stampToken("chamber-music")],
+            tags: ["78rpm", Channel.stampToken("string-quartet")],
             qualityScore: 1.0,
             rawCreator: "Budapest String Quartet", composer: nil, instruments: [],
             metadataConfidence: 0.0
         )
-        XCTAssertTrue(chamber?.matches(stamped) ?? false)
-        // A Spanish-Guitar-stamped track must NOT leak into Chamber Music.
+        XCTAssertTrue(channel?.matches(stamped) ?? false)
+        // A Spanish-Guitar-stamped track must NOT leak into String Quartet.
         let other = Track(
             id: "sg-z", source: "internet_archive",
             title: "x", artist: "y", duration: 1,
@@ -1248,7 +1248,7 @@ final class IAQueryRegistryTests: XCTestCase {
             qualityScore: 1.0, rawCreator: "", composer: nil, instruments: [],
             metadataConfidence: 0.0
         )
-        XCTAssertFalse(chamber?.matches(other) ?? true,
+        XCTAssertFalse(channel?.matches(other) ?? true,
             "channels must not cross-contaminate via the shared DB")
     }
 }

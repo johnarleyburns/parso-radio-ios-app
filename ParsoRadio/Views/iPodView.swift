@@ -36,6 +36,7 @@ struct iPodView: View {
     // Non-nil while the user is dragging the progress bar (overrides the
     // player position so the bar follows the finger).
     @State private var scrubFraction: Double? = nil
+    @State private var showContributionSupport = false
 
     private var displayChannel: Channel {
         playerVM.currentChannel ?? pendingChannel
@@ -125,7 +126,7 @@ struct iPodView: View {
                                contributionStore.isSupporter,
                                contributionStore.hasActiveSubscription {
                                 supporterBadge
-                                    .offset(x: -8, y: 20)
+                                    .offset(x: -8, y: deviceMargin(geo) + 48)
                             }
                         }
 
@@ -232,6 +233,13 @@ struct iPodView: View {
         .sheet(isPresented: $showWheelHelp) {
             WheelHelpView()
         }
+        .sheet(isPresented: $showContributionSupport) {
+            NavigationStack {
+                ContributionSupportView(
+                    store: ParsoMusicApp.sharedContributionStore,
+                    showsDoneButton: true)
+            }
+        }
         // Offline notice (e.g. tapped a streaming channel in airplane mode).
         // Non-destructive: whatever was playing keeps playing behind the alert.
         .alert("You're Offline", isPresented: Binding(
@@ -274,7 +282,15 @@ struct iPodView: View {
         .task {
             await playlistVM.loadPlaylists()
             UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
-            if kids.isEnabled {
+
+            if let pendingId = UserDefaults.standard.string(forKey: "siri.pendingChannelId"),
+               let ts = UserDefaults.standard.object(forKey: "siri.pendingTimestamp") as? TimeInterval,
+               Date().timeIntervalSince1970 - ts < 60 {
+                UserDefaults.standard.removeObject(forKey: "siri.pendingChannelId")
+                UserDefaults.standard.removeObject(forKey: "siri.pendingTimestamp")
+                // Siri/Shortcut intent already triggered a channel load in-process.
+                // The channel is loading or already playing — skip the normal restore.
+            } else if kids.isEnabled {
                 // Kids Mode: never restore an arbitrary last session (it could be
                 // News). Start on a children's channel — the last kids channel if
                 // there was one, else the first allowed channel.
@@ -325,8 +341,9 @@ struct iPodView: View {
                     .frame(width: 48, height: 48)
                     .clipShape(Circle())
                     .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
-                    .padding(.trailing, 10)
-                    .padding(.top, 10)
+                    .onTapGesture {
+                        showContributionSupport = true
+                    }
             }
         }
     }

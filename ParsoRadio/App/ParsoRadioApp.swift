@@ -45,7 +45,15 @@ struct ParsoMusicApp: App {
     @AppStorage("tosAccepted") private var tosAccepted: Bool = false
     // Appearance override from Settings: "system" | "light" | "dark".
     @AppStorage("appearance") private var appearance: String = "system"
-    @State private var showSplash: Bool = true
+    @State private var showSplash: Bool = {
+        if UserDefaults.standard.string(forKey: "siri.pendingChannelId") != nil {
+            return false
+        }
+        if UserDefaults.appGroup.string(forKey: "siri.pendingChannelId") != nil {
+            return false
+        }
+        return true
+    }()
     @State private var showTerms: Bool = false
     @State private var showSupport: Bool = false
     @State private var showAgeGate: Bool = false
@@ -79,6 +87,9 @@ struct ParsoMusicApp: App {
                     SplashView(isPresented: $showSplash)
                         .zIndex(10)
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .siriIntentDidPerform)) { _ in
+                showSplash = false
             }
             .onChange(of: showSplash) { _, isShowing in
                 if !isShowing && !tosAccepted {
@@ -139,9 +150,51 @@ struct ParsoMusicApp: App {
             }
             .task { contributions.beginSession() }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active, tosAccepted, !showSplash,
-                   !KidsModeController.shared.isEnabled { contributions.evaluate() }
+                if phase == .active {
+                    handleSiriPendingCommand()
+                    if tosAccepted, !showSplash,
+                       !KidsModeController.shared.isEnabled { contributions.evaluate() }
+                }
             }
+        }
+    }
+
+    private func handleSiriPendingCommand() {
+        // Check in-process pending first (set by intent running in the app).
+        if let channelId = pendingSiriChannelId(from: .standard) {
+            executeSiriCommandIfNeeded(channelId: channelId)
+            UserDefaults.standard.removeObject(forKey: "siri.pendingChannelId")
+            UserDefaults.standard.removeObject(forKey: "siri.pendingTimestamp")
+            return
+        }
+
+        // Check App Group pending (set by extension process via Tier 3).
+        if let channelId = pendingSiriChannelId(from: .appGroup) {
+            executeSiriCommandIfNeeded(channelId: channelId)
+            UserDefaults.appGroup.removeObject(forKey: "siri.pendingChannelId")
+            UserDefaults.appGroup.removeObject(forKey: "siri.pendingTimestamp")
+            return
+        }
+    }
+
+    private func pendingSiriChannelId(from defaults: UserDefaults) -> String? {
+        guard let channelId = defaults.string(forKey: "siri.pendingChannelId"),
+              let ts = defaults.object(forKey: "siri.pendingTimestamp") as? TimeInterval,
+              Date().timeIntervalSince1970 - ts < 60 else {
+            defaults.removeObject(forKey: "siri.pendingChannelId")
+            defaults.removeObject(forKey: "siri.pendingTimestamp")
+            return nil
+        }
+        return channelId
+    }
+
+    private func executeSiriCommandIfNeeded(channelId: String) {
+        guard !KidsModeController.shared.isEnabled else { return }
+        // If the intent already kicked off a load in-process, skip the duplicate.
+        if playerVM.isLoading || playerVM.currentChannel != nil { return }
+        guard let ch = Channel.defaults.first(where: { $0.id == channelId }) else { return }
+        Task { @MainActor in
+            await playerVM.load(channel: ch, autoPlay: true)
         }
     }
 }

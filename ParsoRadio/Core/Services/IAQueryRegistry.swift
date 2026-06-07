@@ -4,6 +4,12 @@ struct IAQueryEntry: Decodable {
     let channelId: String
     let iaQuery: String
     let matchTags: [String]
+
+    init(channelId: String, iaQuery: String, matchTags: [String]) {
+        self.channelId = channelId
+        self.iaQuery = iaQuery
+        self.matchTags = matchTags
+    }
 }
 
 final class IAQueryRegistry {

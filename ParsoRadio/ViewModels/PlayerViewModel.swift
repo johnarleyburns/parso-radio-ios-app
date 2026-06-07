@@ -453,6 +453,11 @@ final class PlayerViewModel: ObservableObject {
         if visited.count > 20 { visited = Array(visited.prefix(20)) }
         UserDefaults.standard.set(visited, forKey: "visitedChannelIds")
 
+        LorewaveIntentDonations.donateChannel(channel)
+        if channel.category == "Podcasts" {
+            LorewaveIntentDonations.donatePodcast(channel)
+        }
+
         currentChannel = channel
         // New playback context → invalidate any track still resolving from the
         // previous context (see playbackContextToken).

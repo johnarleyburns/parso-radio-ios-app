@@ -27,16 +27,16 @@ final class RecommendationQueryBuilderTests: XCTestCase {
     // MARK: - channelWeights
 
     func testChannelWeightsHistogramAndProportions() {
-        let cat = ["chamber-music": "Curated", "guitar-classical": "Curated",
+        let cat = ["string-quartet": "Curated", "guitar-classical": "Curated",
                    "piano-hour": "Curated", "news-pbs-newshour": "Podcasts",
                    "music-for-you": "For You"]
-        // 6 chamber, 3 guitar, 1 piano, plus excluded plays (news, for-you).
-        let h = history([("chamber-music", 6), ("guitar-classical", 3), ("piano-hour", 1),
+        // 6 string-quartet, 3 guitar, 1 piano, plus excluded plays (news, for-you).
+        let h = history([("string-quartet", 6), ("guitar-classical", 3), ("piano-hour", 1),
                          ("news-pbs-newshour", 4), ("music-for-you", 2)])
         let ws = RecommendationQueryBuilder.channelWeights(
             fromHistory: h, categoryFilter: ["Curated"], categoryById: cat)
         XCTAssertEqual(ws.count, 3, "only Curated channels contribute")
-        XCTAssertEqual(ws.map(\.channelId), ["chamber-music", "guitar-classical", "piano-hour"],
+        XCTAssertEqual(ws.map(\.channelId), ["string-quartet", "guitar-classical", "piano-hour"],
             "sorted by play count desc")
         XCTAssertEqual(ws[0].weight, 0.6, accuracy: 1e-9, "6/10")
         XCTAssertEqual(ws[1].weight, 0.3, accuracy: 1e-9, "3/10")

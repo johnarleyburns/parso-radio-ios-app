@@ -431,7 +431,8 @@ final class CustomChannelsStore: ObservableObject {
         return Channel(
             id: meta.id, name: meta.name, category: "Curated", icon: meta.icon,
             contentType: .music, preferredSource: "internet_archive",
-            isDownloaded: false, imageURL: imageURL)
+            isDownloaded: false, imageURL: imageURL,
+            iaQuery: meta.iaQuery)
     }
 
     /// Approved tracks known for this channel (from per-channel file).
@@ -441,9 +442,38 @@ final class CustomChannelsStore: ObservableObject {
 
     // MARK: - Import / Export
 
-    /// Export a channel definition file URL for sharing.
+    /// Export a channel definition file URL for sharing, named "lorewave-<name>-<date>.json".
     func exportURL(for chId: String) -> URL {
-        Self.channelsDir.appendingPathComponent("\(chId).json")
+        let name = customChannels.first { $0.id == chId }?.name ?? chId
+        let slug = name.lowercased()
+            .replacingOccurrences(of: " ", with: "-")
+            .filter { $0.isLetter || $0.isNumber || $0 == "-" }
+        let dateStr = ISO8601DateFormatter().string(from: Date())
+            .prefix(10).replacingOccurrences(of: "-", with: "")
+        let filename = "lorewave-\(slug)-\(dateStr).json"
+        let srcURL = Self.channelsDir.appendingPathComponent("\(chId).json")
+        let tmpURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        // Clean up any previous export with the same name.
+        try? FileManager.default.removeItem(at: tmpURL)
+        // Copy the channel JSON to a temporary file for sharing. If the source
+        // JSON doesn't exist yet (new channel, no verdicts written), build one
+        // from the store's in-memory data so the share sheet always has content.
+        if FileManager.default.fileExists(atPath: srcURL.path) {
+            try? FileManager.default.copyItem(at: srcURL, to: tmpURL)
+        }
+        // Always ensure a file exists — write minimal JSON even for empty channels.
+        if !FileManager.default.fileExists(atPath: tmpURL.path) {
+            let def = channelDefinition(for: chId) ?? ChannelDefinition(
+                version: 1,
+                channel: ChannelDefinition.Info(id: chId, name: name, icon: "", iaQuery: nil),
+                updatedAt: dateStr, approved: [], rejected: [])
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            if let data = try? encoder.encode(def) {
+                try? data.write(to: tmpURL)
+            }
+        }
+        return tmpURL
     }
 
     /// Import a channel from an external JSON file.

@@ -141,7 +141,7 @@ struct AboutView: View {
                       license: "CC0 (Public Domain)",
                       url: "https://freesound.org/people/Nox_Sound/sounds/829629/")
 
-            Text("Ambient background videos provided by Mixkit (Mixkit Free License). All streamed music and audiobooks are public-domain or Creative Commons licensed; the source and license are shown for every track.")
+            Text("Ambient background videos provided by Mixkit (Mixkit Free License). Streamed music and audiobooks are public-domain or Creative Commons licensed; the source and license are shown for every track. Podcasts are streamed directly from their published RSS feeds via the iTunes Store.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -180,7 +180,7 @@ struct AboutView: View {
 
             policySection(
                 title: "We host nothing",
-                body: "Lorewave does not upload, host, or store any audio. It only streams works that the source repositories — the Internet Archive, the Free Music Archive, and Freesound — publish as public domain or under Creative Commons licenses. The source and license are shown for every track."
+                body: "Lorewave does not upload, host, or store any audio. It only streams works that the source repositories — the Internet Archive and Freesound — publish as public domain or under Creative Commons licenses, plus podcast episodes from their published RSS feeds via the iTunes Store. The source and license are shown for every track."
             )
 
             policySection(
@@ -229,7 +229,7 @@ struct AboutView: View {
 
             policySection(
                 title: "Third-Party Content",
-                body: "The App streams audio from the Internet Archive (archive.org) and the Free Music Archive (freemusicarchive.org). These are independent services with their own privacy policies. We do not control their data practices. The content streamed is public-domain or Creative Commons licensed."
+                body: "The App streams audio from the Internet Archive (archive.org), and podcast episodes from their published RSS feeds via the iTunes Store. These are independent services with their own privacy policies. We do not control their data practices. The content streamed is public-domain, Creative Commons licensed, or published to RSS by the content owner."
             )
 
             policySection(
@@ -259,7 +259,7 @@ struct AboutView: View {
 
             Divider()
 
-            Text("Lorewave streams public-domain and Creative Commons licensed audio. No copyrighted content is stored or distributed.")
+            Text("Lorewave streams public-domain and Creative Commons licensed audio, plus podcast episodes from published RSS feeds. No copyrighted content is stored or distributed.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)

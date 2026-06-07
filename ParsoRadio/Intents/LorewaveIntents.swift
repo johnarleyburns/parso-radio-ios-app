@@ -1,12 +1,19 @@
 import AppIntents
+import Foundation
 
 enum IntentError: Error, CustomLocalizedStringResourceConvertible {
     case channelNotFound(String)
+    case kidsModeActive
+    case appNotAvailable
 
     var localizedStringResource: LocalizedStringResource {
         switch self {
         case .channelNotFound(let name):
             return "Could not find \"\(name)\""
+        case .kidsModeActive:
+            return "Kids Mode is active — Siri playback is not available"
+        case .appNotAvailable:
+            return "Lorewave is not available right now"
         }
     }
 }
@@ -14,11 +21,31 @@ enum IntentError: Error, CustomLocalizedStringResourceConvertible {
 struct PlayLorewaveIntent: AppIntent {
     static let title: LocalizedStringResource = "Play Lorewave"
     static let description = IntentDescription("Resume your last listening session in Lorewave.")
-    static let openAppWhenRun = true
+    static let openAppWhenRun = false
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        await AppIntentBridge.shared.resumePlayback()
+        guard !KidsModeController.shared.isEnabled else {
+            throw IntentError.kidsModeActive
+        }
+
+        // In-process: the app is running (foreground or background), PlayerViewModel exists.
+        if let vm = AppIntentBridge.shared.playerVM {
+            let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "guitar-classical"
+            let channel = Channel.defaults.first { $0.id == lastId }
+                ?? Channel.defaults.first { $0.id == "guitar-classical" }
+                ?? Channel.defaults[0]
+
+            AppIntentBridge.shared.setPendingCommand(channelId: channel.id)
+            NotificationCenter.default.post(name: .siriIntentDidPerform, object: nil)
+            await vm.restoreLastSession(fallbackChannel: channel, autoPlay: true)
+            LorewaveIntentDonations.donateResume()
+            return .result()
+        }
+
+        // Extension process: store the pending command for the main app to pick up.
+        AppIntentBridge.shared.storePendingCommandInAppGroup(
+            channelId: UserDefaults.standard.string(forKey: "lastChannelId") ?? "guitar-classical")
         return .result()
     }
 }
@@ -26,7 +53,7 @@ struct PlayLorewaveIntent: AppIntent {
 struct PlayChannelIntent: AppIntent {
     static let title: LocalizedStringResource = "Play Channel"
     static let description = IntentDescription("Start playing a specific channel on Lorewave.")
-    static let openAppWhenRun = true
+    static let openAppWhenRun = false
     static var parameterSummary: some ParameterSummary {
         Summary("Play \(\.$channel) on Lorewave")
     }
@@ -36,10 +63,27 @@ struct PlayChannelIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
+        guard !KidsModeController.shared.isEnabled else {
+            throw IntentError.kidsModeActive
+        }
         guard let ch = Channel.defaults.first(where: { $0.id == channel.id }) else {
             throw IntentError.channelNotFound(channel.displayName)
         }
-        await AppIntentBridge.shared.loadChannel(ch)
+
+        // In-process: the app is running, PlayerViewModel exists.
+        if let vm = AppIntentBridge.shared.playerVM {
+            AppIntentBridge.shared.setPendingCommand(channelId: ch.id)
+            NotificationCenter.default.post(name: .siriIntentDidPerform, object: nil)
+            await vm.load(channel: ch, autoPlay: true)
+            LorewaveIntentDonations.donateChannel(ch)
+            if ch.category == "Podcasts" {
+                LorewaveIntentDonations.donatePodcast(ch)
+            }
+            return .result()
+        }
+
+        // Extension process: store pending command for main app.
+        AppIntentBridge.shared.storePendingCommandInAppGroup(channelId: ch.id)
         return .result()
     }
 }
@@ -47,7 +91,7 @@ struct PlayChannelIntent: AppIntent {
 struct PlayPodcastIntent: AppIntent {
     static let title: LocalizedStringResource = "Play Podcast"
     static let description = IntentDescription("Start playing a podcast or news show on Lorewave.")
-    static let openAppWhenRun = true
+    static let openAppWhenRun = false
     static var parameterSummary: some ParameterSummary {
         Summary("Play \(\.$podcast) on Lorewave")
     }
@@ -57,10 +101,24 @@ struct PlayPodcastIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
+        guard !KidsModeController.shared.isEnabled else {
+            throw IntentError.kidsModeActive
+        }
         guard let ch = Channel.defaults.first(where: { $0.id == podcast.id }) else {
             throw IntentError.channelNotFound(podcast.displayName)
         }
-        await AppIntentBridge.shared.loadChannel(ch)
+
+        // In-process: the app is running, PlayerViewModel exists.
+        if let vm = AppIntentBridge.shared.playerVM {
+            AppIntentBridge.shared.setPendingCommand(channelId: ch.id)
+            NotificationCenter.default.post(name: .siriIntentDidPerform, object: nil)
+            await vm.load(channel: ch, autoPlay: true)
+            LorewaveIntentDonations.donatePodcast(ch)
+            return .result()
+        }
+
+        // Extension process: store pending command for main app.
+        AppIntentBridge.shared.storePendingCommandInAppGroup(channelId: ch.id)
         return .result()
     }
 }

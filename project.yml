@@ -38,6 +38,7 @@ targets:
           - "**/*Tests.swift"
           - "**/*Mock*.swift"
           - "**/LinuxStubs/**"
+          - "**/IntentsExtension/**"
     info:
       path: ParsoRadio/Info.plist
       properties:
@@ -61,17 +62,6 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: false
-        # App Transport Security: the entire app stays HTTPS-only EXCEPT for
-        # podcast media loading, where several public broadcasters' enclosure
-        # URLs are still http and/or redirect to http-only CDNs (BBC's mediaset
-        # → bbc.pdn.tritondigital.com is the canonical case). Without this the
-        # AVPlayerItem load silently fails — the "BBC Global News loads forever
-        # with no spinner" symptom. Two narrow allowances:
-        #  • NSAllowsArbitraryLoadsInMedia — AVFoundation media loading only;
-        #    covers the default playback path for any http podcast.
-        #  • NSExceptionDomains — specific BBC + CDN hosts, needed for the
-        #    streaming-cache delegate's own URLSession (which is not under
-        #    AVFoundation's media-loading scope).
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInMedia: true
           NSExceptionDomains:
@@ -102,7 +92,44 @@ targets:
           DEVELOPMENT_TEAM: "$(CI_TEAM)"
           PROVISIONING_PROFILE_SPECIFIER: "$(CI_PROFILE)"
     dependencies:
+      - target: LorewaveIntents
+        embed: true
       - package: SQLite
+
+  LorewaveIntents:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ParsoRadio/IntentsExtension
+    info:
+      path: ParsoRadio/IntentsExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Lorewave Intents
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.intents-service
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).IntentHandler"
+          NSExtensionAttributes:
+            IntentsSupported:
+              - INPlayMediaIntent
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: guru.parso.ios-radio-app.intents
+        MARKETING_VERSION: "2.0.1"
+        CURRENT_PROJECT_VERSION: "1"
+      configs:
+        Debug:
+          CODE_SIGN_STYLE: Automatic
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "$(CI_CERT)"
+          DEVELOPMENT_TEAM: "$(CI_TEAM)"
+          PROVISIONING_PROFILE_SPECIFIER: "$(CI_PROFILE)"
+    entitlements:
+      path: ParsoRadio/IntentsExtension/LorewaveIntentsExtension.entitlements
 
   ParsoMusicTests:
     type: bundle.unit-test
@@ -155,6 +182,7 @@ schemes:
     build:
       targets:
         ParsoMusic: all
+        LorewaveIntents: all
     run:
       config: Debug
     test:

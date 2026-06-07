@@ -12,6 +12,7 @@ struct CuratedChannelsListView: View {
     @State private var showNewChannel = false
     @State private var editingChannel: ChannelMeta?
     @State private var showCurateChannel: ChannelMeta?
+    @State private var deleteConfirmChannel: ChannelMeta?
 
     let onSelectChannel: (Channel) -> Void
 
@@ -76,6 +77,21 @@ struct CuratedChannelsListView: View {
             CuratorChannelEditView(
                 channelMeta: meta,
                 onDismiss: { showCurateChannel = nil })
+        }
+        .alert("Delete \"\(deleteConfirmChannel?.name ?? "")\"?", isPresented: Binding(
+            get: { deleteConfirmChannel != nil },
+            set: { if !$0 { deleteConfirmChannel = nil } }
+        )) {
+            Button("Delete", role: .destructive) {
+                if let meta = deleteConfirmChannel {
+                    store.deleteChannel(chId: meta.id)
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                deleteConfirmChannel = nil
+            }
+        } message: {
+            Text("This removes the channel from the list. Shipped defaults can be restored from Settings. Custom channels are permanently deleted.")
         }
     }
 
@@ -142,7 +158,7 @@ struct CuratedChannelsListView: View {
         Divider()
 
         Button(role: .destructive) {
-            store.deleteChannel(chId: meta.id)
+            deleteConfirmChannel = meta
         } label: {
             Label("Delete", systemImage: "trash")
         }
@@ -601,7 +617,7 @@ struct CuratorChannelEditView: View {
                     }
                     // Auto-advance to the next un-verdicted candidate so the
                     // curator isn't stuck on a dead track.
-                    if let next = queue.first(where: { verdictStates[$0.id] == nil && $0.id != id }) {
+                    if let next = queue.first(where: { verdictStates[$0.id] == nil && !failedTrackIds.contains($0.id) }) {
                         Task { await playerVM.auditionTrack(next) }
                     } else {
                         playerVM.stopAudition()
@@ -647,7 +663,7 @@ struct CuratorChannelEditView: View {
                             .font(.caption)
                             .foregroundStyle(.yellow)
                             .scaleEffect(isFlashing ? 1.4 : 1.0)
-                            .animation(isFlashing ? .easeInOut(duration: 0.3).repeatCount(2, autoreverses: true) : .default, value: isFlashing)
+                            .animation(.none, value: isFlashing)
                     }
                     Text(track.title).font(.body).lineLimit(2)
                 }

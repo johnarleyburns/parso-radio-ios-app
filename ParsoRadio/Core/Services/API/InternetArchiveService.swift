@@ -102,9 +102,8 @@ struct InternetArchiveService {
             URLQueryItem(name: "fl[]",   value: "downloads"),
             URLQueryItem(name: "output", value: "json"),
             URLQueryItem(name: "rows",   value: "200"),
-            // ALL pure-Lucene IA channels (curated + LibriVox) get a fresh
-            // server-side random page every load — true "radio" variety.
-            URLQueryItem(name: "sort[]", value: "random"),
+            // Sort by download count to approximate popularity.
+            URLQueryItem(name: "sort[]", value: "downloads desc"),
         ]
         let (data, _) = try await session.data(from: components.url!)
         let response = try JSONDecoder().decode(IASearchResponse.self, from: data)
@@ -478,11 +477,7 @@ struct InternetArchiveService {
             URLQueryItem(name: "output",  value: "json"),
             URLQueryItem(name: "rows",    value: "20"),
             URLQueryItem(name: "start",   value: "\(page * 20)"),
-            // NO sort override → IA returns results in Solr's relevance order
-            // (this is what archive.org/search itself does). Previously we
-            // sorted by addeddate desc, which buried any old well-loved
-            // recording under whatever happened to be uploaded yesterday and
-            // happened to mention one of the search tokens.
+            URLQueryItem(name: "sort[]",  value: "downloads desc"),
         ]
         let (data, _) = try await session.data(from: components.url!)
         let response = try JSONDecoder().decode(IASearchResponse.self, from: data)

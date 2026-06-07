@@ -124,14 +124,14 @@ final class QueueManagerTests: XCTestCase {
         // the per-channel manifest entries being separate — exercise that path
         // by injecting a manifestPool keyed by channel id.
         let sg = Channel.defaults.first { $0.id == "guitar-classical" }!
-        let cm = Channel.defaults.first { $0.id == "chamber-music" }!
+        let cm = Channel.defaults.first { $0.id == "string-quartet" }!
         let sgApproved = (1...5).map { makeStamped(id: "sg-\($0)", stamp: "x") }
         let cmApproved = (1...5).map { makeStamped(id: "cm-\($0)", stamp: "x") }
         await db.saveTracks(sgApproved + cmApproved)
         let q = QueueManager(db: db, defaults: defaults, manifestPool: { channelId in
             switch channelId {
             case "guitar-classical": return sgApproved
-            case "chamber-music":    return cmApproved
+            case "string-quartet":    return cmApproved
             default:                  return []
             }
         })

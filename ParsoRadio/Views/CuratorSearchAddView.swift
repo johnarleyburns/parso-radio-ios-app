@@ -94,7 +94,7 @@ struct CuratorSearchAddView: View {
                             .font(.caption)
                             .foregroundStyle(.yellow)
                             .scaleEffect(isFlashing ? 1.4 : 1.0)
-                            .animation(isFlashing ? .easeInOut(duration: 0.3).repeatCount(2, autoreverses: true) : .default, value: isFlashing)
+                            .animation(.none, value: isFlashing)
                     }
                     Text(group.title).font(.body).lineLimit(2)
                 }
@@ -205,13 +205,22 @@ struct CuratorSearchAddView: View {
         defer { isSearching = false }
         do {
             results = try await archiveService.search(query: q, page: 0)
-            var existing: [String: String] = [:]
-            for g in results {
-                if let s = await db.curationStatus(channelId: channel.id, trackId: g.id) {
-                    existing[g.id] = s
+            let statuses = await withTaskGroup(of: (String, String)?.self) { group in
+                for g in results {
+                    group.addTask { [channelId = channel.id] in
+                        if let s = await db.curationStatus(channelId: channelId, trackId: g.id) {
+                            return (g.id, s)
+                        }
+                        return nil
+                    }
                 }
+                var dict: [String: String] = [:]
+                for await pair in group {
+                    if let (id, s) = pair { dict[id] = s }
+                }
+                return dict
             }
-            existingVerdicts = existing
+            existingVerdicts = statuses
         } catch {
             results = []
             errorMessage = error.localizedDescription

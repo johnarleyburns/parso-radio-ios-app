@@ -97,10 +97,12 @@ final class PodcastUITests: XCTestCase {
         if podcastsButton.waitForExistence(timeout: 10) {
             podcastsButton.tap()
         }
-        // All 7 built-in podcast channels should be visible
+        // All 12 built-in podcast channels should be visible
         let expectedChannels = [
             "NPR Up First", "PBS NewsHour", "Democracy Now!",
-            "NPR 1A", "BBC Global News", "DW Inside Europe", "CBC As It Happens"
+            "NPR 1A", "BBC Global News", "DW Inside Europe", "CBC As It Happens",
+            "The Joe Rogan Experience", "The Daily", "This American Life",
+            "TED Radio Hour", "NPR Politics Podcast"
         ]
         for name in expectedChannels {
             XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 5),

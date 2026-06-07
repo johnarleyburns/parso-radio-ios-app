@@ -35,6 +35,8 @@ struct Channel: Codable, Identifiable, Hashable {
     let startOffsetSeconds: Double?
     // Optional external image URL for channel-level artwork (podcast show art, etc.)
     let imageURL: String?
+    // Custom IA query (curated/user-created channels that aren't in ia_queries.json).
+    let iaQuery: String?
 
     init(
         id: String, name: String, category: String, icon: String,
@@ -44,7 +46,7 @@ struct Channel: Codable, Identifiable, Hashable {
         preferredSource: String? = nil, feedURL: String? = nil,
         isDownloaded: Bool = false, minTrackDuration: Double? = nil,
         summary: String? = nil, startOffsetSeconds: Double? = nil,
-        imageURL: String? = nil
+        imageURL: String? = nil, iaQuery: String? = nil
     ) {
         self.id = id; self.name = name; self.category = category; self.icon = icon
         self.composers = composers; self.instruments = instruments; self.tags = tags
@@ -56,9 +58,14 @@ struct Channel: Codable, Identifiable, Hashable {
         self.summary = summary
         self.startOffsetSeconds = startOffsetSeconds
         self.imageURL = imageURL
+        self.iaQuery = iaQuery
     }
 
-    var iaQueryEntry: IAQueryEntry? { IAQueryRegistry.shared.entry(for: id) }
+    var iaQueryEntry: IAQueryEntry? {
+        if let entry = IAQueryRegistry.shared.entry(for: id) { return entry }
+        if let q = iaQuery { return IAQueryEntry(channelId: id, iaQuery: q, matchTags: []) }
+        return nil
+    }
 
     // The per-channel isolation stamp injected onto registry tracks. It is
     // namespaced so it can NEVER collide with a natural IA subject value —
@@ -304,6 +311,41 @@ extension Channel {
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://www.cbc.ca/podcasting/includes/asithappens.xml"
         ),
+        Channel(
+            id: "podcast-joe-rogan", name: "The Joe Rogan Experience",
+            category: "Podcasts", icon: "mic.fill",
+            tags: ["podcast-joe-rogan"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.simplecast.com/dZbMGr98"
+        ),
+        Channel(
+            id: "podcast-nyt-daily", name: "The Daily",
+            category: "Podcasts", icon: "newspaper.fill",
+            tags: ["podcast-nyt-daily"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.simplecast.com/54nAGcIl"
+        ),
+        Channel(
+            id: "podcast-this-american-life", name: "This American Life",
+            category: "Podcasts", icon: "radio.fill",
+            tags: ["podcast-this-american-life"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://www.thisamericanlife.org/podcast/rss.xml"
+        ),
+        Channel(
+            id: "podcast-ted-radio-hour", name: "TED Radio Hour",
+            category: "Podcasts", icon: "lightbulb.fill",
+            tags: ["podcast-ted-radio-hour"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://www.npr.org/rss/podcast.php?id=510298"
+        ),
+        Channel(
+            id: "podcast-npr-politics", name: "NPR Politics Podcast",
+            category: "Podcasts", icon: "building.columns.fill",
+            tags: ["podcast-npr-politics"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.npr.org/510310/podcast.xml"
+        ),
 
         // MARK: Curated — pure-Lucene IA channels
         // Each channel here resolves to ONE hand-tuned Lucene query in
@@ -325,16 +367,6 @@ extension Channel {
             preferredSource: "internet_archive",
             summary: "Classical guitar — a rotating mix of the great guitarists (Segovia, Yepes, Bream, the Romeros, Sabicas, Carlos Montoya, Paco de Lucía, Manuel Barrueco, David Russell, Laurindo Almeida, Li Jie) and the core repertoire (Tárrega, Sor, Rodrigo's Concierto de Aranjuez, Giuliani, Villa-Lobos). Interviews, talks and lectures are excluded."
         ),
-        // Chamber Music: curl-verified 2026-05-15 — 919 items; canonical
-        // ensembles (Budapest/Quartetto Italiano), Trout Quintet, Beethoven
-        // late quartets; zero AI/jazz/radio noise.
-        Channel(
-            id: "chamber-music", name: "Chamber Music", category: "Curated",
-            icon: "music.quarternote.3",
-            tags: ["chamber music", "string quartet", "piano trio"],
-            preferredSource: "internet_archive",
-            summary: "Intimate ensemble music — string quartets, piano trios and quintets by Beethoven, Brahms, Mozart, Schubert, Dvořák and more. No jazz, AI tracks, or radio noise."
-        ),
         // String Quartet: the canonical quartet repertoire only — Haydn, Mozart,
         // Beethoven, Schubert, Dvořák, Mendelssohn, Brahms, Shostakovich, Bartók,
         // Ravel/Debussy — performed by the great ensembles (Budapest, Quartetto
@@ -346,16 +378,6 @@ extension Channel {
             tags: ["string-quartet"],
             preferredSource: "internet_archive",
             summary: "The cornerstone of chamber music — string quartets by Haydn, Mozart, Beethoven, Schubert, Mendelssohn, Brahms, Dvořák, Bartók, Ravel, Debussy and Shostakovich, played by the legendary quartets (Budapest, Quartetto Italiano, Amadeus, Juilliard)."
-        ),
-        // Historical Voices: curl-verified 2026-05-15 — 2716 items; Pacifica
-        // Radio Archives + Freedom Archives interviews/public-affairs (Sontag,
-        // Vidal, Churchill, Clarke, civil-rights & Vietnam-era recordings).
-        Channel(
-            id: "historical-voices", name: "Historical Voices", category: "Curated",
-            icon: "mic",
-            tags: ["interview", "public affairs", "history"],
-            preferredSource: "internet_archive",
-            summary: "Archival interviews and public-affairs recordings from the Pacifica Radio and Freedom Archives — civil-rights, Vietnam-era and 20th-century cultural voices."
         ),
         // Symphony Orchestra: curl-verified 2026-05-15 — 889 items; orchestral
         // symphonies/concertos/overtures (Beethoven, Mahler, Shostakovich,
@@ -403,15 +425,6 @@ extension Channel {
         // Religious Music: sacred/liturgical music across faiths (Christian
         // sacred choral, Gregorian chant, hymns, spirituals; Hindu bhajan &
         // kirtan; Sufi qawwali; Jewish cantorial; Buddhist chant). Sermons
-        // and lectures explicitly excluded — music only. Curl-verified
-        // 2026-05-21 — 3,606 items.
-        Channel(
-            id: "religious-music", name: "Religious Music", category: "Curated",
-            icon: "music.quarternote.3",
-            tags: ["religious-music"],
-            preferredSource: "internet_archive",
-            summary: "Sacred and devotional music across faiths — Gregorian chant, Christian sacred choral works, hymns and spirituals, Hindu bhajan and kirtan, Sufi qawwali, Jewish cantorial, Buddhist chant. Music only; sermons and lectures are excluded."
-        ),
         // Children's Songs: two safe arms — vintage 78rpm nursery-rhyme
         // records (phrase-title matched) + the curated subject:"kids music"
         // tag (PBS/Nick Jr./Disney/indie kids comps). netlabels excluded
@@ -426,14 +439,6 @@ extension Channel {
             summary: "Family-friendly children's music — vintage nursery-rhyme 78s and curated kids' compilations. Content is filtered for a young audience."
         ),
         // Curated book channels — explicit author/work allowlists (LibriVox,
-        // English). Like all book channels they play a book's FIRST track;
-        // the user adds the whole book to a playlist if they want it.
-        Channel(
-            id: "ancient-greece", name: "Ancient Greece", category: "Curated",
-            icon: "building.columns", tags: ["ancient-greece"],
-            contentType: .spokenWord, preferredSource: "internet_archive",
-            summary: "LibriVox readings of ancient Greek literature and philosophy — Homer, Plato, the tragedians and more, in English and Greek. Plays the first part of each work."
-        ),
         Channel(
             id: "great-books", name: "Great Books", category: "Curated",
             icon: "books.vertical", tags: ["great-books"],
