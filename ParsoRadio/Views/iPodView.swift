@@ -119,7 +119,7 @@ struct iPodView: View {
                     // status bar (the VStack still respects the top safe area).
                     screenPanel(geo: geo)
                         .frame(height: max(160.0, geo.size.height * 0.50))
-                        .overlay(alignment: .bottomTrailing) { supporterBadge }
+                        .overlay(alignment: .topTrailing) { supporterBadge }
                         .padding(.horizontal, deviceMargin(geo))
 
                     // Two equal spacers center the wheel between the track box
@@ -315,11 +315,11 @@ struct iPodView: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: mainBoldSize + 4, height: mainBoldSize + 4)
+                    .frame(width: 48, height: 48)
                     .clipShape(Circle())
                     .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
                     .padding(.trailing, 10)
-                    .padding(.bottom, 8)
+                    .padding(.top, 10)
             }
         }
     }

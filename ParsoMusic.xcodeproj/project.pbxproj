@@ -58,6 +58,7 @@
 		42A29E3241DA532C27F2B043 /* AgeGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CC77448AA57CF021142696E /* AgeGateView.swift */; };
 		434560D80345F71901F95BC4 /* childrens-songs.json in Resources */ = {isa = PBXBuildFile; fileRef = C0D35835326E82BF54A1D2AC /* childrens-songs.json */; };
 		44EC6E469D778393E8E2CF9F /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 541C7F61260980159C6C33C2 /* AudioEngine.swift */; };
+		45B3A5211CDFB2360EAE1845 /* CurationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD67EF05FFF99D16D948F1F4 /* CurationUITests.swift */; };
 		45FEDF8B85F5DAC176480DA3 /* LicenseValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE41CD1B131062BD0DEBF58 /* LicenseValidatorTests.swift */; };
 		4684C9A11CC49B011649BB26 /* CachingResourceLoaderDelegateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37302CFDE312437388F66714 /* CachingResourceLoaderDelegateTests.swift */; };
 		4707D51B63BB00C5FC58D55A /* great-books.json in Resources */ = {isa = PBXBuildFile; fileRef = 37CA750A60E1CBD6C6F66A3E /* great-books.json */; };
@@ -358,6 +359,7 @@
 		DB5588B42E0F68BEE2C0FEC2 /* CachingResourceLoaderDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachingResourceLoaderDelegate.swift; sourceTree = "<group>"; };
 		DBABD787C99F7223B908F422 /* ShareURLTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareURLTests.swift; sourceTree = "<group>"; };
 		DC7DB1B38E1798F23F07E3C3 /* ContributionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributionCoordinator.swift; sourceTree = "<group>"; };
+		DD67EF05FFF99D16D948F1F4 /* CurationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurationUITests.swift; sourceTree = "<group>"; };
 		DEB6B3FBC8AE244B81B0C596 /* InstrumentDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstrumentDetectorTests.swift; sourceTree = "<group>"; };
 		DF23A7546F62E6E330E172AE /* KidsModeControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidsModeControllerTests.swift; sourceTree = "<group>"; };
 		E3D8A770F78778563C7C43AD /* CuratedChannelsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CuratedChannelsListView.swift; sourceTree = "<group>"; };
@@ -750,13 +752,14 @@
 		F51DCFCBB5DF093E707ACC32 /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				DD67EF05FFF99D16D948F1F4 /* CurationUITests.swift */,
 				9799CCBFF502819C4AF6D51A /* SmokeTests.swift */,
 			);
 			name = UITests;
 			path = ParsoRadio/UITests;
 			sourceTree = "<group>";
 		};
-		"TEMP_2CD0C5CA-E6D7-4853-8802-886E6FE94909" /* Integration */ = {
+		"TEMP_956896BF-4676-4917-B7FE-8C23FACD61FB" /* Integration */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1090,6 +1093,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				45B3A5211CDFB2360EAE1845 /* CurationUITests.swift in Sources */,
 				1AC32122C7E00E707762D90E /* SmokeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

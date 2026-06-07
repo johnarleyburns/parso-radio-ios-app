@@ -121,6 +121,13 @@ ParsoRadio/
 ## Git workflow
 
 - Push to `main` triggers CI (unit tests → integration tests → TestFlight build)
-- Pre-push hook runs unit tests locally when configured
+- A **pre-push hook** runs unit tests locally and blocks the push if any test fails
+- **ALWAYS run tests locally before pushing** — guard against push rejection:
+  ```bash
+  xcodegen generate
+  xcodebuild test -project ParsoMusic.xcodeproj -scheme ParsoMusic \
+    -destination 'platform=iOS Simulator,name=iPhone 16' \
+    -only-testing:ParsoMusicTests
+  ```
 - Remote: `git@github.com:johnarleyburns/parso-radio-ios-app.git`
 - CI status: `gh run list --limit 1 --branch main`

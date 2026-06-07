@@ -8,6 +8,7 @@ import SwiftUI
 struct CuratedChannelsListView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @StateObject private var store = CustomChannelsStore.shared
+    @ObservedObject private var liveStore = LiveCurationStore.shared
 
     // Direct access to shared singleton for method calls (avoids StateObject
     // dynamic-member-lookup shadowing of method calls in Swift 6/Xcode 16).
@@ -746,6 +747,25 @@ struct CuratorChannelEditView: View {
         await db.setCuration(channelId: channelMeta.id, trackId: track.id, status: status)
         await LiveCurationStore.shared.reload(from: db)
 
+        // Write to per-channel JSON file so exported / shared files reflect
+        // the latest verdicts (consistent with undoVerdict and directVerdict).
+        if var def = CustomChannelsStore.shared.channelDefinition(for: channelMeta.id) {
+            if status == "approved" {
+                if !def.approved.contains(where: { $0.id == track.id }) {
+                    def.approved.append(ChannelDefinition.ApprovedEntry(
+                        id: track.id, title: track.title, creator: track.artist,
+                        duration: track.duration, parentIdentifier: track.parentIdentifier))
+                }
+                def.rejected.removeAll(where: { $0 == track.id })
+            } else {
+                if !def.rejected.contains(track.id) {
+                    def.rejected.append(track.id)
+                }
+                def.approved.removeAll(where: { $0.id == track.id })
+            }
+            CustomChannelsStore.shared.writeChannelDefinition(def)
+        }
+
         // Mark verdict for undo
         verdictStates[track.id] = (status: status, undone: false)
 
@@ -753,11 +773,12 @@ struct CuratorChannelEditView: View {
         counts = await db.curationCounts(channelId: channelMeta.id)
 
         guard wasPlaying else { return }
-        // Auto-advance to NEXT candidate
+        // Auto-advance: stop current audition then play next candidate.
+        // Bump the context token so any in-flight playTrack for the verdicted
+        // track is cancelled before we start the next one.
+        playerVM.stopAuditionWithoutRestore()
         if let next = queue.first(where: { verdictStates[$0.id] == nil }) {
             await playerVM.auditionTrack(next)
-        } else {
-            playerVM.stopAuditionWithoutRestore()
         }
     }
 

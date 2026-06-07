@@ -224,8 +224,32 @@ push to main
 
 ## Push methodology
 
-Single-branch workflow — push directly to `main`:
+Single-branch workflow — push directly to `main`. A pre-push hook runs unit tests locally before every push:
 
 ```bash
 git push origin main
+```
+
+**Before pushing, always run tests locally first.** This guards against push-rejection by the pre-push hook and catches regressions before CI sees them. The hook runs the same `xcodebuild test` command as CI and blocks the push if any test fails.
+
+```bash
+# Always run before push — matches what the pre-push hook + CI do
+xcodegen generate
+xcodebuild test -project ParsoMusic.xcodeproj -scheme ParsoMusic \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -only-testing:ParsoMusicTests
+```
+
+You can also run integration tests locally (requires network):
+```bash
+xcodebuild test -project ParsoMusic.xcodeproj -scheme ParsoMusic \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -only-testing:ParsoMusicIntegrationTests
+```
+
+UI tests are local-only and NOT run on CI:
+```bash
+xcodebuild test -project ParsoMusic.xcodeproj -scheme ParsoMusic \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -only-testing:ParsoMusicUITests
 ```

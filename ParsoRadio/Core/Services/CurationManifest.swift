@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 /// The SHIPPED curation (`ParsoRadio/Resources/curation.json`): the human-approved
 /// tracks per curated channel. Authored in Curator Mode → exported → committed →
@@ -53,42 +54,28 @@ final class CurationManifestStore {
     }
 }
 
-/// The LIVE curation store on the curator's device: every `setCuration` call
-/// triggers a `reload(from:)` which (1) rebuilds the in-memory approved-per-
-/// channel snapshot QueueManager reads from, and (2) atomically writes the
-/// current manifest to `Documents/curation.json`. So the curator sees their
-/// own verdicts take effect on playback immediately, AND the file is right
-/// there in the iOS Files app for inspection / sharing without an app
-/// rebuild. Falls back to the SHIPPED bundled manifest for any channel the
-/// curator hasn't touched (non-curator users on the App Store).
-final class LiveCurationStore {
+/// The LIVE curation store on the curator's device. ObservableObject so
+/// SwiftUI views automatically refresh when verdicts change.
+final class LiveCurationStore: ObservableObject {
     static let shared = LiveCurationStore()
 
     private let lock = NSLock()
-    private var approvedByChannel: [String: [Track]] = [:]
+    @Published private var approvedByChannel: [String: [Track]] = [:]
 
-    /// Re-read curated tracks from the DB; refresh the in-memory snapshot.
-    /// The DB is the sole source of truth. JSON files are for import/export
-    /// only — they are NEVER written to by runtime verdicts.
     func reload(from db: DatabaseService) async {
         let approved = await db.exportApprovedByChannel()
         lock.withLock {
             approvedByChannel = approved
         }
+        await MainActor.run { [approved] in
+            self.approvedByChannel = approved
+        }
     }
 
-    /// QueueManager calls this on every track pick. Prefers the curator's live
-    /// DB; falls back to the BUNDLED manifest (so non-curator users still play
-    /// the shipped curation).
     func pool(for channelId: String) -> [Track] {
-        // The DB is the sole source of truth for all curation verdicts.
-        // JSON files are for import/export/sharing only — NEVER for runtime
-        // playback decisions. This prevents stale-file bugs where a rejected
-        // track in the DB would still play because the JSON file had it.
         lock.withLock { approvedByChannel[channelId] ?? [] }
     }
 
-    /// True if the live DB has any approved tracks for this channel.
     func hasLiveCuration(for channelId: String) -> Bool {
         lock.withLock {
             !(approvedByChannel[channelId]?.isEmpty ?? true)

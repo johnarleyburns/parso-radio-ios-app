@@ -88,14 +88,13 @@ final class CustomChannelsStore: ObservableObject {
     /// table. Once a channel has ANY verdict, the user owns it — the JSON is
     /// never consulted again for that channel.
     ///
-    /// Also serves as RECOVERY: if the DB was wiped but the per-channel JSON
-    /// file still has approved entries (from a prior export or bootstrap),
-    /// those verdicts are restored.
+    /// One-time import only: channels that have never been curated get the
+    /// bundled defaults. Once a user touches a channel (any verdict), the
+    /// JSON file is never consulted again for that channel.
     func importBundledCurationsIfNeeded(db: DatabaseService) async {
         let shippedChannels = Channel.defaults
             .filter { $0.category == "Curated" && $0.iaQueryEntry != nil }
         var imported = 0
-        var recovered = 0
 
         for ch in shippedChannels {
             let counts = await db.curationCounts(channelId: ch.id)
@@ -104,28 +103,17 @@ final class CustomChannelsStore: ObservableObject {
             guard let def = channelDefinition(for: ch.id) else { continue }
 
             if isUnclaimed && !def.approved.isEmpty {
-                // Fresh install: import bundled approved tracks as DB verdicts
                 for entry in def.approved {
                     await db.setCuration(channelId: ch.id, trackId: entry.id,
                                           status: "approved")
                 }
                 imported += def.approved.count
-            } else if !isUnclaimed && counts.approved == 0 && !def.approved.isEmpty {
-                // RECOVERY: DB was wiped but approved tracks exist in JSON file
-                for entry in def.approved {
-                    await db.setCuration(channelId: ch.id, trackId: entry.id,
-                                          status: "approved", note: "recovered")
-                }
-                recovered += def.approved.count
             }
         }
 
-        if imported > 0 || recovered > 0 {
+        if imported > 0 {
             Log.general.info(
-                "[CustomChannels] Imported \(imported) bundled + recovered \(recovered) verdicts from JSON files")
-        }
-        // Refresh the in-memory store after import/recovery
-        if imported > 0 || recovered > 0 {
+                "[CustomChannels] Imported \(imported) bundled verdicts from JSON files")
             await LiveCurationStore.shared.reload(from: db)
         }
     }
