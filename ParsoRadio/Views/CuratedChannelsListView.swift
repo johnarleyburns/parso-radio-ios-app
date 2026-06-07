@@ -685,7 +685,7 @@ struct CuratorChannelEditView: View {
             }
             if isVerdicted {
                 Button {
-                    undoVerdict(track)
+                    Task { await undoVerdict(track) }
                 } label: {
                     Image(systemName: "arrow.uturn.backward.circle.fill")
                         .font(.title)
@@ -729,6 +729,7 @@ struct CuratorChannelEditView: View {
         .padding(.vertical, 4)
     }
 
+    @MainActor
     private func reload() async {
         counts = await db.curationCounts(channelId: channelMeta.id)
         let raw: [Track]
@@ -742,6 +743,7 @@ struct CuratorChannelEditView: View {
         verdictStates = verdictStates.filter { ids.contains($0.key) }
     }
 
+    @MainActor
     private func verdict(_ track: Track, _ status: String) async {
         let wasPlaying = playerVM.currentTrack?.id == track.id
         await db.setCuration(channelId: channelMeta.id, trackId: track.id, status: status)
@@ -782,24 +784,21 @@ struct CuratorChannelEditView: View {
         }
     }
 
-    private func undoVerdict(_ track: Track) {
+    @MainActor
+    private func undoVerdict(_ track: Track) async {
         verdictStates.removeValue(forKey: track.id)
-        Task {
-            await db.setCuration(channelId: channelMeta.id, trackId: track.id, status: "review")
-            await LiveCurationStore.shared.reload(from: db)
-            // Remove from per-channel JSON file
-            if var def = CustomChannelsStore.shared.channelDefinition(for: channelMeta.id) {
-                def.approved.removeAll(where: { $0.id == track.id })
-                def.rejected.removeAll(where: { $0 == track.id })
-                CustomChannelsStore.shared.writeChannelDefinition(def)
-            }
-            // Update counts only — don't reload the queue so the row stays in
-            // place (matches how verdict() avoids an @State queue reassignment).
-            counts = await db.curationCounts(channelId: channelMeta.id)
-            if filterMode != .review { await reload() }
+        await db.setCuration(channelId: channelMeta.id, trackId: track.id, status: "review")
+        await LiveCurationStore.shared.reload(from: db)
+        if var def = CustomChannelsStore.shared.channelDefinition(for: channelMeta.id) {
+            def.approved.removeAll(where: { $0.id == track.id })
+            def.rejected.removeAll(where: { $0 == track.id })
+            CustomChannelsStore.shared.writeChannelDefinition(def)
         }
+        counts = await db.curationCounts(channelId: channelMeta.id)
+        if filterMode != .review { await reload() }
     }
 
+    @MainActor
     private func loadMoreCandidates() async {
         guard let query = channelMeta.iaQuery, !query.isEmpty else { return }
         isFetching = true

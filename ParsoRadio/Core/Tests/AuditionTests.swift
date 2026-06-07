@@ -178,4 +178,46 @@ final class AuditionTests: XCTestCase {
         vm.stopAuditionWithoutRestore()
         XCTAssertNil(vm.currentTrack)
     }
+
+    // MARK: - Verdict auto-advance safety
+
+    /// Verdict → stopAuditionWithoutRestore → auditionTrack must not crash
+    /// when called on the main actor with a playing track. This guards the
+    /// crash fixed by adding @MainActor to verdict() — before the fix,
+    /// stopAuditionWithoutRestore ran off the main actor after an await
+    /// suspension in verdict(), causing AVFoundation thread-checker crashes.
+    @MainActor
+    func test_verdictRejectWhilePlayingDoesNotCrash() async {
+        // Setup: audition track that IS playing
+        let track = makeTrack("t1")
+        await vm.auditionTrack(track)
+        vm.currentTrack = track
+        vm.isPlaying = true
+        vm.isLoading = false
+
+        // Simulate rejection verdict: stop audition, then start next
+        vm.stopAuditionWithoutRestore()
+        XCTAssertNil(vm.currentTrack, "should clear current track")
+        XCTAssertFalse(vm.isPlaying, "should stop playing")
+        XCTAssertFalse(vm.isLoading)
+
+        // Start audition of next candidate — must not crash
+        let next = makeTrack("t2")
+        await vm.auditionTrack(next)
+    }
+
+    /// After rejecting the ONLY playing candidate, stopAuditionWithoutRestore
+    /// must leave the player in a clean silent state (no crash, no zombie).
+    @MainActor
+    func test_verdictRejectSoloCandidateSilence() async {
+        let track = makeTrack("solo")
+        await vm.auditionTrack(track)
+        vm.currentTrack = track
+        vm.isPlaying = true
+
+        vm.stopAuditionWithoutRestore()
+        XCTAssertNil(vm.currentTrack)
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertNil(vm.errorMessage)
+    }
 }
