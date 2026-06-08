@@ -161,24 +161,15 @@ struct HomeView: View {
 
             // Categories grid
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                categoryCard(title: "Playlists", icon: "music.note.list",
-                             color: Color(red: 0.18, green: 0.42, blue: 0.95),
-                             route: HomeRoute.playlists)
+                categoryCard(title: "Playlists", imageName: "playlists", route: HomeRoute.playlists)
 
                 ForEach(Self.orderedCategories(), id: \.self) { category in
-                    categoryCard(title: category,
-                                 icon: ChannelCategoryStyle.icon(for: category),
-                                 color: ChannelCategoryStyle.color(for: category),
-                                 route: HomeRoute.channelCategory(category))
+                    categoryCard(title: category, imageName: category.lowercased(), route: HomeRoute.channelCategory(category))
                 }
 
-                categoryCard(title: "Settings", icon: "gearshape",
-                             color: Color(red: 0.35, green: 0.35, blue: 0.40),
-                             route: HomeRoute.settings)
+                categoryCard(title: "Settings", imageName: nil, route: HomeRoute.settings)
 
-                categoryCard(title: "About", icon: "info.circle",
-                             color: Color(red: 0.25, green: 0.30, blue: 0.45),
-                             route: HomeRoute.about)
+                categoryCard(title: "About", imageName: nil, route: HomeRoute.about)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
@@ -187,30 +178,34 @@ struct HomeView: View {
 
     // MARK: - Category Card
 
-    private func categoryCard(title: String, icon: String, color: Color, route: HomeRoute) -> some View {
-        let gradient = ChannelCategoryStyle.gradient(for: title)
-        return NavigationLink(value: route) {
-            VStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 32, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(width: 64, height: 64)
-                    .background(
-                        Circle()
-                            .fill(.white.opacity(0.2))
-                    )
+    private func categoryCard(title: String, imageName: String?, route: HomeRoute) -> some View {
+        NavigationLink(value: route) {
+            ZStack(alignment: .bottomLeading) {
+                if let img = imageName {
+                    Image(img)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    ChannelCategoryStyle.gradient(for: title)
+                }
+
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.55)],
+                    startPoint: .center,
+                    endPoint: .bottom
+                )
+
                 Text(title)
                     .font(.headline)
                     .foregroundStyle(.white)
                     .lineLimit(1)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 12)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 140)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(gradient)
-                    .shadow(color: color.opacity(0.4), radius: 8, y: 4)
-            )
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) category")
