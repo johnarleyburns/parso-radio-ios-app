@@ -12,7 +12,7 @@ struct NowPlayingScreen: View {
     @State private var showChapters = false
     @State private var sleepTimerNow: Date = Date()
     private static let sleepTimerOptions: [Int] = [15, 30, 45, 60]
-    @State private var showChannelSelector = false
+    @State private var showChannelInfo = false
     @State private var showAddToPlaylist = false
     @State private var showAddItemToPlaylist = false
     @State private var showMoreOptions = false
@@ -104,10 +104,9 @@ struct NowPlayingScreen: View {
                 .accessibilityLabel("Track Info")
             }
         }
-        .sheet(isPresented: $showChannelSelector) {
-            ChannelSelectorView(currentChannelId: displayChannel.id) { channel in
-                showChannelSelector = false
-                Task { await playerVM.load(channel: channel) }
+        .sheet(isPresented: $showChannelInfo) {
+            NavigationStack {
+                ChannelInfoView(channel: displayChannel)
             }
         }
         .sheet(isPresented: $showAddToPlaylist) {
@@ -154,9 +153,9 @@ struct NowPlayingScreen: View {
             }
 
             HStack(spacing: 0) {
-                // Channel picker
+                // Channel info
                 Button {
-                    showChannelSelector = true
+                    showChannelInfo = true
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: displayChannel.icon)
@@ -167,7 +166,7 @@ struct NowPlayingScreen: View {
                     }
                     .frame(width: 60)
                 }
-                .accessibilityLabel("Change channel, currently \(displayChannel.name)")
+                .accessibilityLabel("Channel info for \(displayChannel.name)")
 
                 Spacer()
 

@@ -165,6 +165,7 @@ struct SettingsView: View {
                             Task {
                                 working = true
                                 await offlineService.removeOffline(playlist: pl)
+                                await playlistVM.loadPlaylists()
                                 cacheSizeTrigger &+= 1
                                 working = false
                             }

@@ -255,7 +255,10 @@ struct HomeView: View {
     private func channels(in category: String) -> [Channel] {
         var chs = Channel.defaults.filter { $0.category == category }
         if category == "Podcasts" {
-            chs += podcastStore.subscriptions.map { podcastStore.channel(from: $0) }
+            let subs = podcastStore.subscriptions.map { podcastStore.channel(from: $0) }
+            let subNames = Set(subs.map { $0.name.lowercased() })
+            chs = chs.filter { !subNames.contains($0.name.lowercased()) }
+            chs += subs
         }
         return chs.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
@@ -385,13 +388,7 @@ struct ChannelGridSubView: View {
 
     private var isPodcastsCategory: Bool { category == "Podcasts" }
 
-    private var allChannels: [Channel] {
-        if isPodcastsCategory {
-            let subs = podcastStore.subscriptions.map { podcastStore.channel(from: $0) }
-            return channels + subs
-        }
-        return channels
-    }
+    private var allChannels: [Channel] { channels }
 
     var body: some View {
         ScrollView {
