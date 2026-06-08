@@ -149,14 +149,7 @@ struct HomeView: View {
                         .font(.headline)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    let imageName: String = {
-                        switch contributionStore.subscriptionTier {
-                        case .yearly:  return "emperor_1024"
-                        case .monthly: return "beethoven_1024"
-                        case .none:    return ""
-                        }
-                    }()
-                    if !imageName.isEmpty, let uiImage = UIImage(named: imageName) {
+                    if let uiImage = UIImage(named: "supporter") {
                         Image(uiImage: uiImage)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
@@ -463,62 +456,62 @@ struct ChannelGridSubView: View {
     private func channelCard(_ channel: Channel) -> some View {
         let isSubscribed = channel.id.hasPrefix("podcast-")
 
-        VStack(spacing: 0) {
-            Button {
-                onSelectChannel(channel)
-            } label: {
-                VStack(spacing: 10) {
-                    channelImage(channel)
-                        .frame(width: 64, height: 64)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
+        Button {
+            onSelectChannel(channel)
+        } label: {
+            ZStack(alignment: .bottomLeading) {
+                channelImageBackground(channel)
 
-                    VStack(spacing: 2) {
-                        Text(channel.name)
-                            .font(.subheadline).fontWeight(.medium)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                        if let summary = channel.summary {
-                            Text(summary)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.center)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 160)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(.secondarySystemGroupedBackground))
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.55)],
+                    startPoint: .center,
+                    endPoint: .bottom
                 )
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Plays this channel")
-            .contextMenu {
-                NavigationLink(value: HomeRoute.channelInfo(channel)) {
-                    Label("Channel Info", systemImage: "info.circle")
-                }
-                if isSubscribed {
-                    Button(role: .destructive) {
-                        if let sub = podcastStore.subscriptions.first(where: {
-                            "podcast-\($0.id)" == channel.id
-                        }) {
-                            Task { await podcastStore.remove(sub) }
-                        }
-                    } label: {
-                        Label("Unsubscribe", systemImage: "trash")
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(channel.name)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                    if let summary = channel.summary {
+                        Text(summary)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .lineLimit(1)
                     }
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 16)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Plays this channel")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(channel.name)
+        .contextMenu {
+            NavigationLink(value: HomeRoute.channelInfo(channel)) {
+                Label("Channel Info", systemImage: "info.circle")
+            }
+            if isSubscribed {
+                Button(role: .destructive) {
+                    if let sub = podcastStore.subscriptions.first(where: {
+                        "podcast-\($0.id)" == channel.id
+                    }) {
+                        Task { await podcastStore.remove(sub) }
+                    }
+                } label: {
+                    Label("Unsubscribe", systemImage: "trash")
                 }
             }
         }
     }
 
     @ViewBuilder
-    private func channelImage(_ channel: Channel) -> some View {
-        // 1. Check asset catalog for named image (e.g. "podcast-joe-rogan")
+    private func channelImageBackground(_ channel: Channel) -> some View {
         if UIImage(named: channel.id) != nil {
             Image(channel.id)
                 .resizable()
@@ -535,28 +528,15 @@ struct ChannelGridSubView: View {
                     switch phase {
                     case .success(let image):
                         image.resizable().scaledToFill().clipped()
-                    case .failure:
-                        fallbackIcon(channel)
-                    case .empty:
-                        ProgressView().scaleEffect(0.6)
+                    case .failure, .empty:
+                        ChannelCategoryStyle.gradient(for: category)
                     @unknown default:
-                        fallbackIcon(channel)
+                        ChannelCategoryStyle.gradient(for: category)
                     }
                 }
             }
         } else {
-            fallbackIcon(channel)
-        }
-    }
-
-    @ViewBuilder
-    private func fallbackIcon(_ channel: Channel) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(ChannelCategoryStyle.gradient(for: category))
-            Image(systemName: channel.icon)
-                .font(.system(size: 24, weight: .medium))
-                .foregroundStyle(.white)
+            ChannelCategoryStyle.gradient(for: category)
         }
     }
 }
@@ -855,20 +835,25 @@ struct PlaylistGridSubView: View {
     @ViewBuilder
     private func playlistCard(_ playlist: Playlist) -> some View {
         NavigationLink(value: HomeRoute.playlist(playlist)) {
-            VStack(spacing: 10) {
-                playlistThumbnail(playlist)
-                    .frame(width: 64, height: 64)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+            ZStack(alignment: .bottomLeading) {
+                playlistCardBackground(playlist)
 
-                VStack(spacing: 2) {
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.55)],
+                    startPoint: .center,
+                    endPoint: .bottom
+                )
+
+                VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
                         if playlist.isFavorites {
                             Image(systemName: "heart.fill")
                                 .foregroundStyle(.red)
-                                .font(.caption2)
+                                .font(.caption)
                         }
                         Text(playlist.name)
-                            .font(.subheadline).fontWeight(.medium)
+                            .font(.headline)
+                            .foregroundStyle(.white)
                             .lineLimit(2)
                     }
                     HStack(spacing: 4) {
@@ -879,21 +864,19 @@ struct PlaylistGridSubView: View {
                         }
                         Image(systemName: "music.note")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.7))
                         Text("\(playlistVM.trackCount(for: playlist))")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.7))
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 16)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 160)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -903,25 +886,16 @@ struct PlaylistGridSubView: View {
     }
 
     @ViewBuilder
-    private func playlistThumbnail(_ playlist: Playlist) -> some View {
-        if let firstTrack = playlistVM.currentPlaylistTracks.first(where: { _ in true }), false {
-            // Playlist tracks need to be loaded — for now use SF Symbol
-            groupedIcon(icon: playlist.isFavorites ? "heart.fill" : "music.note.list",
-                        color: playlist.isFavorites ? .red : Color(red: 0.18, green: 0.42, blue: 0.95))
+    private func playlistCardBackground(_ playlist: Playlist) -> some View {
+        if !playlistVM.currentPlaylistTracks.isEmpty,
+           let firstTrack = playlistVM.currentPlaylistTracks.first {
+            ArtworkThumbnail(track: firstTrack, size: 200)
+                .id(firstTrack.id)
         } else {
-            groupedIcon(icon: playlist.isFavorites ? "heart.fill" : "music.note.list",
-                        color: playlist.isFavorites ? .red : Color(red: 0.18, green: 0.42, blue: 0.95))
-        }
-    }
-
-    @ViewBuilder
-    private func groupedIcon(icon: String, color: Color) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(color.gradient)
-            Image(systemName: icon)
-                .font(.system(size: 24, weight: .medium))
-                .foregroundStyle(.white)
+            Image("playlists")
+                .resizable()
+                .scaledToFill()
+                .clipped()
         }
     }
 }

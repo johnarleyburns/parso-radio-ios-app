@@ -1061,11 +1061,18 @@ final class PlayerViewModel: ObservableObject {
         // Pre-set duration from track metadata so scrubber renders before AVPlayer buffers.
         trackDuration = track.duration > 0 ? track.duration : nil
         // Clear the previous track's artwork IMMEDIATELY so a track with no
-        // image never shows the prior track's picture. The procedural
-        // visualizer fills the gap until/unless real art resolves.
+        // image never shows the prior track's picture. Try to show channel
+        // image right away as a placeholder while track artwork loads.
         currentArtwork = nil
         artworkDominantColor = .accentColor
-        // Load artwork asynchronously so playback starts without waiting.
+
+        // Show channel image immediately
+        if let ch = currentChannel, let imageURL = ch.imageURL,
+           let art = await ArtworkService.shared.artwork(fromURLString: imageURL) {
+            currentArtwork = art
+        }
+
+        // Load track artwork asynchronously so playback starts without waiting.
         Task { [weak self] in
             guard let self else { return }
             let art = await ArtworkService.shared.bestArtwork(for: track, channel: currentChannel)

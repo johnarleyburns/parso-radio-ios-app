@@ -62,6 +62,23 @@ struct NowPlayingScreen: View {
                     screenPanel(geo: geo)
                         .frame(height: max(160, geo.size.height * 0.55))
 
+                    // Track metadata below the image
+                    if let track = playerVM.currentTrack, !isAmbientLoop {
+                        VStack(spacing: 4) {
+                            Text(track.title)
+                                .font(.system(size: mainBoldSize, weight: .bold))
+                                .lineLimit(2)
+                            if let artist = cleaned(track.artist) {
+                                Text(artist)
+                                    .font(.system(size: mainRegularSize))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 8)
+                    }
+
                     Spacer()
 
                     Button {
@@ -280,12 +297,8 @@ struct NowPlayingScreen: View {
             )
 
             VStack(spacing: 0) {
-                Spacer()
-
                 if isAmbientLoop {
                     EmptyView()
-                } else if let track = playerVM.currentTrack {
-                    trackMetadataStack(track: track)
                 } else if let err = playerVM.errorMessage {
                     errorView(err)
                 }
