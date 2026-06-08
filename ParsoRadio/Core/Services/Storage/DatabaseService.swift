@@ -107,6 +107,27 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     private let colPSCreatedAt = Expression<Double>("created_at")
     private let colPSArtworkURL = Expression<String?>("artwork_url")
 
+    // MARK: - Track metadata enrichment table
+    private let trackMeta = Table("track_metadata")
+    private let colTMTrackID = Expression<String>("track_id")
+    private let colTMMBRecordingID = Expression<String?>("mb_recording_id")
+    private let colTMMBWorkID = Expression<String?>("mb_work_id")
+    private let colTMMBArtistID = Expression<String?>("mb_artist_id")
+    private let colTMMBReleaseID = Expression<String?>("mb_release_id")
+    private let colTMComposer = Expression<String?>("composer")
+    private let colTMComposerMBID = Expression<String?>("composer_mbid")
+    private let colTMPerformer = Expression<String?>("performer")
+    private let colTMWorkTitle = Expression<String?>("work_title")
+    private let colTMCatalogNumber = Expression<String?>("catalog_number")
+    private let colTMGenreTags = Expression<String?>("genre_tags")
+    private let colTMDurationMs = Expression<Int?>("duration_ms")
+    private let colTMRecordingDate = Expression<String?>("recording_date")
+    private let colTMComposerPortraitURL = Expression<String?>("composer_portrait_url")
+    private let colTMAlbumArtURL = Expression<String?>("album_art_url")
+    private let colTMTrackArtURL = Expression<String?>("track_art_url")
+    private let colTMEnrichedAt = Expression<Double>("enriched_at")
+    private let colTMEnrichmentSource = Expression<String?>("enrichment_source")
+
     init(path: String? = nil) throws {
         if let path {
             db = try Connection(path)
@@ -237,6 +258,29 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
         _ = try? db.run(
             "ALTER TABLE playlists ADD COLUMN is_kid_safe INTEGER NOT NULL DEFAULT 0")
         _ = try? db.run("ALTER TABLE podcast_subscriptions ADD COLUMN artwork_url TEXT")
+
+        // Track metadata enrichment (MusicBrainz, Wikidata, Cover Art Archive)
+        try db.run(trackMeta.create(ifNotExists: true) { t in
+            t.column(colTMTrackID, primaryKey: true)
+            t.column(colTMMBRecordingID)
+            t.column(colTMMBWorkID)
+            t.column(colTMMBArtistID)
+            t.column(colTMMBReleaseID)
+            t.column(colTMComposer)
+            t.column(colTMComposerMBID)
+            t.column(colTMPerformer)
+            t.column(colTMWorkTitle)
+            t.column(colTMCatalogNumber)
+            t.column(colTMGenreTags)
+            t.column(colTMDurationMs)
+            t.column(colTMRecordingDate)
+            t.column(colTMComposerPortraitURL)
+            t.column(colTMAlbumArtURL)
+            t.column(colTMTrackArtURL)
+            t.column(colTMEnrichedAt)
+            t.column(colTMEnrichmentSource)
+        })
+        try db.run("CREATE INDEX IF NOT EXISTS idx_track_meta_enriched ON track_metadata(enriched_at DESC)")
 
         // Enable FK enforcement
         _ = try? db.run("PRAGMA foreign_keys = ON")
@@ -1249,6 +1293,85 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
             queue.async { [self] in
                 _ = try? db.run(podcastSubs.filter(colPSId == sub.id).delete())
                 cont.resume()
+            }
+        }
+    }
+
+    // MARK: - Track metadata enrichment
+
+    func saveTrackMetadata(_ meta: TrackMetadata) async {
+        await withCheckedContinuation { cont in
+            queue.async { [self] in
+                _ = try? db.run(trackMeta.insert(or: .replace,
+                    colTMTrackID <- meta.trackID,
+                    colTMMBRecordingID <- meta.mbRecordingID,
+                    colTMMBWorkID <- meta.mbWorkID,
+                    colTMMBArtistID <- meta.mbArtistID,
+                    colTMMBReleaseID <- meta.mbReleaseID,
+                    colTMComposer <- meta.composer,
+                    colTMComposerMBID <- meta.composerMBID,
+                    colTMPerformer <- meta.performer,
+                    colTMWorkTitle <- meta.workTitle,
+                    colTMCatalogNumber <- meta.catalogNumber,
+                    colTMGenreTags <- (try? JSONEncoder().encode(meta.genreTags)).flatMap { String(data: $0, encoding: .utf8) },
+                    colTMDurationMs <- meta.durationMs,
+                    colTMRecordingDate <- meta.recordingDate,
+                    colTMComposerPortraitURL <- meta.composerPortraitURL,
+                    colTMAlbumArtURL <- meta.albumArtURL,
+                    colTMTrackArtURL <- meta.trackArtURL,
+                    colTMEnrichedAt <- meta.enrichedAt,
+                    colTMEnrichmentSource <- meta.enrichmentSource
+                ))
+                cont.resume()
+            }
+        }
+    }
+
+    func fetchTrackMetadata(trackID: String) async -> TrackMetadata? {
+        await withCheckedContinuation { cont in
+            queue.async { [self] in
+                guard let row = try? db.pluck(trackMeta.filter(colTMTrackID == trackID)) else {
+                    cont.resume(returning: nil)
+                    return
+                }
+                let genreTags: [String] = {
+                    guard let data = row[colTMGenreTags]?.data(using: .utf8),
+                          let tags = try? JSONDecoder().decode([String].self, from: data) else { return [] }
+                    return tags
+                }()
+                cont.resume(returning: TrackMetadata(
+                    trackID: row[colTMTrackID],
+                    mbRecordingID: row[colTMMBRecordingID],
+                    mbWorkID: row[colTMMBWorkID],
+                    mbArtistID: row[colTMMBArtistID],
+                    mbReleaseID: row[colTMMBReleaseID],
+                    composer: row[colTMComposer],
+                    composerMBID: row[colTMComposerMBID],
+                    performer: row[colTMPerformer],
+                    workTitle: row[colTMWorkTitle],
+                    catalogNumber: row[colTMCatalogNumber],
+                    genreTags: genreTags,
+                    durationMs: row[colTMDurationMs],
+                    recordingDate: row[colTMRecordingDate],
+                    composerPortraitURL: row[colTMComposerPortraitURL],
+                    albumArtURL: row[colTMAlbumArtURL],
+                    trackArtURL: row[colTMTrackArtURL],
+                    enrichedAt: row[colTMEnrichedAt],
+                    enrichmentSource: row[colTMEnrichmentSource]
+                ))
+            }
+        }
+    }
+
+    func fetchUnenrichedApprovedTrackIDs(channelId: String) async -> [String] {
+        await withCheckedContinuation { cont in
+            queue.async { [self] in
+                let approved = (try? db.prepare(curation
+                    .select(colCurTrack)
+                    .filter(colCurChannel == channelId && colCurStatus == "approved")))?
+                    .map { $0[colCurTrack] } ?? []
+                let enriched = Set((try? db.prepare(trackMeta.select(colTMTrackID)))?.map { $0[colTMTrackID] } ?? [])
+                cont.resume(returning: approved.filter { !enriched.contains($0) })
             }
         }
     }

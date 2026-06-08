@@ -1068,10 +1068,7 @@ final class PlayerViewModel: ObservableObject {
         // Load artwork asynchronously so playback starts without waiting.
         Task { [weak self] in
             guard let self else { return }
-            var art = await ArtworkService.shared.artwork(for: track)
-            if art == nil, let channelImageURL = currentChannel?.imageURL {
-                art = await ArtworkService.shared.artwork(fromURLString: channelImageURL)
-            }
+            let art = await ArtworkService.shared.bestArtwork(for: track, channel: currentChannel)
             // Stale-guard: a slow fetch for a track the user already skipped
             // past must NOT overwrite the current track's (cleared) artwork.
             guard self.currentTrack?.id == track.id else { return }

@@ -73,4 +73,9 @@ protocol DatabaseServiceProtocol: AnyObject {
     func fetchPodcastSubscriptions() async -> [PodcastSubscription]
     func savePodcastSubscription(_ sub: PodcastSubscription) async
     func deletePodcastSubscription(_ sub: PodcastSubscription) async
+
+    // Track metadata enrichment
+    func saveTrackMetadata(_ meta: TrackMetadata) async
+    func fetchTrackMetadata(trackID: String) async -> TrackMetadata?
+    func fetchUnenrichedApprovedTrackIDs(channelId: String) async -> [String]
 }

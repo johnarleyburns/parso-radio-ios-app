@@ -113,9 +113,11 @@
 		7AE827883BD341D55BDC6997 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EE894EB3C64AE146FB65FB0E /* Assets.xcassets */; };
 		7F0A8DC0FFEA776EA37D3B60 /* iPodView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EC2A5BA502881232EE9144D /* iPodView.swift */; };
 		7F5F2E0C72032E88106D1F5A /* cafe-lento.json in Resources */ = {isa = PBXBuildFile; fileRef = EF624BAC34C599223C0E7AAB /* cafe-lento.json */; };
+		7FAE402AC0E6E38CEAB6BFBF /* MetadataEnrichmentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF52B98DA80E9576FB3B56D /* MetadataEnrichmentService.swift */; };
 		808815F711F45C9E3134AC76 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B87C8AB791903D38656FAEB /* AboutView.swift */; };
 		81BED0891DA3954FBC3627FF /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 848FB82CC132898525D4B341 /* PlayerView.swift */; };
 		8471135BF78FE92F76ABCEC9 /* beethoven_1024.png in Resources */ = {isa = PBXBuildFile; fileRef = 9575F9BED50C5A7CB59A2FF8 /* beethoven_1024.png */; };
+		88959CBC7A71CD7C92FE438A /* TrackMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA769BAC0A3118D90765FB53 /* TrackMetadata.swift */; };
 		89134A069425B93E38F3601B /* PlaylistListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7835336CE6F2D4EB7555CB38 /* PlaylistListView.swift */; };
 		89EE158C4DE2C396852D157F /* SearchViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6117D7777E29A20EEE613E91 /* SearchViewModelTests.swift */; };
 		8C96450191CF799787D9FB53 /* SeekWheelViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0602C164CA303962768DF7B /* SeekWheelViewModelTests.swift */; };
@@ -341,6 +343,7 @@
 		8A67EC6251A6FABA629041AF /* piano-hour.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "piano-hour.json"; sourceTree = "<group>"; };
 		8B4A95C273F97DB7E660381E /* ProceduralVisualizerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProceduralVisualizerTests.swift; sourceTree = "<group>"; };
 		8B7979B424C80BC83AF791CB /* LicenseValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseValidator.swift; sourceTree = "<group>"; };
+		8FF52B98DA80E9576FB3B56D /* MetadataEnrichmentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataEnrichmentService.swift; sourceTree = "<group>"; };
 		93CBB2A39882407B90E3D1BA /* ChapterListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChapterListView.swift; sourceTree = "<group>"; };
 		94B89420421290CFF175D368 /* ContiguousFileCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContiguousFileCacheTests.swift; sourceTree = "<group>"; };
 		9575F9BED50C5A7CB59A2FF8 /* beethoven_1024.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = beethoven_1024.png; sourceTree = "<group>"; };
@@ -370,6 +373,7 @@
 		B7317B4B818EF2293596B836 /* ParsoMusicUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ParsoMusicUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B87E93B96AC679441C5D9C18 /* ParsoRadioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsoRadioApp.swift; sourceTree = "<group>"; };
 		B954038A107C476820882079 /* MetadataNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataNormalizer.swift; sourceTree = "<group>"; };
+		BA769BAC0A3118D90765FB53 /* TrackMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMetadata.swift; sourceTree = "<group>"; };
 		BA987C5BCA8D56B5648C3FF7 /* PodcastRSSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastRSSService.swift; sourceTree = "<group>"; };
 		BBA0E8993FD2725A7A83621E /* audiobooks.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = audiobooks.png; sourceTree = "<group>"; };
 		BBDAE9DCFCFA1D0107D218BD /* ComposerMapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerMapTests.swift; sourceTree = "<group>"; };
@@ -596,6 +600,7 @@
 				DAEC2FB29C75A68CDE7F19F8 /* Playlist.swift */,
 				46A52565D6D8809CCF6483AE /* PlaylistTrack.swift */,
 				10CC8259715ED7C709779CA0 /* Track.swift */,
+				BA769BAC0A3118D90765FB53 /* TrackMetadata.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -790,6 +795,7 @@
 				1400E8A40CC4880F316719C9 /* ArtworkService.swift */,
 				088841A15BBB79B86E05B6F8 /* ComposerMap.swift */,
 				10C9544ADB58967273114EB7 /* InstrumentDetector.swift */,
+				8FF52B98DA80E9576FB3B56D /* MetadataEnrichmentService.swift */,
 				B954038A107C476820882079 /* MetadataNormalizer.swift */,
 			);
 			path = Metadata;
@@ -839,7 +845,7 @@
 			path = ParsoRadio/UITests;
 			sourceTree = "<group>";
 		};
-		"TEMP_6FB9544F-9F01-49CD-838F-7E1E0BFBB58B" /* Integration */ = {
+		"TEMP_6A6CE548-FB27-425A-8206-765D7DDC383E" /* Integration */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1160,6 +1166,7 @@
 				C68DDB99C302CDD0A7C94FBC /* LoopingVideoView.swift in Sources */,
 				25481DA7CA807C529102E021 /* LorewaveIntents.swift in Sources */,
 				75F0206D9284344ACE7F4F36 /* MainMenuView.swift in Sources */,
+				7FAE402AC0E6E38CEAB6BFBF /* MetadataEnrichmentService.swift in Sources */,
 				04D7D134A4B6EFC991185103 /* MetadataNormalizer.swift in Sources */,
 				9DB6C708B3E32AC8BB85A32F /* NetworkMonitor.swift in Sources */,
 				A0B391E23322DDE9A7EF8ECA /* NowPlayingView.swift in Sources */,
@@ -1198,6 +1205,7 @@
 				3A6C79D297BD2BFBDA45F0DC /* SplashView.swift in Sources */,
 				97DB636D4D7750C5E2A88972 /* TermsView.swift in Sources */,
 				C9F33C6B831761863790DD03 /* Track.swift in Sources */,
+				88959CBC7A71CD7C92FE438A /* TrackMetadata.swift in Sources */,
 				1217C3CB0E0295B054C08637 /* WheelHelpView.swift in Sources */,
 				7F0A8DC0FFEA776EA37D3B60 /* iPodView.swift in Sources */,
 			);

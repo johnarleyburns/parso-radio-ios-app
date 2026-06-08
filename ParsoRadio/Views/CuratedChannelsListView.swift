@@ -396,6 +396,9 @@ struct CuratorChannelEditView: View {
     @State private var showFetchError = false
     @State private var showSearchAdd = false
     @State private var filterMode: FilterMode = .review
+    @StateObject private var enrichmentService: MetadataEnrichmentService = {
+        MetadataEnrichmentService(db: DatabaseService.shared)
+    }()
 
     enum FilterMode: String, CaseIterable {
         case review = "Review"
@@ -485,6 +488,40 @@ struct CuratorChannelEditView: View {
                     }
                 } header: {
                     Text("Add Candidates")
+                }
+
+                // Metadata enrichment
+                Section {
+                    if enrichmentService.isEnriching {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                ProgressView()
+                                Text("Enriching metadata…")
+                                    .font(.subheadline)
+                            }
+                            ProgressView(value: Double(enrichmentService.progress.completed),
+                                         total: Double(max(enrichmentService.progress.total, 1)))
+                            Text("\(enrichmentService.progress.completed) of \(enrichmentService.progress.total) approved tracks enriched")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if !enrichmentService.currentTrackTitle.isEmpty {
+                                Text(enrichmentService.currentTrackTitle)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .lineLimit(1)
+                            }
+                        }
+                    } else {
+                        Button {
+                            Task { await enrichmentService.enrichApprovedTracks(for: channelMeta.id) }
+                        } label: {
+                            Label("Run Metadata Queries", systemImage: "opticaldiscdrive")
+                        }
+                    }
+                } header: {
+                    Text("Metadata Enrichment")
+                } footer: {
+                    Text("Queries MusicBrainz, Wikidata, and Cover Art Archive for composer, performer, and artwork data on approved tracks. Requires internet. One request per second.")
                 }
 
                 // Review queue / approved / rejected
