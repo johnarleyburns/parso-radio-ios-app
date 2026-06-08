@@ -10,35 +10,41 @@ private func makeSharedDB() -> DatabaseService {
 
 @main
 struct ParsoMusicApp: App {
-    private static let sharedDB = makeSharedDB()
-    private static let sharedDownloadManager = DownloadManager(db: sharedDB)
-    @MainActor static let sharedContributionStore = ContributionStore()
-
-    @StateObject private var playerVM: PlayerViewModel = {
-        let db = ParsoMusicApp.sharedDB
-        let vm = PlayerViewModel(
+    @MainActor private static let deps: AppDependencies = {
+        let db = makeSharedDB()
+        let dm = DownloadManager(db: db)
+        let audioPlayer = AudioPlayerService()
+        let deps = AppDependencies(
             db: db,
+            downloadManager: dm,
             archiveService: InternetArchiveService(),
             fmaService: FMAService(),
             queueManager: QueueManager(db: db),
-            audioPlayer: AudioPlayerService(),
-            downloadManager: ParsoMusicApp.sharedDownloadManager
+            audioPlayer: audioPlayer,
+            contributionStore: ContributionStore()
         )
+        AppIntentBridge.shared.playerVM = nil
+        deps.podcastStore.configure(db: db)
+        return deps
+    }()
+
+    @MainActor static let sharedContributionStore: ContributionStore = {
+        ParsoMusicApp.deps.contributionStore
+    }()
+
+    @StateObject private var playerVM: PlayerViewModel = {
+        let d = ParsoMusicApp.deps
+        let vm = PlayerViewModel(deps: d)
         AppIntentBridge.shared.playerVM = vm
-        PodcastSubscriptionStore.shared.configure(db: db)
         return vm
     }()
 
     @StateObject private var playlistVM: PlaylistViewModel = {
-        PlaylistViewModel(db: ParsoMusicApp.sharedDB)
-    }()
-
-    @StateObject private var offlineService: OfflineDownloadService = {
-        OfflineDownloadService(db: ParsoMusicApp.sharedDB, downloadManager: ParsoMusicApp.sharedDownloadManager)
+        PlaylistViewModel(db: ParsoMusicApp.deps.db)
     }()
 
     @StateObject private var contributions =
-        ContributionCoordinator(store: ParsoMusicApp.sharedContributionStore)
+        ContributionCoordinator(store: ParsoMusicApp.deps.contributionStore)
 
     @AppStorage("tosAccepted") private var tosAccepted: Bool = false
     @AppStorage("appearance") private var appearance: String = "system"
@@ -56,6 +62,7 @@ struct ParsoMusicApp: App {
     @State private var showAgeGate: Bool = false
     @ObservedObject private var ageAssurance = AgeAssuranceService.shared
     @ObservedObject private var kids = KidsModeController.shared
+    @ObservedObject private var contributionStore = ParsoMusicApp.deps.contributionStore
     @Environment(\.scenePhase) private var scenePhase
 
     private var preferredScheme: ColorScheme? {
@@ -74,12 +81,14 @@ struct ParsoMusicApp: App {
                         KidsHomeView()
                             .environmentObject(playerVM)
                             .environmentObject(playlistVM)
-                            .environmentObject(offlineService)
+                            .environmentObject(Self.deps.offlineService)
+                            .environmentObject(Self.deps)
                     } else {
                         HomeView()
                             .environmentObject(playerVM)
                             .environmentObject(playlistVM)
-                            .environmentObject(offlineService)
+                            .environmentObject(Self.deps.offlineService)
+                            .environmentObject(Self.deps)
                     }
                 } else {
                     Color(.systemGroupedBackground).ignoresSafeArea()
@@ -112,7 +121,7 @@ struct ParsoMusicApp: App {
             }
             .task {
                 await CustomChannelsStore.shared.importBundledCurationsIfNeeded(
-                    db: ParsoMusicApp.sharedDB)
+                    db: Self.deps.db)
             }
             .fullScreenCover(isPresented: $showTerms) {
                 TermsView(isPresented: $showTerms)
@@ -138,8 +147,7 @@ struct ParsoMusicApp: App {
             .animation(.spring(duration: 0.3), value: contributions.showToast)
             .sheet(isPresented: $showSupport) {
                 NavigationStack {
-                    ContributionSupportView(store: ParsoMusicApp.sharedContributionStore,
-                                            showsDoneButton: true)
+                    ContributionSupportView(store: contributionStore, showsDoneButton: true)
                 }
             }
             .task { contributions.beginSession() }
@@ -153,49 +161,13 @@ struct ParsoMusicApp: App {
         }
     }
 
-    private func handleSiriPendingCommand() {
-        if let channelId = pendingSiriChannelId(from: .standard) {
-            executeSiriCommandIfNeeded(channelId: channelId)
-            UserDefaults.standard.removeObject(forKey: "siri.pendingChannelId")
-            UserDefaults.standard.removeObject(forKey: "siri.pendingTimestamp")
-            return
-        }
-
-        if let channelId = pendingSiriChannelId(from: .appGroup) {
-            executeSiriCommandIfNeeded(channelId: channelId)
-            UserDefaults.appGroup.removeObject(forKey: "siri.pendingChannelId")
-            UserDefaults.appGroup.removeObject(forKey: "siri.pendingTimestamp")
-            return
-        }
-    }
-
-    private func pendingSiriChannelId(from defaults: UserDefaults) -> String? {
-        guard let channelId = defaults.string(forKey: "siri.pendingChannelId"),
-              let ts = defaults.object(forKey: "siri.pendingTimestamp") as? TimeInterval,
-              Date().timeIntervalSince1970 - ts < 60 else {
-            defaults.removeObject(forKey: "siri.pendingChannelId")
-            defaults.removeObject(forKey: "siri.pendingTimestamp")
-            return nil
-        }
-        return channelId
-    }
-
-    private func executeSiriCommandIfNeeded(channelId: String) {
-        guard !KidsModeController.shared.isEnabled else { return }
-        if playerVM.isLoading || playerVM.currentChannel != nil { return }
-        guard let ch = Channel.defaults.first(where: { $0.id == channelId }) else { return }
-        Task { @MainActor in
-            await playerVM.load(channel: ch, autoPlay: true)
-        }
-    }
-}
-
 // MARK: - Kids Mode Home
 
 struct KidsHomeView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
+    @EnvironmentObject var deps: AppDependencies
     @ObservedObject private var kids = KidsModeController.shared
     @State private var showExitPin = false
     @State private var pinEntry = ""
@@ -293,6 +265,43 @@ struct KidsHomeView: View {
             let allowed = KidsModeController.allowedChannels()
             let ch = allowed.first { $0.id == lastId } ?? allowed.first ?? pendingChannel
             await playerVM.load(channel: ch, autoPlay: false)
+        }
+    }
+}
+
+    private func handleSiriPendingCommand() {
+        if let channelId = pendingSiriChannelId(from: .standard) {
+            executeSiriCommandIfNeeded(channelId: channelId)
+            UserDefaults.standard.removeObject(forKey: "siri.pendingChannelId")
+            UserDefaults.standard.removeObject(forKey: "siri.pendingTimestamp")
+            return
+        }
+
+        if let channelId = pendingSiriChannelId(from: .appGroup) {
+            executeSiriCommandIfNeeded(channelId: channelId)
+            UserDefaults.appGroup.removeObject(forKey: "siri.pendingChannelId")
+            UserDefaults.appGroup.removeObject(forKey: "siri.pendingTimestamp")
+            return
+        }
+    }
+
+    private func pendingSiriChannelId(from defaults: UserDefaults) -> String? {
+        guard let channelId = defaults.string(forKey: "siri.pendingChannelId"),
+              let ts = defaults.object(forKey: "siri.pendingTimestamp") as? TimeInterval,
+              Date().timeIntervalSince1970 - ts < 60 else {
+            defaults.removeObject(forKey: "siri.pendingChannelId")
+            defaults.removeObject(forKey: "siri.pendingTimestamp")
+            return nil
+        }
+        return channelId
+    }
+
+    private func executeSiriCommandIfNeeded(channelId: String) {
+        guard !KidsModeController.shared.isEnabled else { return }
+        if playerVM.isLoading || playerVM.currentChannel != nil { return }
+        guard let ch = Channel.defaults.first(where: { $0.id == channelId }) else { return }
+        Task { @MainActor in
+            await playerVM.load(channel: ch, autoPlay: true)
         }
     }
 }

@@ -30,6 +30,18 @@ final class ArtworkService {
 
     // MARK: - Public API
 
+    func cachedArtwork(for trackID: String) async -> UIImage? {
+        let key = trackID as NSString
+        if let cached = memCache.object(forKey: key) {
+            return cached === Self.notFoundSentinel ? nil : cached
+        }
+        if let image = readDiskCache(key: trackID) {
+            store(image, forKey: key)
+            return image
+        }
+        return nil
+    }
+
     func artwork(for track: Track) async -> UIImage? {
         let key = track.id as NSString
 

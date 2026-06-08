@@ -179,8 +179,8 @@ final class PlayerViewModel: ObservableObject {
         // Documents/curation.json file reflects the current DB).
         Task { [db] in await LiveCurationStore.shared.reload(from: db) }
 
-        // Issue 3: save isPlaying so cold-start can decide whether to auto-play.
-        NotificationCenter.default.addObserver(
+    // Issue 3: save isPlaying so cold-start can decide whether to auto-play.
+    NotificationCenter.default.addObserver(
             forName: UIApplication.willResignActiveNotification,
             object: nil, queue: .main
         ) { [weak self] _ in
@@ -356,6 +356,17 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
+    }
+
+    convenience init(deps: AppDependencies) {
+        self.init(
+            db: deps.db,
+            archiveService: deps.archiveService,
+            fmaService: deps.fmaService,
+            queueManager: deps.queueManager,
+            audioPlayer: deps.audioPlayer,
+            downloadManager: deps.downloadManager
+        )
     }
 
     // Set from the scrub gestures (wheel ring drag + progress slider). Stamps
@@ -1066,10 +1077,7 @@ final class PlayerViewModel: ObservableObject {
             if let art {
                 let uiColor = ArtworkService.shared.dominantColor(from: art)
                 self.artworkDominantColor = Color(uiColor)
-                let mpArt = MPMediaItemArtwork(boundsSize: art.size) { _ in art }
-                var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-                info[MPMediaItemPropertyArtwork] = mpArt
-                MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                audioPlayer.updateNowPlayingArtwork(art)
             } else {
                 self.artworkDominantColor = .accentColor
             }
@@ -1151,6 +1159,12 @@ final class PlayerViewModel: ObservableObject {
                              looping: currentChannel?.contentType == .ambientLoop,
                              startAt: resumeAt,
                              autoPlay: autoPlay)
+            if let ch = currentChannel {
+                audioPlayer.updateNowPlayingChannel(ch.name)
+            }
+            if let cachedArt = await ArtworkService.shared.cachedArtwork(for: track.id) {
+                audioPlayer.updateNowPlayingArtwork(cachedArt)
+            }
             if resumeAt > 0 {
                 // Show the resume position in the UI immediately; AudioPlayer
                 // applies the actual seek once the item is .readyToPlay.

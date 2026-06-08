@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// The audio playback surface `PlayerViewModel` drives. Extracted so the
 /// orchestrator can be tested against a deterministic `FakeAudioEngine` (the
@@ -36,4 +37,6 @@ protocol AudioEngine: AnyObject {
     func setPlaybackRate(_ rate: Float)
     func syncPlaybackState()
     func invalidateStreamingCache(for trackID: String)
+    func updateNowPlayingArtwork(_ artwork: UIImage)
+    func updateNowPlayingChannel(_ channelName: String)
 }

@@ -15,6 +15,8 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
 
     @Published var isPlaying = false
     @Published var currentTrack: Track?
+    @Published var embeddedChapters: [Chapter] = []
+    @Published var currentChapterIndex: Int = 0
     // Persisted across launches (UserDefaults). Clamped to [0.5, 2.0].
     @Published var playbackRate: Float = AudioPlayerService.savedRate()
 
@@ -185,6 +187,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
                 self.nonAudioTimer = nil
                 self.onTimeUpdate?(time.seconds)
                 self.updateNowPlayingElapsed(time.seconds)
+                self.updateCurrentChapter(at: time.seconds)
             }
         }
 
@@ -199,6 +202,14 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         currentTrack = track
         isPlaying = autoPlay
         updateNowPlayingInfo(for: track)
+
+        // Parse embedded chapters once the item is ready
+        Task { [weak self] in
+            guard let self else { return }
+            let chs = ChapterParser.parse(from: self.player?.currentItem)
+            self.embeddedChapters = chs
+            self.currentChapterIndex = 0
+        }
     }
 
     // Called once the item is .readyToPlay. Applies any deferred resume seek,
@@ -457,7 +468,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
 
     // MARK: - Now Playing Info
 
-    private func updateNowPlayingInfo(for track: Track) {
+    private func updateNowPlayingInfo(for track: Track, channelName: String? = nil, artwork: UIImage? = nil) {
         var info: [String: Any] = [
             MPMediaItemPropertyTitle:           track.title,
             MPMediaItemPropertyArtist:          track.artist,
@@ -465,10 +476,46 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
             MPNowPlayingInfoPropertyElapsedPlaybackTime: 0.0,
             MPNowPlayingInfoPropertyMediaType:  MPNowPlayingInfoMediaType.audio.rawValue,
         ]
+        if let name = channelName {
+            info[MPMediaItemPropertyAlbumTitle] = name
+        }
         if let dur = duration {
             info[MPMediaItemPropertyPlaybackDuration] = dur
+            if #available(iOS 16.0, *) {
+                info[MPNowPlayingInfoPropertyPlaybackProgress] = 0.0
+            }
+        }
+        if let art = artwork {
+            let mpArt = MPMediaItemArtwork(boundsSize: art.size) { _ in art }
+            info[MPMediaItemPropertyArtwork] = mpArt
         }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    func updateNowPlayingArtwork(_ artwork: UIImage) {
+        let mpArt = MPMediaItemArtwork(boundsSize: artwork.size) { _ in artwork }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPMediaItemPropertyArtwork] = mpArt
+    }
+
+    func updateNowPlayingChannel(_ channelName: String) {
+        MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPMediaItemPropertyAlbumTitle] = channelName
+    }
+
+    private func updateCurrentChapter(at seconds: Double) {
+        guard !embeddedChapters.isEmpty else { return }
+        var idx = 0
+        for (i, ch) in embeddedChapters.enumerated() {
+            if seconds >= ch.startTime { idx = i }
+        }
+        if idx != currentChapterIndex {
+            currentChapterIndex = idx
+            let ch = embeddedChapters[idx]
+            MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPMediaItemPropertyTitle] = ch.title
+        }
+    }
+
+    func seekToChapter(_ chapter: Chapter) {
+        seek(to: chapter.startTime)
     }
 
     private func updateNowPlayingElapsed(_ seconds: Double) {

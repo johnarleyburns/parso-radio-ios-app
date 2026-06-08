@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 @testable import ParsoMusic
 
 /// Deterministic `AudioEngine` for orchestrator tests. The TEST drives every
@@ -47,6 +48,8 @@ final class FakeAudioEngine: AudioEngine {
     func setPlaybackRate(_ rate: Float) { playbackRate = rate }
     func syncPlaybackState() {}
     func invalidateStreamingCache(for trackID: String) {}
+    func updateNowPlayingArtwork(_ artwork: UIImage) {}
+    func updateNowPlayingChannel(_ channelName: String) {}
 
     var onNonAudio: (() -> Void)?
 
