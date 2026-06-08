@@ -62,6 +62,24 @@ struct NowPlayingScreen: View {
                     screenPanel(geo: geo)
                         .frame(height: max(160, geo.size.height * 0.55))
 
+                    Button {
+                        showChannelInfo = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            if let icon = titleIcon {
+                                Image(systemName: icon)
+                                    .foregroundStyle(.blue)
+                            }
+                            Text(titleText)
+                                .foregroundStyle(.blue)
+                        }
+                        .font(.system(size: mainBoldSize, weight: .semibold))
+                        .lineLimit(1)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 8)
+                    .accessibilityHint("Opens channel info")
+
                     Spacer(minLength: 16)
 
                     transportControls
@@ -97,6 +115,8 @@ struct NowPlayingScreen: View {
                         .padding(12)
                         .background(.ultraThinMaterial, in: Circle())
                 }
+                .padding(.top, 8)
+                .padding(.trailing, 16)
                 .accessibilityLabel("Track Info")
             }
         }
@@ -284,26 +304,6 @@ struct NowPlayingScreen: View {
                         }
                     }
                     .padding(.horizontal, 14)
-                    .padding(.bottom, 4)
-
-                    Button {
-                        showChannelInfo = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            if let icon = titleIcon {
-                                Image(systemName: icon)
-                                    .foregroundStyle(.blue)
-                            }
-                            Text(titleText)
-                                .foregroundStyle(.blue)
-                        }
-                        .font(.system(size: mainRegularSize, weight: .semibold))
-                        .lineLimit(1)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.top, 2)
-                    .padding(.bottom, 12)
-                    .accessibilityHint("Opens channel info")
                 }
             }
         }

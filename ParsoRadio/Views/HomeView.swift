@@ -145,6 +145,9 @@ struct HomeView: View {
             // Supporter badge for active subscribers
             if contributionStore.isSupporter, contributionStore.hasActiveSubscription {
                 HStack {
+                    Text("Supporter")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
                     Spacer()
                     let imageName: String = {
                         switch contributionStore.subscriptionTier {
@@ -157,7 +160,7 @@ struct HomeView: View {
                         Image(uiImage: uiImage)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(width: 48, height: 48)
+                            .frame(width: 36, height: 36)
                             .clipShape(Circle())
                             .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
                             .onTapGesture { showContributionSupport = true }
@@ -165,6 +168,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
+                .padding(.bottom, 12)
             }
 
             // Categories grid

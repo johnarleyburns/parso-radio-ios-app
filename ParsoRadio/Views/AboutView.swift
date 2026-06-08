@@ -3,45 +3,43 @@ import SwiftUI
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    appHeader
-                        .padding(.horizontal, 20)
-                        .padding(.top, 24)
-                        .padding(.bottom, 28)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                appHeader
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 28)
 
-                    Divider()
+                Divider()
 
-                    openSource
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 24)
+                openSource
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 24)
 
-                    Divider()
+                Divider()
 
-                    credits
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 24)
+                credits
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 24)
 
-                    Divider()
+                Divider()
 
-                    copyright
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 24)
+                copyright
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 24)
 
-                    Divider()
+                Divider()
 
-                    privacyPolicy
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 24)
-                }
+                privacyPolicy
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 24)
             }
-            .navigationTitle("About")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
+        }
+        .navigationTitle("About")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") { dismiss() }
             }
         }
     }
