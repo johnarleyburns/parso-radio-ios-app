@@ -4,9 +4,1126 @@
     "id": "great-books",
     "name": "Great Books",
     "icon": "books.vertical",
-    "iaQuery": "collection:librivoxaudio AND mediatype:audio AND subject:\"fiction\""
+    "iaQuery": "collection:librivoxaudio AND language:eng AND (creator:\"Homer\" OR creator:\"Aeschylus\" OR creator:\"Sophocles\" OR creator:\"Euripides\" OR creator:\"Aristophanes\" OR creator:\"Herodotus\" OR creator:\"Thucydides\" OR creator:\"Plato\" OR creator:\"Aristotle\" OR creator:\"Hippocrates\" OR creator:\"Lucretius\" OR creator:\"Epictetus\" OR creator:\"Marcus Aurelius\" OR creator:\"Virgil\" OR creator:\"Plutarch\" OR creator:\"Tacitus\" OR creator:\"Ptolemy\" OR creator:\"Plotinus\" OR creator:\"Augustine\" OR creator:\"Thomas Aquinas\" OR creator:\"Dante Alighieri\" OR creator:\"Geoffrey Chaucer\" OR creator:\"Niccol\u00f2 Machiavelli\" OR creator:\"Thomas Hobbes\" OR creator:\"Fran\u00e7ois Rabelais\" OR creator:\"Michel de Montaigne\" OR creator:\"William Shakespeare\" OR creator:\"William Gilbert\" OR creator:\"Galileo Galilei\" OR creator:\"William Harvey\" OR creator:\"Miguel de Cervantes\" OR creator:\"Francis Bacon\" OR creator:\"Ren\u00e9 Descartes\" OR creator:\"Benedict de Spinoza\" OR creator:\"John Milton\" OR creator:\"Blaise Pascal\" OR creator:\"Isaac Newton\" OR creator:\"Christiaan Huygens\" OR creator:\"John Locke\" OR creator:\"George Berkeley\" OR creator:\"David Hume\" OR creator:\"Jonathan Swift\" OR creator:\"Laurence Sterne\" OR creator:\"Henry Fielding\" OR creator:\"Montesquieu\" OR creator:\"Jean-Jacques Rousseau\" OR creator:\"Adam Smith\" OR creator:\"Edward Gibbon\" OR creator:\"Immanuel Kant\" OR creator:\"Alexander Hamilton\" OR creator:\"John Stuart Mill\" OR creator:\"James Boswell\" OR creator:\"Antoine Lavoisier\" OR creator:\"Michael Faraday\" OR creator:\"Hegel\" OR creator:\"Johann Wolfgang von Goethe\" OR creator:\"Herman Melville\" OR creator:\"Charles Darwin\" OR creator:\"Karl Marx\" OR creator:\"Leo Tolstoy\" OR creator:\"Fyodor Dostoevsky\" OR creator:\"William James\" OR creator:\"Sigmund Freud\") AND NOT creator:\"William John Locke\" AND NOT creator:\"Homer Greene\" AND NOT creator:\"Homer Eon Flint\""
   },
-  "updatedAt": "2026-05-31",
-  "approved": [],
+  "updatedAt": "2026-06-07",
+  "approved": [
+    {
+      "creator": "Homer",
+      "duration": 0,
+      "id": "iliad_popetranslation_1506_librivox",
+      "title": "The Iliad"
+    },
+    {
+      "creator": "Homer",
+      "duration": 0,
+      "id": "odyssey01_1711_librivox",
+      "title": "The Odyssey"
+    },
+    {
+      "creator": "Aeschylus",
+      "duration": 0,
+      "id": "suppliantmaidens_1512_librivox",
+      "title": "The Suppliant Maidens"
+    },
+    {
+      "creator": "Aeschylus",
+      "duration": 0,
+      "id": "thepersians_1404_librivox",
+      "title": "The Persians"
+    },
+    {
+      "creator": "Aeschylus",
+      "duration": 0,
+      "id": "sevenagainstthebes_way_1512_librivox",
+      "title": "Seven Against Thebes"
+    },
+    {
+      "creator": "Aeschylus",
+      "duration": 0,
+      "id": "prometheusbound_1507_librivox",
+      "title": "Prometheus Bound"
+    },
+    {
+      "creator": "Aeschylus",
+      "duration": 0,
+      "id": "agamemnon_morshead_translation_1511_librivox",
+      "title": "Agamemnon"
+    },
+    {
+      "creator": "Aeschylus",
+      "duration": 0,
+      "id": "libationbearers_1512_librivox",
+      "title": "The Libation Bearers"
+    },
+    {
+      "creator": "Aeschylus",
+      "duration": 0,
+      "id": "eumenides_2108_librivox",
+      "title": "The Eumenides"
+    },
+    {
+      "creator": "Sophocles",
+      "duration": 0,
+      "id": "oedipus_rex_1407_librivox",
+      "title": "Oedipus Rex"
+    },
+    {
+      "creator": "Sophocles",
+      "duration": 0,
+      "id": "oedipusatcolonus_1507_librivox",
+      "title": "Oedipus at Colonus"
+    },
+    {
+      "creator": "Sophocles",
+      "duration": 0,
+      "id": "antigone_1507_librivox",
+      "title": "Antigone"
+    },
+    {
+      "creator": "Sophocles",
+      "duration": 0,
+      "id": "ajax_campbell_translation_1512_librivox",
+      "title": "Ajax"
+    },
+    {
+      "creator": "Sophocles",
+      "duration": 0,
+      "id": "electra_1506_librivox",
+      "title": "Electra"
+    },
+    {
+      "creator": "Sophocles",
+      "duration": 0,
+      "id": "trachiniae_2302_librivox",
+      "title": "The Trachiniae"
+    },
+    {
+      "creator": "Sophocles",
+      "duration": 0,
+      "id": "philoctetes_1205_librivox",
+      "title": "Philoctetes"
+    },
+    {
+      "creator": "Euripides",
+      "duration": 0,
+      "id": "rhesus_2007_librivox",
+      "title": "Rhesus"
+    },
+    {
+      "creator": "Euripides",
+      "duration": 0,
+      "id": "medea_1204_librivox",
+      "title": "Medea"
+    },
+    {
+      "creator": "Euripides",
+      "duration": 0,
+      "id": "hippolytus_1209_librivox",
+      "title": "Hippolytus"
+    },
+    {
+      "creator": "Euripides",
+      "duration": 0,
+      "id": "alcestis_1303_librivox",
+      "title": "Alcestis"
+    },
+    {
+      "creator": "Euripides",
+      "duration": 0,
+      "id": "trojan_women_1507_librivox",
+      "title": "The Trojan Women"
+    },
+    {
+      "creator": "Euripides",
+      "duration": 0,
+      "id": "thebacchae_1011_librivox",
+      "title": "The Bacchae"
+    },
+    {
+      "creator": "Euripides",
+      "duration": 0,
+      "id": "iphigenia_tauris_murray_translation_1506_librivox",
+      "title": "Iphigenia in Tauris"
+    },
+    {
+      "creator": "Aristophanes",
+      "duration": 0,
+      "id": "lysistrata_1709_librivox",
+      "title": "Lysistrata"
+    },
+    {
+      "creator": "Aristophanes",
+      "duration": 0,
+      "id": "birds_2303_librivox",
+      "title": "The Birds"
+    },
+    {
+      "creator": "Aristophanes",
+      "duration": 0,
+      "id": "the_frogs_1310_librivox",
+      "title": "The Frogs"
+    },
+    {
+      "creator": "Aristophanes",
+      "duration": 0,
+      "id": "clouds_1506_librivox",
+      "title": "The Clouds"
+    },
+    {
+      "creator": "Herodotus",
+      "duration": 0,
+      "id": "herodotus_histories_3_0912_librivox",
+      "title": "The Histories"
+    },
+    {
+      "creator": "Thucydides",
+      "duration": 0,
+      "id": "historyofthepeloponnesianwar2_2603_librivox",
+      "title": "History of the Peloponnesian War"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "charmides_1505_librivox",
+      "title": "Charmides"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "lysis_1505_librivox",
+      "title": "Lysis"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "laches_1505_librivox",
+      "title": "Laches"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "protagoras_1303_librivox",
+      "title": "Protagoras"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "euthydemus_ge_librivox",
+      "title": "Euthydemus"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "cratylus_ge_librivox",
+      "title": "Cratylus"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "phaedrus_1005_librivox",
+      "title": "Phaedrus"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "ion_spz_librivox",
+      "title": "Ion"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "symposium_0909_librivox",
+      "title": "Symposium"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "meno_cc_librivox",
+      "title": "Meno"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "euthyphro_librivox",
+      "title": "Euthyphro"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "apology_of_socrates_plato_0908_librivox1",
+      "title": "The Apology of Socrates"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "crito_1505_librivox",
+      "title": "Crito"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "phaedo_1105_librivox",
+      "title": "Phaedo"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "gorgias_1211",
+      "title": "Gorgias"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "platos_republic_0902_librivox1",
+      "title": "The Republic"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "timaeus_1003_librivox",
+      "title": "Timaeus"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "critias_ge_librivox",
+      "title": "Critias"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "parmenides_1310_librivox",
+      "title": "Parmenides"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "theaetetus_1311_librivox",
+      "title": "Theaetetus"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "sophist_1311_librivox",
+      "title": "Sophist"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "statesman_ge_1312_librivox",
+      "title": "Statesman"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "philebus_ge_librivox",
+      "title": "Philebus"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "laws_1209_librivox",
+      "title": "Laws"
+    },
+    {
+      "creator": "Plato",
+      "duration": 0,
+      "id": "seventh_letter_ge_librivox",
+      "title": "The Seventh Letter"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "categories_1004_librivox",
+      "title": "Categories"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "on_interpretation_1005_librivox",
+      "title": "On Interpretation"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "prior_analytics_ge_librivox",
+      "title": "Prior Analytics"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "posterior_analytics_ge_librivox",
+      "title": "Posterior Analytics"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "topics_1101_librivox",
+      "title": "Topics"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "sophistical_refutations_ge_librivox",
+      "title": "Sophistical Refutations"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "physics_1303_librivox",
+      "title": "Physics"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "ontheheavens_1202_librivox",
+      "title": "On the Heavens"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "ongeneration_1203_librivox",
+      "title": "On Generation and Corruption"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "meteorology_universe_breath_2211_librivox",
+      "title": "Meteorology, On the Universe & On Breath"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "metaphysics_1108_librivox",
+      "title": "Metaphysics"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "de_anima_ge_librivox",
+      "title": "De Anima"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "parva_naturalia_1111_librivox",
+      "title": "Parva Naturalia"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "history_of_animals_2202_librivox",
+      "title": "History of Animals"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "on_the_parts_of_animals_1901_librivox",
+      "title": "On the Parts of Animals"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "generation_of_animals_2207_librivox",
+      "title": "Generation of Animals"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "nicomachean_ethics_ge_librivox",
+      "title": "Nicomachean Ethics"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "politics_0802_librivox",
+      "title": "Politics"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "constitution_of_athens_ge_librivox",
+      "title": "The Constitution of Athens"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "rhetoric_virtues_and_vices_2212_librivox",
+      "title": "Rhetoric, Virtues and Vices"
+    },
+    {
+      "creator": "Aristotle",
+      "duration": 0,
+      "id": "poetics_librivox",
+      "title": "Poetics"
+    },
+    {
+      "creator": "Hippocrates",
+      "duration": 0,
+      "id": "hippocraticoathandworks_librivox",
+      "title": "Hippocratic Oath and Works"
+    },
+    {
+      "creator": "Galen",
+      "duration": 0,
+      "id": "onthenaturalfaculties_2304_librivox",
+      "title": "On the Natural Faculties"
+    },
+    {
+      "creator": "Lucretius",
+      "duration": 0,
+      "id": "nature_of_things_munro_2204_librivox",
+      "title": "On the Nature of Things"
+    },
+    {
+      "creator": "Epictetus",
+      "duration": 0,
+      "id": "selection_discourses_with_encheiridion_2203_librivox",
+      "title": "Selections from the Discourses with the Encheiridion"
+    },
+    {
+      "creator": "Marcus Aurelius",
+      "duration": 0,
+      "id": "meditations_0708_librivox",
+      "title": "Meditations"
+    },
+    {
+      "creator": "Virgil",
+      "duration": 0,
+      "id": "eclogues_2105_librivox",
+      "title": "The Eclogues"
+    },
+    {
+      "creator": "Virgil",
+      "duration": 0,
+      "id": "georgics_2009_librivox",
+      "title": "The Georgics"
+    },
+    {
+      "creator": "Virgil",
+      "duration": 0,
+      "id": "aeneid_of_virgil_1708_librivox",
+      "title": "The Aeneid"
+    },
+    {
+      "creator": "Tacitus",
+      "duration": 0,
+      "id": "tacitus_annals_cb_vol3_0809_librivox1",
+      "title": "The Annals"
+    },
+    {
+      "creator": "Tacitus",
+      "duration": 0,
+      "id": "tacitus_histories_0905_librivox1",
+      "title": "The Histories"
+    },
+    {
+      "creator": "Plotinus",
+      "duration": 0,
+      "id": "enneads_-plotinus_1806_librivox",
+      "title": "The Enneads"
+    },
+    {
+      "creator": "Saint Augustine",
+      "duration": 0,
+      "id": "confessions_1510_librivox",
+      "title": "The Confessions"
+    },
+    {
+      "creator": "Saint Augustine",
+      "duration": 0,
+      "id": "treatiseonthecityofgod_2407_librivox",
+      "title": "Treatise on the City of God"
+    },
+    {
+      "creator": "Saint Augustine",
+      "duration": 0,
+      "id": "onchristiandoctrine_1206_librivox",
+      "title": "On Christian Doctrine"
+    },
+    {
+      "creator": "Thomas Aquinas",
+      "duration": 0,
+      "id": "summatheologica13_1907_librivox",
+      "title": "Summa Theologica"
+    },
+    {
+      "creator": "Dante Alighieri",
+      "duration": 0,
+      "id": "divine_comedy_librivox",
+      "title": "The Divine Comedy"
+    },
+    {
+      "creator": "Geoffrey Chaucer",
+      "duration": 0,
+      "id": "troilusandcriseyde_2108_librivox",
+      "title": "Troilus and Criseyde"
+    },
+    {
+      "creator": "Geoffrey Chaucer",
+      "duration": 0,
+      "id": "canterbury_prologue_librivox",
+      "title": "The Canterbury Tales"
+    },
+    {
+      "creator": "Niccol\u00f2 Machiavelli",
+      "duration": 0,
+      "id": "theprincever4_1501_librivox",
+      "title": "The Prince"
+    },
+    {
+      "creator": "Thomas Hobbes",
+      "duration": 0,
+      "id": "leviathan_3_4_0812_librivox",
+      "title": "Leviathan"
+    },
+    {
+      "creator": "Fran\u00e7ois Rabelais",
+      "duration": 0,
+      "id": "gargantuaandpantagruelbookv_2508_librivox",
+      "title": "Gargantua and Pantagruel"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "henryvipart1_2211_librivox",
+      "title": "Henry VI Part 1"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "henryvipart2_2305_librivox",
+      "title": "Henry VI Part 2"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "henryvipart3_2309_librivox",
+      "title": "Henry VI Part 3"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "richard_iii_1006_librivox",
+      "title": "Richard III"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "comedyoferrors_1011_librivox",
+      "title": "The Comedy of Errors"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "titusandronicus_1102_librivox",
+      "title": "Titus Andronicus"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "tamingoftheshrew_1604_librivox",
+      "title": "The Taming of the Shrew"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "twogentlemenofverona_1103_librivox",
+      "title": "The Two Gentlemen of Verona"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "loves_labours_lost_1008_librivox",
+      "title": "Love's Labour's Lost"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "romeoandjuliet_ss_0901_librivox",
+      "title": "Romeo and Juliet"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "richard_ii_group_librivox",
+      "title": "The Tragedy of King Richard II"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "midsummer_nights_dream_0806_librivox",
+      "title": "A Midsummer Night's Dream"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "king_john_1106_librivox",
+      "title": "The Life and Death of King John"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "merchant_of_venice_1005_librivox",
+      "title": "The Merchant of Venice"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "1henryIV_0804_librivox",
+      "title": "King Henry IV, Part 1"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "2_henry_iv_0801_librivox",
+      "title": "King Henry IV, Part 2"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "muchadoaboutnothing_1003_librivox",
+      "title": "Much Ado About Nothing"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "henryv_1101_librivox",
+      "title": "Henry V"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "juliuscaesar_1605_librivox",
+      "title": "Julius Caesar"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "as_you_like_it_0902_librivox",
+      "title": "As You Like It"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "twelfth_night_0906_librivox",
+      "title": "Twelfth Night"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "hamlet_1209_librivox",
+      "title": "Hamlet"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "merry_wives_windsor_1108_librivox",
+      "title": "The Merry Wives of Windsor"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "troilusandcressida_1104_librivox",
+      "title": "Troilus and Cressida"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "allswellthatendswell_1008_librivox",
+      "title": "All's Well That Ends Well"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "measureformeasure_1608_librivox",
+      "title": "Measure For Measure"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "othello_2108_librivox",
+      "title": "Othello"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "king_lear_librivox",
+      "title": "King Lear"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "macbeth_1608_librivox",
+      "title": "Macbeth"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "antony_cleopatra_1109_librivox",
+      "title": "Antony and Cleopatra"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "coriolanus_1202_librivox",
+      "title": "Coriolanus"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "timon_of_athens_1202_librivox",
+      "title": "Timon of Athens"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "pericles_1202_librivox",
+      "title": "Pericles, Prince of Tyre"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "cymbeline_1101_librivox",
+      "title": "Cymbeline"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "thewinterstale_1008_librivox",
+      "title": "The Winter's Tale"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "tempest_1002_librivox",
+      "title": "The Tempest"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "henryviii_1104_librivox",
+      "title": "Henry VIII"
+    },
+    {
+      "creator": "William Shakespeare",
+      "duration": 0,
+      "id": "sonnets_etk_librivox",
+      "title": "The Sonnets"
+    },
+    {
+      "creator": "Miguel de Cervantes",
+      "duration": 0,
+      "id": "donquixote_2508_librivox",
+      "title": "Don Quixote"
+    },
+    {
+      "creator": "Francis Bacon",
+      "duration": 0,
+      "id": "advancementoflearning_2207_librivox",
+      "title": "The Advancement of Learning"
+    },
+    {
+      "creator": "Francis Bacon",
+      "duration": 0,
+      "id": "novumorganum_2209_librivox",
+      "title": "Novum Organum"
+    },
+    {
+      "creator": "Francis Bacon",
+      "duration": 0,
+      "id": "newatlantis_1111_librivox",
+      "title": "New Atlantis"
+    },
+    {
+      "creator": "Ren\u00e9 Descartes",
+      "duration": 0,
+      "id": "discourse_method_librivox",
+      "title": "Discourse on the Method"
+    },
+    {
+      "creator": "Ren\u00e9 Descartes",
+      "duration": 0,
+      "id": "meditations_1104_librivox",
+      "title": "Meditations on First Philosophy"
+    },
+    {
+      "creator": "John Milton",
+      "duration": 0,
+      "id": "paradiselost_1411_librivox",
+      "title": "Paradise Lost"
+    },
+    {
+      "creator": "John Milton",
+      "duration": 0,
+      "id": "samson_agonistes_0912_librivox",
+      "title": "Samson Agonistes"
+    },
+    {
+      "creator": "John Milton",
+      "duration": 0,
+      "id": "areopagitica_0806_librivox",
+      "title": "Areopagitica"
+    },
+    {
+      "creator": "John Milton",
+      "duration": 0,
+      "id": "miltons_minor_poems_1911_librivox",
+      "title": "Milton's Minor Poems"
+    },
+    {
+      "creator": "Blaise Pascal",
+      "duration": 0,
+      "id": "provincialletters_2308_librivox",
+      "title": "The Provincial Letters"
+    },
+    {
+      "creator": "Blaise Pascal",
+      "duration": 0,
+      "id": "pensees_0906_dx_librivox1",
+      "title": "Pensees"
+    },
+    {
+      "creator": "Isaac Newton",
+      "duration": 0,
+      "id": "opticks_1203_librivox",
+      "title": "Opticks"
+    },
+    {
+      "creator": "John Locke",
+      "duration": 0,
+      "id": "letter_toleration_cs_librivox",
+      "title": "A Letter Concerning Toleration"
+    },
+    {
+      "creator": "John Locke",
+      "duration": 0,
+      "id": "two_treatises_0902_librivox",
+      "title": "Two Treatises of Government"
+    },
+    {
+      "creator": "John Locke",
+      "duration": 0,
+      "id": "human_understanding_iv_2003_librivox",
+      "title": "An Essay Concerning Human Understanding"
+    },
+    {
+      "creator": "George Berkeley",
+      "duration": 0,
+      "id": "treatise_0905_librivox",
+      "title": "A Treatise Concerning the Principles of Human Knowledge"
+    },
+    {
+      "creator": "David Hume",
+      "duration": 0,
+      "id": "human_understanding_0711_lv_2",
+      "title": "An Enquiry Concerning Human Understanding"
+    },
+    {
+      "creator": "Jonathan Swift",
+      "duration": 0,
+      "id": "gulliverstravelsvers3_2504_librivox",
+      "title": "Gulliver's Travels"
+    },
+    {
+      "creator": "Laurence Sterne",
+      "duration": 0,
+      "id": "tristramshandy_3_0912_librivox",
+      "title": "Tristram Shandy"
+    },
+    {
+      "creator": "Henry Fielding",
+      "duration": 0,
+      "id": "historyoftomjones_2411_librivox",
+      "title": "The History of Tom Jones, a Foundling"
+    },
+    {
+      "creator": "Montesquieu",
+      "duration": 0,
+      "id": "spirit_laws_01_1212",
+      "title": "The Spirit of the Laws"
+    },
+    {
+      "creator": "Jean-Jacques Rousseau",
+      "duration": 0,
+      "id": "discours_inegalite_jcg_0811_librivox",
+      "title": "Discourse on the Origin of Inequality"
+    },
+    {
+      "creator": "Jean-Jacques Rousseau",
+      "duration": 0,
+      "id": "the_social_contract_1004_librivox",
+      "title": "The Social Contract"
+    },
+    {
+      "creator": "Adam Smith",
+      "duration": 0,
+      "id": "wealth_nations04_1001_librivox",
+      "title": "The Wealth of Nations"
+    },
+    {
+      "creator": "Edward Gibbon",
+      "duration": 0,
+      "id": "Decline_and_Fall6_0812_librivox1",
+      "title": "The Decline and Fall of the Roman Empire"
+    },
+    {
+      "creator": "Immanuel Kant",
+      "duration": 0,
+      "id": "critique_pure_reason_0709_librivox",
+      "title": "Critique of Pure Reason"
+    },
+    {
+      "creator": "Immanuel Kant",
+      "duration": 0,
+      "id": "fundamentalprinciples_1206_librivox",
+      "title": "Fundamental Principles of the Metaphysic of Morals"
+    },
+    {
+      "creator": "Immanuel Kant",
+      "duration": 0,
+      "id": "critique_of_judgment_2001_librivox",
+      "title": "The Critique of Judgment"
+    },
+    {
+      "creator": "Alexander Hamilton",
+      "duration": 0,
+      "id": "federalistpapers_2202_librivox",
+      "title": "The Federalist Papers"
+    },
+    {
+      "creator": "John Stuart Mill",
+      "duration": 0,
+      "id": "onliberty_2505_librivox",
+      "title": "On Liberty"
+    },
+    {
+      "creator": "John Stuart Mill",
+      "duration": 0,
+      "id": "utilitarianism_dew_librivox",
+      "title": "Utilitarianism"
+    },
+    {
+      "creator": "James Boswell",
+      "duration": 0,
+      "id": "samueljohnson3_1302_librivox",
+      "title": "The Life of Samuel Johnson"
+    },
+    {
+      "creator": "Michael Faraday",
+      "duration": 0,
+      "id": "on_the_various_forces_of_nature_2108_librivox",
+      "title": "On the Various Forces of Nature"
+    },
+    {
+      "creator": "Georg Wilhelm Friedrich Hegel",
+      "duration": 0,
+      "id": "intro_philosophy_history_dew_librivox",
+      "title": "Introduction to the Philosophy of History"
+    },
+    {
+      "creator": "Johann Wolfgang von Goethe",
+      "duration": 0,
+      "id": "faust1_1111_librivox",
+      "title": "Faust"
+    },
+    {
+      "creator": "Herman Melville",
+      "duration": 0,
+      "id": "moby_dick_librivox",
+      "title": "Moby Dick"
+    },
+    {
+      "creator": "Charles Darwin",
+      "duration": 0,
+      "id": "origin_species_librivox",
+      "title": "The Origin of Species"
+    },
+    {
+      "creator": "Charles Darwin",
+      "duration": 0,
+      "id": "descent_man_1_1011_librivox",
+      "title": "The Descent of Man"
+    },
+    {
+      "creator": "Karl Marx and Friedrich Engels",
+      "duration": 0,
+      "id": "communistmanifesto_librivox",
+      "title": "The Communist Manifesto"
+    },
+    {
+      "creator": "Leo Tolstoy",
+      "duration": 0,
+      "id": "war_and_peace_02_0801_librivox",
+      "title": "War and Peace"
+    },
+    {
+      "creator": "Sigmund Freud",
+      "duration": 0,
+      "id": "interpretationofdreams_1401_librivox",
+      "title": "The Interpretation of Dreams"
+    },
+    {
+      "creator": "Michel de Montaigne",
+      "duration": 0,
+      "id": "essays_book1_1204_librivox",
+      "title": "Essays, Book 1"
+    },
+    {
+      "creator": "Michel de Montaigne",
+      "duration": 0,
+      "id": "essays_book2_1301_librivox",
+      "title": "Essays, Book 2"
+    },
+    {
+      "creator": "Michel de Montaigne",
+      "duration": 0,
+      "id": "essays_book3_1306_librivox",
+      "title": "Essays, Book 3"
+    },
+    {
+      "creator": "Plutarch",
+      "duration": 0,
+      "id": "parallel_lives01_0810_librivox1",
+      "title": "Parallel Lives of the Noble Greeks and Romans Vol. 1"
+    },
+    {
+      "creator": "Benedict de Spinoza",
+      "duration": 0,
+      "id": "ethics_1010_librivox",
+      "title": "The Ethics"
+    },
+    {
+      "creator": "Fyodor Dostoevsky",
+      "duration": 0,
+      "id": "brothers_karamazov_v3_2002_librivox",
+      "title": "The Brothers Karamazov"
+    },
+    {
+      "creator": "Johannes Kepler",
+      "duration": 0,
+      "id": "kepler_1203_librivox",
+      "title": "Kepler (Epitome of Copernican Astronomy & Harmonies of the World excerpts)"
+    },
+    {
+      "creator": "Karl Marx",
+      "duration": 0,
+      "id": "wagelabour_cm_librivox",
+      "title": "Wage-Labour and Capital"
+    },
+    {
+      "creator": "Sigmund Freud",
+      "duration": 0,
+      "id": "dream_psychology_librivox",
+      "title": "Dream Psychology"
+    },
+    {
+      "creator": "Sigmund Freud",
+      "duration": 0,
+      "id": "totem_and_taboo_1007_librivox",
+      "title": "Totem and Taboo"
+    }
+  ],
   "rejected": []
 }

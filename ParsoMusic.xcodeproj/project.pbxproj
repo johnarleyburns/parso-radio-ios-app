@@ -173,7 +173,6 @@
 		DF014FC5804B0742804D2900 /* ProceduralVisualizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B4A95C273F97DB7E660381E /* ProceduralVisualizerTests.swift */; };
 		E019694F77C618994E5D126E /* SourceValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83EC70968003D774832E5A49 /* SourceValidator.swift */; };
 		E749FC7EB6EDCA4418FC1D5B /* ContiguousFileCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 757A78446FCB2410EF1A1F18 /* ContiguousFileCache.swift */; };
-		E8F3E9F2BA892020953212A8 /* LorewaveIntents.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9C0C0121A109D3A2B4F6E82B /* LorewaveIntents.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EB3C0F7AE62D8559AFAF181C /* PlaylistOrderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E95048413EEEAF42978333A5 /* PlaylistOrderTests.swift */; };
 		EC307AB3D816FBDE3DD9D677 /* IntentHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8D274E175EF66D77D026321 /* IntentHandler.swift */; };
 		ED38D35B9A2A5F453F124EEC /* lv-general-fiction.json in Resources */ = {isa = PBXBuildFile; fileRef = B15356314E8468CAF1A16FDA /* lv-general-fiction.json */; };
@@ -203,13 +202,6 @@
 			remoteGlobalIDString = B47D07E8C9D52A86E7B7307A;
 			remoteInfo = ParsoMusic;
 		};
-		E3F6D1067D2695F648F8A8BC /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = FF971DBA8F35796651B0782C /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 2662C96533D5018619E0A0E8;
-			remoteInfo = LorewaveIntents;
-		};
 		E76901595213C51D2395ECB7 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FF971DBA8F35796651B0782C /* Project object */;
@@ -218,20 +210,6 @@
 			remoteInfo = ParsoMusic;
 		};
 /* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		F35A719315B081A7D03758C6 /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				E8F3E9F2BA892020953212A8 /* LorewaveIntents.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		00BEF5C147DD89B49885F990 /* NowPlayingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingView.swift; sourceTree = "<group>"; };
@@ -828,7 +806,7 @@
 			path = ParsoRadio/UITests;
 			sourceTree = "<group>";
 		};
-		"TEMP_035EE924-8CD8-4DBB-BB0E-FE6406775ED2" /* Integration */ = {
+		"TEMP_CBBA915A-9668-4F26-B296-D07D00A7F001" /* Integration */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -880,12 +858,10 @@
 				571F648222279BC0C4B0DCF0 /* Sources */,
 				D59838F24EC2D101169D8731 /* Resources */,
 				62428E754BA2BF925F8209EE /* Frameworks */,
-				F35A719315B081A7D03758C6 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				1C60D53D25CF6F159F89C1BA /* PBXTargetDependency */,
 			);
 			name = ParsoMusic;
 			packageProductDependencies = (
@@ -1205,11 +1181,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		1C60D53D25CF6F159F89C1BA /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 2662C96533D5018619E0A0E8 /* LorewaveIntents */;
-			targetProxy = E3F6D1067D2695F648F8A8BC /* PBXContainerItemProxy */;
-		};
 		61327F5DD4F91E7813E35A2B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B47D07E8C9D52A86E7B7307A /* ParsoMusic */;

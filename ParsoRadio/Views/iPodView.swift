@@ -126,7 +126,7 @@ struct iPodView: View {
                                contributionStore.isSupporter,
                                contributionStore.hasActiveSubscription {
                                 supporterBadge
-                                    .offset(x: -8, y: deviceMargin(geo) + 48)
+                                    .offset(x: 0, y: deviceMargin(geo) + 48)
                             }
                         }
 
