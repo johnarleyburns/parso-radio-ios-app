@@ -66,13 +66,19 @@ final class MetadataEnrichmentService: ObservableObject {
             enrichmentSource: nil
         )
 
-        // Step 1: MusicBrainz recording search
-        if let mbRecording = await searchMusicBrainzRecording(title: title, artist: creator) {
+        // Check if this is likely an audiobook/spoken-word track
+        // These have author names in the creator field; MusicBrainz won't help
+        let isLikelyAudiobook = track.tags.contains(where: {
+            $0.contains("librivox") || $0.contains("audiobook") || $0.contains("audio_book")
+        }) || track.source == "internet_archive"
+
+        // Step 1: Try MusicBrainz recording search (works for music)
+        if !isLikelyAudiobook,
+           let mbRecording = await searchMusicBrainzRecording(title: title, artist: creator) {
             metadata.mbRecordingID = mbRecording.id
             metadata.durationMs = mbRecording.durationMs
             metadata.mbReleaseID = mbRecording.releaseMBID
 
-            // Step 2: Work → Composer
             if let workID = mbRecording.workMBID {
                 metadata.mbWorkID = workID
                 if let work = await fetchMusicBrainzWork(workID) {
@@ -83,23 +89,37 @@ final class MetadataEnrichmentService: ObservableObject {
                 }
             }
 
-            // Step 3: Composer portrait via Wikidata
             if let composerMBID = metadata.composerMBID {
                 metadata.composerPortraitURL = await fetchWikidataPortrait(mbArtistID: composerMBID)?.absoluteString
             }
 
-            // Step 4: Album art via Cover Art Archive
             if let releaseMBID = metadata.mbReleaseID {
                 metadata.albumArtURL = "https://coverartarchive.org/release/\(releaseMBID)/front-500"
             }
 
             metadata.enrichmentSource = "musicbrainz"
         } else if !creator.isEmpty {
-            // Fallback: try direct Wikidata lookup for author/composer
-            metadata.composerPortraitURL = await fetchWikidataPortraitByName(creator)?.absoluteString
-            if metadata.composerPortraitURL != nil {
-                metadata.composer = creator
+            // For audiobooks/authors: direct Wikidata lookup
+            if let authorData = await fetchWikidataAuthor(creator) {
+                metadata.author = authorData.name
+                metadata.authorPortraitURL = authorData.portraitURL?.absoluteString
+                metadata.authorBirthDate = authorData.birthDate
+                metadata.authorDeathDate = authorData.deathDate
+                metadata.authorBio = authorData.bio
+                metadata.composerPortraitURL = authorData.portraitURL?.absoluteString
                 metadata.enrichmentSource = "wikidata"
+
+                // Try Open Library for book cover (author + title search)
+                if let coverURL = await fetchOpenLibraryCover(author: creator, title: title) {
+                    metadata.albumArtURL = coverURL
+                }
+            } else {
+                // Fallback: simple portrait lookup
+                metadata.composerPortraitURL = await fetchWikidataPortraitByName(creator)?.absoluteString
+                if metadata.composerPortraitURL != nil {
+                    metadata.composer = creator
+                    metadata.enrichmentSource = "wikidata"
+                }
             }
         }
 
@@ -238,6 +258,126 @@ final class MetadataEnrichmentService: ObservableObject {
         let digest = Insecure.MD5.hash(data: Data(encoded.utf8))
         let md5 = digest.map { String(format: "%02x", $0) }.joined()
         return URL(string: "https://upload.wikimedia.org/wikipedia/commons/\(md5.prefix(1))/\(md5.prefix(2))/\(encoded)")
+    }
+
+    // MARK: - Wikidata Author Enrichment (for audiobooks)
+
+    private struct AuthorData {
+        let name: String
+        let portraitURL: URL?
+        let birthDate: String?
+        let deathDate: String?
+        let bio: String?
+    }
+
+    private func fetchWikidataAuthor(_ name: String) async -> AuthorData? {
+        // Step 1: Search Wikidata for the author
+        guard let query = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let searchURL = URL(string: "https://www.wikidata.org/w/api.php?action=wbsearchentities&search=\(query)&language=en&format=json&limit=1") else { return nil }
+
+        guard let (searchData, _) = try? await session.data(from: searchURL),
+              let searchJson = try? JSONSerialization.jsonObject(with: searchData) as? [String: Any],
+              let search = searchJson["search"] as? [[String: Any]],
+              let first = search.first,
+              let qid = first["id"] as? String else { return nil }
+
+        let label = first["label"] as? String ?? name
+        let bio = first["description"] as? String
+
+        // Step 2: Fetch entity data for dates and image
+        guard let entityURL = URL(string: "https://www.wikidata.org/wiki/Special:EntityData/\(qid).json") else { return nil }
+
+        let portraitURL: URL?
+        let birthDate: String?
+        let deathDate: String?
+
+        if let (entityData, _) = try? await session.data(from: entityURL),
+           let entityJson = try? JSONSerialization.jsonObject(with: entityData) as? [String: Any],
+           let entities = entityJson["entities"] as? [String: Any],
+           let entity = entities[qid] as? [String: Any],
+           let claims = entity["claims"] as? [String: Any] {
+
+            // Portrait (P18)
+            if let p18 = claims["P18"] as? [[String: Any]],
+               let mainsnak = p18.first?["mainsnak"] as? [String: Any],
+               let datavalue = mainsnak["datavalue"] as? [String: Any],
+               let filename = datavalue["value"] as? String {
+                let encoded = filename.replacingOccurrences(of: " ", with: "_")
+                let digest = Insecure.MD5.hash(data: Data(encoded.utf8))
+                let md5 = digest.map { String(format: "%02x", $0) }.joined()
+                portraitURL = URL(string: "https://upload.wikimedia.org/wikipedia/commons/\(md5.prefix(1))/\(md5.prefix(2))/\(encoded)")
+            } else {
+                portraitURL = nil
+            }
+
+            // Birth date (P569)
+            if let p569 = claims["P569"] as? [[String: Any]],
+               let mainsnak = p569.first?["mainsnak"] as? [String: Any],
+               let datavalue = mainsnak["datavalue"] as? [String: Any],
+               let timeStr = (datavalue["value"] as? [String: Any])?["time"] as? String {
+                birthDate = formatWikidataDate(timeStr)
+            } else {
+                birthDate = nil
+            }
+
+            // Death date (P570)
+            if let p570 = claims["P570"] as? [[String: Any]],
+               let mainsnak = p570.first?["mainsnak"] as? [String: Any],
+               let datavalue = mainsnak["datavalue"] as? [String: Any],
+               let timeStr = (datavalue["value"] as? [String: Any])?["time"] as? String {
+                deathDate = formatWikidataDate(timeStr)
+            } else {
+                deathDate = nil
+            }
+        } else {
+            portraitURL = nil
+            birthDate = nil
+            deathDate = nil
+        }
+
+        return AuthorData(
+            name: label,
+            portraitURL: portraitURL,
+            birthDate: birthDate,
+            deathDate: deathDate,
+            bio: bio
+        )
+    }
+
+    private func formatWikidataDate(_ timeStr: String) -> String? {
+        // Wikidata dates: +1860-05-29T00:00:00Z or -0428-00-00T00:00:00Z (BC)
+        let cleaned = timeStr.replacingOccurrences(of: "+", with: "")
+                              .replacingOccurrences(of: "T00:00:00Z", with: "")
+        let parts = cleaned.components(separatedBy: "-")
+        if parts[0].hasPrefix("-") { return "\(parts[0].dropFirst()) BC" }
+        if parts.count >= 1 { return parts[0] }
+        return cleaned
+    }
+
+    // MARK: - Open Library Cover Search (for audiobooks)
+
+    private func fetchOpenLibraryCover(author: String, title: String) async -> String? {
+        // Search by author + title
+        let query = "author:\(encode(author)) title:\(encode(title))"
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://openlibrary.org/search.json?\(encoded)&limit=3") else { return nil }
+
+        guard let (data, _) = try? await session.data(from: url),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let docs = json["docs"] as? [[String: Any]] else { return nil }
+
+        for doc in docs {
+            // Prefer cover_i (numeric cover ID)
+            if let coverID = doc["cover_i"] as? Int {
+                return "https://covers.openlibrary.org/b/id/\(coverID)-M.jpg"
+            }
+            // Fallback to cover_edition_key
+            if let editionKey = doc["cover_edition_key"] as? String {
+                return "https://covers.openlibrary.org/b/olid/\(editionKey)-M.jpg"
+            }
+        }
+
+        return nil
     }
 
     // MARK: - Helpers

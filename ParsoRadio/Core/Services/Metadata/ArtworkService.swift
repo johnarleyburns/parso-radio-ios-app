@@ -92,29 +92,33 @@ final class ArtworkService {
     }
 
     func bestArtwork(for track: Track, channel: Channel?) async -> UIImage? {
-        // 1. Track-specific artwork (IA thumbnail)
-        if let art = await artwork(for: track) {
-            return art
-        }
-        // 2. Track metadata enrichment (album art URL)
+        // 1. Enriched album/cover art (Open Library book cover, Cover Art Archive)
         if let meta = await DatabaseService.shared.fetchTrackMetadata(trackID: track.id) {
-            if let url = meta.trackArtURL ?? meta.albumArtURL,
+            if let url = meta.albumArtURL,
+               let art = await artwork(fromURLString: url) {
+                return art
+            }
+            // 2. Enriched track-specific art
+            if let url = meta.trackArtURL,
+               let art = await artwork(fromURLString: url) {
+                return art
+            }
+            // 3. Author/composer portrait
+            if let url = meta.authorPortraitURL ?? meta.composerPortraitURL,
                let art = await artwork(fromURLString: url) {
                 return art
             }
         }
-        // 3. Composer portrait from enrichment
-        if let meta = await DatabaseService.shared.fetchTrackMetadata(trackID: track.id),
-           let url = meta.composerPortraitURL,
-           let art = await artwork(fromURLString: url) {
+        // 4. IA thumbnail (direct)
+        if let art = await artwork(for: track) {
             return art
         }
-        // 4. Channel image
+        // 5. Channel image
         if let ch = channel, let imageURL = ch.imageURL,
            let art = await artwork(fromURLString: imageURL) {
             return art
         }
-        // 5. Channel default icon + gradient (handled by caller)
+        // 6. Default icon + gradient (handled by caller)
         return nil
     }
 

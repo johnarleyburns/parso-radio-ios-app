@@ -125,6 +125,11 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     private let colTMComposerPortraitURL = Expression<String?>("composer_portrait_url")
     private let colTMAlbumArtURL = Expression<String?>("album_art_url")
     private let colTMTrackArtURL = Expression<String?>("track_art_url")
+    private let colTMAuthor = Expression<String?>("author")
+    private let colTMAuthorPortraitURL = Expression<String?>("author_portrait_url")
+    private let colTMAuthorBio = Expression<String?>("author_bio")
+    private let colTMAuthorBirthDate = Expression<String?>("author_birth_date")
+    private let colTMAuthorDeathDate = Expression<String?>("author_death_date")
     private let colTMEnrichedAt = Expression<Double>("enriched_at")
     private let colTMEnrichmentSource = Expression<String?>("enrichment_source")
 
@@ -277,6 +282,11 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
             t.column(colTMComposerPortraitURL)
             t.column(colTMAlbumArtURL)
             t.column(colTMTrackArtURL)
+            t.column(colTMAuthor)
+            t.column(colTMAuthorPortraitURL)
+            t.column(colTMAuthorBio)
+            t.column(colTMAuthorBirthDate)
+            t.column(colTMAuthorDeathDate)
             t.column(colTMEnrichedAt)
             t.column(colTMEnrichmentSource)
         })
@@ -1319,6 +1329,11 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
                     colTMComposerPortraitURL <- meta.composerPortraitURL,
                     colTMAlbumArtURL <- meta.albumArtURL,
                     colTMTrackArtURL <- meta.trackArtURL,
+                    colTMAuthor <- meta.author,
+                    colTMAuthorPortraitURL <- meta.authorPortraitURL,
+                    colTMAuthorBio <- meta.authorBio,
+                    colTMAuthorBirthDate <- meta.authorBirthDate,
+                    colTMAuthorDeathDate <- meta.authorDeathDate,
                     colTMEnrichedAt <- meta.enrichedAt,
                     colTMEnrichmentSource <- meta.enrichmentSource
                 ))
@@ -1356,6 +1371,11 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
                     composerPortraitURL: row[colTMComposerPortraitURL],
                     albumArtURL: row[colTMAlbumArtURL],
                     trackArtURL: row[colTMTrackArtURL],
+                    author: row[colTMAuthor],
+                    authorPortraitURL: row[colTMAuthorPortraitURL],
+                    authorBio: row[colTMAuthorBio],
+                    authorBirthDate: row[colTMAuthorBirthDate],
+                    authorDeathDate: row[colTMAuthorDeathDate],
                     enrichedAt: row[colTMEnrichedAt],
                     enrichmentSource: row[colTMEnrichmentSource]
                 ))

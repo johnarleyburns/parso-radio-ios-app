@@ -17,6 +17,12 @@ struct TrackMetadata: Codable, Equatable {
     var composerPortraitURL: String?
     var albumArtURL: String?
     var trackArtURL: String?
+    // Audiobook / author fields
+    var author: String?
+    var authorPortraitURL: String?
+    var authorBio: String?
+    var authorBirthDate: String?
+    var authorDeathDate: String?
     var enrichedAt: TimeInterval
     var enrichmentSource: String?
 }
