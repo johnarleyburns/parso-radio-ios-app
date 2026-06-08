@@ -28,6 +28,8 @@ struct HomeView: View {
     @State private var searchActive = false
 
     @ObservedObject private var kids = KidsModeController.shared
+    @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
+    @State private var showContributionSupport = false
 
     // Session restore
     @State private var pendingChannel: Channel = {
@@ -140,23 +142,29 @@ struct HomeView: View {
 
     private var homeGrid: some View {
         VStack(spacing: 0) {
-            // Header
-            VStack(spacing: 4) {
+            // Supporter badge for active subscribers
+            if contributionStore.isSupporter, contributionStore.hasActiveSubscription {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Browse")
-                            .font(.largeTitle).fontWeight(.bold)
-                        if let ch = playerVM.currentChannel, playerVM.currentTrack != nil {
-                            Text("Listening to \(ch.name)")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
                     Spacer()
+                    let imageName: String = {
+                        switch contributionStore.subscriptionTier {
+                        case .yearly:  return "emperor_1024"
+                        case .monthly: return "beethoven_1024"
+                        case .none:    return ""
+                        }
+                    }()
+                    if !imageName.isEmpty, let uiImage = UIImage(named: imageName) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 48, height: 48)
+                            .clipShape(Circle())
+                            .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+                            .onTapGesture { showContributionSupport = true }
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
-                .padding(.bottom, 4)
             }
 
             // Categories grid
@@ -167,9 +175,13 @@ struct HomeView: View {
                     categoryCard(title: category, imageName: category.lowercased(), route: HomeRoute.channelCategory(category))
                 }
 
-                categoryCard(title: "Settings", imageName: nil, route: HomeRoute.settings)
+                iconCard(title: "Settings", icon: "gearshape",
+                         color: Color(red: 0.35, green: 0.35, blue: 0.40),
+                         route: HomeRoute.settings)
 
-                categoryCard(title: "About", imageName: nil, route: HomeRoute.about)
+                iconCard(title: "About", icon: "info.circle",
+                         color: Color(red: 0.25, green: 0.30, blue: 0.45),
+                         route: HomeRoute.about)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
@@ -210,6 +222,33 @@ struct HomeView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) category")
         .accessibilityHint("Opens \(title) browser")
+        .buttonStyle(.plain)
+    }
+
+    private func iconCard(title: String, icon: String, color: Color, route: HomeRoute) -> some View {
+        NavigationLink(value: route) {
+            VStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 32, weight: .medium))
+                    .foregroundStyle(.white)
+                    .frame(width: 64, height: 64)
+                    .background(Circle().fill(.white.opacity(0.2)))
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 140)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(color.gradient)
+                    .shadow(color: color.opacity(0.4), radius: 8, y: 4)
+            )
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title)")
+        .accessibilityHint("Opens \(title)")
         .buttonStyle(.plain)
     }
 
@@ -475,16 +514,22 @@ struct ChannelGridSubView: View {
     @ViewBuilder
     private func channelImage(_ channel: Channel) -> some View {
         if let imageURL = channel.imageURL, let url = URL(string: imageURL) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                case .failure:
-                    fallbackIcon(channel)
-                case .empty:
-                    ProgressView().scaleEffect(0.6)
-                @unknown default:
-                    fallbackIcon(channel)
+            if url.isFileURL, let uiImage = UIImage(contentsOfFile: url.path) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    case .failure:
+                        fallbackIcon(channel)
+                    case .empty:
+                        ProgressView().scaleEffect(0.6)
+                    @unknown default:
+                        fallbackIcon(channel)
+                    }
                 }
             }
         } else {
@@ -588,6 +633,9 @@ struct CuratedChannelsGrid: View {
             })
             .environmentObject(playerVM)
         }
+        .task {
+            await LiveCurationStore.shared.reload(from: playerVM.db)
+        }
         .sheet(item: $showCurateChannel) { meta in
             CuratorChannelEditView(channelMeta: meta, onDismiss: { showCurateChannel = nil })
         }
@@ -686,9 +734,10 @@ struct PlaylistGridSubView: View {
         ScrollView {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 // For You section
-                SectionCard(title: "Recently Played", icon: "clock.arrow.circlepath") {
-                    NavigationLink(value: HomeRoute.recentlyPlayed) { EmptyView() }
+                NavigationLink(value: HomeRoute.recentlyPlayed) {
+                    sectionCardContent(title: "Recently Played", icon: "clock.arrow.circlepath")
                 }
+                .buttonStyle(.plain)
                 if let m = musicForYou {
                     SectionCard(title: m.name, icon: "sparkles") {
                         onSelectChannel(m)
@@ -742,6 +791,31 @@ struct PlaylistGridSubView: View {
             Button("Cancel", role: .cancel) { newName = "" }
         }
         .task { await playlistVM.loadPlaylists() }
+    }
+
+    private func sectionCardContent(title: String, icon: String) -> some View {
+        VStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(BrandGradient.linear)
+                    .frame(width: 64, height: 64)
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundStyle(.white)
+            }
+            Text(title)
+                .font(.subheadline).fontWeight(.medium)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 160)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
     }
 
     @ViewBuilder
@@ -815,7 +889,7 @@ struct PlaylistGridSubView: View {
     }
 }
 
-// MARK: - Section Card (for "Recently Played" / "For You")
+// MARK: - Section Card (for "For You")
 
 private struct SectionCard: View {
     let title: String

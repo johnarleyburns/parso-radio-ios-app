@@ -259,21 +259,6 @@ struct NowPlayingScreen: View {
             )
 
             VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    if let icon = titleIcon {
-                        Image(systemName: icon)
-                            .font(.system(size: mainBoldSize, weight: .semibold))
-                    }
-                    Text(titleText)
-                        .font(.system(size: mainBoldSize, weight: .semibold))
-                        .lineLimit(1)
-                    Spacer()
-                }
-                .foregroundStyle(.white.opacity(0.95))
-                .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
-                .padding(.horizontal, 14)
-                .padding(.top, 60)
-
                 Spacer()
 
                 if isAmbientLoop {
@@ -282,27 +267,7 @@ struct NowPlayingScreen: View {
                     trackMetadataStack(track: track)
                 } else if let err = playerVM.errorMessage {
                     errorView(err)
-                } else {
-                    Text(displayChannel.name)
-                        .font(.system(size: mainRegularSize))
-                        .foregroundStyle(.white.opacity(0.8))
-                        .multilineTextAlignment(.trailing)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(.horizontal, 14)
-                        .padding(.bottom, 8)
                 }
-
-                Button {
-                    showChannelInfo = true
-                } label: {
-                    Text(displayChannel.name)
-                        .font(.system(size: mainRegularSize))
-                        .foregroundStyle(.white.opacity(0.7))
-                        .lineLimit(1)
-                }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 4)
-                .accessibilityHint("Opens channel info")
 
                 if !isAmbientLoop {
                     HStack(spacing: 0) {
@@ -319,7 +284,25 @@ struct NowPlayingScreen: View {
                         }
                     }
                     .padding(.horizontal, 14)
+
+                    Button {
+                        showChannelInfo = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            if let icon = titleIcon {
+                                Image(systemName: icon)
+                                    .foregroundStyle(.blue)
+                            }
+                            Text(titleText)
+                                .foregroundStyle(.blue)
+                        }
+                        .font(.system(size: mainRegularSize, weight: .semibold))
+                        .lineLimit(1)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 2)
                     .padding(.bottom, 12)
+                    .accessibilityHint("Opens channel info")
                 }
             }
         }

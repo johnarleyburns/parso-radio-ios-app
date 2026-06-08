@@ -156,7 +156,7 @@ struct SettingsView: View {
 
             Section {
                 let playlistsWithDownloads = playlistVM.playlists.filter { pl in
-                    !pl.isFavorites && playlistVM.downloadedPlaylistIDs.contains(pl.id)
+                    playlistVM.downloadedPlaylistIDs.contains(pl.id)
                 }
                 if playlistsWithDownloads.isEmpty {
                     Text("No playlists with downloads.")
