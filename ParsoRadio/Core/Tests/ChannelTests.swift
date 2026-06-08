@@ -5,8 +5,8 @@ final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
         // 2 For You + 18 Lectures + 12 Podcasts + 4 Ambient + 10 Curated
-        // + 21 Audiobooks (LibriVox) = 67.
-        XCTAssertEqual(Channel.defaults.count, 67)
+        // + 21 Audiobooks (LibriVox) = 66.
+        XCTAssertEqual(Channel.defaults.count, 66)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {
@@ -135,7 +135,7 @@ final class ChannelTests: XCTestCase {
 
     // Explicit-allowlist book channels: no bulk subject:Plato/Socrates noise.
     func testCuratedBookChannelsAreExplicitAllowlists() {
-        for id in ["great-books", "greater-books"] {
+        for id in ["great-books"] {
             let ch = Channel.defaults.first { $0.id == id }
             XCTAssertEqual(ch?.category, "Curated", "\(id) must be Curated")
             XCTAssertEqual(ch?.contentType, .spokenWord)
@@ -149,31 +149,23 @@ final class ChannelTests: XCTestCase {
                 "\(id) must NOT bulk-search subject:Plato/Socrates (noise)")
             XCTAssertEqual(ch?.iaQueryEntry?.matchTags, [id])
         }
-        // Great vs Greater are distinct, not subset-identical.
         let g  = Channel.defaults.first { $0.id == "great-books" }?
             .iaQueryEntry?.iaQuery ?? ""
-        let gr = Channel.defaults.first { $0.id == "greater-books" }?
-            .iaQueryEntry?.iaQuery ?? ""
-        XCTAssertFalse(g.isEmpty || gr.isEmpty)
-        XCTAssertNotEqual(g, gr,
-            "Great Books and Greater Books must have distinct queries")
-        // Great Books carries the academic canon Greater Books drops.
+        XCTAssertFalse(g.isEmpty)
         XCTAssertTrue(g.contains("creator:\"Immanuel Kant\"")
             && g.contains("creator:\"Isaac Newton\""))
-        XCTAssertFalse(gr.contains("creator:\"Immanuel Kant\""),
-            "Greater Books is the literary list, not the science/philosophy canon")
     }
 
     func testCuratedChannelsAreRegistryBacked() {
         let channels = Channel.defaults.filter { $0.category == "Curated" }
-        XCTAssertEqual(channels.count, 10,
-            "Expected 10 Curated channels")
+        XCTAssertEqual(channels.count, 9,
+            "Expected 9 Curated channels")
         let ids = Set(channels.map(\.id))
         XCTAssertEqual(ids, [
             "guitar-classical", "string-quartet",
             "symphony-orchestra", "piano-hour", "tribal-works", "cafe-lento",
             "childrens-songs", "childrens-books",
-            "great-books", "greater-books"
+            "great-books"
         ])
         // Every Curated channel must be pure-Lucene registry-backed, and its
         // matchTag stamp must equal its own id (the isolation contract).

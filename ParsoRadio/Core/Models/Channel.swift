@@ -443,13 +443,7 @@ extension Channel {
             id: "great-books", name: "Great Books", category: "Curated",
             icon: "books.vertical", tags: ["great-books"],
             contentType: .spokenWord, preferredSource: "internet_archive",
-            summary: "LibriVox recordings from the Great Books canon — the foundational works of philosophy, science and literature. Plays a book's first part; add the whole book to a playlist to continue."
-        ),
-        Channel(
-            id: "greater-books", name: "Greater Books", category: "Curated",
-            icon: "text.book.closed", tags: ["greater-books"],
-            contentType: .spokenWord, preferredSource: "internet_archive",
-            summary: "A broader literary canon (the greaterbooks.com list) read by LibriVox volunteers — the world's essential novels, plays and poetry. Plays each work's first part."
+            summary: "The foundational works of philosophy, science and literature. Plays a book's first part; add the whole book to a playlist to continue."
         ),
 
         // MARK: Audiobooks — LibriVox via pure-Lucene IA registry

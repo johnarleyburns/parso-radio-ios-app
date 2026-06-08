@@ -197,6 +197,7 @@ struct HomeView: View {
                     Image(img)
                         .resizable()
                         .scaledToFill()
+                        .clipped()
                 } else {
                     ChannelCategoryStyle.gradient(for: title)
                 }
@@ -673,14 +674,9 @@ struct CuratedChannelsGrid: View {
             onSelectChannel(ch)
         } label: {
             VStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(ChannelCategoryStyle.gradient(for: "Curated"))
-                        .frame(width: 64, height: 64)
-                    Image(systemName: meta.icon)
-                        .font(.system(size: 24, weight: .medium))
-                        .foregroundStyle(.white)
-                }
+                curatedChannelImage(channel)
+                    .frame(width: 64, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
 
                 VStack(spacing: 2) {
                     Text(meta.name)
@@ -707,6 +703,42 @@ struct CuratedChannelsGrid: View {
         .accessibilityHint("Plays this channel")
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(meta.name)" + (approvedCount > 0 ? ", \(approvedCount) tracks" : ""))
+    }
+
+    @ViewBuilder
+    private func curatedChannelImage(_ channel: Channel?) -> some View {
+        if let ch = channel, let imageURL = ch.imageURL, let url = URL(string: imageURL) {
+            if url.isFileURL, let uiImage = UIImage(contentsOfFile: url.path) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    case .failure, .empty:
+                        curatedFallbackIcon()
+                    @unknown default:
+                        curatedFallbackIcon()
+                    }
+                }
+            }
+        } else {
+            curatedFallbackIcon()
+        }
+    }
+
+    @ViewBuilder
+    private func curatedFallbackIcon() -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(ChannelCategoryStyle.gradient(for: "Curated"))
+                .frame(width: 64, height: 64)
+            Image(systemName: "star.fill")
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(.white)
+        }
     }
 }
 

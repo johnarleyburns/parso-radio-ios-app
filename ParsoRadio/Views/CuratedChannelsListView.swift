@@ -819,7 +819,7 @@ struct CuratorChannelEditView: View {
         do {
             let before = await db.curationCounts(channelId: channelMeta.id)
             let candidates = try await archiveService.fetchTracks(
-                iaQuery: query, matchTags: [])
+                iaQuery: query, matchTags: [], limit: 500)
             await db.saveTracks(candidates)
             await db.ensureReviewSet(channelId: channelMeta.id,
                                       trackIds: candidates.map(\.id))

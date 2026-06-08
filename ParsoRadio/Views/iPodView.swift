@@ -284,6 +284,7 @@ struct NowPlayingScreen: View {
                         }
                     }
                     .padding(.horizontal, 14)
+                    .padding(.bottom, 4)
 
                     Button {
                         showChannelInfo = true
