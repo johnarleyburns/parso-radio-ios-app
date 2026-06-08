@@ -584,8 +584,10 @@ final class PlayerViewModel: ObservableObject {
                 // .spokenWord LibriVox channels use the registry query, not
                 // the legacy fetchSpokenWordTracks path. matchTags stamp
                 // isolates them in the shared DB; sort=random gives variety.
+                let lang = channel.category == "Audiobooks" ? "eng" : nil
                 fetched = try await archiveService.fetchTracks(
-                    iaQuery: entry.iaQuery, matchTags: entry.matchTags
+                    iaQuery: entry.iaQuery, matchTags: entry.matchTags,
+                    language: lang
                 )
             } else if channel.contentType == .spokenWord {
                 // Spoken-word channels with no registry entry: legacy IA path.
@@ -1654,8 +1656,10 @@ final class PlayerViewModel: ObservableObject {
         var fetched: [Track] = []
         do {
             if let entry = channel.iaQueryEntry {
+                let lang = channel.category == "Audiobooks" ? "eng" : nil
                 fetched = try await archiveService.fetchTracks(
-                    iaQuery: entry.iaQuery, matchTags: entry.matchTags)
+                    iaQuery: entry.iaQuery, matchTags: entry.matchTags,
+                    language: lang)
             } else if channel.contentType == .spokenWord {
                 fetched = try await archiveService.fetchSpokenWordTracks(channel: channel)
             }

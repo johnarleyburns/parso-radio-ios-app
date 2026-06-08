@@ -78,18 +78,14 @@ struct NowPlayingScreen: View {
                 playerVM.saveCurrentSpot()
                 dismiss()
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                    Text("Browse")
-                }
-                .font(.body)
-                .padding(12)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                Image(systemName: "chevron.left")
+                    .font(.title3)
+                    .padding(12)
+                    .background(.ultraThinMaterial, in: Circle())
             }
             .padding(.top, 8)
             .padding(.leading, 16)
-            .accessibilityLabel("Browse")
-            .accessibilityHint("Go back to the channel browser")
+            .accessibilityLabel("Back to Browse")
         }
         .overlay(alignment: .topTrailing) {
             if playerVM.currentTrack != nil, !isAmbientLoop {
@@ -153,21 +149,6 @@ struct NowPlayingScreen: View {
             }
 
             HStack(spacing: 0) {
-                // Channel info
-                Button {
-                    showChannelInfo = true
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: displayChannel.icon)
-                            .font(.title3)
-                        Text(displayChannel.name)
-                            .font(.caption2)
-                            .lineLimit(1)
-                    }
-                    .frame(width: 60)
-                }
-                .accessibilityLabel("Channel info for \(displayChannel.name)")
-
                 Spacer()
 
                 if !isAmbientLoop {
@@ -179,8 +160,6 @@ struct NowPlayingScreen: View {
                     }
                     .accessibilityLabel("Previous track")
                     .buttonStyle(.plain)
-                } else {
-                    Color.clear.frame(width: 30)
                 }
 
                 Spacer()
@@ -205,14 +184,9 @@ struct NowPlayingScreen: View {
                     }
                     .accessibilityLabel("Next track")
                     .buttonStyle(.plain)
-                } else {
-                    Color.clear.frame(width: 30)
                 }
 
                 Spacer()
-
-                // Spacer for symmetry
-                Color.clear.frame(width: 60)
             }
             .padding(.horizontal, 8)
         }
@@ -317,6 +291,18 @@ struct NowPlayingScreen: View {
                         .padding(.horizontal, 14)
                         .padding(.bottom, 8)
                 }
+
+                Button {
+                    showChannelInfo = true
+                } label: {
+                    Text(displayChannel.name)
+                        .font(.system(size: mainRegularSize))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 4)
+                .accessibilityHint("Opens channel info")
 
                 if !isAmbientLoop {
                     HStack(spacing: 0) {

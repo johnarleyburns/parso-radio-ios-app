@@ -72,6 +72,19 @@ struct PlaylistDetailView: View {
                         }
                         .accessibilityLabel("Download playlist for offline")
                     }
+
+                    if playlistVM.downloadedPlaylistIDs.contains(playlist.id) {
+                        Button {
+                            Task {
+                                await offlineService.removeOffline(playlist: playlist)
+                                await playlistVM.loadPlaylists()
+                            }
+                        } label: {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .foregroundStyle(.green)
+                        }
+                        .accessibilityLabel("Remove downloaded tracks for this playlist")
+                    }
                 }
                 .padding(.vertical, 4)
             }

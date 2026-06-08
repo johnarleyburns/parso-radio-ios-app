@@ -155,24 +155,35 @@ struct SettingsView: View {
             }
 
             Section {
-                ForEach(playlistVM.playlists.filter { pl in
-                    !pl.isFavorites
-                }) { pl in
-                    HStack {
-                        Label(pl.name, systemImage: "music.note.list")
-                        Spacer()
-                        Button("Remove Downloads") {
-                            Task {
-                                working = true
-                                await offlineService.removeOffline(playlist: pl)
-                                await playlistVM.loadPlaylists()
-                                cacheSizeTrigger &+= 1
-                                working = false
+                let playlistsWithDownloads = playlistVM.playlists.filter { pl in
+                    !pl.isFavorites && playlistVM.downloadedPlaylistIDs.contains(pl.id)
+                }
+                if playlistsWithDownloads.isEmpty {
+                    Text("No playlists with downloads.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(playlistsWithDownloads) { pl in
+                        HStack {
+                            Label(pl.name, systemImage: "music.note.list")
+                            Spacer()
+                            if working {
+                                ProgressView()
+                            } else {
+                                Button("Remove Downloads") {
+                                    Task {
+                                        working = true
+                                        await offlineService.removeOffline(playlist: pl)
+                                        await playlistVM.loadPlaylists()
+                                        cacheSizeTrigger &+= 1
+                                        working = false
+                                    }
+                                }
+                                .buttonStyle(.borderless)
+                                .foregroundStyle(.red)
+                                .font(.caption)
                             }
                         }
-                        .buttonStyle(.borderless)
-                        .foregroundStyle(.red)
-                        .font(.caption)
                     }
                 }
             } header: {
