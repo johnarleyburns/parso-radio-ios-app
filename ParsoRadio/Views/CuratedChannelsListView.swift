@@ -396,9 +396,7 @@ struct CuratorChannelEditView: View {
     @State private var showFetchError = false
     @State private var showSearchAdd = false
     @State private var filterMode: FilterMode = .review
-    @StateObject private var enrichmentService: MetadataEnrichmentService = {
-        MetadataEnrichmentService(db: DatabaseService.shared)
-    }()
+    @StateObject private var enrichmentService = MetadataEnrichmentService()
 
     enum FilterMode: String, CaseIterable {
         case review = "Review"
@@ -513,7 +511,7 @@ struct CuratorChannelEditView: View {
                         }
                     } else {
                         Button {
-                            Task { await enrichmentService.enrichApprovedTracks(for: channelMeta.id) }
+                            Task { await enrichmentService.enrichApprovedTracks(for: channelMeta.id, db: playerVM.db) }
                         } label: {
                             Label("Run Metadata Queries", systemImage: "opticaldiscdrive")
                         }
@@ -579,19 +577,34 @@ struct CuratorChannelEditView: View {
             .sheet(item: $infoTrack) { track in
                 NavigationStack {
                     List {
-                        Section("Track Info") {
-                            Text(track.title).font(.headline)
-                            Text(track.artist).foregroundStyle(.secondary)
-                            if track.duration > 0 {
-                                Text(formatTime(track.duration))
-                                    .font(.caption).foregroundStyle(.tertiary).monospacedDigit()
+                        Section {
+                            HStack(alignment: .top, spacing: 14) {
+                                ArtworkThumbnail(track: track, size: 80)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(track.title).font(.headline)
+                                    Text(track.artist).foregroundStyle(.secondary)
+                                    if track.duration > 0 {
+                                        Text(formatTime(track.duration))
+                                            .font(.caption).foregroundStyle(.tertiary).monospacedDigit()
+                                    }
+                                }
                             }
+                            .padding(.vertical, 4)
+                        }
+                        Section("Details") {
+                            SharedViews.infoRow("ID", track.id)
                             if let pn = track.partNumber, let tp = track.totalParts, tp > 1 {
-                                Text("Part \(pn) of \(tp)")
-                                    .font(.caption).foregroundStyle(.blue)
-                            } else if track.parentIdentifier != nil || track.isMultiPart == true {
-                                Text("Multi-part item")
-                                    .font(.caption).foregroundStyle(.blue)
+                                SharedViews.infoRow("Part", "\(pn) of \(tp)")
+                            }
+                            if track.parentIdentifier != nil || track.isMultiPart == true {
+                                SharedViews.infoRow("Item", track.parentIdentifier ?? "Multi-part")
+                            }
+                            SharedViews.infoRow("Source", track.streamURL.absoluteString)
+                                .font(.caption.monospaced())
+                            SharedViews.infoRow("License", LicenseDisplay.name(track.license))
+                            if !track.tags.isEmpty {
+                                SharedViews.infoRow("Tags", track.tags.joined(separator: ", "))
                             }
                         }
                         if track.parentIdentifier != nil || track.isMultiPart == true {
@@ -606,15 +619,6 @@ struct CuratorChannelEditView: View {
                                     Label("Add All Parts to Review Queue", systemImage: "tray.full")
                                 }
                             }
-                        }
-                        Section("Source") {
-                            Text(track.streamURL.absoluteString)
-                                .font(.caption.monospaced())
-                                .textSelection(.enabled)
-                        }
-                        Section {
-                            Text("ID: \(track.id)")
-                                .font(.caption2).foregroundStyle(.tertiary)
                         }
                     }
                     .navigationTitle("Track Info")

@@ -518,16 +518,23 @@ struct ChannelGridSubView: View {
 
     @ViewBuilder
     private func channelImage(_ channel: Channel) -> some View {
-        if let imageURL = channel.imageURL, let url = URL(string: imageURL) {
+        // 1. Check asset catalog for named image (e.g. "podcast-joe-rogan")
+        if UIImage(named: channel.id) != nil {
+            Image(channel.id)
+                .resizable()
+                .scaledToFill()
+                .clipped()
+        } else if let imageURL = channel.imageURL, let url = URL(string: imageURL) {
             if url.isFileURL, let uiImage = UIImage(contentsOfFile: url.path) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
+                    .clipped()
             } else {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
-                        image.resizable().scaledToFill()
+                        image.resizable().scaledToFill().clipped()
                     case .failure:
                         fallbackIcon(channel)
                     case .empty:
@@ -870,7 +877,10 @@ struct PlaylistGridSubView: View {
                                 .font(.caption2)
                                 .foregroundStyle(.green)
                         }
-                        Text("\(playlistVM.trackCount(for: playlist)) tracks")
+                        Image(systemName: "music.note")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text("\(playlistVM.trackCount(for: playlist))")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }

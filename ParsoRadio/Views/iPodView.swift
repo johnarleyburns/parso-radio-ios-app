@@ -62,6 +62,8 @@ struct NowPlayingScreen: View {
                     screenPanel(geo: geo)
                         .frame(height: max(160, geo.size.height * 0.55))
 
+                    Spacer()
+
                     Button {
                         showChannelInfo = true
                     } label: {
@@ -77,10 +79,9 @@ struct NowPlayingScreen: View {
                         .lineLimit(1)
                     }
                     .padding(.horizontal, 24)
-                    .padding(.top, 8)
                     .accessibilityHint("Opens channel info")
 
-                    Spacer(minLength: 16)
+                    Spacer()
 
                     transportControls
                         .padding(.horizontal, 24)

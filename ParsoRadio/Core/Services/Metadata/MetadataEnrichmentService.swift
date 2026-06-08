@@ -7,22 +7,24 @@ final class MetadataEnrichmentService: ObservableObject {
     @Published var progress: (completed: Int, total: Int) = (0, 0)
     @Published var currentTrackTitle: String = ""
 
-    private let db: DatabaseService
+    private var db: DatabaseService?
+
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.httpAdditionalHeaders = ["User-Agent": "Lorewave/1.0 (info@parso.guru)"]
         return URLSession(configuration: config)
     }()
 
-    init(db: DatabaseService) {
-        self.db = db
-    }
+    init() {}
+    init(db: DatabaseService) { self.db = db }
 
-    func enrichApprovedTracks(for channelId: String) async {
+    func enrichApprovedTracks(for channelId: String, db: DatabaseService) async {
         guard !isEnriching else { return }
+        self.db = db
         isEnriching = true
         defer { isEnriching = false }
 
+        guard let db = self.db else { return }
         let trackIDs = await db.fetchUnenrichedApprovedTrackIDs(channelId: channelId)
         guard !trackIDs.isEmpty else {
             progress = (0, 0)

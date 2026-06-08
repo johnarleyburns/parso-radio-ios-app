@@ -13,33 +13,36 @@ struct PlaylistDetailView: View {
 
     var body: some View {
         List {
-            // The nav title is the generic "Playlist"; the actual name reads
-            // large here for legibility.
             Section {
                 Text(playlist.name)
                     .font(.title2).fontWeight(.bold)
                     .lineLimit(3)
                     .accessibilityAddTraits(.isHeader)
+
+                // Playlist image — square, full width minus margin
+                playlistHeaderImage
+                    .aspectRatio(1, contentMode: .fill)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .listRowInsets(EdgeInsets())
+                    .padding(.vertical, 8)
             }
 
             Section {
-                HStack(spacing: 12) {
-                    // Play ALWAYS resumes if a saved spot exists (exact track +
-                    // offset), otherwise plays from the top. The user scrubs
-                    // manually if they don't like where it resumes.
+                HStack(spacing: 24) {
                     Button {
                         Task {
                             await playerVM.resumePlaylist(playlist)
                             dismissAll?()
                         }
                     } label: {
-                        Label(resume == nil ? "Play" : "Resume",
-                              systemImage: "play.fill")
+                        Image(systemName: resume == nil ? "play.fill" : "play.fill")
+                            .font(.title2)
                     }
                     .buttonStyle(.bordered)
+                    .accessibilityLabel(resume == nil ? "Play" : "Resume")
                     .accessibilityHint(resume == nil
                         ? "Plays this playlist from the beginning"
-                            : "Resumes “\(resume!.track.title)” at \(resume!.seconds.formattedTime)")
+                            : "Resumes \(resume!.track.title) at \(resume!.seconds.formattedTime)")
 
                     Button {
                         Task {
@@ -47,10 +50,12 @@ struct PlaylistDetailView: View {
                             dismissAll?()
                         }
                     } label: {
-                        Label("Shuffle", systemImage: "shuffle")
+                        Image(systemName: "shuffle")
+                            .font(.title2)
                     }
                     .buttonStyle(.bordered)
-                    .accessibilityHint("Plays this playlist in random order, starting on a random track")
+                    .accessibilityLabel("Shuffle")
+                    .accessibilityHint("Plays this playlist in random order")
 
                     Spacer()
 
@@ -235,6 +240,18 @@ struct PlaylistDetailView: View {
         } else {
             // No downloadURL (e.g. stream-only source) — show nothing.
             EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var playlistHeaderImage: some View {
+        if !playlistVM.currentPlaylistTracks.isEmpty,
+           let firstTrack = playlistVM.currentPlaylistTracks.first {
+            ArtworkThumbnail(track: firstTrack, size: UIScreen.main.bounds.width - 40)
+        } else {
+            Image("playlists")
+                .resizable()
+                .scaledToFit()
         }
     }
 }
