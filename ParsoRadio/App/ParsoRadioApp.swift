@@ -28,6 +28,7 @@ struct ParsoMusicApp: App {
             downloadManager: ParsoMusicApp.sharedDownloadManager
         )
         AppIntentBridge.shared.playerVM = vm
+        PodcastSubscriptionStore.shared.configure(db: db)
         return vm
     }()
 

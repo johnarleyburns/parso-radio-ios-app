@@ -14,15 +14,33 @@ final class PodcastSubscriptionStore: ObservableObject {
 
     @Published private(set) var subscriptions: [PodcastSubscription] = []
 
-    private init() {
-        Task { await loadFromDB() }
+    private var db: DatabaseService?
+    private var loadTask: Task<Void, Never>?
+
+    private init() {}
+
+    func configure(db: DatabaseService) {
+        self.db = db
+        loadTask?.cancel()
+        loadTask = Task { [weak self] in
+            await self?.loadFromDB()
+        }
+    }
+
+    func resetForTesting() {
+        db = nil
+        loadTask?.cancel()
+        loadTask = nil
+        subscriptions = []
     }
 
     private func loadFromDB() async {
-        subscriptions = await DatabaseService.shared.fetchPodcastSubscriptions()
+        guard let db else { return }
+        subscriptions = await db.fetchPodcastSubscriptions()
     }
 
     func add(name: String, feedURL: String, artworkURL: String? = nil) async {
+        guard let db else { return }
         let sub = PodcastSubscription(
             id: UUID().uuidString,
             name: name,
@@ -30,12 +48,13 @@ final class PodcastSubscriptionStore: ObservableObject {
             artworkURL: artworkURL,
             createdAt: Date()
         )
-        await DatabaseService.shared.savePodcastSubscription(sub)
+        await db.savePodcastSubscription(sub)
         subscriptions.append(sub)
     }
 
     func remove(_ sub: PodcastSubscription) async {
-        await DatabaseService.shared.deletePodcastSubscription(sub)
+        guard let db else { return }
+        await db.deletePodcastSubscription(sub)
         subscriptions.removeAll { $0.id == sub.id }
     }
 
