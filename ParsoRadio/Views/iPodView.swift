@@ -1,63 +1,43 @@
 import SwiftUI
 
-struct iPodView: View {
+struct NowPlayingScreen: View {
+    let dismiss: () -> Void
+
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.dismiss) private var envDismiss
     @State private var showChapters = false
     @State private var sleepTimerNow: Date = Date()
     private static let sleepTimerOptions: [Int] = [15, 30, 45, 60]
-    @State private var pendingChannel: Channel = {
-        let raw = UserDefaults.standard.string(forKey: "lastChannelId") ?? "guitar-classical"
-        let lastId = PlayerViewModel.migratedChannelId(raw) ?? raw
-        return Channel.defaults.first { $0.id == lastId } ?? Channel.defaults[0]
-    }()
     @State private var showChannelSelector = false
-    @State private var showAbout = false
-    @State private var showMainMenu = false
-    @State private var showKidsMenu = false
-    @ObservedObject private var kids = KidsModeController.shared
-    @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
-    @AppStorage("supporterBadgeHidden") private var supporterBadgeHidden = false
-    @State private var showPlaylists = false
-    @State private var showSearch = false
     @State private var showAddToPlaylist = false
     @State private var showAddItemToPlaylist = false
     @State private var showMoreOptions = false
     @State private var showFullMetadata = false
     @State private var isCurrentTrackFavorite = false
-    @State private var showWheelHelp = false
-    @AppStorage("didShowWheelHelp") private var didShowWheelHelp = false
-    // Wheel MENU opens the Main Menu sheet, optionally pre-navigated to the
-    // current playlist or channel-info (single tap); double tap = root menu.
-    @State private var menuRoute: MenuRoute? = nil
-    // Non-nil while the user is dragging the progress bar (overrides the
-    // player position so the bar follows the finger).
-    @State private var scrubFraction: Double? = nil
+    @ObservedObject private var kids = KidsModeController.shared
+    @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
+    @AppStorage("supporterBadgeHidden") private var supporterBadgeHidden = false
     @State private var showContributionSupport = false
+    @State private var scrubFraction: Double? = nil
 
     private var displayChannel: Channel {
-        playerVM.currentChannel ?? pendingChannel
+        playerVM.currentChannel ?? Channel.defaults.first(where: { $0.id == "guitar-classical" }) ?? Channel.defaults[0]
     }
 
-    // A looping ambient channel is a single track that repeats forever:
-    // transport / scrubber / favorites / shuffle / repeat make no sense, so
-    // the UI collapses to "now playing + info" only.
     private var isAmbientLoop: Bool {
         playerVM.currentChannel?.contentType == .ambientLoop
     }
 
-    // Bundled looping backdrop for the current ambient channel, if any.
     private var ambientVideoURL: URL? {
         guard isAmbientLoop else { return nil }
         return AmbientStaticService.bundledVideoURL(
             forChannelId: playerVM.currentChannel?.id ?? "")
     }
 
-    // The same SF Symbol the main menu/channel-selector list uses for this
-    // source, so the top-left label of the track box is unambiguous.
     private var titleIcon: String? {
         if let pl = playerVM.currentPlaylist {
             return pl.isFavorites ? "heart.fill" : "music.note.list"
@@ -69,150 +49,66 @@ struct iPodView: View {
         playerVM.currentPlaylist?.name ?? playerVM.currentChannel?.name ?? ""
     }
 
-    // Two sizes only on the main page: one larger bold for the playlist/
-    // channel name and track title; one smaller regular for artist, part,
-    // date and time labels. @ScaledMetric so they honor Dynamic Type (the
-    // .dynamicTypeSize clamp on the panel keeps the layout coherent at the
-    // extreme settings).
     @ScaledMetric(relativeTo: .title3)      private var mainBoldSize: CGFloat = 19
     @ScaledMetric(relativeTo: .subheadline) private var mainRegularSize: CGFloat = 14
-    // Brand dark blue (matches the wheel's old progress arc) — used for the
-    // elapsed-progress fill on the dark scrim.
     private static let progressBlue = Color(red: 0.18, green: 0.42, blue: 0.95)
-    // Device-body color adapts to appearance (HIG): a deep slate in Dark Mode,
-    // a lighter slate in Light Mode.
-    // Dark mode: a very dark, near-black body (the wheel centre matches this
-    // exactly so it reads as one continuous dark face, HIG-style). Light mode
-    // keeps the slate body. The device face is painted with a SUBTLE top→bottom
-    // gradient (deviceBodyTop → deviceBodyBottom) for tasteful depth.
-    // Light mode: the page background uses the SAME light-grey gradient as the
-    // wheel's inner well, so background + well read as one cohesive surface and
-    // only the bright-white ring stands out. Dark mode stays near-black.
-    static let deviceBodyTop = Color(uiColor: UIColor { trait in
-        trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.105, green: 0.108, blue: 0.120, alpha: 1)
-            : UIColor(red: 0.900, green: 0.905, blue: 0.930, alpha: 1)
-    })
-    static let deviceBodyBottom = Color(uiColor: UIColor { trait in
-        trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.065, green: 0.068, blue: 0.078, alpha: 1)
-            : UIColor(red: 0.820, green: 0.825, blue: 0.855, alpha: 1)
-    })
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                // Device body — adapts to Light/Dark appearance, with a subtle
-                // gradient for depth (HIG). The ring stays a flat solid on top.
-                LinearGradient(
-                    colors: [Self.deviceBodyTop, Self.deviceBodyBottom],
-                    startPoint: .top, endPoint: .bottom)
-                    .ignoresSafeArea()
+        ZStack {
+            Color(.systemBackground).ignoresSafeArea()
 
+            GeometryReader { geo in
                 VStack(spacing: 0) {
-                    // Screen panel — top portion. The VStack respects the top
-                    // safe area, so the panel starts just below the status bar;
-                    // a top margin equal to the side margin then offsets it.
-                    // Floor at 160 pt: GeometryReader can report geo.size = (0,0)
-                    // on the first layout pass before the view is measured,
-                    // which would collapse the panel and overflow its content.
-                    // No top margin: the panel sits flush just below the
-                    // status bar (the VStack still respects the top safe area).
                     screenPanel(geo: geo)
-                        .frame(height: max(160.0, geo.size.height * 0.50))
-                        .padding(.horizontal, deviceMargin(geo))
-                        .overlay(alignment: .bottomTrailing) {
-                            if !supporterBadgeHidden,
-                               contributionStore.isSupporter,
-                               contributionStore.hasActiveSubscription {
-                                supporterBadge
-                                    .offset(x: 0, y: deviceMargin(geo) + 48)
-                            }
-                        }
+                        .frame(height: max(160, geo.size.height * 0.55))
 
-                    // Two equal spacers center the wheel between the track box
-                    // and the physical screen bottom. minLength guarantees the
-                    // track→wheel gap is at least the side margin.
-                    Spacer(minLength: deviceMargin(geo))
+                    Spacer(minLength: 16)
 
-                    ClickWheel(
-                        isPlaying: playerVM.isPlaying,
-                        currentTime: playerVM.currentPosition,
-                        duration: isAmbientLoop ? 0 : (playerVM.trackDuration ?? 0),
-                        transportEnabled: !isAmbientLoop,
-                        onSeek: { playerVM.seek(to: $0) },
-                        onSeekBy: { playerVM.seekBy($0) },
-                        onScrubChanged: { playerVM.setScrubbing($0) },
-                        onMenu:        { openMenu(contextual: true) },
-                        onMenuRoot:    { openMenu(contextual: false) },
-                        onPrevTrack:   { Task { await playerVM.goToPreviousTrack() } },
-                        onNextTrack:   { playerVM.skip() },
-                        onPlayPause:   { playerVM.togglePlayPause() },
-                        onCenter:      { if playerVM.currentTrack != nil { showMoreOptions = true } }
-                    )
-                    .frame(width: wheelDiameter(geo), height: wheelDiameter(geo))
+                    transportControls
+                        .padding(.horizontal, 24)
 
-                    Spacer(minLength: deviceMargin(geo))
+                    Spacer(minLength: 16)
                 }
-                // On iPad (regular width) cap the "device" to a phone-like
-                // width and centre it, so the wheel/track box stay iPod-
-                // proportioned instead of stretching across a 12.9" display.
-                .frame(maxWidth: contentWidth(geo), maxHeight: .infinity)
+                .frame(maxWidth: min(geo.size.width, horizontalSizeClass == .regular ? 480 : geo.size.width))
                 .frame(maxWidth: .infinity)
-                // Match the device-body Color: extend to the physical screen
-                // bottom so the bottom spacer (and thus the wheel centering)
-                // is measured to the real screen edge, not the safe-area inset
-                // — otherwise the wheel looks bottom-heavy.
-                .ignoresSafeArea(.container, edges: .bottom)
             }
         }
-        .sheet(isPresented: $showMainMenu) {
-            MainMenuView(
-                initialRoute: menuRoute,
-                onSelectChannel: { channel in
-                    pendingChannel = channel
-                    showMainMenu = false
-                    Task { await playerVM.load(channel: channel) }
-                },
-                dismissAll: { showMainMenu = false }
-            )
-            .environmentObject(playlistVM)
-            .environmentObject(playerVM)
-            .environmentObject(offlineService)
+        .overlay(alignment: .topLeading) {
+            Button {
+                playerVM.saveCurrentSpot()
+                dismiss()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                    Text("Browse")
+                }
+                .font(.body)
+                .padding(12)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+            }
+            .padding(.top, 8)
+            .padding(.leading, 16)
+            .accessibilityLabel("Browse")
+            .accessibilityHint("Go back to the channel browser")
         }
-        .sheet(isPresented: $showKidsMenu) {
-            KidsMenuView(
-                onSelectChannel: { channel in
-                    pendingChannel = channel
-                    showKidsMenu = false
-                    Task { await playerVM.load(channel: channel) }
-                },
-                dismissAll: { showKidsMenu = false }
-            )
-            .environmentObject(playerVM)
-            .environmentObject(playlistVM)
-            .environmentObject(offlineService)
+        .overlay(alignment: .topTrailing) {
+            if playerVM.currentTrack != nil, !isAmbientLoop {
+                Button {
+                    showMoreOptions = true
+                } label: {
+                    Image(systemName: "ellipsis.circle.fill")
+                        .font(.title3)
+                        .padding(12)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .accessibilityLabel("Track Info")
+            }
         }
         .sheet(isPresented: $showChannelSelector) {
             ChannelSelectorView(currentChannelId: displayChannel.id) { channel in
-                pendingChannel = channel
                 showChannelSelector = false
                 Task { await playerVM.load(channel: channel) }
             }
-        }
-        .sheet(isPresented: $showPlaylists) {
-            PlaylistListView(dismissAll: { showPlaylists = false })
-                .environmentObject(playlistVM)
-                .environmentObject(playerVM)
-                .environmentObject(offlineService)
-        }
-        .sheet(isPresented: $showSearch) {
-            SearchView(dismissAll: { showSearch = false })
-                .environmentObject(playlistVM)
-                .environmentObject(playerVM)
-        }
-        .sheet(isPresented: $showAbout) {
-            AboutView()
         }
         .sheet(isPresented: $showAddToPlaylist) {
             if let track = playerVM.currentTrack {
@@ -230,18 +126,11 @@ struct iPodView: View {
         .sheet(isPresented: $showMoreOptions) {
             combinedTrackSheet
         }
-        .sheet(isPresented: $showWheelHelp) {
-            WheelHelpView()
-        }
         .sheet(isPresented: $showContributionSupport) {
             NavigationStack {
-                ContributionSupportView(
-                    store: ParsoMusicApp.sharedContributionStore,
-                    showsDoneButton: true)
+                ContributionSupportView(store: ParsoMusicApp.sharedContributionStore, showsDoneButton: true)
             }
         }
-        // Offline notice (e.g. tapped a streaming channel in airplane mode).
-        // Non-destructive: whatever was playing keeps playing behind the alert.
         .alert("You're Offline", isPresented: Binding(
             get: { playerVM.transientMessage != nil },
             set: { if !$0 { playerVM.transientMessage = nil } }
@@ -250,439 +139,95 @@ struct iPodView: View {
         } message: {
             Text(playerVM.transientMessage ?? "")
         }
-        // A drag-to-seek gesture interrupted by a sheet presentation can leave
-        // isScrubbing stuck true, which freezes the progress bar / elapsed time
-        // until the next track. Clear it whenever a sheet closes.
         .onChange(of: showMoreOptions) { _, shown in
             if !shown { playerVM.isScrubbing = false }
         }
-        .onChange(of: showMainMenu) { _, shown in
-            if !shown { playerVM.isScrubbing = false }
-        }
-        // Kids Mode just turned on — dismiss every menu/sheet, push us onto a
-        // children's channel if we aren't on one (no back-track to non-kid
-        // content), and present the kids menu after the dismiss animation.
-        .onChange(of: kids.isEnabled) { _, enabled in
-            guard enabled else { return }
-            showMainMenu = false; showChannelSelector = false
-            showPlaylists = false; showSearch = false; showAbout = false
-            showMoreOptions = false; showAddToPlaylist = false
-            showAddItemToPlaylist = false; showWheelHelp = false; showChapters = false
-            // Single decision lives in PlayerViewModel.enterKidsMode() (tested):
-            // clears playHistory, returns the channel to load when we must
-            // redirect, or nil to stay (kid-safe playlist or kids channel).
-            if let target = playerVM.enterKidsMode() {
-                Task { @MainActor in await playerVM.load(channel: target, autoPlay: true) }
-            }
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 350_000_000)
-                showKidsMenu = true
-            }
-        }
-        .task {
-            await playlistVM.loadPlaylists()
-            UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
-
-            if let pendingId = UserDefaults.standard.string(forKey: "siri.pendingChannelId"),
-               let ts = UserDefaults.standard.object(forKey: "siri.pendingTimestamp") as? TimeInterval,
-               Date().timeIntervalSince1970 - ts < 60 {
-                UserDefaults.standard.removeObject(forKey: "siri.pendingChannelId")
-                UserDefaults.standard.removeObject(forKey: "siri.pendingTimestamp")
-                // Siri/Shortcut intent already triggered a channel load in-process.
-                // The channel is loading or already playing — skip the normal restore.
-            } else if kids.isEnabled {
-                // Kids Mode: never restore an arbitrary last session (it could be
-                // News). Start on a children's channel — the last kids channel if
-                // there was one, else the first allowed channel.
-                let lastId = UserDefaults.standard.string(forKey: "lastChannelId")
-                let allowed = KidsModeController.allowedChannels()
-                let ch = allowed.first { $0.id == lastId } ?? allowed.first ?? pendingChannel
-                // NEVER auto-play on launch — load the channel paused, user taps
-                // the wheel play to start.
-                await playerVM.load(channel: ch, autoPlay: false)
-                // Kids Mode persists across launches — confirm visually by
-                // presenting the kids menu, so a parent (and child) see at a
-                // glance that it's still on after an app update / relaunch.
-                showKidsMenu = true
-            } else {
-                // Resume EXACTLY where the user was, but PAUSED — the user
-                // explicitly asked never to auto-play on launch / return from
-                // background. They tap play to start.
-                await playerVM.restoreLastSession(fallbackChannel: pendingChannel,
-                                                  autoPlay: false)
-            }
-            // First launch: show the wheel guide once so the gestures are
-            // discoverable.
-            if !didShowWheelHelp {
-                didShowWheelHelp = true
-                showWheelHelp = true
-            }
-        }
     }
 
-    // MARK: - Supporter Badge
+    // MARK: - Transport Controls
 
-    @ViewBuilder
-    private var supporterBadge: some View {
-        if !supporterBadgeHidden,
-           contributionStore.isSupporter,
-           contributionStore.hasActiveSubscription {
-            let imageName: String = {
-                switch contributionStore.subscriptionTier {
-                case .yearly:  return "emperor_1024"
-                case .monthly: return "beethoven_1024"
-                case .none:    return ""
-                }
-            }()
-            if !imageName.isEmpty, let uiImage = UIImage(named: imageName) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 48, height: 48)
-                    .clipShape(Circle())
-                    .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
-                    .onTapGesture {
-                        showContributionSupport = true
-                    }
+    private var transportControls: some View {
+        VStack(spacing: 20) {
+            if !isAmbientLoop, let dur = playerVM.trackDuration, dur > 0 {
+                progressBar(duration: dur)
+                    .padding(.horizontal, 4)
             }
-        }
-    }
 
-    // MARK: - Screen Panel
-
-    private func screenPanel(geo: GeometryProxy) -> some View {
-        ZStack(alignment: .bottom) {
-            // Full-bleed album art background
-            artworkBackground
-
-            // Top scrim — keeps the channel title readable over light artwork.
-            LinearGradient(
-                colors: [.black.opacity(0.6), .clear],
-                startPoint: .top,
-                endPoint: .center
-            )
-
-            // Bottom scrim for the track metadata / scrubber legibility.
-            // Slightly stronger so white text clears the 4.5:1 contrast bar
-            // even over a bright album cover.
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.82)],
-                startPoint: .center,
-                endPoint: .bottom
-            )
-
-            VStack(spacing: 0) {
-                // Playlist or channel name only. NO stale fallback to the
-                // last-selected channel: a search-result/standalone play has
-                // neither, so the label stays blank until real content shows.
-                HStack(spacing: 8) {
-                    if let icon = titleIcon {
-                        Image(systemName: icon)
-                            .font(.system(size: mainBoldSize,
-                                           weight: .semibold))
+            HStack(spacing: 0) {
+                // Channel picker
+                Button {
+                    showChannelSelector = true
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: displayChannel.icon)
+                            .font(.title3)
+                        Text(displayChannel.name)
+                            .font(.caption2)
+                            .lineLimit(1)
                     }
-                    Text(titleText)
-                        .font(.system(size: mainBoldSize,
-                                       weight: .semibold))
-                        .lineLimit(1)
-                    Spacer()
+                    .frame(width: 60)
                 }
-                .foregroundStyle(.white.opacity(0.95))
-                .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
-                // Label only — navigation moved to the wheel MENU button.
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(
-                    "Now playing from \(titleText.isEmpty ? "nothing" : titleText)")
-                .padding(.horizontal, 14)
-                .padding(.top, 12)
+                .accessibilityLabel("Change channel, currently \(displayChannel.name)")
 
                 Spacer()
 
-                // Track metadata — bottom section above scrubber.
-                // currentTrack is nil on error (playTrack catch clears it), so
-                // errorView is reached naturally without reordering these branches.
-                if isAmbientLoop {
-                    // A looping ambient channel is a single forever track: the
-                    // channel name (top-left) is all that's needed — no title /
-                    // artist / album line. (Details remain on the Track Info page.)
-                    EmptyView()
-                } else if let track = playerVM.currentTrack {
-                    trackMetadataStack(track: track)
-                } else if let err = playerVM.errorMessage {
-                    errorView(err)
-                } else if displayChannel != nil {
-                    // A channel IS loaded but no track is playing yet (e.g. the
-                    // previous track finished while the user was in the menu).
-                    // Show the channel name as a prompt rather than the misleading
-                    // "Tap ☰ to select a channel" message.
-                    channelPromptView
-                } else {
-                    // No channel selected at all — invite the user to pick one.
-                    idleView
-                }
-
-                // Scrubber row
-                scrubberRow
-                    .padding(.bottom, 12)
-            }
-        }
-        // Status indicators (top-right): shuffle (blue when active) and
-        // repeat-one. Both are display-only; toggled from Track Info.
-        .overlay(alignment: .topTrailing) {
-            if !isAmbientLoop, playerVM.currentTrack != nil {
-                HStack(spacing: 8) {
-                    if playerVM.shuffleMode {
-                        statusBadge("shuffle", tint: .blue, label: "Shuffle is on")
+                if !isAmbientLoop {
+                    Button {
+                        Task { await playerVM.goToPreviousTrack() }
+                    } label: {
+                        Image(systemName: "backward.fill")
+                            .font(.system(size: 30))
                     }
-                    if playerVM.repeatMode == .one {
-                        statusBadge("repeat.1", tint: .blue, label: "Repeat track is on")
-                    }
-                }
-                .padding(12)
-            }
-        }
-        // Unmistakable loading indicator centred on the screen while a track
-        // is resolving/buffering (the small inline spinner was easy to miss).
-        // Sized to EXACTLY the wheel's inner hub diameter (size * 0.45) so the
-        // loading disc reads as a deliberate twin of the wheel centre.
-        .overlay { if playerVM.isLoading { loadingOverlay(diameter: wheelDiameter(geo) * 0.45) } }
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
-        // Dynamic Type clamp — respect the user's text-size setting but keep
-        // the track box layout coherent at the extreme sizes.
-        .dynamicTypeSize(.medium ... .accessibility2)
-        .contextMenu {
-            if playerVM.currentTrack != nil, !isAmbientLoop, !kids.isEnabled {
-                Button { showAddToPlaylist = true } label: {
-                    Label("Add to Playlist", systemImage: "plus.circle")
-                }
-            }
-        }
-    }
-
-    private var artworkBackground: some View {
-        // Rectangle takes EXACTLY the proposed size and never overflows, so it
-        // — not the artwork — determines this view's layout size. The image is an
-        // .overlay, which by SwiftUI's rules does not influence the host's size.
-        // .scaledToFill() on the overlay still overflows visually, but .clipped()
-        // trims it to the Rectangle's bounds. This is why an earlier
-        // `.frame(maxWidth: .infinity).clipped()` did NOT work: an infinite max
-        // lets scaledToFill's oversized dimension pass through as the reported
-        // layout width, inflating the screen panel and pushing the wheel offscreen.
-        Rectangle()
-            .fill(
-                LinearGradient(
-                    colors: [ChannelCategoryStyle.color(for: displayChannel.category).opacity(0.6),
-                             ChannelCategoryStyle.color(for: displayChannel.category).opacity(0.2)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .overlay {
-                if isAmbientLoop, let video = ambientVideoURL {
-                    // Rainy Day: user prefers the right edge of the clip.
-                    LoopingVideoView(
-                        url: video,
-                        horizontalAnchor:
-                            playerVM.currentChannel?.id == "ambient-rain" ? 1.0 : 0.5,
-                        isPlaying: playerVM.isPlaying)
-                } else if let art = playerVM.currentArtwork {
-                    Image(uiImage: art)
-                        .resizable()
-                        .scaledToFill()
+                    .accessibilityLabel("Previous track")
+                    .buttonStyle(.plain)
                 } else {
-                    // No artwork → per-track procedural visualizer (seeded by
-                    // the track so it always changes; never a stale image).
-                    ProceduralVisualizerView(
-                        seed: playerVM.currentTrack?.id ?? displayChannel.id,
-                        isPlaying: playerVM.isPlaying)
+                    Color.clear.frame(width: 30)
                 }
-            }
-            .clipped()
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.8),
-                       value: playerVM.currentTrack?.id)
-            // Purely decorative (album art / ambient video / visualizer).
-            .accessibilityHidden(true)
-    }
 
-    @ViewBuilder
-    private func trackMetadataStack(track: Track) -> some View {
-        VStack(alignment: .trailing, spacing: 5) {
-            // The inline spinner that used to live here was redundant with the
-            // centered loadingOverlay — it created the "two indicators at once"
-            // effect. The overlay is now the single source of truth for
-            // "loading", so this stack just shows the track metadata.
+                Spacer()
 
-            Text(track.title)
-                .font(.system(size: mainBoldSize, weight: .bold))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if let artist = cleaned(track.artist) {
-                Text(artist)
-                    .font(.system(size: mainRegularSize))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .lineLimit(1)
-            }
-
-            // "Part m of n" is for spoken-word (audiobooks/lectures) only. On a
-            // MUSIC channel an album just plays a random track each visit, so the
-            // part label is noise — suppress it there.
-            if playerVM.currentChannel?.contentType != .music {
-                if let part = track.partNumber, let total = track.totalParts, total > 1 {
-                    Text("Part \(part) of \(total)")
-                        .font(.system(size: mainRegularSize))
-                        .foregroundStyle(.white.opacity(0.7))
-                } else if playerVM.currentItemChapterCount > 1 {
-                    // Item-level multi-part entry (e.g. a book opened from Books
-                    // for You) whose track carries no part metadata — the probe
-                    // filled in the chapter count and which part is playing.
-                    Text(playerVM.currentItemPartIndex.map {
-                        "Part \($0) of \(playerVM.currentItemChapterCount)"
-                    } ?? "\(playerVM.currentItemChapterCount) parts")
-                        .font(.system(size: mainRegularSize))
-                        .foregroundStyle(.white.opacity(0.7))
+                Button {
+                    playerVM.togglePlayPause()
+                } label: {
+                    Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 44))
                 }
-            }
+                .accessibilityLabel(playerVM.isPlaying ? "Pause" : "Play")
+                .buttonStyle(.plain)
 
-            // News episodes: show the publish date on the now-playing line
-            // (this single-track screen IS the news "listing").
-            if playerVM.currentChannel?.preferredSource == "podcast",
-               let date = track.bestDate {
-                Text(date.formatted(.dateTime.year().month().day()))
-                    .font(.system(size: mainRegularSize))
-                    .foregroundStyle(.white.opacity(0.7))
-            }
-            // License/source intentionally NOT shown here — only in the
-            // Track Info popup — to keep the main track box uncluttered.
-        }
-        .frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.horizontal, 14)
-        .padding(.bottom, 8)
-        .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
-        // One spoken element: "Title, Artist, Part 2 of 5" rather than four
-        // separate VoiceOver stops.
-        .accessibilityElement(children: .combine)
-    }
+                Spacer()
 
-    private func statusBadge(_ systemName: String, tint: Color, label: String) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: mainRegularSize, weight: .semibold))
-            .foregroundStyle(tint)
-            .padding(8)
-            .background(.black.opacity(0.35), in: Circle())
-            .accessibilityLabel(label)
-    }
-
-    // THE single loading spinner: one icon, centered over the track box, in a
-    // disc whose diameter EXACTLY matches the wheel's inner hub (passed in as
-    // wheelDiameter * 0.45). No text, no second indicator.
-    private func loadingOverlay(diameter: CGFloat) -> some View {
-        ProgressView()
-            .controlSize(.large)
-            .scaleEffect(min(2.2, max(1.4, diameter / 60)))
-            .tint(.white)
-            .frame(width: diameter, height: diameter)
-            .background(.black.opacity(0.5), in: Circle())
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.black.opacity(0.15))
-            .allowsHitTesting(false)
-            .transition(.opacity)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Loading")
-    }
-
-    @ViewBuilder
-    private func errorView(_ message: String) -> some View {
-        VStack(spacing: 8) {
-            Text(message)
-                .font(.system(size: mainRegularSize))
-                .foregroundStyle(.white.opacity(0.85))
-                .multilineTextAlignment(.trailing)
-            Button("Try Again") {
-                if let ch = playerVM.currentChannel {
-                    Task { await playerVM.load(channel: ch) }
+                if !isAmbientLoop {
+                    Button {
+                        playerVM.skip()
+                    } label: {
+                        Image(systemName: "forward.fill")
+                            .font(.system(size: 30))
+                    }
+                    .accessibilityLabel("Next track")
+                    .buttonStyle(.plain)
+                } else {
+                    Color.clear.frame(width: 30)
                 }
+
+                Spacer()
+
+                // Spacer for symmetry
+                Color.clear.frame(width: 60)
             }
-            .font(.system(size: mainRegularSize))
-            .buttonStyle(.bordered)
-            .tint(.white)
-        }
-        .frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.horizontal, 14)
-        .padding(.bottom, 8)
-    }
-
-    @ViewBuilder
-    private var idleView: some View {
-        Text("Tap \(Image(systemName: "line.3.horizontal")) to select a channel")
-            .font(.system(size: mainRegularSize))
-            .foregroundStyle(.white.opacity(0.7))
-            .multilineTextAlignment(.trailing)
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(.horizontal, 14)
-            .padding(.bottom, 8)
-    }
-
-    /// Shown when a channel IS selected but no track is currently loaded (e.g.
-    /// the previous track finished while the user was browsing the menu).
-    /// Shows only the channel name — no action prompt. The user is already on a
-    /// channel; there's nothing to "select."
-    @ViewBuilder
-    private var channelPromptView: some View {
-        Text(displayChannel.name)
-            .font(.system(size: mainRegularSize))
-            .foregroundStyle(.white.opacity(0.8))
-            .multilineTextAlignment(.trailing)
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(.horizontal, 14)
-            .padding(.bottom, 8)
-    }
-
-    // The track box now carries ONLY the position display: elapsed / remaining
-    // times + a draggable progress bar. Favorites, the ••• info button and the
-    // tap zones were removed — transport + track-info live on the wheel
-    // (wheel centre = Track Info; ±10 / track-skip / scrub on the sides).
-    @ViewBuilder
-    private var scrubberRow: some View {
-        if isAmbientLoop {
-            EmptyView()                       // a forever loop has nothing to scrub
-        } else if let dur = playerVM.trackDuration, dur > 0 {
-            VStack(spacing: 6) {
-                HStack(spacing: 0) {
-                    Text(playerVM.currentPosition.formattedTime)
-                        .font(.system(size: mainRegularSize))
-                        .monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.75))
-                        .accessibilityHidden(true)
-                    Spacer()
-                    Text("-" + max(0, dur - playerVM.currentPosition).formattedTime)
-                        .font(.system(size: mainRegularSize))
-                        .monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.75))
-                        .accessibilityHidden(true)
-                }
-                .padding(.horizontal, 14)
-                progressBar(duration: dur)
-                    .padding(.horizontal, 14)
-            }
-            .padding(.vertical, 2)
+            .padding(.horizontal, 8)
         }
     }
 
-    // Draggable elapsed-progress bar (common music-UI placement: bottom of
-    // the track box). Tap or drag anywhere to seek. Dark-blue fill matches
-    // the wheel's old progress arc and is distinct from the smaller controls
-    // above so the user knows where the scrubbing surface starts.
+    // MARK: - Progress Bar
+
     private func progressBar(duration: Double) -> some View {
         GeometryReader { geo in
             let w = max(geo.size.width, 1)
             let frac = scrubFraction
                 ?? min(max(playerVM.currentPosition / duration, 0), 1)
             ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.18)).frame(height: 5)
+                Capsule().fill(.secondary.opacity(0.2)).frame(height: 5)
                 Capsule().fill(Self.progressBlue)
                     .frame(width: w * CGFloat(frac), height: 5)
                 Circle().fill(.white)
@@ -709,11 +254,9 @@ struct iPodView: View {
             )
         }
         .frame(height: 16)
-        // VoiceOver: a real adjustable "slider" — swipe up/down seeks ±15 s.
         .accessibilityElement()
         .accessibilityLabel("Playback position")
-        .accessibilityValue(
-            "\(playerVM.currentPosition.formattedTime) of \(duration.formattedTime), \(max(0, duration - playerVM.currentPosition).formattedTime) remaining")
+        .accessibilityValue("\(playerVM.currentPosition.formattedTime) of \(duration.formattedTime)")
         .accessibilityHint("Swipe up or down to seek by 15 seconds")
         .accessibilityAdjustableAction { direction in
             switch direction {
@@ -721,54 +264,258 @@ struct iPodView: View {
                 playerVM.seek(to: min(duration, playerVM.currentPosition + 15))
             case .decrement:
                 playerVM.seek(to: max(0, playerVM.currentPosition - 15))
-            @unknown default:
-                break
+            @unknown default: break
             }
         }
     }
 
-    // MARK: - Combined Track Info + Options sheet
+    // MARK: - Screen Panel
+
+    private func screenPanel(geo: GeometryProxy) -> some View {
+        ZStack(alignment: .bottom) {
+            artworkBackground
+
+            LinearGradient(
+                colors: [.black.opacity(0.6), .clear],
+                startPoint: .top, endPoint: .center
+            )
+
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.82)],
+                startPoint: .center, endPoint: .bottom
+            )
+
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    if let icon = titleIcon {
+                        Image(systemName: icon)
+                            .font(.system(size: mainBoldSize, weight: .semibold))
+                    }
+                    Text(titleText)
+                        .font(.system(size: mainBoldSize, weight: .semibold))
+                        .lineLimit(1)
+                    Spacer()
+                }
+                .foregroundStyle(.white.opacity(0.95))
+                .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
+                .padding(.horizontal, 14)
+                .padding(.top, 60)
+
+                Spacer()
+
+                if isAmbientLoop {
+                    EmptyView()
+                } else if let track = playerVM.currentTrack {
+                    trackMetadataStack(track: track)
+                } else if let err = playerVM.errorMessage {
+                    errorView(err)
+                } else {
+                    Text(displayChannel.name)
+                        .font(.system(size: mainRegularSize))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 8)
+                }
+
+                if !isAmbientLoop {
+                    HStack(spacing: 0) {
+                        Text(playerVM.currentPosition.formattedTime)
+                            .font(.system(size: mainRegularSize))
+                            .monospacedDigit()
+                            .foregroundStyle(.white.opacity(0.75))
+                        Spacer()
+                        if let dur = playerVM.trackDuration, dur > 0 {
+                            Text("-" + max(0, dur - playerVM.currentPosition).formattedTime)
+                                .font(.system(size: mainRegularSize))
+                                .monospacedDigit()
+                                .foregroundStyle(.white.opacity(0.75))
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 12)
+                }
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if !isAmbientLoop, playerVM.currentTrack != nil {
+                HStack(spacing: 8) {
+                    if playerVM.shuffleMode {
+                        statusBadge("shuffle", tint: .blue, label: "Shuffle is on")
+                    }
+                    if playerVM.repeatMode == .one {
+                        statusBadge("repeat.1", tint: .blue, label: "Repeat track is on")
+                    }
+                }
+                .padding(.top, 60)
+                .padding(.trailing, 12)
+            }
+        }
+        .overlay {
+            if playerVM.isLoading {
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(.white)
+                    .frame(width: 80, height: 80)
+                    .background(.black.opacity(0.5), in: Circle())
+                    .transition(.opacity)
+                    .accessibilityLabel("Loading")
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
+        .dynamicTypeSize(.medium ... .accessibility2)
+        .contextMenu {
+            if playerVM.currentTrack != nil, !isAmbientLoop, !kids.isEnabled {
+                Button { showAddToPlaylist = true } label: {
+                    Label("Add to Playlist", systemImage: "plus.circle")
+                }
+            }
+        }
+    }
+
+    private var artworkBackground: some View {
+        Rectangle()
+            .fill(
+                LinearGradient(
+                    colors: [ChannelCategoryStyle.color(for: displayChannel.category).opacity(0.6),
+                             ChannelCategoryStyle.color(for: displayChannel.category).opacity(0.2)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay {
+                if isAmbientLoop, let video = ambientVideoURL {
+                    LoopingVideoView(
+                        url: video,
+                        horizontalAnchor: playerVM.currentChannel?.id == "ambient-rain" ? 1.0 : 0.5,
+                        isPlaying: playerVM.isPlaying)
+                } else if let art = playerVM.currentArtwork {
+                    Image(uiImage: art)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    ProceduralVisualizerView(
+                        seed: playerVM.currentTrack?.id ?? displayChannel.id,
+                        isPlaying: playerVM.isPlaying)
+                }
+            }
+            .clipped()
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.8),
+                       value: playerVM.currentTrack?.id)
+            .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func trackMetadataStack(track: Track) -> some View {
+        VStack(alignment: .trailing, spacing: 5) {
+            Text(track.title)
+                .font(.system(size: mainBoldSize, weight: .bold))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let artist = cleaned(track.artist) {
+                Text(artist)
+                    .font(.system(size: mainRegularSize))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(1)
+            }
+
+            if playerVM.currentChannel?.contentType != .music {
+                if let part = track.partNumber, let total = track.totalParts, total > 1 {
+                    Text("Part \(part) of \(total)")
+                        .font(.system(size: mainRegularSize))
+                        .foregroundStyle(.white.opacity(0.7))
+                } else if playerVM.currentItemChapterCount > 1 {
+                    Text(playerVM.currentItemPartIndex.map {
+                        "Part \($0) of \(playerVM.currentItemChapterCount)"
+                    } ?? "\(playerVM.currentItemChapterCount) parts")
+                        .font(.system(size: mainRegularSize))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+            }
+
+            if playerVM.currentChannel?.preferredSource == "podcast",
+               let date = track.bestDate {
+                Text(date.formatted(.dateTime.year().month().day()))
+                    .font(.system(size: mainRegularSize))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
+        .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func statusBadge(_ systemName: String, tint: Color, label: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: mainRegularSize, weight: .semibold))
+            .foregroundStyle(tint)
+            .padding(8)
+            .background(.black.opacity(0.35), in: Circle())
+            .accessibilityLabel(label)
+    }
+
+    @ViewBuilder
+    private func errorView(_ message: String) -> some View {
+        VStack(spacing: 8) {
+            Text(message)
+                .font(.system(size: mainRegularSize))
+                .foregroundStyle(.white.opacity(0.85))
+                .multilineTextAlignment(.trailing)
+            Button("Try Again") {
+                if let ch = playerVM.currentChannel {
+                    Task { await playerVM.load(channel: ch) }
+                }
+            }
+            .font(.system(size: mainRegularSize))
+            .buttonStyle(.bordered)
+            .tint(.white)
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
+    }
+
+    // MARK: - Combined Track Info Sheet
 
     private var combinedTrackSheet: some View {
         NavigationStack {
             List {
                 if let track = playerVM.currentTrack {
                     Section("Now Playing") {
-                            SharedViews.infoRow("Title", track.title)
+                        SharedViews.infoRow("Title", track.title)
                         if let a = cleaned(track.artist) { SharedViews.infoRow("Artist", a) }
                         if let c = cleaned(track.composer) { SharedViews.infoRow("Composer", c.capitalized) }
                         if let dur = trackInfoDuration(track) {
-                                SharedViews.infoRow("Duration", dur.formattedTime)
+                            SharedViews.infoRow("Duration", dur.formattedTime)
                         }
-                        // Multi-part item: surface the whole-work totals so the
-                        // user knows the scope (e.g. Don Quixote: 124 chapters,
-                        // 38:42:10) and where they are within it.
-                        if playerVM.currentTrackIsMultiPart,
-                           playerVM.currentItemChapterCount > 1 {
-                                SharedViews.infoRow(usesChapterTerminology ? "Chapters" : "Tracks",
-                                    "\(playerVM.currentItemChapterCount)")
+                        if playerVM.currentTrackIsMultiPart, playerVM.currentItemChapterCount > 1 {
+                            SharedViews.infoRow(usesChapterTerminology ? "Chapters" : "Tracks", "\(playerVM.currentItemChapterCount)")
                             if playerVM.currentItemTotalDuration > 0 {
-                                    SharedViews.infoRow("Total Time",
-                                        playerVM.currentItemTotalDuration.formattedTime)
+                                SharedViews.infoRow("Total Time", playerVM.currentItemTotalDuration.formattedTime)
                             }
                             if let idx = playerVM.currentItemPartIndex {
-                                    SharedViews.infoRow(usesChapterTerminology ? "Chapter" : "Track",
-                                        "\(idx) of \(playerVM.currentItemChapterCount)")
+                                SharedViews.infoRow(usesChapterTerminology ? "Chapter" : "Track", "\(idx) of \(playerVM.currentItemChapterCount)")
                             }
                         }
                         if let date = track.bestDate {
-                                SharedViews.infoRow(track.dateLabel,
-                                    date.formatted(.dateTime.year().month().day()))
+                            SharedViews.infoRow(track.dateLabel, date.formatted(.dateTime.year().month().day()))
                         }
                         DisclosureGroup("Full Metadata", isExpanded: $showFullMetadata) {
                             ForEach(fullMetadata(track), id: \.0) { pair in
-                                    SharedViews.infoRow(pair.0, pair.1)
+                                SharedViews.infoRow(pair.0, pair.1)
                             }
                         }
                     }
 
-                    // Playback controls / output (skip for ambient loops —
-                    // a single forever-looping track has nothing to speed up).
                     if !isAmbientLoop {
                         Section("Playback") {
                             playbackSpeedRow
@@ -781,7 +528,6 @@ struct iPodView: View {
                             )) {
                                 Label("Shuffle", systemImage: "shuffle")
                             }
-                            .accessibilityHint("When on, a blue shuffle icon shows on the player and tracks play in random order. Resets when you change channels.")
                             Toggle(isOn: Binding(
                                 get: { playerVM.repeatMode == .one },
                                 set: { on in
@@ -790,14 +536,12 @@ struct iPodView: View {
                             )) {
                                 Label("Repeat Track", systemImage: "repeat.1")
                             }
-                            .accessibilityHint("When on, a repeat icon shows on the player and the track loops")
                             if playerVM.currentTrackIsMultiPart {
                                 NavigationLink {
                                     ChapterListView(onDismiss: { showMoreOptions = false })
                                         .environmentObject(playerVM)
                                 } label: {
-                                    Label(usesChapterTerminology ? "Chapter List" : "Track List",
-                                          systemImage: "list.number")
+                                    Label(usesChapterTerminology ? "Chapter List" : "Track List", systemImage: "list.number")
                                 }
                             }
                             HStack {
@@ -805,78 +549,64 @@ struct iPodView: View {
                                 Spacer()
                                 AirPlayButton()
                                     .frame(width: 32, height: 32)
-                                    .accessibilityLabel("AirPlay")
                             }
                         }
 
-                        // Multi-part: one-tap to play the WHOLE work in order
-                        // (or shuffled when shuffle is on). Stays visible in
-                        // Kids Mode — it's playback, not editing.
                         if playerVM.currentTrackIsMultiPart {
                             Section {
                                 Button {
                                     showMoreOptions = false
                                     Task { await playerVM.playEntireCurrentItem() }
                                 } label: {
-                                    Label("Play Entire \(itemKindLabel(track))",
-                                          systemImage: "play.rectangle.fill")
+                                    Label("Play Entire \(itemKindLabel(track))", systemImage: "play.rectangle.fill")
                                 }
                             }
                         }
 
-                        // Kids Mode: hide all user-action surfaces (bookmarks,
-                        // share, favorites, add-to-playlist, add-book/album-to-
-                        // playlist) so a child can audition tracks and use
-                        // playback controls but can't modify state or share.
                         if !kids.isEnabled {
-                        bookmarksSection(for: track)
+                            bookmarksSection(for: track)
 
-                        Section {
-                            if let shareURL = shareURL(for: track) {
-                                ShareLink(item: shareURL,
-                                          message: Text(track.title)) {
-                                    Label("Share Track", systemImage: "square.and.arrow.up")
-                                }
-                            }
-                            Button {
-                                Task {
-                                    await playlistVM.toggleFavorite(track)
-                                    isCurrentTrackFavorite = await playlistVM.isInFavorites(track)
-                                }
-                            } label: {
-                                Label(isCurrentTrackFavorite ? "Remove from Favorites" : "Add to Favorites",
-                                      systemImage: isCurrentTrackFavorite ? "heart.fill" : "heart")
-                                    .foregroundStyle(isCurrentTrackFavorite ? Color.red : Color.accentColor)
-                            }
-                            Button {
-                                showMoreOptions = false
-                                showAddToPlaylist = true
-                            } label: {
-                                Label("Add to Playlist", systemImage: "plus.circle")
-                            }
-                            if playerVM.currentTrackIsMultiPart {
-                                Button {
-                                    showMoreOptions = false
-                                    showAddItemToPlaylist = true
-                                } label: {
-                                    Label("Add \(itemKindLabel(track)) to Playlist",
-                                          systemImage: "text.badge.plus")
+                            Section {
+                                if let shareURL = shareURL(for: track) {
+                                    ShareLink(item: shareURL, message: Text(track.title)) {
+                                        Label("Share Track", systemImage: "square.and.arrow.up")
+                                    }
                                 }
                                 Button {
-                                    showMoreOptions = false
-                                    let nm = playerVM.itemDisplayName(for: track)
                                     Task {
-                                        await playerVM.addEntireItemToNewPlaylist(
-                                            from: track, named: nm, using: playlistVM)
+                                        await playlistVM.toggleFavorite(track)
+                                        isCurrentTrackFavorite = await playlistVM.isInFavorites(track)
                                     }
                                 } label: {
-                                    Label(
-                                        "Add \(itemKindLabel(track)) to New Playlist “\(shortName(playerVM.itemDisplayName(for: track)))”",
-                                        systemImage: "rectangle.stack.badge.plus")
+                                    Label(isCurrentTrackFavorite ? "Remove from Favorites" : "Add to Favorites",
+                                          systemImage: isCurrentTrackFavorite ? "heart.fill" : "heart")
+                                        .foregroundStyle(isCurrentTrackFavorite ? Color.red : Color.accentColor)
+                                }
+                                Button {
+                                    showMoreOptions = false
+                                    showAddToPlaylist = true
+                                } label: {
+                                    Label("Add to Playlist", systemImage: "plus.circle")
+                                }
+                                if playerVM.currentTrackIsMultiPart {
+                                    Button {
+                                        showMoreOptions = false
+                                        showAddItemToPlaylist = true
+                                    } label: {
+                                        Label("Add \(itemKindLabel(track)) to Playlist", systemImage: "text.badge.plus")
+                                    }
+                                    Button {
+                                        showMoreOptions = false
+                                        let nm = playerVM.itemDisplayName(for: track)
+                                        Task {
+                                            await playerVM.addEntireItemToNewPlaylist(from: track, named: nm, using: playlistVM)
+                                        }
+                                    } label: {
+                                        Label("Add \(itemKindLabel(track)) to New Playlist \"\(shortName(playerVM.itemDisplayName(for: track)))\"", systemImage: "rectangle.stack.badge.plus")
+                                    }
                                 }
                             }
                         }
-                        }   // end if !kids.isEnabled
                     }
                 }
             }
@@ -895,7 +625,7 @@ struct iPodView: View {
         }
     }
 
-    // MARK: - More Options helper rows
+    // MARK: - Playback Controls
 
     private var playbackSpeedRow: some View {
         Picker(selection: Binding(
@@ -909,15 +639,11 @@ struct iPodView: View {
             Label("Speed", systemImage: "speedometer")
         }
         .pickerStyle(.menu)
-        .accessibilityHint("Sets the playback speed from half normal to double speed")
     }
 
     private func rateLabel(_ r: Double) -> String {
-        // 1× displays as "1×" not "1.0×".
-        if r.truncatingRemainder(dividingBy: 1) == 0 {
-            return "\(Int(r))×"
-        }
-        return String(format: "%g×", r)
+        if r.truncatingRemainder(dividingBy: 1) == 0 { return "\(Int(r))x" }
+        return String(format: "%gx", r)
     }
 
     @ViewBuilder
@@ -943,13 +669,10 @@ struct iPodView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        // Tick the local clock once a second while a timer is active so the
-        // countdown label refreshes without a publisher.
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now in
             sleepTimerNow = now
         }
         .accessibilityLabel("Sleep timer, currently \(sleepTimerStatus)")
-        .accessibilityHint("Choose a duration or end-of-track to pause playback automatically")
     }
 
     private var sleepTimerStatus: String {
@@ -967,8 +690,7 @@ struct iPodView: View {
             Button {
                 Task { await playerVM.addBookmarkAtCurrentPosition() }
             } label: {
-                Label("Bookmark This Spot (\(playerVM.currentPosition.formattedTime))",
-                      systemImage: "bookmark")
+                Label("Bookmark This Spot (\(playerVM.currentPosition.formattedTime))", systemImage: "bookmark")
             }
             .disabled(track.id != playerVM.currentTrack?.id)
 
@@ -981,7 +703,6 @@ struct iPodView: View {
                     HStack {
                         Image(systemName: "bookmark.fill")
                             .foregroundStyle(Color.accentColor)
-                            .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(bm.label ?? bm.positionSeconds.formattedTime)
                                 .font(.body)
@@ -1010,28 +731,19 @@ struct iPodView: View {
         }
     }
 
-    /// Public-facing URL for the share sheet. Logic lives in
-    /// `ShareURLBuilder` so it's directly unit-testable.
     private func shareURL(for track: Track) -> URL? {
         ShareURLBuilder.url(for: track)
     }
 
-    // Prefer the live AVPlayer duration (accurate for IA tracks fetched with
-    // duration 0); fall back to the stored per-file duration.
     private func trackInfoDuration(_ track: Track) -> Double? {
         if let d = playerVM.trackDuration, d > 0 { return d }
         return track.duration > 0 ? track.duration : nil
     }
 
-    // "Book" for Audiobooks-category channels or LibriVox/audiobook items;
-    // "Album" otherwise.
-    // Keep long book/album titles from blowing out the menu label.
     private func shortName(_ s: String, max: Int = 26) -> String {
         s.count > max ? String(s.prefix(max - 1)) + "…" : s
     }
 
-    // Books, book channels, lecture channels, and playlists built from books
-    // use "Chapter" terminology; everything else uses "Track".
     private var usesChapterTerminology: Bool {
         if playerVM.currentChannel?.category == "Lectures" { return true }
         guard let t = playerVM.currentTrack else { return false }
@@ -1047,8 +759,6 @@ struct iPodView: View {
         return "Album"
     }
 
-    // Everything else, surfaced behind the "Full Metadata" disclosure so the
-    // summary stays scannable. Empty/placeholder values are omitted.
     private func fullMetadata(_ track: Track) -> [(String, String)] {
         var rows: [(String, String)] = []
         func add(_ label: String, _ value: String?) {
@@ -1063,20 +773,12 @@ struct iPodView: View {
             add("Part", "\(part) of \(total)")
         }
         add("Item", track.parentIdentifier)
-        if let multi = track.isMultiPart {
-            add("Multi-part item", multi ? "Yes" : "No")
-        }
+        if let multi = track.isMultiPart { add("Multi-part item", multi ? "Yes" : "No") }
         if !track.tags.isEmpty { add("Tags", track.tags.joined(separator: ", ")) }
-        if !track.instruments.isEmpty {
-            add("Instruments", track.instruments.joined(separator: ", "))
-        }
+        if !track.instruments.isEmpty { add("Instruments", track.instruments.joined(separator: ", ")) }
         if track.rawCreator != track.artist { add("Raw creator", track.rawCreator) }
-        if let added = track.addedDate {
-            add("Added", added.formatted(.dateTime.year().month().day()))
-        }
-        if let rec = track.recordingDate {
-            add("Recorded", rec.formatted(.dateTime.year().month().day()))
-        }
+        if let added = track.addedDate { add("Added", added.formatted(.dateTime.year().month().day())) }
+        if let rec = track.recordingDate { add("Recorded", rec.formatted(.dateTime.year().month().day())) }
         add("Quality score", String(format: "%.2f", track.qualityScore))
         add("Metadata confidence", String(format: "%.2f", track.metadataConfidence))
         add("Stream URL", track.streamURL.absoluteString)
@@ -1084,357 +786,17 @@ struct iPodView: View {
         return rows
     }
 
-    // MARK: - Layout geometry
-
-    // Effective layout width — capped on iPad (regular width) so the "device"
-    // stays phone-sized and centered rather than filling the whole screen.
-    private func contentWidth(_ geo: GeometryProxy) -> CGFloat {
-        horizontalSizeClass == .regular ? min(geo.size.width, 480) : geo.size.width
-    }
-
-    // Click-wheel diameter. Floor at 80 pt prevents a negative/invisible frame
-    // when GeometryReader briefly reports zero during sheet-dismiss animations.
-    private func wheelDiameter(_ geo: GeometryProxy) -> CGFloat {
-        max(80.0, min(contentWidth(geo) - 48, geo.size.height * 0.50 - 32))
-    }
-
-    // The wheel is centered, so its gap to each screen edge is exactly this.
-    // The screen panel uses the same value for its left/right AND top margins
-    // so panel and wheel have identical insets from the screen edge.
-    private func deviceMargin(_ geo: GeometryProxy) -> CGFloat {
-        max(12.0, (contentWidth(geo) - wheelDiameter(geo)) / 2)
-    }
-
-    // MARK: - Helpers
-
-    // Wheel MENU: single tap (contextual) opens the Main Menu pre-navigated to
-    // the current playlist / channel-info; double tap (contextual:false) opens
-    // the Main Menu root. The back chevron on those pushed screens returns to
-    // the menu list.
-    private func openMenu(contextual: Bool) {
-        // Leaving the player screen → save the EXACT current spot so the
-        // playlist/channel resume marker reflects where the user actually is.
-        playerVM.saveCurrentSpot()
-        // Kids Mode: the wheel MENU opens ONLY the restricted kids menu — never
-        // the full menu (no search / news / settings reachable).
-        if kids.isEnabled {
-            showKidsMenu = true
-            return
-        }
-        if contextual, let pl = playerVM.currentPlaylist {
-            menuRoute = .playlist(pl)
-        } else if contextual, let ch = playerVM.currentChannel {
-            menuRoute = .channelInfo(ch)
-        } else {
-            menuRoute = nil
-        }
-        showMainMenu = true
-    }
-
-    // Treats empty / "Unknown" (case-insensitive) placeholder values as
-    // absent so the UI shows nothing rather than the word "Unknown".
     private func cleaned(_ value: String?) -> String? {
         guard let v = value?.trimmingCharacters(in: .whitespacesAndNewlines),
               !v.isEmpty, v.lowercased() != "unknown" else { return nil }
         return v
-    }
-
-
-}
-
-// MARK: - Click Wheel
-
-struct ClickWheel: View {
-    // Single source of truth for icon point size on the main screen.
-    static let iconSize: CGFloat = 22
-
-    // Dark mode: a dark wheel that's only SLIGHTLY lighter than the near-black
-    // body, with white glyphs — a quiet, harmonious dark face (HIG). The centre
-    // well matches the body exactly so the dark centre blends into the
-    // background. Light mode keeps the soft silver wheel with dark glyphs.
-    // Wheel ring: a SOLID fill (no gradient) — dark mode a quiet near-black grey,
-    // light mode a bright clean white.
-    static let ring = Color(uiColor: UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 0.20, green: 0.205, blue: 0.225, alpha: 1)
-            : UIColor(red: 0.985, green: 0.99, blue: 1.0, alpha: 1)
-    })
-    // Centre well: a SUBTLE top→bottom gradient for a tasteful recessed look. In
-    // dark mode both stops equal the device body (stays flat & matched); in light
-    // mode a gentle light-grey gradient.
-    static let wellTop = Color(uiColor: UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 0.085, green: 0.088, blue: 0.098, alpha: 1)
-            : UIColor(red: 0.90, green: 0.905, blue: 0.93, alpha: 1)
-    })
-    static let wellBottom = Color(uiColor: UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(red: 0.085, green: 0.088, blue: 0.098, alpha: 1)
-            : UIColor(red: 0.82, green: 0.825, blue: 0.855, alpha: 1)
-    })
-    static let glyph = Color(uiColor: UIColor { t in
-        t.userInterfaceStyle == .dark
-            ? UIColor(white: 0.97, alpha: 1)                              // white icons
-            : UIColor(red: 0.42, green: 0.43, blue: 0.47, alpha: 1)
-    })
-
-    let isPlaying: Bool
-    var currentTime: Double = 0
-    var duration: Double = 0
-    // Ambient-loop channels: no back/forward and no seeking, but play/pause
-    // stays so the loop can be paused.
-    var transportEnabled: Bool = true
-    var playPauseEnabled: Bool = true
-    var onSeek: (Double) -> Void = { _ in }       // absolute (hold-scrub)
-    var onSeekBy: (Double) -> Void = { _ in }     // relative ±10 (single tap)
-    var onScrubChanged: (Bool) -> Void = { _ in }
-    let onMenu:      () -> Void                    // single tap → context dest
-    var onMenuRoot:  () -> Void = {}               // double tap → Main Menu
-    let onPrevTrack: () -> Void                    // double-tap back
-    let onNextTrack: () -> Void                    // double-tap forward
-    let onPlayPause: () -> Void
-    let onCenter:    () -> Void                    // centre tap → Track Info
-
-    @State private var tapTrigger = 0
-    @State private var isDragging = false
-    @StateObject private var seekVM = SeekWheelViewModel()
-
-    var body: some View {
-        GeometryReader { geo in
-            let size    = min(geo.size.width, geo.size.height)
-            let innerR  = size * 0.225
-            let outerR  = size / 2
-            let midRing = (outerR + innerR) / 2
-
-            ZStack {
-                // Outer ring — soft silver; a gentle shadow lifts it off the
-                // device body without a hard outline.
-                Circle()
-                    .fill(ClickWheel.ring)
-                    .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
-                // Centre well (now opens Track Info — no repeat glyph). Subtle
-                // gradient for a recessed feel; flat & body-matched in dark mode.
-                Circle()
-                    .fill(LinearGradient(
-                        colors: [ClickWheel.wellTop, ClickWheel.wellBottom],
-                        startPoint: .top, endPoint: .bottom))
-                    .frame(width: innerR * 2, height: innerR * 2)
-                    .allowsHitTesting(false)
-
-                // MENU (top)
-                Image(systemName: "line.3.horizontal")
-                    .font(.system(size: ClickWheel.iconSize, weight: .medium))
-                    .foregroundStyle(ClickWheel.glyph)
-                    .offset(y: -midRing).allowsHitTesting(false)
-                if transportEnabled {
-                    Image(systemName: "backward.fill")
-                        .font(.system(size: ClickWheel.iconSize, weight: .medium))
-                        .foregroundStyle(ClickWheel.glyph)
-                        .offset(x: -midRing).allowsHitTesting(false)
-                    Image(systemName: "forward.fill")
-                        .font(.system(size: ClickWheel.iconSize, weight: .medium))
-                        .foregroundStyle(ClickWheel.glyph)
-                        .offset(x: midRing).allowsHitTesting(false)
-                }
-                if playPauseEnabled {
-                    // Fixed combined glyph — never swaps between play and pause.
-                    Image(systemName: "playpause.fill")
-                        .font(.system(size: ClickWheel.iconSize, weight: .medium))
-                        .foregroundStyle(ClickWheel.glyph)
-                        .offset(y: midRing).allowsHitTesting(false)
-                }
-
-                // Hit grid: 3×3 of equal cells over the wheel. Centre column
-                // top=MENU, centre=Track Info, bottom=Play/Pause; left/right
-                // columns are the back/forward regions (tap=±10s, double=skip).
-                hitGrid(cell: size / 3)
-            }
-            .frame(width: size, height: size)
-            // Rotational drag-to-scrub on the ring (classic click-wheel feel):
-            // spin a finger around the wheel to move the elapsed timer
-            // forward/back. Runs simultaneously with the per-region tap
-            // gestures; WheelSideRegion skips its tap when the touch moved, so
-            // a scrub never also fires a ±10 tap. Only the ring scrubs — touches
-            // starting in the centre well are ignored here.
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 14, coordinateSpace: .local)
-                    .onChanged { value in
-                        guard duration > 0, transportEnabled else { return }
-                        let center = CGPoint(x: size / 2, y: size / 2)
-                        let startR = hypot(value.startLocation.x - center.x,
-                                           value.startLocation.y - center.y)
-                        guard startR > innerR else { return }   // not the centre well
-                        if !isDragging {
-                            isDragging = true
-                            seekVM.currentTime = currentTime
-                            seekVM.onSeek = onSeek
-                        }
-                        seekVM.duration = duration
-                        // Stamp scrub activity on EVERY move so the self-healing
-                        // guard knows the drag is still live.
-                        onScrubChanged(true)
-                        seekVM.handleDrag(location: value.location, center: center)
-                    }
-                    .onEnded { _ in
-                        guard isDragging else { return }
-                        seekVM.handleDragEnded()
-                        onScrubChanged(false)
-                        isDragging = false
-                    }
-            )
-            .onAppear { seekVM.onAppear() }
-            .sensoryFeedback(.impact(weight: .light), trigger: tapTrigger)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Playback controls")
-            .accessibilityValue(isPlaying ? "Playing" : "Paused")
-            .accessibilityHint(duration > 0
-                ? "Swipe up or down to seek by 15 seconds. Use the rotor for menu, track skip and track info."
-                : "Use the rotor for menu and play or pause.")
-            .accessibilityAction(.default) { onPlayPause() }
-            .accessibilityActions {
-                Button(isPlaying ? "Pause" : "Play") { onPlayPause() }
-                Button("Open") { onMenu() }
-                Button("Main Menu") { onMenuRoot() }
-                Button("Track Info") { onCenter() }
-                if transportEnabled {
-                    Button("Next Track") { onNextTrack() }
-                    Button("Previous Track") { onPrevTrack() }
-                }
-            }
-            .accessibilityAdjustableAction { direction in
-                guard duration > 0 else { return }
-                switch direction {
-                case .increment: onSeekBy(15)
-                case .decrement: onSeekBy(-15)
-                @unknown default: break
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func hitGrid(cell: CGFloat) -> some View {
-        let tap = { tapTrigger += 1 }
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                Color.clear.frame(width: cell, height: cell)            // corner
-                WheelMenuRegion(onSingle: onMenu, onDouble: onMenuRoot, haptic: tap)
-                    .frame(width: cell, height: cell)                    // MENU
-                Color.clear.frame(width: cell, height: cell)            // corner
-            }
-            HStack(spacing: 0) {
-                WheelSideRegion(direction: -1, enabled: transportEnabled,
-                                onSeekBy: onSeekBy,
-                                onTrackSkip: onPrevTrack, haptic: tap)
-                    .frame(width: cell, height: cell)
-                tapCell { onCenter() }                                   // Track Info
-                WheelSideRegion(direction: 1, enabled: transportEnabled,
-                                onSeekBy: onSeekBy,
-                                onTrackSkip: onNextTrack, haptic: tap)
-                    .frame(width: cell, height: cell)
-            }
-            HStack(spacing: 0) {
-                Color.clear.frame(width: cell, height: cell)            // corner
-                tapCell { if playPauseEnabled { onPlayPause() } }        // Play/Pause
-                Color.clear.frame(width: cell, height: cell)            // corner
-            }
-        }
-    }
-
-    private func tapCell(_ action: @escaping () -> Void) -> some View {
-        Color.clear
-            .contentShape(Rectangle())
-            .onTapGesture { tapTrigger += 1; action() }
-    }
-}
-
-// One back/forward wheel region: single tap = seek ±10 s, double tap = skip
-// track. Continuous scrub is handled at the wheel level by rotational
-// drag-to-scrub, so a touch that MOVED is treated as a scrub here and never
-// fires a tap.
-private struct WheelSideRegion: View {
-    let direction: Int          // -1 back, +1 forward
-    let enabled: Bool
-    let onSeekBy: (Double) -> Void
-    let onTrackSkip: () -> Void
-    let haptic: () -> Void
-
-    @State private var lastTapDate: Date? = nil
-    @State private var pendingSingleTap: DispatchWorkItem? = nil
-    @State private var maxMove: CGFloat = 0
-
-    var body: some View {
-        Color.clear
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { v in
-                        let m = hypot(v.translation.width, v.translation.height)
-                        if m > maxMove { maxMove = m }
-                    }
-                    .onEnded { _ in
-                        let moved = maxMove
-                        maxMove = 0
-                        guard enabled else { return }
-                        // A moved touch is a rotational scrub (handled at the
-                        // wheel level) — never a ±10 / track-skip tap.
-                        if moved > 14 { return }
-                        registerTap()
-                    }
-            )
-    }
-
-    private func registerTap() {
-        haptic()
-        if let last = lastTapDate, Date().timeIntervalSince(last) < 0.3 {
-            // Double tap → skip a whole track.
-            pendingSingleTap?.cancel(); pendingSingleTap = nil
-            lastTapDate = nil
-            onTrackSkip()
-        } else {
-            // Defer the single-tap ±10 s seek by the double-tap window.
-            lastTapDate = Date()
-            let work = DispatchWorkItem {
-                onSeekBy(Double(direction) * 10)
-                lastTapDate = nil
-            }
-            pendingSingleTap = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32, execute: work)
-        }
-    }
-}
-
-// The wheel MENU region: single tap → contextual destination (playlist /
-// channel info), double tap → straight to the Main Menu.
-private struct WheelMenuRegion: View {
-    let onSingle: () -> Void
-    let onDouble: () -> Void
-    let haptic: () -> Void
-    @State private var lastTap: Date? = nil
-    @State private var pending: DispatchWorkItem? = nil
-
-    var body: some View {
-        Color.clear
-            .contentShape(Rectangle())
-            .onTapGesture {
-                haptic()
-                if let last = lastTap, Date().timeIntervalSince(last) < 0.3 {
-                    pending?.cancel(); pending = nil; lastTap = nil
-                    onDouble()
-                } else {
-                    lastTap = Date()
-                    let work = DispatchWorkItem { onSingle(); lastTap = nil }
-                    pending = work
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.32, execute: work)
-                }
-            }
     }
 }
 
 #Preview {
     let db = try! DatabaseService(path: ":memory:")
     let dm = DownloadManager(db: db)
-    iPodView()
+    NowPlayingScreen(dismiss: {})
         .environmentObject(PlayerViewModel(
             db: db,
             archiveService: InternetArchiveService(),

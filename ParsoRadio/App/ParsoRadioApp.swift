@@ -10,11 +10,8 @@ private func makeSharedDB() -> DatabaseService {
 
 @main
 struct ParsoMusicApp: App {
-    // All ViewModels share one DatabaseService instance so they operate on the same connection.
     private static let sharedDB = makeSharedDB()
     private static let sharedDownloadManager = DownloadManager(db: sharedDB)
-    // Shared so Settings, the toast's Support sheet, and the About badge all see
-    // the same StoreKit state. @MainActor: ContributionStore is main-actor.
     @MainActor static let sharedContributionStore = ContributionStore()
 
     @StateObject private var playerVM: PlayerViewModel = {
@@ -44,7 +41,6 @@ struct ParsoMusicApp: App {
         ContributionCoordinator(store: ParsoMusicApp.sharedContributionStore)
 
     @AppStorage("tosAccepted") private var tosAccepted: Bool = false
-    // Appearance override from Settings: "system" | "light" | "dark".
     @AppStorage("appearance") private var appearance: String = "system"
     @State private var showSplash: Bool = {
         if UserDefaults.standard.string(forKey: "siri.pendingChannelId") != nil {
@@ -59,27 +55,32 @@ struct ParsoMusicApp: App {
     @State private var showSupport: Bool = false
     @State private var showAgeGate: Bool = false
     @ObservedObject private var ageAssurance = AgeAssuranceService.shared
+    @ObservedObject private var kids = KidsModeController.shared
     @Environment(\.scenePhase) private var scenePhase
 
     private var preferredScheme: ColorScheme? {
         switch appearance {
         case "light": return .light
         case "dark":  return .dark
-        default:      return nil   // follow the system
+        default:      return nil
         }
     }
 
     var body: some Scene {
         WindowGroup {
             ZStack {
-                // iPodView is only inserted into the tree after TOS is accepted.
-                // Keeping it under opacity:0 still fires .task and starts audio; this does not.
                 if tosAccepted {
-                    iPodView()
-                        .environmentObject(playerVM)
-                        .environmentObject(playlistVM)
-                        .environmentObject(offlineService)
-                        .opacity(showSplash ? 0 : 1)
+                    if kids.isEnabled {
+                        KidsHomeView()
+                            .environmentObject(playerVM)
+                            .environmentObject(playlistVM)
+                            .environmentObject(offlineService)
+                    } else {
+                        HomeView()
+                            .environmentObject(playerVM)
+                            .environmentObject(playlistVM)
+                            .environmentObject(offlineService)
+                    }
                 } else {
                     Color(.systemGroupedBackground).ignoresSafeArea()
                 }
@@ -110,11 +111,6 @@ struct ParsoMusicApp: App {
                 }
             }
             .task {
-                // One-time import: seed the curation DB from bundled per-channel
-                // JSON files for channels the user hasn't claimed yet. Once a
-                // channel has any verdicts, the user owns it — JSON is never
-                // consulted again for that channel. Also recovers lost verdicts
-                // if the DB was wiped but the JSON file still has approved tracks.
                 await CustomChannelsStore.shared.importBundledCurationsIfNeeded(
                     db: ParsoMusicApp.sharedDB)
             }
@@ -127,9 +123,6 @@ struct ParsoMusicApp: App {
                 }
             }
             .preferredColorScheme(preferredScheme)
-            // Contribution ask: a dismissible bottom card, only once the app is
-            // actually in use (TOS accepted, splash gone). The coordinator's
-            // engine gates it to genuine engagement (≥12 tracks, ≥2 sessions…).
             .overlay(alignment: .bottom) {
                 if tosAccepted, !showSplash, contributions.showToast,
                    !KidsModeController.shared.isEnabled {
@@ -161,7 +154,6 @@ struct ParsoMusicApp: App {
     }
 
     private func handleSiriPendingCommand() {
-        // Check in-process pending first (set by intent running in the app).
         if let channelId = pendingSiriChannelId(from: .standard) {
             executeSiriCommandIfNeeded(channelId: channelId)
             UserDefaults.standard.removeObject(forKey: "siri.pendingChannelId")
@@ -169,7 +161,6 @@ struct ParsoMusicApp: App {
             return
         }
 
-        // Check App Group pending (set by extension process via Tier 3).
         if let channelId = pendingSiriChannelId(from: .appGroup) {
             executeSiriCommandIfNeeded(channelId: channelId)
             UserDefaults.appGroup.removeObject(forKey: "siri.pendingChannelId")
@@ -191,11 +182,117 @@ struct ParsoMusicApp: App {
 
     private func executeSiriCommandIfNeeded(channelId: String) {
         guard !KidsModeController.shared.isEnabled else { return }
-        // If the intent already kicked off a load in-process, skip the duplicate.
         if playerVM.isLoading || playerVM.currentChannel != nil { return }
         guard let ch = Channel.defaults.first(where: { $0.id == channelId }) else { return }
         Task { @MainActor in
             await playerVM.load(channel: ch, autoPlay: true)
+        }
+    }
+}
+
+// MARK: - Kids Mode Home
+
+struct KidsHomeView: View {
+    @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var playlistVM: PlaylistViewModel
+    @EnvironmentObject var offlineService: OfflineDownloadService
+    @ObservedObject private var kids = KidsModeController.shared
+    @State private var showExitPin = false
+    @State private var pinEntry = ""
+    @State private var showWrongPin = false
+    @State private var showPlayer = false
+
+    @State private var pendingChannel: Channel = {
+        KidsModeController.allowedChannels().first ?? Channel.defaults[0]
+    }()
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(KidsModeController.allowedChannels(), id: \.id) { ch in
+                        Button {
+                            Task { await playerVM.load(channel: ch) }
+                            showPlayer = true
+                        } label: {
+                            Label(ch.name, systemImage: ch.icon)
+                                .font(.title3)
+                                .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } header: {
+                    Text("Listen")
+                } footer: {
+                    Text("Songs and stories chosen for kids.")
+                }
+
+                if !playlistVM.kidSafePlaylists.isEmpty {
+                    Section {
+                        ForEach(playlistVM.kidSafePlaylists, id: \.id) { pl in
+                            NavigationLink(value: pl) {
+                                Label(pl.name, systemImage: "music.note.list")
+                                    .font(.title3)
+                                    .padding(.vertical, 4)
+                            }
+                        }
+                    } header: {
+                        Text("My Playlists")
+                    } footer: {
+                        Text("Playlists a grown-up has marked safe for kids.")
+                    }
+                }
+            }
+            .navigationDestination(for: Playlist.self) { pl in
+                PlaylistDetailView(playlist: pl, dismissAll: { showPlayer = true })
+                    .environmentObject(playlistVM)
+                    .environmentObject(playerVM)
+                    .environmentObject(offlineService)
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Lorewave Kids")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        pinEntry = ""
+                        showExitPin = true
+                    } label: {
+                        Image(systemName: "lock.fill")
+                    }
+                    .accessibilityLabel("Exit Kids Mode")
+                }
+            }
+            .alert("Enter PIN to exit Kids Mode", isPresented: $showExitPin) {
+                TextField("4-digit PIN", text: $pinEntry)
+                    .keyboardType(.numberPad)
+                Button("Exit") {
+                    if kids.disable(pin: pinEntry) {
+                        pinEntry = ""
+                    } else {
+                        pinEntry = ""
+                        showWrongPin = true
+                    }
+                }
+                Button("Cancel", role: .cancel) { pinEntry = "" }
+            }
+            .alert("Wrong PIN", isPresented: $showWrongPin) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Kids Mode stays on.")
+            }
+        }
+        .fullScreenCover(isPresented: $showPlayer) {
+            NowPlayingScreen(dismiss: { showPlayer = false })
+                .environmentObject(playerVM)
+                .environmentObject(playlistVM)
+                .environmentObject(offlineService)
+        }
+        .task {
+            let lastId = UserDefaults.standard.string(forKey: "lastChannelId")
+            let allowed = KidsModeController.allowedChannels()
+            let ch = allowed.first { $0.id == lastId } ?? allowed.first ?? pendingChannel
+            await playerVM.load(channel: ch, autoPlay: false)
         }
     }
 }

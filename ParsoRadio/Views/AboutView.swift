@@ -2,8 +2,6 @@ import SwiftUI
 
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var showWheelHelp = false
-
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -12,17 +10,6 @@ struct AboutView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 24)
                         .padding(.bottom, 28)
-
-                    Divider()
-
-                    Button {
-                        showWheelHelp = true
-                    } label: {
-                        Label("How the wheel works", systemImage: "questionmark.circle")
-                            .font(.body)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 20)
 
                     Divider()
 
@@ -55,9 +42,6 @@ struct AboutView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
-            }
-            .sheet(isPresented: $showWheelHelp) {
-                WheelHelpView()
             }
         }
     }
