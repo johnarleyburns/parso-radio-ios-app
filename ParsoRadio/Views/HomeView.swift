@@ -215,9 +215,9 @@ struct HomeView: View {
                 Text(title)
                     .font(.headline)
                     .foregroundStyle(.white)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .padding(.horizontal, 12)
-                    .padding(.bottom, 12)
+                    .padding(.bottom, 16)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 140)
@@ -677,31 +677,33 @@ struct CuratedChannelsGrid: View {
             let ch = channel ?? store.runtimeChannel(from: meta)
             onSelectChannel(ch)
         } label: {
-            VStack(spacing: 10) {
-                curatedChannelImage(channel)
-                    .frame(width: 64, height: 64)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+            ZStack(alignment: .bottomLeading) {
+                curatedChannelBackground(channel)
 
-                VStack(spacing: 2) {
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.55)],
+                    startPoint: .center,
+                    endPoint: .bottom
+                )
+
+                VStack(alignment: .leading, spacing: 2) {
                     Text(meta.name)
-                        .font(.subheadline).fontWeight(.medium)
+                        .font(.headline)
+                        .foregroundStyle(.white)
                         .lineLimit(2)
-                        .multilineTextAlignment(.center)
                     if approvedCount > 0 {
                         Text("\(approvedCount) tracks")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.8))
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 16)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 160)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityHint("Plays this channel")
@@ -710,38 +712,27 @@ struct CuratedChannelsGrid: View {
     }
 
     @ViewBuilder
-    private func curatedChannelImage(_ channel: Channel?) -> some View {
+    private func curatedChannelBackground(_ channel: Channel?) -> some View {
         if let ch = channel, let imageURL = ch.imageURL, let url = URL(string: imageURL) {
             if url.isFileURL, let uiImage = UIImage(contentsOfFile: url.path) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
+                    .clipped()
             } else {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
-                        image.resizable().scaledToFill()
+                        image.resizable().scaledToFill().clipped()
                     case .failure, .empty:
-                        curatedFallbackIcon()
+                        ChannelCategoryStyle.gradient(for: "Curated")
                     @unknown default:
-                        curatedFallbackIcon()
+                        ChannelCategoryStyle.gradient(for: "Curated")
                     }
                 }
             }
         } else {
-            curatedFallbackIcon()
-        }
-    }
-
-    @ViewBuilder
-    private func curatedFallbackIcon() -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(ChannelCategoryStyle.gradient(for: "Curated"))
-                .frame(width: 64, height: 64)
-            Image(systemName: "star.fill")
-                .font(.system(size: 24, weight: .medium))
-                .foregroundStyle(.white)
+            ChannelCategoryStyle.gradient(for: "Curated")
         }
     }
 }
