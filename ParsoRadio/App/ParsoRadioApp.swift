@@ -76,7 +76,7 @@ struct ParsoMusicApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                if tosAccepted {
+                if tosAccepted && !showSplash {
                     if kids.isEnabled {
                         KidsHomeView()
                             .environmentObject(playerVM)

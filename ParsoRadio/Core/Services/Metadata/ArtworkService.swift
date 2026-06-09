@@ -113,12 +113,17 @@ final class ArtworkService {
         if let art = await artwork(for: track) {
             return art
         }
-        // 5. Channel image
+        // 5. Channel image from asset catalog (matching channel ID)
+        if let ch = channel,
+           let assetImage = UIImage(named: ch.id) {
+            return assetImage
+        }
+        // 6. Channel image from URL
         if let ch = channel, let imageURL = ch.imageURL,
            let art = await artwork(fromURLString: imageURL) {
             return art
         }
-        // 6. Default icon + gradient (handled by caller)
+        // 7. Default icon + gradient (handled by caller)
         return nil
     }
 

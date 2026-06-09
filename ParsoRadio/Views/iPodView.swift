@@ -61,42 +61,30 @@ struct NowPlayingScreen: View {
                 VStack(spacing: 0) {
                     screenPanel(geo: geo)
                         .frame(height: max(160, geo.size.height * 0.55))
+                        .padding(.top, 16)
 
                     // Track metadata below the image
                     if let track = playerVM.currentTrack, !isAmbientLoop {
-                        VStack(spacing: 4) {
-                            Text(track.title)
-                                .font(.system(size: mainBoldSize, weight: .bold))
-                                .lineLimit(2)
-                            if let artist = cleaned(track.artist) {
-                                Text(artist)
-                                    .font(.system(size: mainRegularSize))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
+                        Button {
+                            showMoreOptions = true
+                        } label: {
+                            VStack(spacing: 4) {
+                                Text(track.title)
+                                    .font(.system(size: mainBoldSize, weight: .bold))
+                                    .lineLimit(2)
+                                if let artist = cleaned(track.artist) {
+                                    Text(artist)
+                                        .font(.system(size: mainRegularSize))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
                             }
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Opens track info")
                         .padding(.horizontal, 24)
                         .padding(.top, 8)
                     }
-
-                    Spacer()
-
-                    Button {
-                        showChannelInfo = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            if let icon = titleIcon {
-                                Image(systemName: icon)
-                                    .foregroundStyle(.blue)
-                            }
-                            Text(titleText)
-                                .foregroundStyle(.blue)
-                        }
-                        .font(.system(size: mainBoldSize, weight: .semibold))
-                        .lineLimit(1)
-                    }
-                    .padding(.horizontal, 24)
-                    .accessibilityHint("Opens channel info")
 
                     Spacer()
 
@@ -122,6 +110,25 @@ struct NowPlayingScreen: View {
             .padding(.top, 8)
             .padding(.leading, 16)
             .accessibilityLabel("Back to Browse")
+        }
+        .overlay(alignment: .top) {
+            Button {
+                showChannelInfo = true
+            } label: {
+                HStack(spacing: 6) {
+                    if let icon = titleIcon {
+                        Image(systemName: icon)
+                            .foregroundStyle(.blue)
+                    }
+                    Text(titleText)
+                        .foregroundStyle(.blue)
+                }
+                .font(.system(size: mainBoldSize, weight: .semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 70)
+                .padding(.vertical, 12)
+            }
+            .accessibilityHint("Opens channel info")
         }
         .overlay(alignment: .topTrailing) {
             if playerVM.currentTrack != nil, !isAmbientLoop {
@@ -481,12 +488,12 @@ struct NowPlayingScreen: View {
                             SharedViews.infoRow("Duration", dur.formattedTime)
                         }
                         if playerVM.currentTrackIsMultiPart, playerVM.currentItemChapterCount > 1 {
-                            SharedViews.infoRow(usesChapterTerminology ? "Chapters" : "Tracks", "\(playerVM.currentItemChapterCount)")
+                            SharedViews.infoRow(isLectureChannel ? "Lectures" : (usesChapterTerminology ? "Chapters" : "Tracks"), "\(playerVM.currentItemChapterCount)")
                             if playerVM.currentItemTotalDuration > 0 {
                                 SharedViews.infoRow("Total Time", playerVM.currentItemTotalDuration.formattedTime)
                             }
                             if let idx = playerVM.currentItemPartIndex {
-                                SharedViews.infoRow(usesChapterTerminology ? "Chapter" : "Track", "\(idx) of \(playerVM.currentItemChapterCount)")
+                                SharedViews.infoRow(isLectureChannel ? "Lecture" : (usesChapterTerminology ? "Chapter" : "Track"), "\(idx) of \(playerVM.currentItemChapterCount)")
                             }
                         }
                         if let date = track.bestDate {
@@ -524,7 +531,7 @@ struct NowPlayingScreen: View {
                                     ChapterListView(onDismiss: { showMoreOptions = false })
                                         .environmentObject(playerVM)
                                 } label: {
-                                    Label(usesChapterTerminology ? "Chapter List" : "Track List", systemImage: "list.number")
+                                    Label(isLectureChannel ? "Lecture List" : (usesChapterTerminology ? "Chapter List" : "Track List"), systemImage: "list.number")
                                 }
                             }
                             HStack {
@@ -593,7 +600,7 @@ struct NowPlayingScreen: View {
                     }
                 }
             }
-            .navigationTitle(usesChapterTerminology ? "Chapter Info" : "Track Info")
+            .navigationTitle(isLectureChannel ? "Lecture Info" : (usesChapterTerminology ? "Chapter Info" : "Track Info"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -733,7 +740,12 @@ struct NowPlayingScreen: View {
         return itemKindLabel(t) == "Book"
     }
 
+    private var isLectureChannel: Bool {
+        playerVM.currentChannel?.category == "Lectures"
+    }
+
     private func itemKindLabel(_ track: Track) -> String {
+        if playerVM.currentChannel?.category == "Lectures" { return "Series" }
         if playerVM.currentChannel?.category == "Audiobooks" { return "Book" }
         let hay = (track.parentIdentifier ?? track.id).lowercased()
         if hay.contains("librivox") || track.tags.contains(where: {

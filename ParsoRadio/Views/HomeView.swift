@@ -834,9 +834,34 @@ struct PlaylistGridSubView: View {
 
     @ViewBuilder
     private func playlistCard(_ playlist: Playlist) -> some View {
+        PlaylistGridCard(playlist: playlist, playlistVM: playlistVM, dismissAll: dismissAll, onSelectChannel: onSelectChannel)
+    }
+}
+
+// MARK: - Individual playlist card (loads its own track data)
+
+struct PlaylistGridCard: View {
+    let playlist: Playlist
+    @ObservedObject var playlistVM: PlaylistViewModel
+    let dismissAll: () -> Void
+    let onSelectChannel: (Channel) -> Void
+
+    @State private var firstTrackArt: UIImage?
+
+    var body: some View {
         NavigationLink(value: HomeRoute.playlist(playlist)) {
             ZStack(alignment: .bottomLeading) {
-                playlistCardBackground(playlist)
+                if let art = firstTrackArt {
+                    Image(uiImage: art)
+                        .resizable()
+                        .scaledToFill()
+                        .clipped()
+                } else {
+                    Image("playlists")
+                        .resizable()
+                        .scaledToFill()
+                        .clipped()
+                }
 
                 LinearGradient(
                     colors: [.clear, .black.opacity(0.55)],
@@ -883,19 +908,11 @@ struct PlaylistGridSubView: View {
         .accessibilityLabel("\(playlist.name), \(playlistVM.trackCount(for: playlist)) tracks"
             + (playlistVM.downloadedPlaylistIDs.contains(playlist.id) ? ", available offline" : ""))
         .accessibilityHint("Opens this playlist")
-    }
-
-    @ViewBuilder
-    private func playlistCardBackground(_ playlist: Playlist) -> some View {
-        if !playlistVM.currentPlaylistTracks.isEmpty,
-           let firstTrack = playlistVM.currentPlaylistTracks.first {
-            ArtworkThumbnail(track: firstTrack, size: 200)
-                .id(firstTrack.id)
-        } else {
-            Image("playlists")
-                .resizable()
-                .scaledToFill()
-                .clipped()
+        .task {
+            let tracks = await playlistVM.db.fetchTracks(forPlaylist: playlist.id)
+            if let first = tracks.first {
+                firstTrackArt = await ArtworkService.shared.artwork(for: first)
+            }
         }
     }
 }

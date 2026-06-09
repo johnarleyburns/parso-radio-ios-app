@@ -61,6 +61,17 @@
                ReferencedContainer = "container:ParsoMusic.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "DCB8F31953C9C55DD751E7B4"
+               BuildableName = "ParsoMusicUITests.xctest"
+               BlueprintName = "ParsoMusicUITests"
+               ReferencedContainer = "container:ParsoMusic.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

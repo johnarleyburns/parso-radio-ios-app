@@ -9,9 +9,17 @@ struct SplashView: View {
 
     var body: some View {
         ZStack {
-            BrandGradient.linear
-            .ignoresSafeArea()
-
+            if let uiImage = UIImage(named: "splash") {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .clipped()
+            } else {
+                BrandGradient.linear
+            }
+        }
+        .ignoresSafeArea()
+        .overlay {
             VStack(spacing: 20) {
                 Image(systemName: "dot.radiowaves.left.and.right")
                     .font(.system(size: 80, weight: .light))

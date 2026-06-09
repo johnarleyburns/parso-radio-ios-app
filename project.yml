@@ -11,7 +11,7 @@ settings:
     TARGETED_DEVICE_FAMILY: "1,2"
   configs:
     Debug:
-      CODE_SIGNING_ALLOWED: NO
+      CODE_SIGNING_ALLOWED: YES
     Release:
       CODE_SIGNING_REQUIRED: YES
       CODE_SIGNING_ALLOWED: YES
@@ -187,6 +187,7 @@ schemes:
       targets:
         - ParsoMusicTests
         - ParsoMusicIntegrationTests
+        - ParsoMusicUITests
     profile:
       config: Release
     analyze:
