@@ -179,13 +179,11 @@ struct HomeView: View {
                     categoryCard(title: category, imageName: category.lowercased(), route: HomeRoute.channelCategory(category))
                 }
 
-                iconCard(title: "Settings", icon: "gearshape",
-                         color: Color(red: 0.35, green: 0.35, blue: 0.40),
-                         route: HomeRoute.settings)
+                categoryCard(title: "Settings", imageName: "settings",
+                              route: HomeRoute.settings)
 
-                iconCard(title: "About", icon: "info.circle",
-                         color: Color(red: 0.25, green: 0.30, blue: 0.45),
-                         route: HomeRoute.about)
+                categoryCard(title: "About", imageName: "about",
+                              route: HomeRoute.about)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
@@ -756,16 +754,16 @@ struct PlaylistGridSubView: View {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 // For You section
                 NavigationLink(value: HomeRoute.recentlyPlayed) {
-                    sectionCardContent(title: "Recently Played", icon: "clock.arrow.circlepath")
+                    sectionCardContent(title: "Recently Played", icon: "clock.arrow.circlepath", imageName: "recently-played")
                 }
                 .buttonStyle(.plain)
                 if let m = musicForYou {
-                    SectionCard(title: m.name, icon: "sparkles") {
+                    SectionCard(title: m.name, icon: "sparkles", imageName: "music-for-you") {
                         onSelectChannel(m)
                     }
                 }
                 if let b = booksForYou {
-                    SectionCard(title: b.name, icon: "sparkles") {
+                    SectionCard(title: b.name, icon: "sparkles", imageName: "books-for-you") {
                         onSelectChannel(b)
                     }
                 }
@@ -814,15 +812,23 @@ struct PlaylistGridSubView: View {
         .task { await playlistVM.loadPlaylists() }
     }
 
-    private func sectionCardContent(title: String, icon: String) -> some View {
+    private func sectionCardContent(title: String, icon: String, imageName: String? = nil) -> some View {
         VStack(spacing: 10) {
             ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(BrandGradient.linear)
-                    .frame(width: 64, height: 64)
-                Image(systemName: icon)
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(.white)
+                if let img = imageName {
+                    Image(img)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 64, height: 64)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                } else {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(BrandGradient.linear)
+                        .frame(width: 64, height: 64)
+                    Image(systemName: icon)
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundStyle(.white)
+                }
             }
             Text(title)
                 .font(.subheadline).fontWeight(.medium)
@@ -943,11 +949,13 @@ struct PlaylistGridCard: View {
 private struct SectionCard: View {
     let title: String
     let icon: String
+    let imageName: String?
     let action: () -> Void
 
-    init(title: String, icon: String, action: @escaping () -> Void) {
+    init(title: String, icon: String, imageName: String? = nil, action: @escaping () -> Void) {
         self.title = title
         self.icon = icon
+        self.imageName = imageName
         self.action = action
     }
 
@@ -955,12 +963,20 @@ private struct SectionCard: View {
         Button(action: action) {
             VStack(spacing: 10) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(BrandGradient.linear)
-                        .frame(width: 64, height: 64)
-                    Image(systemName: icon)
-                        .font(.system(size: 24, weight: .medium))
-                        .foregroundStyle(.white)
+                    if let img = imageName {
+                        Image(img)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 64, height: 64)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                    } else {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(BrandGradient.linear)
+                            .frame(width: 64, height: 64)
+                        Image(systemName: icon)
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundStyle(.white)
+                    }
                 }
                 Text(title)
                     .font(.subheadline).fontWeight(.medium)
