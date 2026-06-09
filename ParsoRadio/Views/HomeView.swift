@@ -106,7 +106,14 @@ struct HomeView: View {
             }
         }
         .fullScreenCover(isPresented: $showPlayer) {
-            NowPlayingScreen(dismiss: { showPlayer = false })
+            NowPlayingScreen(dismiss: {
+                if let cat = playerVM.currentChannel?.category,
+                   cat != "For You",
+                   path.last != .channelCategory(cat) {
+                    path.append(.channelCategory(cat))
+                }
+                showPlayer = false
+            })
                 .environmentObject(playerVM)
                 .environmentObject(playlistVM)
                 .environmentObject(offlineService)
@@ -846,21 +853,25 @@ struct PlaylistGridCard: View {
     let dismissAll: () -> Void
     let onSelectChannel: (Channel) -> Void
 
-    @State private var firstTrackArt: UIImage?
+    @State private var cardImage: UIImage?
+    @State private var imageLoaded = false
+
+    static var playlistImagesDir: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("playlist-images")
+    }
 
     var body: some View {
         NavigationLink(value: HomeRoute.playlist(playlist)) {
-            ZStack(alignment: .bottomLeading) {
-                if let art = firstTrackArt {
-                    Image(uiImage: art)
+            ZStack {
+                if let img = cardImage {
+                    Image(uiImage: img)
                         .resizable()
                         .scaledToFill()
-                        .clipped()
                 } else {
                     Image("playlists")
                         .resizable()
                         .scaledToFill()
-                        .clipped()
                 }
 
                 LinearGradient(
@@ -870,6 +881,7 @@ struct PlaylistGridCard: View {
                 )
 
                 VStack(alignment: .leading, spacing: 2) {
+                    Spacer()
                     HStack(spacing: 4) {
                         if playlist.isFavorites {
                             Image(systemName: "heart.fill")
@@ -894,9 +906,9 @@ struct PlaylistGridCard: View {
                             .font(.caption2)
                             .foregroundStyle(.white.opacity(0.7))
                     }
+                    .padding(.bottom, 16)
                 }
                 .padding(.horizontal, 12)
-                .padding(.bottom, 16)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 140)
@@ -909,10 +921,19 @@ struct PlaylistGridCard: View {
             + (playlistVM.downloadedPlaylistIDs.contains(playlist.id) ? ", available offline" : ""))
         .accessibilityHint("Opens this playlist")
         .task {
+            let customURL = Self.playlistImagesDir.appendingPathComponent("\(playlist.id).png")
+            if FileManager.default.fileExists(atPath: customURL.path),
+               let data = try? Data(contentsOf: customURL),
+               let img = UIImage(data: data) {
+                cardImage = img
+                imageLoaded = true
+                return
+            }
             let tracks = await playlistVM.db.fetchTracks(forPlaylist: playlist.id)
             if let first = tracks.first {
-                firstTrackArt = await ArtworkService.shared.artwork(for: first)
+                cardImage = await ArtworkService.shared.artwork(for: first)
             }
+            imageLoaded = true
         }
     }
 }

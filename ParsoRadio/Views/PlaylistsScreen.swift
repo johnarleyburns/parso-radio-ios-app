@@ -109,19 +109,35 @@ struct PlaylistsScreen: View {
     @ViewBuilder
     private func row(_ playlist: Playlist) -> some View {
         NavigationLink(value: MenuRoute.playlist(playlist)) {
-            HStack {
-                Label(playlist.name,
-                      systemImage: playlist.isFavorites ? "heart.fill" : "music.note.list")
-                Spacer()
-                if playlistVM.downloadedPlaylistIDs.contains(playlist.id) {
-                    // Highlights that this playlist has downloads → plays offline.
-                    Image(systemName: "arrow.down.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                        .accessibilityHidden(true)
+            HStack(spacing: 12) {
+                PlaylistRowThumbnail(playlistId: playlist.id)
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        if playlist.isFavorites {
+                            Image(systemName: "heart.fill")
+                                .foregroundStyle(.red)
+                                .font(.caption)
+                        }
+                        Text(playlist.name)
+                            .lineLimit(1)
+                    }
                 }
-                Text("\(playlistVM.trackCount(for: playlist))")
-                    .font(.caption).foregroundStyle(.secondary)
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    if playlistVM.downloadedPlaylistIDs.contains(playlist.id) {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    }
+                    Text("\(playlistVM.trackCount(for: playlist)) tracks")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             .contentShape(Rectangle())
         }
@@ -129,5 +145,37 @@ struct PlaylistsScreen: View {
         .accessibilityLabel("\(playlist.name), \(playlistVM.trackCount(for: playlist)) tracks"
             + (playlistVM.downloadedPlaylistIDs.contains(playlist.id) ? ", available offline" : ""))
         .accessibilityHint("Opens this playlist")
+    }
+}
+
+private struct PlaylistRowThumbnail: View {
+    let playlistId: String
+    @State private var image: UIImage?
+
+    static var dir: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("playlist-images")
+    }
+
+    var body: some View {
+        Group {
+            if let img = image {
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image("playlists")
+                    .resizable()
+                    .scaledToFill()
+            }
+        }
+        .task {
+            let url = Self.dir.appendingPathComponent("\(playlistId).png")
+            if FileManager.default.fileExists(atPath: url.path),
+               let data = try? Data(contentsOf: url),
+               let img = UIImage(data: data) {
+                image = img
+            }
+        }
     }
 }

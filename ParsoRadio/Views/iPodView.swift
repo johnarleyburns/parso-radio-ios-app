@@ -126,8 +126,9 @@ struct NowPlayingScreen: View {
                 .font(.system(size: mainBoldSize, weight: .semibold))
                 .lineLimit(1)
                 .padding(.horizontal, 70)
-                .padding(.vertical, 12)
+                .padding(.vertical, 10)
             }
+            .padding(.top, 6)
             .accessibilityHint("Opens channel info")
         }
         .overlay(alignment: .topTrailing) {

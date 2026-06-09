@@ -169,7 +169,7 @@ extension Channel {
             preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-torch", name: "TORCH — Humanities Research",
+            id: "oxford-torch", name: "Humanities",
             category: "Lectures", icon: "lightbulb",
             tags: ["oxford-research-centre-humanities-torch"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
@@ -280,7 +280,7 @@ extension Channel {
             feedURL: "https://www.democracynow.org/podcast.xml"
         ),
         Channel(
-            id: "news-npr-1a", name: "NPR 1A (Public Affairs)",
+            id: "news-npr-1a", name: "NPR 1A",
             category: "Podcasts", icon: "person.2.fill",
             tags: ["news-npr-1a"],
             contentType: .spokenWord, preferredSource: "podcast",

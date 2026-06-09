@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct PlaylistDetailView: View {
     let playlist: Playlist
@@ -10,6 +11,14 @@ struct PlaylistDetailView: View {
     @ObservedObject private var kids = KidsModeController.shared
     // Where the user left off in THIS playlist (track still present + offset).
     @State private var resume: (track: Track, seconds: Double)? = nil
+    @State private var showImagePicker = false
+    @State private var selectedImageItem: PhotosPickerItem?
+    @State private var customImage: UIImage?
+
+    static var playlistImagesDir: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("playlist-images")
+    }
 
     var body: some View {
         List {
@@ -25,6 +34,29 @@ struct PlaylistDetailView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .listRowInsets(EdgeInsets())
                     .padding(.vertical, 8)
+                    .overlay(alignment: .bottomTrailing) {
+                        Menu {
+                            Button {
+                                showImagePicker = true
+                            } label: {
+                                Label("Choose Photo", systemImage: "photo")
+                            }
+                            if customImage != nil {
+                                Button(role: .destructive) {
+                                    removePlaylistImage()
+                                } label: {
+                                    Label("Remove Image", systemImage: "trash")
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "camera.circle.fill")
+                                .font(.title2)
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(.white)
+                                .shadow(radius: 4)
+                        }
+                        .padding(8)
+                    }
             }
 
             Section {
@@ -193,6 +225,17 @@ struct PlaylistDetailView: View {
         .task {
             await playlistVM.loadTracks(for: playlist)
             resume = await playerVM.savedPlaylistResume(playlist)
+            loadCustomImage()
+        }
+        .photosPicker(isPresented: $showImagePicker, selection: $selectedImageItem,
+                       matching: .images)
+        .onChange(of: selectedImageItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    savePlaylistImage(data)
+                }
+            }
         }
     }
 
@@ -245,13 +288,40 @@ struct PlaylistDetailView: View {
 
     @ViewBuilder
     private var playlistHeaderImage: some View {
-        if !playlistVM.currentPlaylistTracks.isEmpty,
-           let firstTrack = playlistVM.currentPlaylistTracks.first {
+        if let customImage {
+            Image(uiImage: customImage)
+                .resizable()
+                .scaledToFill()
+        } else if !playlistVM.currentPlaylistTracks.isEmpty,
+                  let firstTrack = playlistVM.currentPlaylistTracks.first {
             ArtworkThumbnail(track: firstTrack, size: UIScreen.main.bounds.width - 40)
         } else {
             Image("playlists")
                 .resizable()
                 .scaledToFit()
         }
+    }
+
+    private func loadCustomImage() {
+        let url = Self.playlistImagesDir.appendingPathComponent("\(playlist.id).png")
+        if FileManager.default.fileExists(atPath: url.path),
+           let data = try? Data(contentsOf: url),
+           let img = UIImage(data: data) {
+            customImage = img
+        }
+    }
+
+    private func savePlaylistImage(_ data: Data) {
+        try? FileManager.default.createDirectory(at: Self.playlistImagesDir,
+                                                  withIntermediateDirectories: true)
+        let url = Self.playlistImagesDir.appendingPathComponent("\(playlist.id).png")
+        try? data.write(to: url, options: .atomic)
+        customImage = UIImage(data: data)
+    }
+
+    private func removePlaylistImage() {
+        let url = Self.playlistImagesDir.appendingPathComponent("\(playlist.id).png")
+        try? FileManager.default.removeItem(at: url)
+        customImage = nil
     }
 }
