@@ -540,7 +540,13 @@ struct HomeView: View {
         if category == "Curated" || category == "Curated Books" {
             VStack(spacing: 0) {
                 if category == "Curated" {
-                    CuratedDiscoveryHeader()
+                    CuratedDiscoveryHeader(label: "Curated Discovery", filterCategory: "Curated")
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                }
+                if category == "Curated Books" {
+                    CuratedDiscoveryHeader(label: "Curated Book", filterCategory: "Curated Books")
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                         .padding(.bottom, 4)
@@ -868,22 +874,15 @@ struct CuratedChannelsGrid: View {
     @State private var editingChannel: ChannelMeta?
     @State private var renameText = ""
 
-    // Featured curated book
-    @State private var featuredBookTrack: Track?
-    @State private var featuredBookChannel: ChannelMeta?
-    @State private var showFeaturedBookDetail = false
-
     var category: String = "Curated"
     let onSelectChannel: (Channel) -> Void
 
     private var filteredChannels: [ChannelMeta] {
         let all = store.orderedChannels()
-        // For Curated Books, only show channels whose default category is Curated Books
         if category == "Curated Books" {
             let bookIDs = Set(Channel.defaults.filter { $0.category == "Curated Books" }.map(\.id))
             return all.filter { bookIDs.contains($0.id) }
         }
-        // For Curated Music, exclude book channels
         let bookIDs = Set(Channel.defaults.filter { $0.category == "Curated Books" }.map(\.id))
         return all.filter { !bookIDs.contains($0.id) }
     }
@@ -901,13 +900,6 @@ struct CuratedChannelsGrid: View {
                     description: Text("Tap + to create a curated channel, or import one from a friend."))
                 .padding(.top, 80)
             } else {
-                if category == "Curated Books", let track = featuredBookTrack,
-                   let channel = featuredBookChannel {
-                    featuredBookRow(track, channel: channel)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 4)
-                }
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                     ForEach(orderedChannels, id: \.id) { meta in
                         let ch = runtimeChannels[meta.id]
@@ -954,7 +946,7 @@ struct CuratedChannelsGrid: View {
             }
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Curated")
+        .navigationTitle(category == "Curated" ? "Curated Music" : "Curated Books")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -976,26 +968,10 @@ struct CuratedChannelsGrid: View {
         .onAppear {
             Task {
                 await LiveCurationStore.shared.reload(from: playerVM.db)
-                loadFeaturedBook()
             }
         }
         .sheet(item: $showCurateChannel) { meta in
             CuratorChannelEditView(channelMeta: meta, onDismiss: { showCurateChannel = nil })
-        }
-        .sheet(isPresented: $showFeaturedBookDetail) {
-            if let track = featuredBookTrack {
-                let entry = AudiobookEntry(
-                    id: track.parentIdentifier ?? track.id,
-                    title: track.title,
-                    creator: track.artist,
-                    date: nil,
-                    downloads: 0,
-                    description: nil
-                )
-                AudiobookDetailView(entry: entry)
-                    .environmentObject(playerVM)
-                    .environmentObject(playlistVM)
-            }
         }
         .alert("Delete \"\(deleteConfirmChannel?.name ?? "")\"?", isPresented: Binding(
             get: { deleteConfirmChannel != nil },
@@ -1103,97 +1079,7 @@ struct CuratedChannelsGrid: View {
             ChannelCategoryStyle.gradient(for: "Curated")
         }
     }
-
-    // MARK: - Featured Curated Book
-
-    private func loadFeaturedBook() {
-        guard category == "Curated Books" else { return }
-        let bookChannels = filteredChannels
-        guard !bookChannels.isEmpty else { return }
-        let picked = bookChannels.randomElement()!
-        let pool = LiveCurationStore.shared.pool(for: picked.id)
-        let books = pool.filter { $0.parentIdentifier != nil }
-        let candidates = books.isEmpty ? pool : books
-        guard let track = candidates.randomElement() else { return }
-        featuredBookTrack = track
-        featuredBookChannel = picked
-    }
-
-    @ViewBuilder
-    private func featuredBookRow(_ track: Track, channel: ChannelMeta) -> some View {
-        let bookId = track.parentIdentifier ?? track.id
-        HStack(spacing: 0) {
-            Button {
-                showFeaturedBookDetail = true
-            } label: {
-                HStack(spacing: 12) {
-                    AsyncImage(url: URL(string: "https://archive.org/services/img/\(bookId)")) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image.resizable().scaledToFill()
-                        case .failure, .empty:
-                            Image(systemName: channel.icon)
-                                .font(.largeTitle)
-                                .foregroundStyle(.white)
-                                .frame(width: 72, height: 72)
-                                .background(ChannelCategoryStyle.gradient(for: "Curated Books"))
-                        @unknown default:
-                            Image(systemName: channel.icon)
-                                .font(.largeTitle)
-                                .foregroundStyle(.white)
-                                .frame(width: 72, height: 72)
-                                .background(ChannelCategoryStyle.gradient(for: "Curated Books"))
-                        }
-                    }
-                    .frame(width: 72, height: 72)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Curated Book")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(track.title)
-                            .font(.headline)
-                            .lineLimit(2)
-                        Text(channel.name)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                        if !track.artist.isEmpty {
-                            Text(track.artist)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer()
-                }
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                Task {
-                    guard let parts = await playerVM.resolveItemParts(identifier: bookId),
-                          !parts.isEmpty else { return }
-                    let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
-                    await playerVM.playAlbumTracks(ordered, title: track.title)
-                }
-            } label: {
-                Image(systemName: "play.circle.fill")
-                    .font(.title)
-                    .foregroundStyle(.blue)
-                    .frame(width: 48)
-            }
-            .buttonStyle(.plain)
-            .padding(.trailing, 8)
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-    }
 }
-
 
 // MARK: - Playlists Grid Sub-View
 
@@ -1459,6 +1345,9 @@ private struct SectionCard: View {
 // MARK: - Curated Discovery Header
 
 struct CuratedDiscoveryHeader: View {
+    let label: String
+    let filterCategory: String
+
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var playlistVM: PlaylistViewModel
 
@@ -1475,12 +1364,15 @@ struct CuratedDiscoveryHeader: View {
                         .fill(Color(.tertiarySystemFill))
                         .frame(width: 72, height: 72)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Curated Discovery")
+                        Text(label)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        ProgressView()
-                            .padding(.top, 2)
+                        Text("Placeholder title").font(.headline).lineLimit(2)
+                        Text("Placeholder subtitle").font(.subheadline).lineLimit(1)
+                        Text("Placeholder date").font(.caption)
+                        ProgressView().padding(.top, 2)
                     }
+                    .redacted(reason: .placeholder)
                     Spacer()
                 }
                 .padding(12)
@@ -1503,9 +1395,7 @@ struct CuratedDiscoveryHeader: View {
             if let t = track, let ch = channelName {
                 LiveMusicDetailView(entry: LiveMusicEntry(
                     id: t.parentIdentifier ?? t.id,
-                    creator: t.artist,
-                    title: t.title,
-                    venue: ch,
+                    creator: t.artist, title: t.title, venue: ch,
                     coverage: nil, date: nil, year: nil,
                     downloads: 0, dateString: "", description: nil
                 ))
@@ -1516,14 +1406,18 @@ struct CuratedDiscoveryHeader: View {
     }
 
     private func pickRandomTrack() async -> (Track?, String?) {
-        let musicIDs = Set(Channel.defaults
-            .filter { $0.category == "Curated" }
+        let ids = Set(Channel.defaults
+            .filter { $0.category == filterCategory }
             .map(\.id))
-        let musicMetas = CustomChannelsStore.shared.orderedChannels()
-            .filter { musicIDs.contains($0.id) }
-        guard let channel = musicMetas.randomElement() else { return (nil, nil) }
+        let metas = CustomChannelsStore.shared.orderedChannels()
+            .filter { ids.contains($0.id) }
+        guard let channel = metas.randomElement() else { return (nil, nil) }
         let pool = LiveCurationStore.shared.pool(for: channel.id)
-        guard let t = pool.randomElement() else { return (nil, nil) }
+        let candidates = filterCategory == "Curated Books"
+            ? pool.filter { $0.parentIdentifier != nil }
+            : pool
+        let source = candidates.isEmpty ? pool : candidates
+        guard let t = source.randomElement() else { return (nil, nil) }
         return (t, channel.name)
     }
 
@@ -1546,7 +1440,7 @@ struct CuratedDiscoveryHeader: View {
                     .frame(width: 72, height: 72)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Curated Discovery")
+                        Text(label)
                             .font(.caption).foregroundStyle(.secondary)
                         Text(track.title)
                             .font(.headline).lineLimit(2)
