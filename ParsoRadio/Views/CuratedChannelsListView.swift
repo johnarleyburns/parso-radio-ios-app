@@ -422,6 +422,7 @@ struct CuratorChannelEditView: View {
     @State private var deepQueryOffset = 0
     @State private var showSearchAdd = false
     @State private var filterMode: FilterMode = .review
+    @State private var showResetConfirm = false
     @StateObject private var enrichmentService = MetadataEnrichmentService()
 
     enum FilterMode: String, CaseIterable {
@@ -548,6 +549,20 @@ struct CuratorChannelEditView: View {
                     Text("Queries MusicBrainz, Wikidata, and Cover Art Archive for composer, performer, and artwork data on approved tracks. Requires internet. One request per second.")
                 }
 
+                if channelMeta.isShippedDefault {
+                    Section {
+                        Button(role: .destructive) {
+                            showResetConfirm = true
+                        } label: {
+                            Label("Restore Factory Defaults", systemImage: "arrow.counterclockwise")
+                        }
+                    } header: {
+                        Text("Danger Zone")
+                    } footer: {
+                        Text("This clears all your curation verdicts and restores the original list of approved tracks for this channel.")
+                    }
+                }
+
                 // Review queue / approved / rejected
                 if queue.isEmpty {
                     Section {
@@ -556,9 +571,17 @@ struct CuratorChannelEditView: View {
                             description: Text("Tap \"Load More Candidates\" or \"Search Archive.org to Add\"."))
                     }
                 } else {
-                    Section("\(filterMode.rawValue) (\(queue.count))") {
-                        ForEach(queue, id: \.id) { track in
-                            reviewRow(track)
+                    ScrollViewReader { proxy in
+                        Section("\(filterMode.rawValue) (\(queue.count))") {
+                            ForEach(queue, id: \.id) { track in
+                                reviewRow(track)
+                                    .id(track.id)
+                            }
+                        }
+                        .onChange(of: playerVM.currentTrack?.id) { _, newID in
+                            if let id = newID, queue.contains(where: { $0.id == id }) {
+                                withAnimation { proxy.scrollTo(id, anchor: .center) }
+                            }
                         }
                     }
                 }
@@ -712,6 +735,18 @@ struct CuratorChannelEditView: View {
                 }
             } message: {
                 Text("All \(deepQueryOffset + 500) results have already been reviewed. Search further?")
+            }
+            .alert("Restore \"\(channelMeta.name)\"?", isPresented: $showResetConfirm) {
+                Button("Restore", role: .destructive) {
+                    Task {
+                        await CustomChannelsStore.shared.resetChannelToDefault(
+                            chId: channelMeta.id, db: playerVM.db)
+                        onDismiss()
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This clears all your curation verdicts and restores the original list of approved tracks for this channel.")
             }
         }
     }

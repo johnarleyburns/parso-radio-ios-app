@@ -1305,8 +1305,8 @@ final class PlayerViewModel: ObservableObject {
     /// backgrounds the app. No-op when current playback came from a real
     /// channel/playlist — we never disturb genuine listening.
     func stopAudition() {
-        guard currentChannel == nil, currentPlaylist == nil,
-              (currentTrack != nil || isLoading) else { return }
+        guard currentChannel == nil, currentPlaylist == nil else { return }
+        guard currentTrack != nil || isLoading || preAuditionState != nil else { return }
         stallWatchdog?.cancel()
         stallWatchdog = nil
         audioPlayer.skip()
@@ -1346,6 +1346,10 @@ final class PlayerViewModel: ObservableObject {
     /// playlist context. Use when a verdict was made on the playing track and
     /// the user expects silence — not the old channel resuming. Also used when
     /// the review queue is exhausted.
+    ///
+    /// IMPORTANT: isAuditioning and preAuditionState are PRESERVED so the
+    /// next auditionTrack() call won't overwrite the original snapshot, and
+    /// stopAudition() can restore the original context when the user exits.
     func stopAuditionWithoutRestore() {
         guard currentChannel == nil, currentPlaylist == nil,
               (currentTrack != nil || isLoading) else { return }
@@ -1360,8 +1364,7 @@ final class PlayerViewModel: ObservableObject {
         failedAuditionTrackId = nil
         errorMessage = nil
         playbackContextToken &+= 1
-        isAuditioning = false
-        preAuditionState = nil
+        // Keep isAuditioning = true and preAuditionState intact.
     }
 
     // MARK: - Whole book/album

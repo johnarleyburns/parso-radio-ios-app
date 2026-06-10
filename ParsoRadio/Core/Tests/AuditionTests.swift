@@ -137,8 +137,7 @@ final class AuditionTests: XCTestCase {
 
     // MARK: - stopAuditionWithoutRestore
 
-    func test_stopAuditionWithoutRestore_clearsAuditionAndDiscardsPreState() async {
-        // Set up genuine channel playback as pre-audition state
+    func test_stopAuditionWithoutRestore_preservesPreAuditionState() async {
         let channel = Channel.defaults.first { $0.id == "guitar-classical" }!
         let originalTrack = makeTrack("original")
         vm.currentChannel = channel
@@ -146,18 +145,23 @@ final class AuditionTests: XCTestCase {
         vm.isPlaying = true
         vm.currentPosition = 30.0
 
-        // Start audition
         await vm.auditionTrack(makeTrack("candidate-1"))
 
-        // stopAuditionWithoutRestore must clear the audition AND discard preAuditionState
         vm.stopAuditionWithoutRestore()
 
         XCTAssertNil(vm.currentTrack, "audition track must be cleared")
         XCTAssertFalse(vm.isLoading, "spinner must be off")
         XCTAssertFalse(vm.isPlaying, "playback must stop")
-        // preAuditionState is discarded, so NO channel is restored
+        // currentChannel stays nil — restore is stopAudition()'s job
         XCTAssertNil(vm.currentChannel,
-            "stopAuditionWithoutRestore must discard preAuditionState — no channel restoration")
+            "currentChannel stays nil until stopAudition() restores")
+        // preAuditionState is PRESERVED — stopAuditionWithoutRestore must NOT discard it
+        // so the next auditionTrack call won't overwrite it with (nil, nil, ...)
+
+        // Now simulate the user exiting curation
+        vm.stopAudition()
+        XCTAssertEqual(vm.currentChannel?.id, "guitar-classical",
+            "stopAudition must restore the original channel from preserved preAuditionState")
     }
 
     func test_stopAuditionWithoutRestore_doesNotDisturbChannelPlayback() {
