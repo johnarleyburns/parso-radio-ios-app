@@ -363,9 +363,16 @@ struct HomeView: View {
                 Text(label)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Text("Placeholder title")
+                    .font(.headline).lineLimit(2)
+                Text("Placeholder subtitle")
+                    .font(.subheadline).lineLimit(1)
+                Text("Placeholder date")
+                    .font(.caption)
                 ProgressView()
                     .padding(.top, 2)
             }
+            .redacted(reason: .placeholder)
             Spacer()
         }
         .padding(12)
