@@ -35,7 +35,14 @@ struct LiveMusicOnThisDayService {
         let pick = candidates.randomElement()!
         state.lastPickedID = pick.id
 
+        let mmdd = Self.todayMMDD()
         if let enriched = try? await enrichWithMetadata(pick) {
+            // If enrichment overrode the date with a non-matching value,
+            // fall back to the un-enriched pick (which was filtered client-side).
+            if let d = enriched.date, !d.contains(mmdd) {
+                cacheSingle(pick)
+                return pick
+            }
             cacheSingle(enriched)
             return enriched
         }
@@ -64,7 +71,13 @@ struct LiveMusicOnThisDayService {
         if !isPoolExpired(), let pool = cachedPool() { return pool }
 
         guard let entries = try? await fetchEntries(for: Self.todayMMDD()),
-              !entries.isEmpty else { return cachedPool() }
+              !entries.isEmpty else {
+            // Fetch failed or empty: expire the cache so stale data from
+            // a different date is never shown as "Live Music on This Day".
+            UserDefaults.standard.removeObject(forKey: poolKey)
+            UserDefaults.standard.removeObject(forKey: poolDateKey)
+            return nil
+        }
 
         cachePool(entries)
         return entries
@@ -89,7 +102,7 @@ struct LiveMusicOnThisDayService {
     }
 
     func fetchEntries(for mmdd: String) async throws -> [LiveMusicEntry] {
-        let query = #"collection:(etree) AND date:"\#(mmdd)""#
+        let query = #"collection:(etree) AND "\#(mmdd)""#
         return try await searchEtree(query: query, mmdd: mmdd)
     }
 
