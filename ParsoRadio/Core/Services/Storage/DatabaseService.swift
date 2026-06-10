@@ -579,6 +579,17 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
         }
     }
 
+    func clearReviewQueue(channelId: String) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? db.run(curation
+                    .filter(colCurChannel == channelId && colCurStatus == "review")
+                    .delete())
+                cont.resume()
+            }
+        }
+    }
+
     /// (review, approved, rejected) counts for a channel.
     /// LEFT JOINs to the tracks table so orphaned curation rows (tracks evicted
     /// by evictOldTracks) are NOT counted — prevents a count/badge mismatch.

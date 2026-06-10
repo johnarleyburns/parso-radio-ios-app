@@ -423,6 +423,7 @@ struct CuratorChannelEditView: View {
     @State private var showSearchAdd = false
     @State private var filterMode: FilterMode = .review
     @State private var showResetConfirm = false
+    @State private var showClearReviewConfirm = false
     @StateObject private var enrichmentService = MetadataEnrichmentService()
 
     enum FilterMode: String, CaseIterable {
@@ -609,6 +610,12 @@ struct CuratorChannelEditView: View {
                         } label: {
                             Label("Edit Search Query", systemImage: "magnifyingglass")
                         }
+                        Divider()
+                        Button(role: .destructive) {
+                            showClearReviewConfirm = true
+                        } label: {
+                            Label("Clear Review Queue", systemImage: "tray.full")
+                        }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -747,6 +754,17 @@ struct CuratorChannelEditView: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("This clears all your curation verdicts and restores the original list of approved tracks for this channel.")
+            }
+            .alert("Clear Review Queue?", isPresented: $showClearReviewConfirm) {
+                Button("Clear", role: .destructive) {
+                    Task {
+                        await db.clearReviewQueue(channelId: channelMeta.id)
+                        await reload()
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This removes all \(counts.review) tracks from the review queue. Approved and rejected verdicts are preserved.")
             }
         }
     }
