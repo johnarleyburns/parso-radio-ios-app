@@ -1434,22 +1434,22 @@ final class PlayerViewModel: ObservableObject {
             return nil
         }
 
-        // 4. Network probe with 15s hard timeout (belt-and-suspenders on top
-        //    of the URLSession's own 10s/15s timeouts).
+        // 4. Network probe with 10s hard timeout (belt-and-suspenders on top
+        //    of the URLSession's own 8s/12s timeouts).
         do {
             let fetched = try await withThrowingTaskGroup(of: [Track].self) { group in
                 group.addTask {
                     let shortSession = URLSession(configuration: {
                         let c = URLSessionConfiguration.default
-                        c.timeoutIntervalForRequest = 10
-                        c.timeoutIntervalForResource = 15
+                        c.timeoutIntervalForRequest = 8
+                        c.timeoutIntervalForResource = 12
                         return c
                     }())
                     let svc = InternetArchiveService(session: shortSession)
                     return try await svc.fetchTracksForIdentifier(identifier)
                 }
                 group.addTask {
-                    try await Task.sleep(nanoseconds: 15_000_000_000)
+                    try await Task.sleep(nanoseconds: 10_000_000_000)
                     throw URLError(.timedOut)
                 }
                 let result = try await group.next()!

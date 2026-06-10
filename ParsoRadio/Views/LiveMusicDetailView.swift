@@ -9,6 +9,7 @@ struct LiveMusicDetailView: View {
     @State private var tracks: [Track] = []
     @State private var isLoading = true
     @State private var loadError: String?
+    @State private var loadingTask: Task<Void, Never>?
     @State private var showPlaylistPicker = false
     @State private var showNewPlaylist = false
     @State private var newPlaylistName = ""
@@ -61,7 +62,19 @@ struct LiveMusicDetailView: View {
 
                 if isLoading {
                     Section {
-                        HStack { Spacer(); ProgressView("Loading tracks…"); Spacer() }
+                        VStack(spacing: 12) {
+                            ProgressView("Loading tracks…")
+                            Button(role: .cancel) {
+                                loadingTask?.cancel()
+                                isLoading = false
+                                loadError = nil
+                            } label: {
+                                Text("Cancel")
+                                    .font(.subheadline)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
                     }
                 } else if !tracks.isEmpty {
                     Section("Tracks (\(tracks.count))") {
@@ -134,7 +147,11 @@ struct LiveMusicDetailView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .task { await loadTracks() }
+            .task {
+                let t = Task { await loadTracks() }
+                loadingTask = t
+                await t.value
+            }
             .confirmationDialog("Add to Playlist", isPresented: $showPlaylistPicker) {
                 ForEach(playlistVM.playlists) { pl in
                     Button(pl.name) {
@@ -160,22 +177,13 @@ struct LiveMusicDetailView: View {
 
     private func loadTracks() async {
         let identifier = entry.id
-        var timedOut = false
-        let timeoutTask = Task {
-            try? await Task.sleep(nanoseconds: 18_000_000_000)
-            if !Task.isCancelled { timedOut = true }
-        }
-        guard let parts = await playerVM.resolveItemParts(identifier: identifier) else {
-            timeoutTask.cancel()
-            if timedOut {
-                loadError = "Loading timed out. Check your connection and try again."
-            } else if Task.isCancelled { return }
+        let parts = await playerVM.resolveItemParts(identifier: identifier)
+        if Task.isCancelled { return }
+        guard let p = parts else {
             isLoading = false
             return
         }
-        timeoutTask.cancel()
-        if Task.isCancelled { return }
-        tracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+        tracks = p.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
         isLoading = false
     }
 
