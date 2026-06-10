@@ -1,69 +1,100 @@
 import Foundation
 
-/// Fetches etree (Live Music Archive) shows that occurred on a specific
-/// month-day across any year, picks one at random, enriches it with full
-/// IA metadata, and caches the daily pick so it stays consistent all day.
+/// Fetches etree (Live Music Archive) shows for a specific month-day,
+/// caches the full result set for 24 hours, and picks a random entry
+/// from the cache on each refresh.
 struct LiveMusicOnThisDayService {
     private let session: URLSession
     private let cacheKey: String
+    private let poolKey: String
+    private let poolDateKey: String
+    private let state = State()
+
+    private final class State { var lastPickedID: String? }
 
     init(session: URLSession = .app) {
         self.session = session
-        self.cacheKey = "liveMusicEntry_" + Self.todayKey()
+        let today = Self.todayKey()
+        self.cacheKey = "liveMusicEntry_" + today
+        self.poolKey = "liveMusicPool_" + today
+        self.poolDateKey = "liveMusicPoolDate_" + today
     }
 
     // MARK: - Public
 
-    /// Returns a random live show from IA etree for today's MM-DD,
-    /// enriched with full metadata. Uses a cached pick if available.
-    func fetchDailyEntry() async -> LiveMusicEntry? {
-        if let cached = cachedEntry(), cached.dateString == Self.todayKey() {
-            return cached
+    func fetchDailyEntry(forceFresh: Bool = false) async -> LiveMusicEntry? {
+        let pool = await getOrRefreshPool()
+        guard let pool, !pool.isEmpty else { return nil }
+
+        var candidates = pool
+        if forceFresh, let lastID = state.lastPickedID, candidates.count > 1 {
+            let fresh = candidates.filter { $0.id != lastID }
+            if !fresh.isEmpty { candidates = fresh }
         }
-        clearCachedEntry()
 
-        guard let entries = try? await fetchEntries(for: Self.todayMMDD()),
-              !entries.isEmpty else { return nil }
+        let pick = candidates.randomElement()!
+        state.lastPickedID = pick.id
 
-        let pick = entries.randomElement()!
-
-        // Enrich with full metadata from IA /metadata endpoint
         if let enriched = try? await enrichWithMetadata(pick) {
-            cacheEntry(enriched)
+            cacheSingle(enriched)
             return enriched
         }
-
-        cacheEntry(pick)
+        cacheSingle(pick)
         return pick
     }
 
-    /// For testing: fetch entries for an arbitrary MM-DD without caching.
+    func clearCachedEntry() {
+        UserDefaults.standard.removeObject(forKey: cacheKey)
+        UserDefaults.standard.removeObject(forKey: poolKey)
+        UserDefaults.standard.removeObject(forKey: poolDateKey)
+        state.lastPickedID = nil
+    }
+
+    // MARK: - Pool cache (24-hour TTL)
+
+    private func isPoolExpired() -> Bool {
+        let poolDate = UserDefaults.standard.double(forKey: poolDateKey)
+        guard poolDate > 0 else { return true }
+        let cached = Date(timeIntervalSince1970: poolDate)
+        // Expire at midnight local time
+        return !Calendar.current.isDate(cached, inSameDayAs: Date())
+    }
+
+    private func getOrRefreshPool() async -> [LiveMusicEntry]? {
+        if !isPoolExpired(), let pool = cachedPool() { return pool }
+
+        guard let entries = try? await fetchEntries(for: Self.todayMMDD()),
+              !entries.isEmpty else { return cachedPool() }
+
+        cachePool(entries)
+        return entries
+    }
+
+    private func cachedPool() -> [LiveMusicEntry]? {
+        guard let data = UserDefaults.standard.data(forKey: poolKey),
+              let entries = try? JSONDecoder().decode([LiveMusicEntry].self, from: data)
+        else { return nil }
+        return entries
+    }
+
+    private func cachePool(_ entries: [LiveMusicEntry]) {
+        guard let data = try? JSONEncoder().encode(entries) else { return }
+        UserDefaults.standard.set(data, forKey: poolKey)
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: poolDateKey)
+    }
+
+    private func cacheSingle(_ entry: LiveMusicEntry) {
+        guard let data = try? JSONEncoder().encode(entry) else { return }
+        UserDefaults.standard.set(data, forKey: cacheKey)
+    }
+
     func fetchEntries(for mmdd: String) async throws -> [LiveMusicEntry] {
         let query = #"collection:(etree) AND "\#(mmdd)""#
         return try await searchEtree(query: query, mmdd: mmdd)
     }
 
-    func clearCachedEntry() {
-        UserDefaults.standard.removeObject(forKey: cacheKey)
-    }
-
-    // MARK: - Cache
-
-    private func cachedEntry() -> LiveMusicEntry? {
-        guard let data = UserDefaults.standard.data(forKey: cacheKey),
-              let entry = try? JSONDecoder().decode(LiveMusicEntry.self, from: data)
-        else { return nil }
-        return entry
-    }
-
-    private func cacheEntry(_ entry: LiveMusicEntry) {
-        guard let data = try? JSONEncoder().encode(entry) else { return }
-        UserDefaults.standard.set(data, forKey: cacheKey)
-    }
-
     // MARK: - Metadata enrichment
 
-    /// Fetches full IA metadata for an entry to get venue, coverage, title, etc.
     private func enrichWithMetadata(_ entry: LiveMusicEntry) async throws -> LiveMusicEntry {
         guard let encoded = entry.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
               let metaURL = URL(string: "https://archive.org/metadata/\(encoded)")
@@ -121,14 +152,10 @@ struct LiveMusicOnThisDayService {
             LiveMusicEntry(
                 id: doc.identifier,
                 creator: doc.creator ?? "Unknown Artist",
-                title: nil,
-                venue: doc.extractVenue(),
-                coverage: nil,
-                date: doc.date,
-                year: doc.year,
+                title: nil, venue: doc.extractVenue(), coverage: nil,
+                date: doc.date, year: doc.year,
                 downloads: doc.downloads ?? 0,
-                dateString: mmdd,
-                description: nil
+                dateString: mmdd,                 description: doc.description
             )
         }
     }
@@ -136,54 +163,35 @@ struct LiveMusicOnThisDayService {
     // MARK: - Helpers
 
     static func todayMMDD() -> String {
-        let df = DateFormatter()
-        df.dateFormat = "MM-dd"
+        let df = DateFormatter(); df.dateFormat = "MM-dd"
         return df.string(from: Date())
     }
 
-    static func todayKey() -> String {
-        todayMMDD()
-    }
+    static func todayKey() -> String { todayMMDD() }
 }
 
-// MARK: - IA Response models for etree search
+// MARK: - IA Response models
 
 private struct EtreeSearchResponse: Decodable {
     let response: EtreeResponseBody
 }
-
-private struct EtreeResponseBody: Decodable {
-    let docs: [EtreeDoc]
-}
-
+private struct EtreeResponseBody: Decodable { let docs: [EtreeDoc] }
 private struct EtreeDoc: Decodable {
-    let identifier: String
-    let creator: String?
-    let date: String?
-    let year: Int?
-    let downloads: Int?
-    let description: String?
-
-    enum CodingKeys: String, CodingKey {
-        case identifier, creator, date, year, downloads, description
-    }
-
+    let identifier: String; let creator: String?; let date: String?; let year: Int?; let downloads: Int?; let description: String?
+    enum CodingKeys: String, CodingKey { case identifier, creator, date, year, downloads, description }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        identifier  = try c.decode(String.self, forKey: .identifier)
-        creator     = try? c.decode(String.self, forKey: .creator)
-        date        = try? c.decode(String.self, forKey: .date)
-        downloads   = try? c.decode(Int.self, forKey: .downloads)
+        identifier = try c.decode(String.self, forKey: .identifier)
+        creator = try? c.decode(String.self, forKey: .creator)
+        date = try? c.decode(String.self, forKey: .date)
         description = try? c.decode(String.self, forKey: .description)
-        if let y = try? c.decode(Int.self, forKey: .year) {
-            year = y
-        } else if let s = try? c.decode(String.self, forKey: .year), let y = Int(s) {
-            year = y
-        } else {
-            year = nil
-        }
+        if let y = try? c.decode(Int.self, forKey: .year) { year = y }
+        else if let s = try? c.decode(String.self, forKey: .year) { year = Int(s) }
+        else { year = nil }
+        if let d = try? c.decode(Int.self, forKey: .downloads) { downloads = d }
+        else if let s = try? c.decode(String.self, forKey: .downloads) { downloads = Int(s) }
+        else { downloads = nil }
     }
-
     func extractVenue() -> String? {
         guard let desc = description else { return nil }
         let parts = desc.components(separatedBy: " • ")

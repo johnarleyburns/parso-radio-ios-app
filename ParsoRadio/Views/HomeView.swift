@@ -49,7 +49,7 @@ struct HomeView: View {
     }()
 
     private static let categoryOrder = [
-        "Curated", "Ambient", "Podcasts", "Audiobooks", "Lectures"
+        "Curated", "Ambient", "Podcasts", "Audiobooks", "Curated Books", "Lectures"
     ]
 
     static func orderedCategories() -> [String] {
@@ -68,11 +68,10 @@ struct HomeView: View {
             }
             .refreshable {
                 liveMusicService.clearCachedEntry()
-                if let e = await liveMusicService.fetchDailyEntry() {
+                if let e = await liveMusicService.fetchDailyEntry(forceFresh: true) {
                     dailyLiveEntry = e
                 }
-                audiobookService.clearCachedEntry()
-                if let a = await audiobookService.fetchDailyEntry() {
+                if let a = await audiobookService.fetchDailyEntry(forceFresh: true) {
                     dailyAudiobook = a
                 }
             }
@@ -200,6 +199,20 @@ struct HomeView: View {
 
     // MARK: - Home Grid
 
+    private func categoryImageName(_ category: String) -> String {
+        switch category {
+        case "Curated Books": return "curated"
+        default: return category.lowercased()
+        }
+    }
+
+    private func categoryDisplayName(_ category: String) -> String {
+        switch category {
+        case "Curated": return "Curated Music"
+        default: return category
+        }
+    }
+
     private var homeGrid: some View {
         VStack(spacing: 0) {
             // Live Music on This Day
@@ -211,19 +224,22 @@ struct HomeView: View {
 
             // Categories grid
             let ordered = Self.orderedCategories()
-            let preAudiobooks = ordered.filter { $0 != "Audiobooks" && $0 != "Lectures" && $0 != "Podcasts" }
+            let preAudiobooks = ordered.filter { $0 != "Audiobooks" && $0 != "Lectures" && $0 != "Curated Books" && $0 != "Podcasts" }
             let podcastsCategory = ordered.contains("Podcasts") ? ["Podcasts"] : []
-            let postPodcasts = ordered.filter { $0 == "Audiobooks" || $0 == "Lectures" }
+            let postPodcasts = ordered.filter { $0 == "Audiobooks" || $0 == "Curated Books" || $0 == "Lectures" }
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 categoryCard(title: "Playlists", imageName: "playlists", route: HomeRoute.playlists)
 
                 ForEach(preAudiobooks, id: \.self) { category in
-                    categoryCard(title: category, imageName: category.lowercased(), route: HomeRoute.channelCategory(category))
+                    let imgName = categoryImageName(category)
+                    let displayName = categoryDisplayName(category)
+                    categoryCard(title: displayName, imageName: imgName, route: HomeRoute.channelCategory(category))
                 }
 
                 if !podcastsCategory.isEmpty {
-                    categoryCard(title: "Podcasts", imageName: "podcasts", route: HomeRoute.channelCategory("Podcasts"))
+                    let displayName = categoryDisplayName("Podcasts")
+                    categoryCard(title: displayName, imageName: "podcasts", route: HomeRoute.channelCategory("Podcasts"))
                 }
             }
             .padding(.horizontal, 16)
@@ -238,7 +254,9 @@ struct HomeView: View {
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 ForEach(postPodcasts, id: \.self) { category in
-                    categoryCard(title: category, imageName: category.lowercased(), route: HomeRoute.channelCategory(category))
+                    let imgName = categoryImageName(category)
+                    let displayName = categoryDisplayName(category)
+                    categoryCard(title: displayName, imageName: imgName, route: HomeRoute.channelCategory(category))
                 }
 
                 categoryCard(title: "Settings", imageName: "settings",
@@ -478,8 +496,8 @@ struct HomeView: View {
 
     @ViewBuilder
     private func channelCategoryView(for category: String) -> some View {
-        if category == "Curated" {
-            CuratedChannelsGrid(onSelectChannel: { channel in
+        if category == "Curated" || category == "Curated Books" {
+            CuratedChannelsGrid(category: category, onSelectChannel: { channel in
                 Task { await playerVM.load(channel: channel) }
                 showPlayer = true
             })
@@ -789,6 +807,7 @@ struct ChannelGridSubView: View {
 
 struct CuratedChannelsGrid: View {
     @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var playlistVM: PlaylistViewModel
     @StateObject private var store = CustomChannelsStore.shared
 
     @State private var showNewChannel = false
@@ -798,10 +817,28 @@ struct CuratedChannelsGrid: View {
     @State private var editingChannel: ChannelMeta?
     @State private var renameText = ""
 
+    // Featured curated book
+    @State private var featuredBookTrack: Track?
+    @State private var featuredBookChannel: ChannelMeta?
+    @State private var showFeaturedBookDetail = false
+
+    var category: String = "Curated"
     let onSelectChannel: (Channel) -> Void
 
+    private var filteredChannels: [ChannelMeta] {
+        let all = store.orderedChannels()
+        // For Curated Books, only show channels whose default category is Curated Books
+        if category == "Curated Books" {
+            let bookIDs = Set(Channel.defaults.filter { $0.category == "Curated Books" }.map(\.id))
+            return all.filter { bookIDs.contains($0.id) }
+        }
+        // For Curated Music, exclude book channels
+        let bookIDs = Set(Channel.defaults.filter { $0.category == "Curated Books" }.map(\.id))
+        return all.filter { !bookIDs.contains($0.id) }
+    }
+
     var body: some View {
-        let orderedChannels = store.orderedChannels()
+        let orderedChannels = filteredChannels
         let runtimeChannels = Dictionary(uniqueKeysWithValues:
             orderedChannels.map { ($0.id, store.runtimeChannel(from: $0)) })
 
@@ -813,6 +850,13 @@ struct CuratedChannelsGrid: View {
                     description: Text("Tap + to create a curated channel, or import one from a friend."))
                 .padding(.top, 80)
             } else {
+                if category == "Curated Books", let track = featuredBookTrack,
+                   let channel = featuredBookChannel {
+                    featuredBookRow(track, channel: channel)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                }
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                     ForEach(orderedChannels, id: \.id) { meta in
                         let ch = runtimeChannels[meta.id]
@@ -880,9 +924,25 @@ struct CuratedChannelsGrid: View {
         }
         .task {
             await LiveCurationStore.shared.reload(from: playerVM.db)
+            loadFeaturedBook()
         }
         .sheet(item: $showCurateChannel) { meta in
             CuratorChannelEditView(channelMeta: meta, onDismiss: { showCurateChannel = nil })
+        }
+        .sheet(isPresented: $showFeaturedBookDetail) {
+            if let track = featuredBookTrack {
+                let entry = AudiobookEntry(
+                    id: track.parentIdentifier ?? track.id,
+                    title: track.title,
+                    creator: track.artist,
+                    date: nil,
+                    downloads: 0,
+                    description: nil
+                )
+                AudiobookDetailView(entry: entry)
+                    .environmentObject(playerVM)
+                    .environmentObject(playlistVM)
+            }
         }
         .alert("Delete \"\(deleteConfirmChannel?.name ?? "")\"?", isPresented: Binding(
             get: { deleteConfirmChannel != nil },
@@ -989,6 +1049,95 @@ struct CuratedChannelsGrid: View {
         } else {
             ChannelCategoryStyle.gradient(for: "Curated")
         }
+    }
+
+    // MARK: - Featured Curated Book
+
+    private func loadFeaturedBook() {
+        guard category == "Curated Books" else { return }
+        let bookChannels = filteredChannels
+        guard !bookChannels.isEmpty else { return }
+        let picked = bookChannels.randomElement()!
+        let pool = LiveCurationStore.shared.pool(for: picked.id)
+        let books = pool.filter { $0.parentIdentifier != nil }
+        let candidates = books.isEmpty ? pool : books
+        guard let track = candidates.randomElement() else { return }
+        featuredBookTrack = track
+        featuredBookChannel = picked
+    }
+
+    @ViewBuilder
+    private func featuredBookRow(_ track: Track, channel: ChannelMeta) -> some View {
+        let bookId = track.parentIdentifier ?? track.id
+        HStack(spacing: 0) {
+            Button {
+                showFeaturedBookDetail = true
+            } label: {
+                HStack(spacing: 12) {
+                    AsyncImage(url: URL(string: "https://archive.org/services/img/\(bookId)")) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                        case .failure, .empty:
+                            Image(systemName: channel.icon)
+                                .font(.largeTitle)
+                                .foregroundStyle(.white)
+                                .frame(width: 72, height: 72)
+                                .background(ChannelCategoryStyle.gradient(for: "Curated Books"))
+                        @unknown default:
+                            Image(systemName: channel.icon)
+                                .font(.largeTitle)
+                                .foregroundStyle(.white)
+                                .frame(width: 72, height: 72)
+                                .background(ChannelCategoryStyle.gradient(for: "Curated Books"))
+                        }
+                    }
+                    .frame(width: 72, height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Curated Book")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(track.title)
+                            .font(.headline)
+                            .lineLimit(2)
+                        Text(channel.name)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        if !track.artist.isEmpty {
+                            Text(track.artist)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                Task {
+                    guard let parts = await playerVM.resolveItemParts(identifier: bookId),
+                          !parts.isEmpty else { return }
+                    let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+                    await playerVM.playAlbumTracks(ordered, title: track.title)
+                }
+            } label: {
+                Image(systemName: "play.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(.blue)
+                    .frame(width: 48)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 8)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
     }
 }
 

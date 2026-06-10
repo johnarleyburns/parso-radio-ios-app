@@ -8,6 +8,7 @@ struct AudiobookDetailView: View {
 
     @State private var tracks: [Track] = []
     @State private var isLoading = true
+    @State private var loadError: String?
     @State private var showPlaylistPicker = false
     @State private var showNewPlaylist = false
     @State private var newPlaylistName = ""
@@ -43,9 +44,7 @@ struct AudiobookDetailView: View {
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         if let desc = entry.description, !desc.isEmpty {
-                            Text(desc.strippedHTML)
-                                .font(.footnote).foregroundStyle(.secondary)
-                                .lineLimit(6)
+                            ExpandableText(text: desc.strippedHTML, lineLimit: 6)
                                 .padding(.top, 4)
                         }
                     }
@@ -71,7 +70,7 @@ struct AudiobookDetailView: View {
                                     .frame(width: 24, alignment: .trailing)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(track.title)
-                                        .font(.body).lineLimit(1)
+                                        .font(.body).lineLimit(3)
                                     Text(track.duration.formattedTime)
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
@@ -99,6 +98,27 @@ struct AudiobookDetailView: View {
                         } label: {
                             Label("Add to New Playlist", systemImage: "folder.badge.plus")
                         }
+                    }
+                } else {
+                    Section {
+                        VStack(spacing: 12) {
+                            if let error = loadError {
+                                Label(error, systemImage: "exclamationmark.triangle")
+                                    .foregroundStyle(.orange)
+                            } else {
+                                Label("No chapters found for this item.", systemImage: "book.pages")
+                                    .foregroundStyle(.secondary)
+                            }
+                            Button {
+                                loadError = nil
+                                isLoading = true
+                                Task { await loadTracks() }
+                            } label: {
+                                Label("Retry", systemImage: "arrow.clockwise")
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
                     }
                 }
             }
@@ -139,10 +159,22 @@ struct AudiobookDetailView: View {
     }
 
     private func loadTracks() async {
-        guard let parts = await playerVM.resolveItemParts(identifier: entry.id) else {
+        let identifier = entry.id
+        var timedOut = false
+        let timeoutTask = Task {
+            try? await Task.sleep(nanoseconds: 18_000_000_000)
+            if !Task.isCancelled { timedOut = true }
+        }
+        guard let parts = await playerVM.resolveItemParts(identifier: identifier) else {
+            timeoutTask.cancel()
+            if timedOut {
+                loadError = "Loading timed out. Check your connection and try again."
+            } else if Task.isCancelled { return }
             isLoading = false
             return
         }
+        timeoutTask.cancel()
+        if Task.isCancelled { return }
         tracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
         isLoading = false
     }

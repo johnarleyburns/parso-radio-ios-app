@@ -1431,9 +1431,28 @@ final class PlayerViewModel: ObservableObject {
             return nil
         }
 
-        // 4. Network probe (isMultiPart nil/true with parts evicted).
+        // 4. Network probe with 15s hard timeout (belt-and-suspenders on top
+        //    of the URLSession's own 10s/15s timeouts).
         do {
-            let fetched = try await archiveService.fetchTracksForIdentifier(identifier)
+            let fetched = try await withThrowingTaskGroup(of: [Track].self) { group in
+                group.addTask {
+                    let shortSession = URLSession(configuration: {
+                        let c = URLSessionConfiguration.default
+                        c.timeoutIntervalForRequest = 10
+                        c.timeoutIntervalForResource = 15
+                        return c
+                    }())
+                    let svc = InternetArchiveService(session: shortSession)
+                    return try await svc.fetchTracksForIdentifier(identifier)
+                }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 15_000_000_000)
+                    throw URLError(.timedOut)
+                }
+                let result = try await group.next()!
+                group.cancelAll()
+                return result
+            }
             if fetched.count <= 1 {
                 await db.setIsMultiPart(false, forTrackId: identifier)
                 itemPartsCache.updateValue(nil, forKey: identifier)
@@ -1452,7 +1471,7 @@ final class PlayerViewModel: ObservableObject {
             itemPartsCache[identifier] = ordered
             return ordered
         } catch {
-            // Network error: do NOT cache (absence = retry on next load).
+            // Network error or timeout: do NOT cache (absence = retry on next load).
             return nil
         }
     }
@@ -1772,7 +1791,7 @@ final class PlayerViewModel: ObservableObject {
         playlistIndex = 0
         playbackContextToken &+= 1
         playHistory = []
-        channelDescription = ""
+        channelDescription = preAuditionState?.channel?.name ?? ""
         beginTransition(pre: track)
         await playTrack(track, seekTo: nil, recordHistory: false)
     }
@@ -2216,6 +2235,6 @@ final class PlayerViewModel: ObservableObject {
                 await playTrack(t, seekTo: savedPosition,
                                 recordHistory: false, autoPlay: autoPlay)
             }
-        }
     }
+}
 }

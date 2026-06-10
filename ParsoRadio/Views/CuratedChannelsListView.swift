@@ -185,6 +185,9 @@ struct NewChannelSheet: View {
     @State private var isSearching = false
     @State private var selectedIds = Set<String>()
     @State private var searchError: String?
+    @State private var showRestoreDefaultsConfirm = false
+
+    @ObservedObject private var channelStore = CustomChannelsStore.shared
 
     let onCreated: (ChannelMeta) -> Void
 
@@ -269,6 +272,19 @@ struct NewChannelSheet: View {
                         }
                     }
                 }
+
+                if !channelStore.deletedDefaults.isEmpty {
+                    Section {
+                        Button {
+                            showRestoreDefaultsConfirm = true
+                        } label: {
+                            Label("Restore Deleted Default Channels",
+                                  systemImage: "arrow.counterclockwise.circle")
+                        }
+                    } footer: {
+                        Text("Recreates any default curated channels you previously deleted. (\(channelStore.deletedDefaults.count) deleted)")
+                    }
+                }
             }
             .navigationTitle("New Curated Channel")
             .navigationBarTitleDisplayMode(.inline)
@@ -303,6 +319,14 @@ struct NewChannelSheet: View {
             .alert("Import Error", isPresented: $showImportError) {
                 Button("OK", role: .cancel) {}
             } message: { Text(importError ?? "") }
+            .alert("Restore Default Channels?", isPresented: $showRestoreDefaultsConfirm) {
+                Button("Restore", role: .destructive) {
+                    channelStore.restoreDefaults()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will bring back any default shipped curated channels you previously deleted. Your existing channels and curation verdicts will not be affected.")
+            }
         }
     }
 
