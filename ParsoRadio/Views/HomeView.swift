@@ -1393,8 +1393,7 @@ struct CuratedDiscoveryHeader: View {
             }
         }
         .task {
-            // Brief delay to ensure any concurrent reload has settled
-            try? await Task.sleep(nanoseconds: 100_000_000)
+            await LiveCurationStore.shared.reload(from: playerVM.db)
             await pickTrack()
         }
         .sheet(isPresented: $showDetail) {
