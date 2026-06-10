@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// The new Curated Channels list (replaces the generic ChannelListScreen for
 /// the Curated category). Toolbar: Edit + `+`. Swipe-to-delete, drag-to-reorder,
@@ -76,6 +77,7 @@ struct CuratedChannelsListView: View {
         .sheet(item: $showCurateChannel) { meta in
             CuratorChannelEditView(
                 channelMeta: meta,
+                playerVM: playerVM,
                 onDismiss: { showCurateChannel = nil })
         }
         .alert("Delete \"\(deleteConfirmChannel?.name ?? "")\"?", isPresented: Binding(
@@ -406,9 +408,9 @@ struct NewChannelSheet: View {
 /// Same as CuratorReviewView but refit for in-place use, with filter picker.
 struct CuratorChannelEditView: View {
     let channelMeta: ChannelMeta
+    let playerVM: PlayerViewModel
     let onDismiss: () -> Void
 
-    @EnvironmentObject var playerVM: PlayerViewModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var db = DatabaseService.shared
     @State private var curationActions = CurationActions(db: DatabaseService.shared)
@@ -425,6 +427,11 @@ struct CuratorChannelEditView: View {
     @State private var showResetConfirm = false
     @State private var showClearReviewConfirm = false
     @StateObject private var enrichmentService = MetadataEnrichmentService()
+
+    // Local snapshot of playback state relevant to the curator, synced via
+    // .onReceive so @Published currentPosition (4×/s) does NOT trigger body
+    // recomputation. Stored as @State to avoid ObservableObject dependency.
+    @State private var curatorPlayback = CuratorPlaybackState()
 
     enum FilterMode: String, CaseIterable {
         case review = "Review"
@@ -481,7 +488,7 @@ struct CuratorChannelEditView: View {
 
                 // Playback error: show non-intrusive banner so curator
                 // sees when a track is unplayable instead of just a spinner.
-                if let err = playerVM.errorMessage {
+                if let err = curatorPlayback.errorMessage {
                     Section {
                         HStack {
                             Image(systemName: "exclamationmark.triangle.fill")
@@ -579,9 +586,9 @@ struct CuratorChannelEditView: View {
                                     .id(track.id)
                             }
                         }
-                        .onChange(of: playerVM.currentTrack?.id) { _, newID in
+                        .onChange(of: curatorPlayback.currentTrackId) { _, newID in
                             if let id = newID, queue.contains(where: { $0.id == id }) {
-                                withAnimation { proxy.scrollTo(id, anchor: .center) }
+                                proxy.scrollTo(id, anchor: .center)
                             }
                         }
                     }
@@ -699,11 +706,28 @@ struct CuratorChannelEditView: View {
                 if phase != .active { playerVM.stopAudition() }
             }
             .task { await reload() }
-            .onChange(of: playerVM.errorMessage) { _, msg in
+            .onReceive(
+                Publishers.CombineLatest3(
+                    playerVM.$currentTrack,
+                    playerVM.$isPlaying,
+                    playerVM.$isLoading
+                )
+                .combineLatest(playerVM.$errorMessage)
+                .map { (track: $0.0, playing: $0.1, loading: $0.2, error: $1) }
+            ) { state in
+                curatorPlayback.currentTrackId = state.track?.id
+                curatorPlayback.isPlaying = state.playing
+                curatorPlayback.isLoading = state.loading
+                curatorPlayback.errorMessage = state.error
+            }
+            .onReceive(playerVM.$failedAuditionTrackId) {
+                curatorPlayback.failedAuditionTrackId = $0
+            }
+            .onChange(of: curatorPlayback.errorMessage) { _, msg in
                 // When an audition track fails, currentTrack is cleared BEFORE
                 // errorMessage is set. Use failedAuditionTrackId so the correct
                 // row gets the yellow warning icon and flash.
-                let failedId = playerVM.currentTrack?.id ?? playerVM.failedAuditionTrackId
+                let failedId = curatorPlayback.currentTrackId ?? curatorPlayback.failedAuditionTrackId
                 if let id = failedId, msg != nil {
                     failedTrackIds.insert(id)
                     flashTrackId = id
@@ -777,99 +801,22 @@ struct CuratorChannelEditView: View {
 
     @ViewBuilder
     private func reviewRow(_ track: Track) -> some View {
-        let vs = verdictStates[track.id]
-        let isVerdicted = vs != nil && !vs!.undone
-        let isLive = playerVM.currentTrack?.id == track.id
-        let isLoading = isLive && playerVM.isLoading
-        let isPlaying = isLive && playerVM.isPlaying && !isLoading
-        let hasFailed = failedTrackIds.contains(track.id)
-        let isFlashing = flashTrackId == track.id
-
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    if hasFailed {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.yellow)
-                            .scaleEffect(isFlashing ? 1.4 : 1.0)
-                            .animation(.none, value: isFlashing)
-                    }
-                    Text(track.title).font(.body).lineLimit(2)
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { infoTrack = track }
-                Text(track.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                if track.duration > 0 {
-                    Text(formatTime(track.duration))
-                        .font(.caption2).foregroundStyle(.tertiary).monospacedDigit()
-                }
-                if let pn = track.partNumber, let tp = track.totalParts, tp > 1 {
-                    Text("Part \(pn) of \(tp)")
-                        .font(.caption2)
-                        .foregroundStyle(.blue)
-                } else if track.parentIdentifier != nil || track.isMultiPart == true {
-                    Text("Multi-part")
-                        .font(.caption2)
-                        .foregroundStyle(.blue)
-                }
-                if let vs = vs {
-                    Text(vs.status == "approved" ? "Approved" : "Rejected")
-                        .font(.caption2)
-                        .foregroundStyle(vs.status == "approved" ? .green : .red)
-                }
-            }
-            Spacer(minLength: 8)
-            if isPlaying {
-                Image(systemName: "waveform")
-                    .symbolEffect(.variableColor.iterative)
-                    .foregroundStyle(.blue)
-                    .font(.title3)
-            }
-            if isVerdicted {
-                Button {
-                    Task { await undoVerdict(track) }
-                } label: {
-                    Image(systemName: "arrow.uturn.backward.circle.fill")
-                        .font(.title)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Undo verdict")
-            } else {
-                Button {
-                    if isLive { playerVM.togglePlayPause() }
-                    else { Task { await playerVM.auditionTrack(track) } }
-                } label: {
-                    if isLoading {
-                        ProgressView().controlSize(.regular)
-                    } else {
-                        Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.title).foregroundStyle(Color.accentColor)
-                    }
-                }
-                .buttonStyle(.plain)
-                .frame(width: 32, height: 32)
-                .accessibilityLabel(isPlaying ? "Pause" : "Audition")
-                Button {
-                    Task { await verdict(track, "approved") }
-                } label: {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title).foregroundStyle(.green)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Approve")
-                Button {
-                    Task { await verdict(track, "rejected") }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title).foregroundStyle(.red)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Reject")
-            }
-        }
-        .padding(.vertical, 4)
+        CurationReviewRow(
+            track: track,
+            verdictState: verdictStates[track.id],
+            isLive: curatorPlayback.currentTrackId == track.id,
+            isPlaying: curatorPlayback.isPlaying,
+            isLoading: curatorPlayback.isLoading,
+            hasFailed: failedTrackIds.contains(track.id),
+            isFlashing: flashTrackId == track.id,
+            onTapInfo: { infoTrack = track },
+            onUndo: { Task { await undoVerdict(track) } },
+            onPlayPause: { playerVM.togglePlayPause() },
+            onAudition: { Task { await playerVM.auditionTrack(track) } },
+            onApprove: { Task { await verdict(track, "approved") } },
+            onReject: { Task { await verdict(track, "rejected") } }
+        )
+        .equatable()
     }
 
     @MainActor
@@ -888,28 +835,9 @@ struct CuratorChannelEditView: View {
 
     @MainActor
     private func verdict(_ track: Track, _ status: String) async {
-        let wasPlaying = playerVM.currentTrack?.id == track.id
+        let wasPlaying = curatorPlayback.currentTrackId == track.id
         await db.setCuration(channelId: channelMeta.id, trackId: track.id, status: status)
-        await LiveCurationStore.shared.reload(from: db)
-
-        // Write to per-channel JSON file so exported / shared files reflect
-        // the latest verdicts (consistent with undoVerdict and directVerdict).
-        if var def = CustomChannelsStore.shared.channelDefinition(for: channelMeta.id) {
-            if status == "approved" {
-                if !def.approved.contains(where: { $0.id == track.id }) {
-                    def.approved.append(ChannelDefinition.ApprovedEntry(
-                        id: track.id, title: track.title, creator: track.artist,
-                        duration: track.duration, parentIdentifier: track.parentIdentifier))
-                }
-                def.rejected.removeAll(where: { $0 == track.id })
-            } else {
-                if !def.rejected.contains(track.id) {
-                    def.rejected.append(track.id)
-                }
-                def.approved.removeAll(where: { $0.id == track.id })
-            }
-            CustomChannelsStore.shared.writeChannelDefinition(def)
-        }
+        await LiveCurationStore.shared.reload(channelId: channelMeta.id, from: db)
 
         // Mark verdict for undo
         verdictStates[track.id] = (status: status, undone: false)
@@ -931,12 +859,7 @@ struct CuratorChannelEditView: View {
     private func undoVerdict(_ track: Track) async {
         verdictStates.removeValue(forKey: track.id)
         await db.setCuration(channelId: channelMeta.id, trackId: track.id, status: "review")
-        await LiveCurationStore.shared.reload(from: db)
-        if var def = CustomChannelsStore.shared.channelDefinition(for: channelMeta.id) {
-            def.approved.removeAll(where: { $0.id == track.id })
-            def.rejected.removeAll(where: { $0 == track.id })
-            CustomChannelsStore.shared.writeChannelDefinition(def)
-        }
+        await LiveCurationStore.shared.reload(channelId: channelMeta.id, from: db)
         counts = await db.curationCounts(channelId: channelMeta.id)
         if filterMode != .review { await reload() }
     }
@@ -1025,6 +948,125 @@ struct CuratorChannelEditView: View {
     }
 }
 
+// MARK: - Curation Review Row (Equatable for performance)
+
+private struct CurationReviewRow: View, Equatable {
+    let track: Track
+    let verdictState: (status: String, undone: Bool)?
+    let isLive: Bool
+    let isPlaying: Bool
+    let isLoading: Bool
+    let hasFailed: Bool
+    let isFlashing: Bool
+    let onTapInfo: () -> Void
+    let onUndo: () -> Void
+    let onPlayPause: () -> Void
+    let onAudition: () -> Void
+    let onApprove: () -> Void
+    let onReject: () -> Void
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.track.id == rhs.track.id
+            && lhs.verdictState?.status == rhs.verdictState?.status
+            && lhs.verdictState?.undone == rhs.verdictState?.undone
+            && lhs.isLive == rhs.isLive
+            && lhs.isPlaying == rhs.isPlaying
+            && lhs.isLoading == rhs.isLoading
+            && lhs.hasFailed == rhs.hasFailed
+            && lhs.isFlashing == rhs.isFlashing
+    }
+
+    var body: some View {
+        let isVerdicted = verdictState != nil && !verdictState!.undone
+        let showPlaying = isLive && isPlaying && !isLoading
+        let showWaveform = isLive && isPlaying && !isLoading
+
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    if hasFailed {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.yellow)
+                            .scaleEffect(isFlashing ? 1.4 : 1.0)
+                            .animation(.none, value: isFlashing)
+                    }
+                    Text(track.title).font(.body).lineLimit(2)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { onTapInfo() }
+                Text(track.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                if track.duration > 0 {
+                    Text(formatTime(track.duration))
+                        .font(.caption2).foregroundStyle(.tertiary).monospacedDigit()
+                }
+                if let pn = track.partNumber, let tp = track.totalParts, tp > 1 {
+                    Text("Part \(pn) of \(tp)")
+                        .font(.caption2)
+                        .foregroundStyle(.blue)
+                } else if track.parentIdentifier != nil || track.isMultiPart == true {
+                    Text("Multi-part")
+                        .font(.caption2)
+                        .foregroundStyle(.blue)
+                }
+                if let vs = verdictState {
+                    Text(vs.status == "approved" ? "Approved" : "Rejected")
+                        .font(.caption2)
+                        .foregroundStyle(vs.status == "approved" ? .green : .red)
+                }
+            }
+            Spacer(minLength: 8)
+            if showWaveform {
+                Image(systemName: "waveform")
+                    .symbolEffect(.variableColor.iterative)
+                    .foregroundStyle(.blue)
+                    .font(.title3)
+            }
+            if isVerdicted {
+                Button(action: onUndo) {
+                    Image(systemName: "arrow.uturn.backward.circle.fill")
+                        .font(.title)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Undo verdict")
+            } else {
+                Button {
+                    if isLive { onPlayPause() } else { onAudition() }
+                } label: {
+                    if isLoading && isLive {
+                        ProgressView().controlSize(.regular)
+                    } else {
+                        Image(systemName: showPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.title).foregroundStyle(Color.accentColor)
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(width: 32, height: 32)
+                .accessibilityLabel(showPlaying ? "Pause" : "Audition")
+                Button(action: onApprove) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title).foregroundStyle(.green)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Approve")
+                Button(action: onReject) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title).foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Reject")
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func formatTime(_ s: Double) -> String {
+        let t = Int(s); let m = t / 60; let sec = t % 60
+        return String(format: "%d:%02d", m, sec)
+    }
+}
+
 // MARK: - Full-page IA Query Editor
 
 struct QueryEditorView: View {
@@ -1062,4 +1104,12 @@ struct QueryEditorView: View {
             }
         }
     }
+}
+
+private struct CuratorPlaybackState {
+    var currentTrackId: String?
+    var isPlaying = false
+    var isLoading = false
+    var errorMessage: String?
+    var failedAuditionTrackId: String?
 }

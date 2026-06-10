@@ -248,8 +248,7 @@ struct ChannelInfoView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showCurator) {
             if let meta = CustomChannelsStore.shared.customChannels.first(where: { $0.id == channel.id }) {
-                CuratorChannelEditView(channelMeta: meta, onDismiss: { showCurator = false })
-                    .environmentObject(playerVM)
+                CuratorChannelEditView(channelMeta: meta, playerVM: playerVM, onDismiss: { showCurator = false })
             }
         }
         .task {

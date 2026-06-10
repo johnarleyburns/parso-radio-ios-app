@@ -156,7 +156,7 @@ struct CuratorSearchAddView: View {
         let t = searchTrack(group)
         await db.saveTracks([t])
         await db.setCuration(channelId: channel.id, trackId: t.id, status: status)
-        await LiveCurationStore.shared.reload(from: db)
+        await LiveCurationStore.shared.reload(channelId: channel.id, from: db)
         if var def = CustomChannelsStore.shared.channelDefinition(for: channel.id) {
             if status == "approved" {
                 if !def.approved.contains(where: { $0.id == t.id }) {

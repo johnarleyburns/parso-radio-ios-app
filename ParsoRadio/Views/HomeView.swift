@@ -135,10 +135,10 @@ struct HomeView: View {
                     AboutView()
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                if playerVM.currentTrack != nil {
-                    miniPlayer
-                }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if playerVM.currentTrack != nil {
+                miniPlayer
             }
         }
         .fullScreenCover(isPresented: $showPlayer) {
@@ -852,6 +852,7 @@ struct CuratedChannelsGrid: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @StateObject private var store = CustomChannelsStore.shared
+    @ObservedObject private var curationStore = LiveCurationStore.shared
 
     @State private var showNewChannel = false
     @State private var showCurateChannel: ChannelMeta?
@@ -891,15 +892,15 @@ struct CuratedChannelsGrid: View {
             } else {
                 let hasHeader = (category == "Curated" || category == "Curated Books")
                 Group {
-                    if let t = discoveryTrack, let ch = discoveryChannel {
+                    if let t = discoveryTrack, let ch = discoveryChannel, !ch.isEmpty {
                         discoveryCardRow(t, channel: ch)
-                    } else {
+                    } else if discoveryChannel == nil {
                         discoveryLoadingRow()
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
-                .padding(.bottom, hasHeader ? 12 : 0)
+                .padding(.bottom, hasHeader ? 4 : 0)
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                     ForEach(orderedChannels, id: \.id) { meta in
                         let ch = runtimeChannels[meta.id]
@@ -949,7 +950,9 @@ struct CuratedChannelsGrid: View {
         }
         .background(Color(.systemGroupedBackground))
         .refreshable {
-            await LiveCurationStore.shared.reload(from: playerVM.db)
+            discoveryTrack = nil
+            discoveryChannel = nil
+            await curationStore.reload(from: playerVM.db)
             loadDiscovery()
         }
         .navigationTitle(category == "Curated" ? "Curated Music" : "Curated Books")
@@ -973,12 +976,15 @@ struct CuratedChannelsGrid: View {
         }
         .onAppear {
             Task {
-                await LiveCurationStore.shared.reload(from: playerVM.db)
+                await curationStore.reload(from: playerVM.db)
                 loadDiscovery()
             }
         }
+        .onReceive(curationStore.objectWillChange) { _ in
+            DispatchQueue.main.async { loadDiscovery() }
+        }
         .sheet(item: $showCurateChannel) { meta in
-            CuratorChannelEditView(channelMeta: meta, onDismiss: { showCurateChannel = nil })
+            CuratorChannelEditView(channelMeta: meta, playerVM: playerVM, onDismiss: { showCurateChannel = nil })
         }
         .alert("Delete \"\(deleteConfirmChannel?.name ?? "")\"?", isPresented: Binding(
             get: { deleteConfirmChannel != nil },
@@ -1036,20 +1042,29 @@ struct CuratedChannelsGrid: View {
     // MARK: - Discovery Card
 
     private func loadDiscovery() {
+        discoveryTrack = nil
+        discoveryChannel = nil
         let ids = Set(Channel.defaults
             .filter { $0.category == category }
             .map(\.id))
         let metas = store.orderedChannels()
             .filter { ids.contains($0.id) }
-        guard let channel = metas.randomElement() else { return }
-        let pool = LiveCurationStore.shared.pool(for: channel.id)
-        let candidates = category == "Curated Books"
-            ? pool.filter { $0.parentIdentifier != nil }
-            : pool
-        let source = candidates.isEmpty ? pool : candidates
-        guard let t = source.randomElement() else { return }
-        discoveryTrack = t
-        discoveryChannel = channel.name
+        guard !metas.isEmpty else {
+            discoveryChannel = ""
+            return
+        }
+        for channel in metas.shuffled() {
+            let pool = curationStore.pool(for: channel.id)
+            let candidates = category == "Curated Books"
+                ? pool.filter { $0.parentIdentifier != nil }
+                : pool
+            let source = candidates.isEmpty ? pool : candidates
+            guard let t = source.randomElement() else { continue }
+            discoveryTrack = t
+            discoveryChannel = channel.name
+            return
+        }
+        discoveryChannel = ""
     }
 
     private func discoveryCardRow(_ t: Track, channel ch: String) -> some View {

@@ -332,7 +332,8 @@ final class PlayerViewModel: ObservableObject {
                     self.isScrubbing = false
                 }
                 self.currentPosition = seconds
-                self.trackDuration = self.audioPlayer.duration
+                let dur = self.audioPlayer.duration
+                if self.trackDuration != dur { self.trackDuration = dur }
                 // (minTrackDuration is enforced invisibly in advanceToNext via
                 // assetDuration pre-screening, before the track is revealed.)
                 // Persist position so the user resumes EXACTLY where they were —
@@ -637,6 +638,8 @@ final class PlayerViewModel: ObservableObject {
                     let approvedIds = LiveCurationStore.shared
                         .pool(for: channel.id).map(\.id)
                     keepingIds.formUnion(approvedIds)
+                    let allCuratedIds = await db.allCuratedTrackIds(channelId: channel.id)
+                    keepingIds.formUnion(allCuratedIds)
                 }
                 await db.pruneChannelTracks(
                     forChannel: channel, keeping: keepingIds)

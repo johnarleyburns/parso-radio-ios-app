@@ -72,6 +72,18 @@ final class LiveCurationStore: ObservableObject {
         }
     }
 
+    /// Reload only a single channel's approved pool (fast path for verdict
+    /// actions — avoids scanning every channel).
+    func reload(channelId: String, from db: DatabaseService) async {
+        let approved = await db.exportApprovedTracks(forChannelId: channelId)
+        lock.withLock {
+            approvedByChannel[channelId] = approved
+        }
+        await MainActor.run { [channelId, approved] in
+            self.approvedByChannel[channelId] = approved
+        }
+    }
+
     func pool(for channelId: String) -> [Track] {
         lock.withLock { approvedByChannel[channelId] ?? [] }
     }

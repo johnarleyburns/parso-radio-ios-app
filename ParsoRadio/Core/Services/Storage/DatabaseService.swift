@@ -569,6 +569,17 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
         }
     }
 
+    /// All track IDs with any verdict (approved, rejected, or review) for a channel.
+    func allCuratedTrackIds(channelId: String) async -> [String] {
+        await withCheckedContinuation { cont in
+            queue.async { [self] in
+                let q = curation.select(colCurTrack)
+                    .filter(colCurChannel == channelId)
+                cont.resume(returning: (try? db.prepare(q))?.map { $0[colCurTrack] } ?? [])
+            }
+        }
+    }
+
     /// Remove all verdicts (approved, rejected, review) for a channel.
     func clearCuration(channelId: String) async {
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
@@ -591,73 +602,65 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     }
 
     /// (review, approved, rejected) counts for a channel.
-    /// LEFT JOINs to the tracks table so orphaned curation rows (tracks evicted
+    /// INNER JOINs to the tracks table so orphaned curation rows (tracks evicted
     /// by evictOldTracks) are NOT counted — prevents a count/badge mismatch.
     func curationCounts(channelId: String) async -> (review: Int, approved: Int, rejected: Int) {
         await withCheckedContinuation { cont in
             queue.async { [self] in
-                func n(_ s: String) -> Int {
-                    let sql = """
-                        SELECT COUNT(*) FROM (
-                            SELECT c.channel_id FROM curation c
-                            INNER JOIN tracks t ON t.id = c.track_id
-                            WHERE c.channel_id = ? AND c.status = ?
-                        )
-                    """
-                    let val = (try? db.prepare(sql, channelId, s))?
-                        .compactMap { $0[0] as? Int64 }.first ?? 0
-                    return Int(truncatingIfNeeded: val)
+                let sql = """
+                    SELECT c.status, COUNT(*) FROM curation c
+                    INNER JOIN tracks t ON t.id = c.track_id
+                    WHERE c.channel_id = ? GROUP BY c.status
+                """
+                var review = 0, approved = 0, rejected = 0
+                if let rows = try? db.prepare(sql, channelId) {
+                    for row in rows {
+                        guard let status = row[0] as? String,
+                              let count = row[1] as? Int64 else { continue }
+                        switch status {
+                        case "review":   review   = Int(truncatingIfNeeded: count)
+                        case "approved": approved = Int(truncatingIfNeeded: count)
+                        case "rejected": rejected = Int(truncatingIfNeeded: count)
+                        default: break
+                        }
+                    }
                 }
-                cont.resume(returning: (n("review"), n("approved"), n("rejected")))
+                cont.resume(returning: (review, approved, rejected))
             }
         }
     }
 
-    /// Approved tracks for a channel, joined to full Track rows — a curated
-    /// channel's play pool once it has a manifest.
+    /// Approved tracks for a channel — single JOIN instead of N+1 pluck.
     func fetchApprovedTracks(forChannelId channelId: String) async -> [Track] {
-        await withCheckedContinuation { cont in
-            queue.async { [self] in
-                let ids = (try? db.prepare(curation.select(colCurTrack)
-                    .filter(colCurChannel == channelId && colCurStatus == "approved")))?
-                    .map { $0[colCurTrack] } ?? []
-                var out: [Track] = []
-                for id in ids {
-                    if let row = try? db.pluck(tracks.filter(colId == id)),
-                       let t = rowToTrack(row) { out.append(t) }
-                }
-                cont.resume(returning: out)
-            }
-        }
+        await fetchCuratedTracks(channelId: channelId, status: "approved")
     }
 
-    /// Rejected tracks for a channel, joined to full Track rows.
+    /// Rejected tracks for a channel — single JOIN.
     func fetchRejectedTracks(forChannelId channelId: String) async -> [Track] {
-        await withCheckedContinuation { cont in
-            queue.async { [self] in
-                let ids = (try? db.prepare(curation.select(colCurTrack)
-                    .filter(colCurChannel == channelId && colCurStatus == "rejected")))?
-                    .map { $0[colCurTrack] } ?? []
-                var out: [Track] = []
-                for id in ids {
-                    if let row = try? db.pluck(tracks.filter(colId == id)),
-                       let t = rowToTrack(row) { out.append(t) }
-                }
-                cont.resume(returning: out)
-            }
-        }
+        await fetchCuratedTracks(channelId: channelId, status: "rejected")
     }
 
-    /// All channels → their approved tracks, for the JSON export.
+    /// All channels → their approved tracks, for the in-memory curation snapshot.
     func exportApprovedByChannel() async -> [String: [Track]] {
         await withCheckedContinuation { cont in
             queue.async { [self] in
-                let pairs = (try? db.prepare(curation.filter(colCurStatus == "approved")))?
-                    .map { ($0[colCurChannel], $0[colCurTrack]) } ?? []
+                let sql = """
+                    SELECT c.channel_id, t.id, t.source, t.title, t.artist, t.duration,
+                           t.stream_url, t.download_url, t.local_file_path, t.license_type,
+                           t.tags, t.quality_score, t.raw_creator, t.composer, t.instruments,
+                           t.metadata_confidence, t.fetched_at, t.added_date, t.is_local,
+                           t.part_number, t.total_parts, t.parent_identifier, t.artwork_url,
+                           t.is_multi_part
+                    FROM tracks t
+                    INNER JOIN curation c ON c.track_id = t.id
+                    WHERE c.status = 'approved'
+                    ORDER BY c.channel_id
+                """
                 var out: [String: [Track]] = [:]
-                for (ch, tid) in pairs {
-                    if let row = try? db.pluck(tracks.filter(colId == tid)),
-                       let t = rowToTrack(row) {
+                if let rows = try? db.prepare(sql) {
+                    for row in rows {
+                        guard let ch = row[0] as? String,
+                              let t = rowToTrack(from: row, offset: 1) else { continue }
                         out[ch, default: []].append(t)
                     }
                 }
@@ -666,48 +669,60 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
         }
     }
 
-    /// Insert `trackIds` into the channel's REVIEW queue, SKIPPING any that
-    /// already carry a verdict (approved/rejected). Idempotent: re-ingesting
-    /// candidates never resurrects rejected tracks (the reject set is sticky).
+    /// Approved tracks for a single channel — single JOIN, for channel-scoped reload.
+    func exportApprovedTracks(forChannelId channelId: String) async -> [Track] {
+        await fetchCuratedTracks(channelId: channelId, status: "approved")
+    }
+
+    /// Shared single-JOIN helper for fetching tracks by curation status.
+    private func fetchCuratedTracks(channelId: String, status: String) async -> [Track] {
+        await withCheckedContinuation { cont in
+            queue.async { [self] in
+                let sql = """
+                    SELECT t.id, t.source, t.title, t.artist, t.duration,
+                           t.stream_url, t.download_url, t.local_file_path, t.license_type,
+                           t.tags, t.quality_score, t.raw_creator, t.composer, t.instruments,
+                           t.metadata_confidence, t.fetched_at, t.added_date, t.is_local,
+                           t.part_number, t.total_parts, t.parent_identifier, t.artwork_url,
+                           t.is_multi_part
+                    FROM tracks t
+                    INNER JOIN curation c ON c.track_id = t.id
+                    WHERE c.channel_id = ? AND c.status = ?
+                """
+                var out: [Track] = []
+                if let rows = try? db.prepare(sql, channelId, status) {
+                    for row in rows {
+                        if let t = rowToTrack(from: row, offset: 0) { out.append(t) }
+                    }
+                }
+                cont.resume(returning: out)
+            }
+        }
+    }
+
+    /// Insert `trackIds` into the channel's REVIEW queue. Uses INSERT OR IGNORE
+    /// so existing verdicts (approved/rejected/review) are never overwritten.
     func ensureReviewSet(channelId: String, trackIds: [String]) async {
-        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+        await withCheckedContinuation { cont in
             queue.async { [self] in
                 let now = Date().timeIntervalSince1970
                 for tid in trackIds {
-                    let already = (try? db.scalar(curation
-                        .filter(colCurChannel == channelId && colCurTrack == tid)
-                        .count)) ?? 0
-                    if already == 0 {
-                        _ = try? db.run(curation.insert(
-                            colCurChannel    <- channelId,
-                            colCurTrack      <- tid,
-                            colCurStatus     <- "review",
-                            colCurReviewedAt <- now,
-                            colCurNote       <- nil
-                        ))
-                    }
+                    _ = try? db.run(curation.insert(or: .ignore,
+                        colCurChannel    <- channelId,
+                        colCurTrack      <- tid,
+                        colCurStatus     <- "review",
+                        colCurReviewedAt <- now,
+                        colCurNote       <- nil
+                    ))
                 }
                 cont.resume()
             }
         }
     }
 
-    /// Tracks currently in the review queue for a channel, joined to full
-    /// track metadata (so the curator UI can render + audition them).
+    /// Tracks currently in the review queue for a channel — single JOIN.
     func reviewSetTracks(channelId: String) async -> [Track] {
-        await withCheckedContinuation { cont in
-            queue.async { [self] in
-                let ids = (try? db.prepare(curation.select(colCurTrack)
-                    .filter(colCurChannel == channelId && colCurStatus == "review")))?
-                    .map { $0[colCurTrack] } ?? []
-                var out: [Track] = []
-                for id in ids {
-                    if let row = try? db.pluck(tracks.filter(colId == id)),
-                       let t = rowToTrack(row) { out.append(t) }
-                }
-                cont.resume(returning: out)
-            }
-        }
+        await fetchCuratedTracks(channelId: channelId, status: "review")
     }
 
     // MARK: - Playback position
@@ -1452,6 +1467,46 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
             parentIdentifier:   row[colParentId],
             artworkURLString:   row[colArtworkURL],
             isMultiPart:        row[colIsMultiPart]
+        )
+    }
+
+    /// Build a Track from a raw SQL result row (as [Binding?] from db.prepare).
+    /// The offset shifts past any leading column (e.g. channel_id in all-channels
+    /// export). Column order must match fetchCuratedTracks / exportApprovedByChannel:
+    /// id(0), source(1), title(2), artist(3), duration(4), stream_url(5),
+    /// download_url(6), local_file_path(7), license_type(8), tags(9),
+    /// quality_score(10), raw_creator(11), composer(12), instruments(13),
+    /// metadata_confidence(14), fetched_at(15), added_date(16), is_local(17),
+    /// part_number(18), total_parts(19), parent_identifier(20),
+    /// artwork_url(21), is_multi_part(22).
+    private func rowToTrack(from row: Statement.Element, offset: Int) -> Track? {
+        let o = offset
+        guard let streamStr = row[o + 5] as? String,
+              let streamURL = URL(string: streamStr) else { return nil }
+        let addedDate: Double? = row[o + 16] as? Double
+        return Track(
+            id:                 (row[o + 0] as? String) ?? "",
+            source:             (row[o + 1] as? String) ?? "",
+            title:              (row[o + 2] as? String) ?? "",
+            artist:             (row[o + 3] as? String) ?? "",
+            duration:           (row[o + 4] as? Double) ?? 0,
+            streamURL:          streamURL,
+            downloadURL:        (row[o + 6] as? String).flatMap(URL.init),
+            localFilePath:      row[o + 7] as? String,
+            license:            LicenseType(rawValue: (row[o + 8] as? String) ?? "") ?? .rejected,
+            tags:               Self.decode((row[o + 9] as? String) ?? "[]"),
+            qualityScore:       (row[o + 10] as? Double) ?? 0,
+            rawCreator:         (row[o + 11] as? String) ?? "",
+            composer:           row[o + 12] as? String,
+            instruments:        Self.decode((row[o + 13] as? String) ?? "[]"),
+            metadataConfidence: (row[o + 14] as? Double) ?? 0,
+            addedDate:          addedDate.map { Date(timeIntervalSince1970: $0) },
+            isLocal:            (row[o + 17] as? Int64 ?? 0) != 0,
+            partNumber:         row[o + 18] as? Int,
+            totalParts:         row[o + 19] as? Int,
+            parentIdentifier:   row[o + 20] as? String,
+            artworkURLString:   row[o + 21] as? String,
+            isMultiPart:        (row[o + 22] as? Int64).map { $0 != 0 }
         )
     }
 
