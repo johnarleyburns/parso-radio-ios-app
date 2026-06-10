@@ -144,6 +144,16 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
         try createSchema()
     }
 
+    private func columnExists(table: String, column: String) -> Bool {
+        guard let rows = try? db.prepare("PRAGMA table_info(\(table))") else { return false }
+        return rows.contains(where: { $0[1] as? String == column })
+    }
+
+    private func addColumnIfNotExists(table: String, column: String, definition: String) {
+        guard !columnExists(table: table, column: column) else { return }
+        _ = try? db.run("ALTER TABLE \(table) ADD COLUMN \(column) \(definition)")
+    }
+
     private func createSchema() throws {
         try db.run(tracks.create(ifNotExists: true) { t in
             t.column(colId,          primaryKey: true)
@@ -214,8 +224,7 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
             t.column(colBMCreatedAt)
         })
         try db.run("CREATE INDEX IF NOT EXISTS idx_bm_track ON bookmarks(track_id, position_seconds)")
-        // Idempotent migration for the autosave flag — older DB rows default to 0.
-        _ = try? db.run("ALTER TABLE bookmarks ADD COLUMN is_autosave INTEGER NOT NULL DEFAULT 0")
+        addColumnIfNotExists(table: "bookmarks", column: "is_autosave", definition: "INTEGER NOT NULL DEFAULT 0")
 
         // Curator Mode verdicts — one per (channel, track).
         try db.run(curation.create(ifNotExists: true) { t in
@@ -236,21 +245,20 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
             t.column(colPSCreatedAt)
         })
 
-        // Idempotent column migrations — try? silently ignores duplicate-column errors
-        _ = try? db.run("ALTER TABLE tracks ADD COLUMN added_date   REAL")
-        _ = try? db.run("ALTER TABLE tracks ADD COLUMN is_local     INTEGER NOT NULL DEFAULT 0")
-        _ = try? db.run("ALTER TABLE tracks ADD COLUMN part_number  INTEGER")
-        _ = try? db.run("ALTER TABLE tracks ADD COLUMN total_parts  INTEGER")
-        _ = try? db.run("ALTER TABLE tracks ADD COLUMN parent_identifier TEXT")
-        _ = try? db.run("ALTER TABLE tracks ADD COLUMN artwork_url  TEXT")
-        // NULL = not probed, 0 = single-file, 1 = multi-file (book/album)
-        _ = try? db.run("ALTER TABLE tracks ADD COLUMN is_multi_part INTEGER")
+        // Safe column migrations — checks PRAGMA table_info first
+        addColumnIfNotExists(table: "tracks", column: "added_date",  definition: "REAL")
+        addColumnIfNotExists(table: "tracks", column: "is_local",    definition: "INTEGER NOT NULL DEFAULT 0")
+        addColumnIfNotExists(table: "tracks", column: "part_number", definition: "INTEGER")
+        addColumnIfNotExists(table: "tracks", column: "total_parts", definition: "INTEGER")
+        addColumnIfNotExists(table: "tracks", column: "parent_identifier", definition: "TEXT")
+        addColumnIfNotExists(table: "tracks", column: "artwork_url", definition: "TEXT")
+        addColumnIfNotExists(table: "tracks", column: "is_multi_part", definition: "INTEGER")
         _ = try? db.run("CREATE INDEX IF NOT EXISTS idx_added_date ON tracks(added_date DESC)")
         _ = try? db.run("CREATE INDEX IF NOT EXISTS idx_parent_id ON tracks(parent_identifier)")
 
         // User-defined playlist ordering. Backfill legacy rows deterministically
         // by creation time so NULLs never sort ahead of explicitly-ordered ones.
-        _ = try? db.run("ALTER TABLE playlists ADD COLUMN sort_order INTEGER")
+        addColumnIfNotExists(table: "playlists", column: "sort_order", definition: "INTEGER")
         _ = try? db.run("""
             UPDATE playlists SET sort_order = (
                 SELECT COUNT(*) FROM playlists p2
@@ -260,9 +268,8 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
         // Kids Mode: parental "kid safe" flag per playlist. Defaults to false
         // so EVERY existing playlist remains adult-by-default — parents must
         // explicitly opt-in per playlist.
-        _ = try? db.run(
-            "ALTER TABLE playlists ADD COLUMN is_kid_safe INTEGER NOT NULL DEFAULT 0")
-        _ = try? db.run("ALTER TABLE podcast_subscriptions ADD COLUMN artwork_url TEXT")
+        addColumnIfNotExists(table: "playlists", column: "is_kid_safe", definition: "INTEGER NOT NULL DEFAULT 0")
+        addColumnIfNotExists(table: "podcast_subscriptions", column: "artwork_url", definition: "TEXT")
 
         // Track metadata enrichment (MusicBrainz, Wikidata, Cover Art Archive)
         try db.run(trackMeta.create(ifNotExists: true) { t in
@@ -558,6 +565,16 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
                 let q = curation.select(colCurTrack)
                     .filter(colCurChannel == channelId && colCurStatus == status)
                 cont.resume(returning: (try? db.prepare(q))?.map { $0[colCurTrack] } ?? [])
+            }
+        }
+    }
+
+    /// Remove all verdicts (approved, rejected, review) for a channel.
+    func clearCuration(channelId: String) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? db.run(curation.filter(colCurChannel == channelId).delete())
+                cont.resume()
             }
         }
     }
@@ -906,7 +923,7 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
                     SELECT DISTINCT pt.playlist_id
                     FROM playlist_tracks pt
                     INNER JOIN tracks t ON t.id = pt.track_id
-                    WHERE t.local_file_path IS NOT NULL
+                    WHERE t.local_file_path IS NOT NULL AND t.local_file_path != ''
                 """
                 let ids = (try? self.db.prepare(q))?.compactMap { $0[0] as? String } ?? []
                 continuation.resume(returning: Set(ids))

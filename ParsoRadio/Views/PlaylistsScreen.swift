@@ -12,6 +12,8 @@ struct PlaylistsScreen: View {
     @State private var editMode: EditMode = .inactive
     @State private var showCreate = false
     @State private var newName = ""
+    @State private var playlistToDelete: Playlist?
+    @State private var showDeleteConfirm = false
 
     private var musicForYou: Channel? {
         Channel.defaults.first { $0.id == "music-for-you" }
@@ -25,21 +27,16 @@ struct PlaylistsScreen: View {
         let others    = playlistVM.playlists.filter { !$0.isFavorites }
 
         List {
-            // Auto-generated entries live INSIDE Playlists so the top-level
-            // menu stays focused on real channel categories. Recently Played
-            // drills in to the existing screen; the For-You rows behave like
-            // channels (load + dismiss).
+            // Auto-generated entries with full-width squared images
             Section("Made for You") {
                 NavigationLink(value: MenuRoute.recentlyPlayed) {
-                    Label("Recently Played",
-                          systemImage: "clock.arrow.circlepath")
+                    madeForYouRow(title: "Recently Played", imageName: "recently-played")
                 }
                 if let m = musicForYou {
                     Button {
                         onSelectChannel(m)
                     } label: {
-                        Label(m.name, systemImage: "sparkles")
-                            .foregroundStyle(.primary)
+                        madeForYouRow(title: m.name, imageName: "music-for-you")
                     }
                     .accessibilityHint("Plays curated music recommendations based on your listening")
                 }
@@ -47,8 +44,7 @@ struct PlaylistsScreen: View {
                     Button {
                         onSelectChannel(b)
                     } label: {
-                        Label(b.name, systemImage: "sparkles")
-                            .foregroundStyle(.primary)
+                        madeForYouRow(title: b.name, imageName: "books-for-you")
                     }
                     .accessibilityHint("Plays book recommendations based on your listening")
                 }
@@ -103,7 +99,31 @@ struct PlaylistsScreen: View {
             }
             Button("Cancel", role: .cancel) { newName = "" }
         }
+        .alert("Delete Playlist?", isPresented: $showDeleteConfirm) {
+            Button("Delete", role: .destructive) {
+                guard let pl = playlistToDelete else { return }
+                Task { await playlistVM.deletePlaylist(pl) }
+            }
+            Button("Cancel", role: .cancel) { playlistToDelete = nil }
+        } message: {
+            if let pl = playlistToDelete {
+                Text("Delete \"\(pl.name)\" and all its tracks?")
+            }
+        }
         .task { await playlistVM.loadPlaylists() }
+    }
+
+    private func madeForYouRow(title: String, imageName: String) -> some View {
+        HStack(spacing: 12) {
+            Image(imageName)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .clipped()
+            Text(title)
+                .lineLimit(1)
+        }
     }
 
     @ViewBuilder
@@ -111,8 +131,6 @@ struct PlaylistsScreen: View {
         NavigationLink(value: MenuRoute.playlist(playlist)) {
             HStack(spacing: 12) {
                 PlaylistRowThumbnail(playlistId: playlist.id)
-                    .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
@@ -125,19 +143,6 @@ struct PlaylistsScreen: View {
                             .lineLimit(1)
                     }
                 }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    if playlistVM.downloadedPlaylistIDs.contains(playlist.id) {
-                        Image(systemName: "arrow.down.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.green)
-                    }
-                    Text("\(playlistVM.trackCount(for: playlist)) tracks")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
             }
             .contentShape(Rectangle())
         }
@@ -145,6 +150,16 @@ struct PlaylistsScreen: View {
         .accessibilityLabel("\(playlist.name), \(playlistVM.trackCount(for: playlist)) tracks"
             + (playlistVM.downloadedPlaylistIDs.contains(playlist.id) ? ", available offline" : ""))
         .accessibilityHint("Opens this playlist")
+        .swipeActions(edge: .trailing) {
+            if !playlist.isFavorites {
+                Button(role: .destructive) {
+                    playlistToDelete = playlist
+                    showDeleteConfirm = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        }
     }
 }
 
@@ -169,12 +184,15 @@ private struct PlaylistRowThumbnail: View {
                     .scaledToFill()
             }
         }
+        .frame(width: 44, height: 44)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipped()
         .task {
             let url = Self.dir.appendingPathComponent("\(playlistId).png")
             if FileManager.default.fileExists(atPath: url.path),
                let data = try? Data(contentsOf: url),
                let img = UIImage(data: data) {
-                image = img
+                image = img.squareScaled(to: CGSize(width: 88, height: 88))
             }
         }
     }

@@ -86,6 +86,7 @@ targets:
       configs:
         Debug:
           CODE_SIGN_STYLE: Automatic
+          DEVELOPMENT_TEAM: "3264Y8YUGV"
         Release:
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: "$(CI_CERT)"
@@ -121,6 +122,7 @@ targets:
       configs:
         Debug:
           CODE_SIGN_STYLE: Automatic
+          DEVELOPMENT_TEAM: "3264Y8YUGV"
         Release:
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: "$(CI_CERT)"

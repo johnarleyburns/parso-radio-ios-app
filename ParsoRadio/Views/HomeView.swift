@@ -31,6 +31,16 @@ struct HomeView: View {
     @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
     @State private var showContributionSupport = false
 
+    // Live Music on This Day
+    @State private var dailyLiveEntry: LiveMusicEntry?
+    @State private var showLiveDetail = false
+    private let liveMusicService = LiveMusicOnThisDayService()
+
+    // Recently Added Audiobooks
+    @State private var dailyAudiobook: AudiobookEntry?
+    @State private var showAudiobookDetail = false
+    private let audiobookService = RecentlyAddedAudiobooksService()
+
     // Session restore
     @State private var pendingChannel: Channel = {
         let raw = UserDefaults.standard.string(forKey: "lastChannelId") ?? "guitar-classical"
@@ -56,9 +66,34 @@ struct HomeView: View {
                     homeGrid
                 }
             }
+            .refreshable {
+                liveMusicService.clearCachedEntry()
+                if let e = await liveMusicService.fetchDailyEntry() {
+                    dailyLiveEntry = e
+                }
+                audiobookService.clearCachedEntry()
+                if let a = await audiobookService.fetchDailyEntry() {
+                    dailyAudiobook = a
+                }
+            }
             .scrollContentBackground(.hidden)
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Lorewave")
+            .toolbar {
+                if contributionStore.isSupporter, contributionStore.hasActiveSubscription {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        if let uiImage = UIImage(named: "supporter") {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(height: 28)
+                                .clipShape(Circle())
+                                .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+                                .onTapGesture { showContributionSupport = true }
+                        }
+                    }
+                }
+            }
             .searchable(text: $searchText,
                         isPresented: $searchActive,
                         placement: .navigationBarDrawer(displayMode: .always),
@@ -118,6 +153,20 @@ struct HomeView: View {
                 .environmentObject(playlistVM)
                 .environmentObject(offlineService)
         }
+        .sheet(isPresented: $showLiveDetail) {
+            if let entry = dailyLiveEntry {
+                LiveMusicDetailView(entry: entry)
+                    .environmentObject(playerVM)
+                    .environmentObject(playlistVM)
+            }
+        }
+        .sheet(isPresented: $showAudiobookDetail) {
+            if let entry = dailyAudiobook {
+                AudiobookDetailView(entry: entry)
+                    .environmentObject(playerVM)
+                    .environmentObject(playlistVM)
+            }
+        }
         .onChange(of: kids.isEnabled) { _, enabled in
             guard enabled else { return }
             path = []
@@ -127,6 +176,10 @@ struct HomeView: View {
         }
         .task {
             await playlistVM.loadPlaylists()
+            let entry = await liveMusicService.fetchDailyEntry()
+            dailyLiveEntry = entry
+            let ab = await audiobookService.fetchDailyEntry()
+            dailyAudiobook = ab
             UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
 
             if let pendingId = UserDefaults.standard.string(forKey: "siri.pendingChannelId"),
@@ -149,33 +202,42 @@ struct HomeView: View {
 
     private var homeGrid: some View {
         VStack(spacing: 0) {
-            // Supporter badge for active subscribers
-            if contributionStore.isSupporter, contributionStore.hasActiveSubscription {
-                HStack {
-                    Text("Supporter")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    if let uiImage = UIImage(named: "supporter") {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 36, height: 36)
-                            .clipShape(Circle())
-                            .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
-                            .onTapGesture { showContributionSupport = true }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 12)
+            // Live Music on This Day
+            if let entry = dailyLiveEntry {
+                liveMusicCard(entry)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
             }
 
             // Categories grid
+            let ordered = Self.orderedCategories()
+            let preAudiobooks = ordered.filter { $0 != "Audiobooks" && $0 != "Lectures" && $0 != "Podcasts" }
+            let podcastsCategory = ordered.contains("Podcasts") ? ["Podcasts"] : []
+            let postPodcasts = ordered.filter { $0 == "Audiobooks" || $0 == "Lectures" }
+
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 categoryCard(title: "Playlists", imageName: "playlists", route: HomeRoute.playlists)
 
-                ForEach(Self.orderedCategories(), id: \.self) { category in
+                ForEach(preAudiobooks, id: \.self) { category in
+                    categoryCard(title: category, imageName: category.lowercased(), route: HomeRoute.channelCategory(category))
+                }
+
+                if !podcastsCategory.isEmpty {
+                    categoryCard(title: "Podcasts", imageName: "podcasts", route: HomeRoute.channelCategory("Podcasts"))
+                }
+            }
+            .padding(.horizontal, 16)
+
+            // Audiobook card between Podcasts and Audiobooks
+            if let entry = dailyAudiobook {
+                audiobookCard(entry)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 12)
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                ForEach(postPodcasts, id: \.self) { category in
                     categoryCard(title: category, imageName: category.lowercased(), route: HomeRoute.channelCategory(category))
                 }
 
@@ -190,11 +252,165 @@ struct HomeView: View {
         }
     }
 
+    // MARK: - Live Music on This Day
+
+    private func liveMusicCard(_ entry: LiveMusicEntry) -> some View {
+        HStack(spacing: 0) {
+            // Left side: tap for detail
+            Button {
+                showLiveDetail = true
+            } label: {
+                HStack(spacing: 12) {
+                    VerifiedThumb(url: entry.thumbnailURL, fallbackName: {
+                        "concert\(String(format: "%02d", Int.random(in: 1...20)))"
+                    })
+                        .frame(width: 72, height: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .contextMenu {
+                            Text("IA: \(entry.thumbnailURL.absoluteString)")
+                                .font(.caption)
+                        }
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Live Music on This Day")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(entry.displayName)
+                            .font(.headline)
+                            .lineLimit(2)
+                        if let location = entry.locationSummary {
+                            Text(location)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        if let date = entry.formattedDate {
+                            Text(date)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+
+            // Right side: play button — enqueues full album
+            Button {
+                Task {
+                    guard let parts = await playerVM.resolveItemParts(identifier: entry.id),
+                          !parts.isEmpty else { return }
+                    let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+                    await playerVM.playAlbumTracks(ordered, title: entry.displayName)
+                }
+            } label: {
+                Image(systemName: "play.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(.blue)
+                    .frame(width: 48)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 8)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Live Music on This Day: \(entry.displayName)" + (entry.locationSummary.map { " at \($0)" } ?? ""))
+        .accessibilityHint("Tap left for details, tap right to play")
+    }
+
+    // MARK: - Recently Added Audiobooks
+
+    private func audiobookCard(_ entry: AudiobookEntry) -> some View {
+        HStack(spacing: 0) {
+            Button {
+                showAudiobookDetail = true
+            } label: {
+                HStack(spacing: 12) {
+                    AudioBookThumb(entry: entry)
+                        .frame(width: 72, height: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("New Audiobooks")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(entry.displayName)
+                            .font(.headline)
+                            .lineLimit(2)
+                        Text(entry.author)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        if let date = entry.formattedDate {
+                            Text(date)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                Task {
+                    guard let parts = await playerVM.resolveItemParts(identifier: entry.id),
+                          !parts.isEmpty else { return }
+                    let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+                    await playerVM.playAlbumTracks(ordered, title: entry.displayName)
+                }
+            } label: {
+                Image(systemName: "play.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(.blue)
+                    .frame(width: 48)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 8)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("New Audiobooks: \(entry.displayName) by \(entry.author)")
+        .accessibilityHint("Tap left for details, tap right to play")
+    }
+
+    // MARK: - Audiobook Thumbnail
+
+    private struct AudioBookThumb: View {
+        let entry: AudiobookEntry
+
+        var body: some View {
+            AsyncImage(url: entry.thumbnailURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image.resizable().scaledToFill()
+                case .failure, .empty:
+                    if let cat = entry.categoryImageName {
+                        Image(cat).resizable().scaledToFill()
+                    } else {
+                        Image("audiobooks").resizable().scaledToFill()
+                    }
+                @unknown default:
+                    Image("audiobooks").resizable().scaledToFill()
+                }
+            }
+        }
+    }
+
     // MARK: - Category Card
 
     private func categoryCard(title: String, imageName: String?, route: HomeRoute) -> some View {
         NavigationLink(value: route) {
-            ZStack(alignment: .bottomLeading) {
+            ZStack {
                 if let img = imageName {
                     Image(img)
                         .resizable()
@@ -210,12 +426,15 @@ struct HomeView: View {
                     endPoint: .bottom
                 )
 
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 16)
+                VStack {
+                    Spacer()
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 16)
+                }
             }
             .frame(maxWidth: .infinity)
             .frame(height: 140)
@@ -457,6 +676,20 @@ struct ChannelGridSubView: View {
         }
     }
 
+    /// For user-added podcast channels (id = "podcast-{uuid}"), the asset catalog
+    /// image is named after the built-in channel's id. Resolve via name match.
+    private func channelAssetName(for channel: Channel) -> String {
+        if UIImage(named: channel.id) != nil { return channel.id }
+        if channel.id.hasPrefix("podcast-"),
+           let builtIn = Channel.defaults.first(where: {
+               $0.name == channel.name && $0.category == "Podcasts" && !$0.id.hasPrefix("podcast-")
+           }),
+           UIImage(named: builtIn.id) != nil {
+            return builtIn.id
+        }
+        return channel.id
+    }
+
     @ViewBuilder
     private func channelCard(_ channel: Channel) -> some View {
         let isSubscribed = channel.id.hasPrefix("podcast-")
@@ -464,7 +697,7 @@ struct ChannelGridSubView: View {
         Button {
             onSelectChannel(channel)
         } label: {
-            ZStack(alignment: .bottomLeading) {
+            ZStack {
                 channelImageBackground(channel)
 
                 LinearGradient(
@@ -473,20 +706,25 @@ struct ChannelGridSubView: View {
                     endPoint: .bottom
                 )
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(channel.name)
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                    if let summary = channel.summary {
-                        Text(summary)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .lineLimit(1)
+                if category != "Podcasts" {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Spacer()
+                        Group {
+                            Text(channel.name)
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                                .lineLimit(2)
+                            if let summary = channel.summary {
+                                Text(summary)
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.8))
+                                    .lineLimit(1)
+                            }
+                        }
+                        .padding(.bottom, 16)
                     }
+                    .padding(.horizontal, 12)
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 16)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 140)
@@ -517,14 +755,15 @@ struct ChannelGridSubView: View {
 
     @ViewBuilder
     private func channelImageBackground(_ channel: Channel) -> some View {
-        if UIImage(named: channel.id) != nil {
-            Image(channel.id)
+        let assetName = channelAssetName(for: channel)
+        if UIImage(named: assetName) != nil {
+            Image(assetName)
                 .resizable()
                 .scaledToFill()
                 .clipped()
         } else if let imageURL = channel.imageURL, let url = URL(string: imageURL) {
             if url.isFileURL, let uiImage = UIImage(contentsOfFile: url.path) {
-                Image(uiImage: uiImage)
+                Image(uiImage: uiImage.squareScaled(to: CGSize(width: 300, height: 300)))
                     .resizable()
                     .scaledToFill()
                     .clipped()
@@ -555,6 +794,7 @@ struct CuratedChannelsGrid: View {
     @State private var showNewChannel = false
     @State private var showCurateChannel: ChannelMeta?
     @State private var deleteConfirmChannel: ChannelMeta?
+    @State private var resetConfirmChannel: ChannelMeta?
     @State private var editingChannel: ChannelMeta?
     @State private var renameText = ""
 
@@ -597,6 +837,14 @@ struct CuratedChannelsGrid: View {
                                 }
                                 ShareLink(item: store.exportURL(for: meta.id)) {
                                     Label("Export…", systemImage: "square.and.arrow.up")
+                                }
+                                if meta.isShippedDefault {
+                                    Divider()
+                                    Button {
+                                        resetConfirmChannel = meta
+                                    } label: {
+                                        Label("Restore Factory Defaults", systemImage: "arrow.counterclockwise")
+                                    }
                                 }
                                 Divider()
                                 Button(role: .destructive) {
@@ -649,6 +897,20 @@ struct CuratedChannelsGrid: View {
         } message: {
             Text("This removes the channel from the list. Shipped defaults can be restored from Settings. Custom channels are permanently deleted.")
         }
+        .alert("Restore \"\(resetConfirmChannel?.name ?? "")\"?", isPresented: Binding(
+            get: { resetConfirmChannel != nil },
+            set: { if !$0 { resetConfirmChannel = nil } }
+        )) {
+            Button("Restore", role: .destructive) {
+                guard let meta = resetConfirmChannel else { return }
+                Task {
+                    await store.resetChannelToDefault(chId: meta.id, db: playerVM.db)
+                }
+            }
+            Button("Cancel", role: .cancel) { resetConfirmChannel = nil }
+        } message: {
+            Text("This clears all your curation verdicts and restores the original list of approved tracks for this channel.")
+        }
         .alert("Rename Channel", isPresented: Binding(
             get: { editingChannel != nil },
             set: { if !$0 { editingChannel = nil } }
@@ -669,7 +931,7 @@ struct CuratedChannelsGrid: View {
             let ch = channel ?? store.runtimeChannel(from: meta)
             onSelectChannel(ch)
         } label: {
-            ZStack(alignment: .bottomLeading) {
+            ZStack {
                 curatedChannelBackground(channel)
 
                 LinearGradient(
@@ -679,18 +941,14 @@ struct CuratedChannelsGrid: View {
                 )
 
                 VStack(alignment: .leading, spacing: 2) {
+                    Spacer()
                     Text(meta.name)
                         .font(.headline)
                         .foregroundStyle(.white)
                         .lineLimit(2)
-                    if approvedCount > 0 {
-                        Text("\(approvedCount) tracks")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.8))
-                    }
+                        .padding(.bottom, 16)
                 }
                 .padding(.horizontal, 12)
-                .padding(.bottom, 16)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 140)
@@ -705,9 +963,14 @@ struct CuratedChannelsGrid: View {
 
     @ViewBuilder
     private func curatedChannelBackground(_ channel: Channel?) -> some View {
-        if let ch = channel, let imageURL = ch.imageURL, let url = URL(string: imageURL) {
+        if let ch = channel, UIImage(named: ch.id) != nil {
+            Image(ch.id)
+                .resizable()
+                .scaledToFill()
+                .clipped()
+        } else if let ch = channel, let imageURL = ch.imageURL, let url = URL(string: imageURL) {
             if url.isFileURL, let uiImage = UIImage(contentsOfFile: url.path) {
-                Image(uiImage: uiImage)
+                Image(uiImage: uiImage.squareScaled(to: CGSize(width: 300, height: 300)))
                     .resizable()
                     .scaledToFill()
                     .clipped()
@@ -813,36 +1076,36 @@ struct PlaylistGridSubView: View {
     }
 
     private func sectionCardContent(title: String, icon: String, imageName: String? = nil) -> some View {
-        VStack(spacing: 10) {
-            ZStack {
-                if let img = imageName {
-                    Image(img)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 64, height: 64)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                } else {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(BrandGradient.linear)
-                        .frame(width: 64, height: 64)
-                    Image(systemName: icon)
-                        .font(.system(size: 24, weight: .medium))
-                        .foregroundStyle(.white)
-                }
+        ZStack(alignment: .bottomLeading) {
+            if let img = imageName {
+                Image(img)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
+            } else {
+                ChannelCategoryStyle.gradient(for: "For You")
             }
-            Text(title)
-                .font(.subheadline).fontWeight(.medium)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
+
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.55)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+
+            HStack(spacing: 6) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 16)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 160)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .frame(height: 140)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
     }
 
     @ViewBuilder
@@ -870,14 +1133,24 @@ struct PlaylistGridCard: View {
     var body: some View {
         NavigationLink(value: HomeRoute.playlist(playlist)) {
             ZStack {
-                if let img = cardImage {
+                if playlist.isFavorites {
+                    Image("favorites")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
+                } else if let img = cardImage {
                     Image(uiImage: img)
                         .resizable()
                         .scaledToFill()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
                 } else {
                     Image("playlists")
                         .resizable()
                         .scaledToFill()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
                 }
 
                 LinearGradient(
@@ -886,35 +1159,17 @@ struct PlaylistGridCard: View {
                     endPoint: .bottom
                 )
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack {
                     Spacer()
                     HStack(spacing: 4) {
-                        if playlist.isFavorites {
-                            Image(systemName: "heart.fill")
-                                .foregroundStyle(.red)
-                                .font(.caption)
-                        }
                         Text(playlist.name)
                             .font(.headline)
                             .foregroundStyle(.white)
                             .lineLimit(2)
                     }
-                    HStack(spacing: 4) {
-                        if playlistVM.downloadedPlaylistIDs.contains(playlist.id) {
-                            Image(systemName: "arrow.down.circle.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.green)
-                        }
-                        Image(systemName: "music.note")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.7))
-                        Text("\(playlistVM.trackCount(for: playlist))")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
+                    .padding(.horizontal, 12)
                     .padding(.bottom, 16)
                 }
-                .padding(.horizontal, 12)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 140)
@@ -931,13 +1186,14 @@ struct PlaylistGridCard: View {
             if FileManager.default.fileExists(atPath: customURL.path),
                let data = try? Data(contentsOf: customURL),
                let img = UIImage(data: data) {
-                cardImage = img
+                cardImage = img.squareScaled(to: CGSize(width: 300, height: 300))
                 imageLoaded = true
                 return
             }
             let tracks = await playlistVM.db.fetchTracks(forPlaylist: playlist.id)
-            if let first = tracks.first {
-                cardImage = await ArtworkService.shared.artwork(for: first)
+            if let first = tracks.first,
+               let art = await ArtworkService.shared.artwork(for: first) {
+                cardImage = art.squareScaled(to: CGSize(width: 300, height: 300))
             }
             imageLoaded = true
         }
@@ -961,36 +1217,36 @@ private struct SectionCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 10) {
-                ZStack {
-                    if let img = imageName {
-                        Image(img)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 64, height: 64)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                    } else {
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(BrandGradient.linear)
-                            .frame(width: 64, height: 64)
-                        Image(systemName: icon)
-                            .font(.system(size: 24, weight: .medium))
-                            .foregroundStyle(.white)
-                    }
+            ZStack(alignment: .bottomLeading) {
+                if let img = imageName {
+                    Image(img)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
+                } else {
+                    ChannelCategoryStyle.gradient(for: "For You")
                 }
-                Text(title)
-                    .font(.subheadline).fontWeight(.medium)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
+
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.55)],
+                    startPoint: .center,
+                    endPoint: .bottom
+                )
+
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 16)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 160)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)

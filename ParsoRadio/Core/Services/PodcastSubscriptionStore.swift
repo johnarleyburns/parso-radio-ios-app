@@ -40,9 +40,13 @@ final class PodcastSubscriptionStore: ObservableObject {
     }
 
     func add(name: String, feedURL: String, artworkURL: String? = nil) async {
+        await add(id: UUID().uuidString, name: name, feedURL: feedURL, artworkURL: artworkURL)
+    }
+
+    func add(id: String, name: String, feedURL: String, artworkURL: String? = nil) async {
         guard let db else { return }
         let sub = PodcastSubscription(
-            id: UUID().uuidString,
+            id: id,
             name: name,
             feedURL: feedURL,
             artworkURL: artworkURL,

@@ -222,6 +222,9 @@ struct PlaylistDetailView: View {
             // session so no reorder/delete remains active.
             if on { editMode = .inactive }
         }
+        .onChange(of: offlineService.singleTrackVersion) { _, _ in
+            Task { await playlistVM.loadTracks(for: playlist) }
+        }
         .task {
             await playlistVM.loadTracks(for: playlist)
             resume = await playerVM.savedPlaylistResume(playlist)
@@ -307,7 +310,7 @@ struct PlaylistDetailView: View {
         if FileManager.default.fileExists(atPath: url.path),
            let data = try? Data(contentsOf: url),
            let img = UIImage(data: data) {
-            customImage = img
+            customImage = img.squareScaled(to: CGSize(width: 600, height: 600))
         }
     }
 
@@ -316,7 +319,9 @@ struct PlaylistDetailView: View {
                                                   withIntermediateDirectories: true)
         let url = Self.playlistImagesDir.appendingPathComponent("\(playlist.id).png")
         try? data.write(to: url, options: .atomic)
-        customImage = UIImage(data: data)
+        if let img = UIImage(data: data) {
+            customImage = img.squareScaled(to: CGSize(width: 600, height: 600))
+        }
     }
 
     private func removePlaylistImage() {

@@ -152,6 +152,15 @@ struct ChannelInfoView: View {
                 } header: {
                     Text("Channel Image").textCase(nil).font(.footnote)
                 }
+            } else if let asset = channelAssetImage() {
+                Section {
+                    Image(uiImage: asset)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .listRowInsets(EdgeInsets())
+                } header: {
+                    Text("Channel Image").textCase(nil).font(.footnote)
+                }
             }
 
             // Curate this Channel (for user-curated or shipped channels)
@@ -269,11 +278,34 @@ struct ChannelInfoView: View {
     }
 
     private var channelIconView: some View {
-        Image(systemName: currentIcon)
-            .font(.system(size: 32, weight: .semibold))
-            .foregroundStyle(Color.accentColor)
-            .frame(width: 44, height: 44)
-            .accessibilityHidden(true)
+        Group {
+            if let assetImage = channelAssetImage() {
+                Image(uiImage: assetImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                Image(systemName: currentIcon)
+                    .font(.system(size: 32, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 44, height: 44)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    private func channelAssetImage() -> UIImage? {
+        if let img = UIImage(named: channel.id) { return img }
+        // User-added podcasts: resolve via built-in name match
+        if channel.id.hasPrefix("podcast-"),
+           let builtIn = Channel.defaults.first(where: {
+               $0.name == channel.name && $0.category == "Podcasts" && !$0.id.hasPrefix("podcast-")
+           }),
+           let img = UIImage(named: builtIn.id) {
+            return img
+        }
+        return nil
     }
 
     private func saveChannelImage(_ data: Data) {

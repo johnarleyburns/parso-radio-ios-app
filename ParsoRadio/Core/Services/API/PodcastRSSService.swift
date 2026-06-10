@@ -9,46 +9,69 @@ final class PodcastRSSService {
         self.session = session
     }
 
+    struct FetchResult {
+        let tracks: [Track]
+        let channelArtworkURL: String?
+    }
+
     func fetchTracks(channel: Channel) async throws -> [Track] {
+        try await fetch(channel: channel).tracks
+    }
+
+    func fetch(channel: Channel) async throws -> FetchResult {
         guard let feedURL = channel.feedURL,
               let url = URL(string: feedURL),
-              url.scheme == "https" else { return [] }
+              url.scheme == "https" else { return FetchResult(tracks: [], channelArtworkURL: nil) }
         var request = URLRequest(url: url)
         request.timeoutInterval = 30
         let (data, _) = try await session.data(for: request)
         guard data.count < 10_000_000 else { throw URLError(.badServerResponse) }
-        // RSS feeds are newest-first; items come out in feed order.
-        let items = RSSXMLParser().parse(data: data)
-        return items.compactMap { $0.toTrack(channelId: channel.id) }
+        let result = RSSXMLParser().parse(data: data)
+        let tracks = result.items.compactMap { $0.toTrack(channelId: channel.id) }
+        return FetchResult(tracks: tracks, channelArtworkURL: result.channelImageURL)
     }
 }
 
 // MARK: - XML parser
 
 private final class RSSXMLParser: NSObject, XMLParserDelegate {
+    struct ParseResult {
+        let items: [RSSItem]
+        let channelImageURL: String?
+    }
+
     private var items: [RSSItem] = []
     private var current: RSSItem?
     private var text = ""
+    private var channelImageURL: String?
+    private var inChannel = false
+    private var inItem = false
 
-    func parse(data: Data) -> [RSSItem] {
+    func parse(data: Data) -> ParseResult {
         let parser = XMLParser(data: data)
         parser.delegate = self
         parser.parse()
-        return items
+        return ParseResult(items: items, channelImageURL: channelImageURL)
     }
 
     func parser(_ parser: XMLParser, didStartElement name: String,
                 namespaceURI: String?, qualifiedName: String?,
                 attributes attrs: [String: String] = [:]) {
         text = ""
-        if name == "item" { current = RSSItem() }
+        if name == "channel" { inChannel = true }
+        if name == "item" { inItem = true; current = RSSItem() }
         if name == "enclosure", let item = current {
             item.enclosureURL  = attrs["url"] ?? ""
             item.enclosureType = attrs["type"] ?? ""
             if let len = attrs["length"], let l = Int(len) { item.enclosureLength = l }
         }
-        if name == "itunes:image", let item = current {
-            item.itunesImageHref = attrs["href"] ?? ""
+        if name == "itunes:image" {
+            let href = attrs["href"] ?? ""
+            if inItem, let item = current {
+                item.itunesImageHref = href
+            } else if inChannel {
+                channelImageURL = href
+            }
         }
     }
 
@@ -58,6 +81,12 @@ private final class RSSXMLParser: NSObject, XMLParserDelegate {
 
     func parser(_ parser: XMLParser, didEndElement name: String,
                 namespaceURI: String?, qualifiedName: String?) {
+        if name == "channel" { inChannel = false }
+        if name == "item" {
+            inItem = false
+            if let item = current { items.append(item) }
+            current = nil
+        }
         guard let item = current else { text = ""; return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         switch name {
@@ -67,9 +96,6 @@ private final class RSSXMLParser: NSObject, XMLParserDelegate {
             item.itunesDuration = trimmed
         case "pubDate":
             item.pubDate = trimmed
-        case "item":
-            items.append(item)
-            current = nil
         default: break
         }
         text = ""

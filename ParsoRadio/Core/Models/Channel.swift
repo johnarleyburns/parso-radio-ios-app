@@ -153,35 +153,19 @@ extension Channel {
         // MARK: Lectures — University of Oxford open-license audio lectures
         // Each channel's tags contain the podcasts.ox.ac.uk unit slug.
         Channel(
-            id: "oxford-philosophy", name: "Philosophy", category: "Lectures",
-            icon: "quote.bubble", tags: ["faculty-philosophy"], contentType: .spokenWord,
+            id: "oxford-business", name: "Business",
+            category: "Lectures", icon: "briefcase",
+            tags: ["said-business-school"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-history", name: "History", category: "Lectures",
-            icon: "scroll", tags: ["faculty-history"], contentType: .spokenWord,
-            preferredSource: "oxford_lectures"
-        ),
-        Channel(
-            id: "oxford-english", name: "English Literature", category: "Lectures",
-            icon: "books.vertical",
-            tags: ["faculty-english-language-and-literature"], contentType: .spokenWord,
-            preferredSource: "oxford_lectures"
-        ),
-        Channel(
-            id: "oxford-torch", name: "Humanities",
-            category: "Lectures", icon: "lightbulb",
-            tags: ["oxford-research-centre-humanities-torch"], contentType: .spokenWord,
+            id: "oxford-chemistry", name: "Chemistry", category: "Lectures",
+            icon: "drop.fill", tags: ["department-chemistry"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
         ),
         Channel(
             id: "oxford-classics", name: "Classics", category: "Lectures",
             icon: "building.columns.fill", tags: ["faculty-classics"], contentType: .spokenWord,
-            preferredSource: "oxford_lectures"
-        ),
-        Channel(
-            id: "oxford-physics", name: "Physics", category: "Lectures",
-            icon: "atom", tags: ["department-physics"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
         ),
         Channel(
@@ -191,25 +175,47 @@ extension Channel {
             preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-maths", name: "Mathematics", category: "Lectures",
-            icon: "function", tags: ["mathematical-institute"], contentType: .spokenWord,
+            id: "oxford-economics", name: "Economics", category: "Lectures",
+            icon: "chart.bar.fill", tags: ["department-economics"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-engineering", name: "Engineering Science",
+            id: "oxford-education", name: "Education", category: "Lectures",
+            icon: "graduationcap", tags: ["department-education"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
+        ),
+        Channel(
+            id: "oxford-engineering", name: "Engineering",
             category: "Lectures", icon: "gear",
             tags: ["department-engineering-science"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-chemistry", name: "Chemistry", category: "Lectures",
-            icon: "drop.fill", tags: ["department-chemistry"], contentType: .spokenWord,
+            id: "oxford-english", name: "English Literature", category: "Lectures",
+            icon: "books.vertical",
+            tags: ["faculty-english-language-and-literature"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-business", name: "Saïd Business School",
-            category: "Lectures", icon: "briefcase",
-            tags: ["said-business-school"], contentType: .spokenWord,
+            id: "oxford-history", name: "History", category: "Lectures",
+            icon: "scroll", tags: ["faculty-history"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
+        ),
+        Channel(
+            id: "oxford-torch", name: "Humanities",
+            category: "Lectures", icon: "lightbulb",
+            tags: ["oxford-research-centre-humanities-torch"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
+        ),
+        Channel(
+            id: "oxford-maths", name: "Mathematics", category: "Lectures",
+            icon: "function", tags: ["mathematical-institute"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
+        ),
+        Channel(
+            id: "oxford-clinical-medicine", name: "Medicine",
+            category: "Lectures", icon: "stethoscope",
+            tags: ["nuffield-department-clinical-medicine"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
         ),
         Channel(
@@ -219,25 +225,13 @@ extension Channel {
             preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-education", name: "Education", category: "Lectures",
-            icon: "graduationcap", tags: ["department-education"], contentType: .spokenWord,
+            id: "oxford-philosophy", name: "Philosophy", category: "Lectures",
+            icon: "quote.bubble", tags: ["faculty-philosophy"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-internet", name: "Internet Institute (OII)",
-            category: "Lectures", icon: "network",
-            tags: ["oxford-internet-institute"], contentType: .spokenWord,
-            preferredSource: "oxford_lectures"
-        ),
-        Channel(
-            id: "oxford-economics", name: "Economics", category: "Lectures",
-            icon: "chart.bar.fill", tags: ["department-economics"], contentType: .spokenWord,
-            preferredSource: "oxford_lectures"
-        ),
-        Channel(
-            id: "oxford-clinical-medicine", name: "Clinical Medicine (NDM)",
-            category: "Lectures", icon: "stethoscope",
-            tags: ["nuffield-department-clinical-medicine"], contentType: .spokenWord,
+            id: "oxford-physics", name: "Physics", category: "Lectures",
+            icon: "atom", tags: ["department-physics"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
         ),
         Channel(
@@ -247,9 +241,15 @@ extension Channel {
             preferredSource: "oxford_lectures"
         ),
         Channel(
-            id: "oxford-anatomy", name: "Physiology, Anatomy & Genetics",
+            id: "oxford-anatomy", name: "The Human Body",
             category: "Lectures", icon: "figure.stand",
             tags: ["department-physiology-anatomy-and-genetics-dpag"], contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
+        ),
+        Channel(
+            id: "oxford-internet", name: "The Internet",
+            category: "Lectures", icon: "network",
+            tags: ["oxford-internet-institute"], contentType: .spokenWord,
             preferredSource: "oxford_lectures"
         ),
 

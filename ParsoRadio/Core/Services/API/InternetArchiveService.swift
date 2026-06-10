@@ -86,7 +86,7 @@ struct InternetArchiveService {
     // are STAMPED onto every track so Channel.matches() can isolate them in the
     // shared DB regardless of how sparse the IA item's subject metadata is
     // (many curated results match by creator and carry no useful subject).
-    func fetchTracks(iaQuery: String, matchTags: [String] = [], language: String? = nil, limit: Int = 200) async throws -> [Track] {
+    func fetchTracks(iaQuery: String, matchTags: [String] = [], language: String? = nil, limit: Int = 200, offset: Int = 0) async throws -> [Track] {
         let query = language.map { "\(iaQuery) AND language:\($0)" } ?? iaQuery
         var components = URLComponents(string: Self.searchBase)!
         components.queryItems = [
@@ -103,6 +103,7 @@ struct InternetArchiveService {
             URLQueryItem(name: "fl[]",   value: "downloads"),
             URLQueryItem(name: "output", value: "json"),
             URLQueryItem(name: "rows",   value: "\(limit)"),
+            URLQueryItem(name: "start",  value: "\(offset)"),
             // Sort by download count to approximate popularity.
             URLQueryItem(name: "sort[]", value: "downloads desc"),
         ]

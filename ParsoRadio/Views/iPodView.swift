@@ -13,6 +13,11 @@ struct NowPlayingScreen: View {
     @State private var sleepTimerNow: Date = Date()
     private static let sleepTimerOptions: [Int] = [15, 30, 45, 60]
     @State private var showChannelInfo = false
+    @State private var showAlbumInfo = false
+    @State private var showTrackAlbumInfo = false
+    @State private var trackAlbumTitle = ""
+    @State private var trackAlbumParts: [Track] = []
+    @State private var trackAlbumParentId: String?
     @State private var showAddToPlaylist = false
     @State private var showAddItemToPlaylist = false
     @State private var showMoreOptions = false
@@ -66,7 +71,11 @@ struct NowPlayingScreen: View {
                     // Track metadata below the image
                     if let track = playerVM.currentTrack, !isAmbientLoop {
                         Button {
-                            showMoreOptions = true
+                            if track.parentIdentifier != nil || track.isMultiPart == true {
+                                Task { await openTrackAlbumDetail() }
+                            } else {
+                                showMoreOptions = true
+                            }
                         } label: {
                             VStack(spacing: 4) {
                                 Text(track.title)
@@ -84,6 +93,42 @@ struct NowPlayingScreen: View {
                         .accessibilityHint("Opens track info")
                         .padding(.horizontal, 24)
                         .padding(.top, 8)
+                    }
+
+                    // Channel name between track info and transport
+                    if !isAmbientLoop {
+                        if playerVM.currentChannel != nil {
+                            Button {
+                                showChannelInfo = true
+                            } label: {
+                                HStack(spacing: 6) {
+                                    if let icon = titleIcon {
+                                        Image(systemName: icon)
+                                            .font(.caption)
+                                            .foregroundStyle(.blue)
+                                    }
+                                    Text(titleText)
+                                        .font(.caption)
+                                        .foregroundStyle(.blue)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.top, 12)
+                            .accessibilityHint("Opens channel info")
+                        } else if !titleText.isEmpty {
+                            Button {
+                                showAlbumInfo = true
+                            } label: {
+                                Text(titleText)
+                                    .font(.caption)
+                                    .foregroundStyle(.blue)
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.top, 12)
+                            .accessibilityHint("Opens album info")
+                        }
                     }
 
                     Spacer()
@@ -111,26 +156,6 @@ struct NowPlayingScreen: View {
             .padding(.leading, 16)
             .accessibilityLabel("Back to Browse")
         }
-        .overlay(alignment: .top) {
-            Button {
-                showChannelInfo = true
-            } label: {
-                HStack(spacing: 6) {
-                    if let icon = titleIcon {
-                        Image(systemName: icon)
-                            .foregroundStyle(.blue)
-                    }
-                    Text(titleText)
-                        .foregroundStyle(.blue)
-                }
-                .font(.system(size: mainBoldSize, weight: .semibold))
-                .lineLimit(1)
-                .padding(.horizontal, 70)
-                .padding(.vertical, 10)
-            }
-            .padding(.top, 6)
-            .accessibilityHint("Opens channel info")
-        }
         .overlay(alignment: .topTrailing) {
             if playerVM.currentTrack != nil, !isAmbientLoop {
                 Button {
@@ -150,6 +175,21 @@ struct NowPlayingScreen: View {
             NavigationStack {
                 ChannelInfoView(channel: displayChannel)
             }
+        }
+        .sheet(isPresented: $showAlbumInfo) {
+            let parentId = playerVM.playlistTracks.first?.parentIdentifier
+            NowPlayingAlbumDetailView(
+                title: titleText,
+                tracks: playerVM.playlistTracks,
+                parentIdentifier: parentId
+            )
+        }
+        .sheet(isPresented: $showTrackAlbumInfo) {
+            NowPlayingAlbumDetailView(
+                title: trackAlbumTitle,
+                tracks: trackAlbumParts,
+                parentIdentifier: trackAlbumParentId
+            )
         }
         .sheet(isPresented: $showAddToPlaylist) {
             if let track = playerVM.currentTrack {
@@ -188,8 +228,21 @@ struct NowPlayingScreen: View {
     // MARK: - Transport Controls
 
     private var transportControls: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 12) {
             if !isAmbientLoop, let dur = playerVM.trackDuration, dur > 0 {
+                HStack(spacing: 0) {
+                    Text(playerVM.currentPosition.formattedTime)
+                        .font(.system(size: mainRegularSize))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("-" + max(0, dur - playerVM.currentPosition).formattedTime)
+                        .font(.system(size: mainRegularSize))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 4)
+
                 progressBar(duration: dur)
                     .padding(.horizontal, 4)
             }
@@ -310,23 +363,6 @@ struct NowPlayingScreen: View {
                 } else if let err = playerVM.errorMessage {
                     errorView(err)
                 }
-
-                if !isAmbientLoop {
-                    HStack(spacing: 0) {
-                        Text(playerVM.currentPosition.formattedTime)
-                            .font(.system(size: mainRegularSize))
-                            .monospacedDigit()
-                            .foregroundStyle(.white.opacity(0.75))
-                        Spacer()
-                        if let dur = playerVM.trackDuration, dur > 0 {
-                            Text("-" + max(0, dur - playerVM.currentPosition).formattedTime)
-                                .font(.system(size: mainRegularSize))
-                                .monospacedDigit()
-                                .foregroundStyle(.white.opacity(0.75))
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                }
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -388,6 +424,10 @@ struct NowPlayingScreen: View {
                     Image(uiImage: art)
                         .resizable()
                         .scaledToFill()
+                } else if let chImage = channelFallbackImage {
+                    Image(uiImage: chImage)
+                        .resizable()
+                        .scaledToFill()
                 } else {
                     ProceduralVisualizerView(
                         seed: playerVM.currentTrack?.id ?? displayChannel.id,
@@ -398,6 +438,20 @@ struct NowPlayingScreen: View {
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.8),
                        value: playerVM.currentTrack?.id)
             .accessibilityHidden(true)
+    }
+
+    private var channelFallbackImage: UIImage? {
+        let ch = playerVM.currentChannel ?? displayChannel
+        if let img = UIImage(named: ch.id) { return img }
+        // User-added podcasts: resolve via built-in name match
+        if ch.id.hasPrefix("podcast-"),
+           let builtIn = Channel.defaults.first(where: {
+               $0.name == ch.name && $0.category == "Podcasts" && !$0.id.hasPrefix("podcast-")
+           }),
+           let img = UIImage(named: builtIn.id) {
+            return img
+        }
+        return nil
     }
 
     @ViewBuilder
@@ -780,6 +834,20 @@ struct NowPlayingScreen: View {
         add("Stream URL", track.streamURL.absoluteString)
         add("Local file", track.localFilePath)
         return rows
+    }
+
+    private func openTrackAlbumDetail() async {
+        guard let track = playerVM.currentTrack else { return }
+        let identifier = track.parentIdentifier ?? track.id
+        guard let parts = await playerVM.resolveItemParts(identifier: identifier),
+              !parts.isEmpty else {
+            showMoreOptions = true
+            return
+        }
+        trackAlbumParts = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+        trackAlbumParentId = identifier
+        trackAlbumTitle = track.artist + " — " + track.title
+        showTrackAlbumInfo = true
     }
 
     private func cleaned(_ value: String?) -> String? {

@@ -123,6 +123,12 @@ struct AboutView: View {
                       license: "CC0 (Public Domain)",
                       url: "https://freesound.org/people/Nox_Sound/sounds/829629/")
 
+            Text("Lecture series from Oxford University are streamed from the Oxford Open Education Initiative under a Creative Commons license.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Link("Oxford Podcasts — Open Education", destination: URL(string: "https://podcasts.ox.ac.uk/open")!)
+                .font(.footnote)
+
             Text("Ambient background videos provided by Mixkit (Mixkit Free License). Streamed music and audiobooks are public-domain or Creative Commons licensed; the source and license are shown for every track. Podcasts are streamed directly from their published RSS feeds via the iTunes Store.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)

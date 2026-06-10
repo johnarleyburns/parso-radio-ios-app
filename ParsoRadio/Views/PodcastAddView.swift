@@ -45,7 +45,7 @@ struct PodcastAddView: View {
                     Text("Paste the RSS feed URL of any public podcast. The feed will be parsed to confirm it contains audio episodes.")
                 }
 
-                if !subscribeName.isEmpty {
+                    if !subscribeName.isEmpty {
                     Section {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
@@ -54,13 +54,10 @@ struct PodcastAddView: View {
                             }
                             Spacer()
                             Button("Subscribe") {
-                                Task {
-                                    await store.add(name: subscribeName, feedURL: feedURL,
-                                                    artworkURL: discoveredArtworkURL)
-                                    dismiss()
-                                }
+                                Task { await subscribe() }
                             }
                             .buttonStyle(.borderedProminent)
+                            .disabled(isLoading)
                         }
                     }
                 }
@@ -126,21 +123,48 @@ struct PodcastAddView: View {
                 feedURL: feedURL
             )
             let service = PodcastRSSService()
-            let tracks = try await service.fetchTracks(channel: channel)
-            if tracks.isEmpty {
+            let result = try await service.fetch(channel: channel)
+            if result.tracks.isEmpty {
                 errorMessage = "This feed contains no playable audio episodes."
                 showError = true
             } else {
-                let title = tracks.first(where: { $0.artist != "Podcasts" })?.artist
-                    ?? tracks.first?.title
+                let title = result.tracks.first(where: { $0.artist != "Podcasts" })?.artist
+                    ?? result.tracks.first?.title
                     ?? URL(string: feedURL)?.host
                     ?? "Podcast"
                 subscribeName = title
+                discoveredArtworkURL = result.channelArtworkURL
             }
         } catch {
             errorMessage = "Could not fetch feed: \(error.localizedDescription)"
             showError = true
         }
+    }
+
+    private func subscribe() async {
+        isLoading = true
+        defer { isLoading = false }
+        let subId = UUID().uuidString
+        var localArtworkURL: String?
+
+        if let artwork = discoveredArtworkURL, let remoteURL = URL(string: artwork) {
+            do {
+                let (data, _) = try await URLSession.shared.data(for: URLRequest(url: remoteURL, timeoutInterval: 30))
+                let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("podcast-images")
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let fileURL = dir.appendingPathComponent("\(subId).png")
+                try data.write(to: fileURL, options: .atomic)
+                localArtworkURL = fileURL.absoluteString
+            } catch {
+                // Non-fatal: store the remote URL as fallback
+                localArtworkURL = discoveredArtworkURL
+            }
+        }
+
+        await store.add(id: subId, name: subscribeName, feedURL: feedURL,
+                        artworkURL: localArtworkURL)
+        dismiss()
     }
 
     private func search() async {

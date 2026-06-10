@@ -391,6 +391,33 @@ final class CustomChannelsStore: ObservableObject {
         applyOrder()
     }
 
+    /// Resets a single shipped curated channel to its factory state:
+    /// clears all DB verdicts, restores the bundled JSON, and re-imports
+    /// approved tracks so the user starts fresh.
+    func resetChannelToDefault(chId: String, db: DatabaseService) async {
+        guard customChannels.contains(where: { $0.id == chId && $0.isShippedDefault })
+        else { return }
+
+        // 1. Clear all curation verdicts for this channel in the DB
+        await db.clearCuration(channelId: chId)
+
+        // 2. Restore the bundled JSON file over the user's copy
+        let userFile = Self.channelsDir.appendingPathComponent("\(chId).json")
+        let fm = FileManager.default
+        if fm.fileExists(atPath: userFile.path) {
+            try? fm.removeItem(at: userFile)
+        }
+        if let bundleURL = Bundle.main.url(forResource: chId, withExtension: "json") {
+            try? fm.copyItem(at: bundleURL, to: userFile)
+        }
+
+        // 3. Re-import approved tracks from the restored JSON
+        await importBundledCurationsIfNeeded(db: db)
+
+        // 4. Reload in-memory curation pool
+        await LiveCurationStore.shared.reload(from: db)
+    }
+
     /// Reset to alphabetical order, clearing any manual reordering.
     func resetOrder() {
         channelOrder.removeAll()

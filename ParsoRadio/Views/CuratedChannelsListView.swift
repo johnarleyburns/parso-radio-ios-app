@@ -394,6 +394,8 @@ struct CuratorChannelEditView: View {
     @State private var isFetching = false
     @State private var fetchError: String?
     @State private var showFetchError = false
+    @State private var showDeepQueryPrompt = false
+    @State private var deepQueryOffset = 0
     @State private var showSearchAdd = false
     @State private var filterMode: FilterMode = .review
     @StateObject private var enrichmentService = MetadataEnrichmentService()
@@ -677,6 +679,16 @@ struct CuratorChannelEditView: View {
             .alert("Fetch failed", isPresented: $showFetchError) {
                 Button("OK", role: .cancel) {}
             } message: { Text(fetchError ?? "") }
+            .alert("No New Items Found", isPresented: $showDeepQueryPrompt) {
+                Button("Query Deeper") {
+                    Task { await continueDeepQuery() }
+                }
+                Button("Cancel", role: .cancel) {
+                    deepQueryOffset = 0
+                }
+            } message: {
+                Text("All \(deepQueryOffset + 500) results have already been reviewed. Search further?")
+            }
         }
     }
 
@@ -858,24 +870,47 @@ struct CuratorChannelEditView: View {
         isFetching = true
         defer { isFetching = false }
         do {
-            let before = await db.curationCounts(channelId: channelMeta.id)
-            let candidates = try await archiveService.fetchTracks(
-                iaQuery: query, matchTags: [], limit: 500)
-            await db.saveTracks(candidates)
-            await db.ensureReviewSet(channelId: channelMeta.id,
-                                      trackIds: candidates.map(\.id))
-            await reload()
-            let after = await db.curationCounts(channelId: channelMeta.id)
-            let added = (after.review + after.approved + after.rejected)
-                - (before.review + before.approved + before.rejected)
-            if added == 0 {
-                fetchError = "No new candidates — every track is already reviewed."
-                showFetchError = true
+            let batchSize = 500
+            var offset = deepQueryOffset
+            var foundNew = false
+
+            while !foundNew {
+                let before = await db.curationCounts(channelId: channelMeta.id)
+                let candidates = try await archiveService.fetchTracks(
+                    iaQuery: query, matchTags: [], limit: batchSize, offset: offset)
+                await db.saveTracks(candidates)
+                await db.ensureReviewSet(channelId: channelMeta.id,
+                                          trackIds: candidates.map(\.id))
+                await reload()
+                let after = await db.curationCounts(channelId: channelMeta.id)
+                let added = (after.review + after.approved + after.rejected)
+                    - (before.review + before.approved + before.rejected)
+                if added > 0 {
+                    foundNew = true
+                    deepQueryOffset = 0  // reset for next time
+                } else if candidates.isEmpty {
+                    fetchError = "No more candidates found."
+                    showFetchError = true
+                    deepQueryOffset = 0
+                    return
+                } else {
+                    // No new items but query returned results — ask to go deeper
+                    isFetching = false
+                    showDeepQueryPrompt = true
+                    // Wait for user response via alert handling
+                    return
+                }
             }
         } catch {
             fetchError = error.localizedDescription
             showFetchError = true
+            deepQueryOffset = 0
         }
+    }
+
+    private func continueDeepQuery() async {
+        deepQueryOffset += 500
+        await loadMoreCandidates()
     }
 
     private func countFor(_ mode: FilterMode) -> Int {

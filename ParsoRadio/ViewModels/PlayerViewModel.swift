@@ -1410,7 +1410,7 @@ final class PlayerViewModel: ObservableObject {
     // The central probe/cache method. Returns nil for single-file items,
     // ordered parts for multi-file items. Network is hit at most once per
     // identifier across all sessions (verdict persisted in the DB).
-    private func resolveItemParts(identifier: String) async -> [Track]? {
+    func resolveItemParts(identifier: String) async -> [Track]? {
         // 1. In-session cache (key present → definitive; nil value = single).
         if let cached = itemPartsCache[identifier] { return cached }
 
@@ -1516,6 +1516,29 @@ final class PlayerViewModel: ObservableObject {
         playlistIndex = 0
         playbackContextToken &+= 1
         playHistory = []
+        await playTrack(ordered[0], seekTo: nil, recordHistory: false)
+    }
+
+    /// Play a list of tracks as a transient album (no saved playlist in DB).
+    /// Used for "Live Music on This Day" and similar one-shot playback.
+    func playAlbumTracks(_ ordered: [Track], title: String) async {
+        guard !ordered.isEmpty else { return }
+        saveAutosaveForCurrentTrack()
+        let albumPlaylist = Playlist(
+            id: "album:\(UUID().uuidString)",
+            name: title,
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFavorites: false,
+            isKidSafe: false
+        )
+        currentChannel = nil
+        currentPlaylist = albumPlaylist
+        playlistTracks = ordered
+        playlistIndex = 0
+        playbackContextToken &+= 1
+        playHistory = []
+        channelDescription = title
         await playTrack(ordered[0], seekTo: nil, recordHistory: false)
     }
 

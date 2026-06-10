@@ -16,6 +16,10 @@ final class OfflineDownloadService: ObservableObject {
     // circular progress indicator.
     @Published var trackProgress: [String: Double] = [:]
 
+    // Incremented after every single-track download/removal completes.
+    // Views observe this to refresh stale Track.localFilePath values.
+    @Published var singleTrackVersion = 0
+
     private let db: DatabaseService
     private let downloadManager: DownloadManager
     private var activeTasks: [String: Task<Void, Never>] = [:]
@@ -57,7 +61,7 @@ final class OfflineDownloadService: ObservableObject {
         guard activeTasks[id] == nil else { return }
         guard track.localFilePath == nil else { return }
         guard track.downloadURL != nil else { return }
-        await startDownloadJob(id: id, tracks: [track], label: track.title)
+        await startDownloadJob(id: id, tracks: [track], label: track.title, isSingleTrack: true)
     }
 
     /// Remove the downloaded file for a single track and clear its DB pointer.
@@ -66,6 +70,7 @@ final class OfflineDownloadService: ObservableObject {
             try? FileManager.default.removeItem(atPath: path)
         }
         await db.markDownloaded(trackID: track.id, localPath: "")
+        singleTrackVersion &+= 1
     }
 
     func removeOffline(channel: Channel) async {
@@ -125,7 +130,7 @@ final class OfflineDownloadService: ObservableObject {
 
     // MARK: - Private
 
-    private func startDownloadJob(id: String, tracks: [Track], label: String) async {
+    private func startDownloadJob(id: String, tracks: [Track], label: String, isSingleTrack: Bool = false) async {
         activeDownloads[id] = DownloadProgress(
             total: tracks.count,
             completed: 0,
@@ -149,6 +154,7 @@ final class OfflineDownloadService: ObservableObject {
             await MainActor.run {
                 self?.activeDownloads[id] = nil
                 self?.activeTasks[id] = nil
+                if isSingleTrack { self?.singleTrackVersion &+= 1 }
             }
         }
         activeTasks[id] = task

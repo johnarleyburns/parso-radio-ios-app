@@ -94,6 +94,12 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
               autoPlay: Bool = true) {
         tearDownPlayer()
 
+        // Enforce the streaming cache budget before starting a new track.
+        // The streaming cache otherwise grows unbounded during playback.
+        let maxMB = UserDefaults.standard.integer(forKey: "maxCacheMB")
+        let budget: Int64 = maxMB > 0 ? Int64(maxMB) * 1_048_576 : 250 * 1_048_576
+        CacheManager.shared.evictIfNeeded(maxBytes: budget)
+
         // Build the player item. ALL remote http(s) playback now routes through
         // CachingResourceLoaderDelegate — the single streaming path — so the
         // streamed bytes warm an on-disk prefix cache (replays/seeks serve from
