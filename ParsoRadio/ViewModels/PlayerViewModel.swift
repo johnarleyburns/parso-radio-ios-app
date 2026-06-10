@@ -81,6 +81,8 @@ final class PlayerViewModel: ObservableObject {
     private var itemPartsCache: [String: [Track]?] = [:]
     // Throttle spoken-word position saves to once every 5 s (onTimeUpdate fires 4×/s).
     private var lastPositionSaveTime: Double = -5
+    // Throttle @Published currentPosition to 2×/s to reduce cascading recomputation.
+    private var lastPositionPublishTime: Double = -1
     // Timestamp of the most recent scrub movement. The scrub guard in
     // onTimeUpdate auto-expires off this so an interrupted drag (whose .onEnded
     // never fired) can't latch isScrubbing true and freeze the timer / strand
@@ -331,7 +333,10 @@ final class PlayerViewModel: ObservableObject {
                     if Date().timeIntervalSince(self.lastScrubActivity) < 0.6 { return }
                     self.isScrubbing = false
                 }
-                self.currentPosition = seconds
+                if seconds - self.lastPositionPublishTime >= 0.5 {
+                    self.lastPositionPublishTime = seconds
+                    self.currentPosition = seconds
+                }
                 let dur = self.audioPlayer.duration
                 if self.trackDuration != dur { self.trackDuration = dur }
                 // (minTrackDuration is enforced invisibly in advanceToNext via
@@ -1040,6 +1045,7 @@ final class PlayerViewModel: ObservableObject {
         // be persisted until it passed the previous track's offset (leaving the
         // resume marker stuck at 0:00 if the user left early).
         lastPositionSaveTime = -5
+        lastPositionPublishTime = -1
         // New track → new watchdog generation; cancel any prior one. Capture
         // the generation: if ANOTHER playTrack starts while this one is still
         // resolving (rapid Back/Skip taps spawn concurrent loads), it bumps the

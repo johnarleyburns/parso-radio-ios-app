@@ -16,6 +16,9 @@ struct MainMenuView: View {
     var initialRoute: MenuRoute? = nil
     let onSelectChannel: (Channel) -> Void
     let dismissAll: () -> Void          // close the whole menu (back to player)
+    // Stable closure so CuratedChannelsListView identity doesn't change when
+    // body recomputes from @Published currentPosition ticks.
+    private let selectCuratedAndDismiss: (Channel) -> Void
 
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
@@ -39,6 +42,10 @@ struct MainMenuView: View {
         self.initialRoute = initialRoute
         self.onSelectChannel = onSelectChannel
         self.dismissAll = dismissAll
+        self.selectCuratedAndDismiss = { channel in
+            onSelectChannel(channel)
+            dismissAll()
+        }
         // Seed the path SYNCHRONOUSLY so the route is in place before first
         // render. (Pushing it later from an async .task let a quick Back tap
         // get overwritten when the await finished — the "bounces back into
@@ -69,7 +76,7 @@ struct MainMenuView: View {
     // screen instead, alongside Recently Played, so the top-level menu stays
     // focused on real channel categories.
     private static let categoryOrder = [
-        "Curated", "Ambient", "Podcasts", "Audiobooks", "Lectures"
+        "Curated", "Ambient", "Podcasts", "Audiobooks", "Curated Books", "Lectures"
     ]
 
     static func orderedCategories() -> [String] {
@@ -111,10 +118,8 @@ struct MainMenuView: View {
                 case .channelList(let category):
                     if category == "Curated" {
                         CuratedChannelsListView(
-                            onSelectChannel: { channel in
-                                onSelectChannel(channel)
-                                dismissAll()
-                            })
+                            playerVM: playerVM,
+                            onSelectChannel: selectCuratedAndDismiss)
                     } else {
                         ChannelListScreen(category: category,
                                           channels: channels(in: category),
@@ -163,13 +168,13 @@ struct MainMenuView: View {
             .sheet(isPresented: $showAbout) {
                 AboutView()
             }
-            .safeAreaInset(edge: .bottom) {
-                if playerVM.currentTrack != nil {
-                    miniPlayer
-                }
-            }
             .task {
                 recentlyPlayed = await playerVM.recentlyPlayedTracks(limit: 30)
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if playerVM.currentTrack != nil {
+                miniPlayer
             }
         }
     }
@@ -192,10 +197,10 @@ struct MainMenuView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            ForEach(Self.orderedCategories(), id: \.self) { category in
-                NavigationLink(value: MenuRoute.channelList(category)) {
-                    HStack {
-                        Label(category, systemImage: Self.categoryIcon(category))
+                ForEach(Self.orderedCategories(), id: \.self) { category in
+                    NavigationLink(value: MenuRoute.channelList(category)) {
+                        HStack {
+                            Label(category == "Curated" ? "Curated Music" : category, systemImage: Self.categoryIcon(category))
                         Spacer()
                         Text("\(channels(in: category).count)")
                             .font(.caption).foregroundStyle(.secondary)
@@ -286,6 +291,7 @@ struct MainMenuView: View {
         switch category {
         case "For You":      return "sparkles"
         case "Curated":      return "star"
+        case "Curated Books": return "books.vertical"
         case "Ambient":      return "leaf"
         case "Podcasts":    return "newspaper"
         case "Contemporary": return "guitars"

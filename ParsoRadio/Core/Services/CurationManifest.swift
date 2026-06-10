@@ -64,9 +64,6 @@ final class LiveCurationStore: ObservableObject {
 
     func reload(from db: DatabaseService) async {
         let approved = await db.exportApprovedByChannel()
-        lock.withLock {
-            approvedByChannel = approved
-        }
         await MainActor.run { [approved] in
             self.approvedByChannel = approved
         }
@@ -76,9 +73,6 @@ final class LiveCurationStore: ObservableObject {
     /// actions — avoids scanning every channel).
     func reload(channelId: String, from db: DatabaseService) async {
         let approved = await db.exportApprovedTracks(forChannelId: channelId)
-        lock.withLock {
-            approvedByChannel[channelId] = approved
-        }
         await MainActor.run { [channelId, approved] in
             self.approvedByChannel[channelId] = approved
         }

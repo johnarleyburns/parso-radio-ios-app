@@ -651,8 +651,8 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
                            t.metadata_confidence, t.fetched_at, t.added_date, t.is_local,
                            t.part_number, t.total_parts, t.parent_identifier, t.artwork_url,
                            t.is_multi_part
-                    FROM tracks t
-                    INNER JOIN curation c ON c.track_id = t.id
+                    FROM curation c
+                    INNER JOIN tracks t ON t.id = c.track_id
                     WHERE c.status = 'approved'
                     ORDER BY c.channel_id
                 """
@@ -685,8 +685,8 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
                            t.metadata_confidence, t.fetched_at, t.added_date, t.is_local,
                            t.part_number, t.total_parts, t.parent_identifier, t.artwork_url,
                            t.is_multi_part
-                    FROM tracks t
-                    INNER JOIN curation c ON c.track_id = t.id
+                    FROM curation c
+                    INNER JOIN tracks t ON t.id = c.track_id
                     WHERE c.channel_id = ? AND c.status = ?
                 """
                 var out: [Track] = []

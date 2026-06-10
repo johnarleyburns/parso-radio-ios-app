@@ -7,7 +7,7 @@ import Combine
 ///
 /// Phase B of CUSTOMIZABLE-CURATED-CHANNELS-PLAN.md.
 struct CuratedChannelsListView: View {
-    @EnvironmentObject var playerVM: PlayerViewModel
+    let playerVM: PlayerViewModel
     @StateObject private var store = CustomChannelsStore.shared
 
     @State private var showNewChannel = false
@@ -28,8 +28,6 @@ struct CuratedChannelsListView: View {
                 Text("Channels: \(orderedChannels.count) visible / \(store.customChannels.count) registered")
                     .font(.caption2).foregroundStyle(.secondary)
                 Text("Deleted defaults: \(store.deletedDefaults.count)")
-                    .font(.caption2).foregroundStyle(.secondary)
-                Text("Docs dir files: \((try? FileManager.default.contentsOfDirectory(at: CustomChannelsStore.channelsDir, includingPropertiesForKeys: nil))?.count ?? 0)")
                     .font(.caption2).foregroundStyle(.secondary)
                 ForEach(orderedChannels.prefix(3), id: \.id) { m in
                     let count = LiveCurationStore.shared.pool(for: m.id).count
