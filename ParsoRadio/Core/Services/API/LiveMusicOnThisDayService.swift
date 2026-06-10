@@ -89,7 +89,7 @@ struct LiveMusicOnThisDayService {
     }
 
     func fetchEntries(for mmdd: String) async throws -> [LiveMusicEntry] {
-        let query = #"collection:(etree) AND "\#(mmdd)""#
+        let query = #"collection:(etree) AND date:"\#(mmdd)""#
         return try await searchEtree(query: query, mmdd: mmdd)
     }
 
@@ -149,7 +149,11 @@ struct LiveMusicOnThisDayService {
         let (data, _) = try await session.data(from: components.url!)
         let response = try JSONDecoder().decode(EtreeSearchResponse.self, from: data)
         return response.response.docs.compactMap { doc in
-            LiveMusicEntry(
+            // Only include entries whose date field contains the target mmdd,
+            // avoiding false matches where the phrase appears in other fields.
+            // Entries without a date are kept (we can't verify otherwise).
+            if let date = doc.date, !date.contains(mmdd) { return nil }
+            return LiveMusicEntry(
                 id: doc.identifier,
                 creator: doc.creator ?? "Unknown Artist",
                 title: nil, venue: doc.extractVenue(), coverage: nil,
