@@ -41,11 +41,6 @@ struct HomeView: View {
     @State private var showAudiobookDetail = false
     private let audiobookService = RecentlyAddedAudiobooksService()
 
-    // Curated Discovery
-    @State private var featuredCuratedTrack: Track?
-    @State private var featuredCuratedChannelName: String?
-    @State private var showFeaturedCuratedDetail = false
-
     // Session restore
     @State private var pendingChannel: Channel = {
         let raw = UserDefaults.standard.string(forKey: "lastChannelId") ?? "guitar-classical"
@@ -171,24 +166,6 @@ struct HomeView: View {
                     .environmentObject(playlistVM)
             }
         }
-        .sheet(isPresented: $showFeaturedCuratedDetail) {
-            if let track = featuredCuratedTrack {
-                LiveMusicDetailView(entry: LiveMusicEntry(
-                    id: track.parentIdentifier ?? track.id,
-                    creator: track.artist,
-                    title: track.title,
-                    venue: featuredCuratedChannelName,
-                    coverage: nil,
-                    date: nil,
-                    year: nil,
-                    downloads: 0,
-                    dateString: "",
-                    description: nil
-                ))
-                .environmentObject(playerVM)
-                .environmentObject(playlistVM)
-            }
-        }
         .onChange(of: kids.isEnabled) { _, enabled in
             guard enabled else { return }
             path = []
@@ -202,9 +179,6 @@ struct HomeView: View {
             dailyLiveEntry = entry
             let ab = await audiobookService.fetchDailyEntry()
             dailyAudiobook = ab
-            let (track, chName) = await loadFeaturedCuratedTrack()
-            featuredCuratedTrack = track
-            featuredCuratedChannelName = chName
             UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
 
             if let pendingId = UserDefaults.standard.string(forKey: "siri.pendingChannelId"),
@@ -244,13 +218,6 @@ struct HomeView: View {
             // Live Music on This Day
             if let entry = dailyLiveEntry {
                 liveMusicCard(entry)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
-            }
-
-            // Curated Discovery
-            if let track = featuredCuratedTrack, let name = featuredCuratedChannelName {
-                curatedTrackCard(track, channelName: name)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
             }
@@ -432,87 +399,6 @@ struct HomeView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("New Audiobooks: \(entry.displayName) by \(entry.author)")
         .accessibilityHint("Tap left for details, tap right to play")
-    }
-
-    // MARK: - Curated Discovery
-
-    private func loadFeaturedCuratedTrack() async -> (Track?, String?) {
-        let musicIDs = Set(Channel.defaults
-            .filter { $0.category == "Curated" }
-            .map(\.id))
-        let musicMetas = CustomChannelsStore.shared.orderedChannels()
-            .filter { musicIDs.contains($0.id) }
-        guard let channel = musicMetas.randomElement() else { return (nil, nil) }
-        let pool = LiveCurationStore.shared.pool(for: channel.id)
-        guard let track = pool.randomElement() else { return (nil, nil) }
-        return (track, channel.name)
-    }
-
-    private func curatedTrackCard(_ track: Track, channelName: String) -> some View {
-        HStack(spacing: 0) {
-            Button {
-                showFeaturedCuratedDetail = true
-            } label: {
-                HStack(spacing: 12) {
-                    AsyncImage(url: URL(string: "https://archive.org/services/img/\(track.parentIdentifier ?? track.id)")) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image.resizable().scaledToFill()
-                        default:
-                            Image(systemName: "music.note")
-                                .font(.largeTitle)
-                                .foregroundStyle(.white)
-                                .frame(width: 72, height: 72)
-                                .background(ChannelCategoryStyle.gradient(for: "Curated"))
-                        }
-                    }
-                    .frame(width: 72, height: 72)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Curated Discovery")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(track.title)
-                            .font(.headline)
-                            .lineLimit(2)
-                        Text(channelName)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                        if !track.artist.isEmpty {
-                            Text(track.artist)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer()
-                }
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                Task {
-                    let itemId = track.parentIdentifier ?? track.id
-                    guard let parts = await playerVM.resolveItemParts(identifier: itemId),
-                          !parts.isEmpty else { return }
-                    let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
-                    await playerVM.playAlbumTracks(ordered, title: track.title)
-                }
-            } label: {
-                Image(systemName: "play.circle.fill")
-                    .font(.title)
-                    .foregroundStyle(.blue)
-                    .frame(width: 48)
-            }
-            .buttonStyle(.plain)
-            .padding(.trailing, 8)
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
     }
 
     // MARK: - Audiobook Thumbnail
@@ -936,6 +822,11 @@ struct CuratedChannelsGrid: View {
     @State private var featuredBookChannel: ChannelMeta?
     @State private var showFeaturedBookDetail = false
 
+    // Featured curated track
+    @State private var featuredCuratedTrack: Track?
+    @State private var featuredCuratedChannel: ChannelMeta?
+    @State private var showCuratedTrackDetail = false
+
     var category: String = "Curated"
     let onSelectChannel: (Channel) -> Void
 
@@ -967,6 +858,13 @@ struct CuratedChannelsGrid: View {
                 if category == "Curated Books", let track = featuredBookTrack,
                    let channel = featuredBookChannel {
                     featuredBookRow(track, channel: channel)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                }
+                if category == "Curated", let track = featuredCuratedTrack,
+                   let channel = featuredCuratedChannel {
+                    featuredCuratedTrackRow(track, channel: channel)
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                         .padding(.bottom, 4)
@@ -1039,6 +937,7 @@ struct CuratedChannelsGrid: View {
         .task {
             await LiveCurationStore.shared.reload(from: playerVM.db)
             loadFeaturedBook()
+            loadFeaturedCuratedTrack()
         }
         .sheet(item: $showCurateChannel) { meta in
             CuratorChannelEditView(channelMeta: meta, onDismiss: { showCurateChannel = nil })
@@ -1054,6 +953,25 @@ struct CuratedChannelsGrid: View {
                     description: nil
                 )
                 AudiobookDetailView(entry: entry)
+                    .environmentObject(playerVM)
+                    .environmentObject(playlistVM)
+            }
+        }
+        .sheet(isPresented: $showCuratedTrackDetail) {
+            if let track = featuredCuratedTrack, let channel = featuredCuratedChannel {
+                let entry = LiveMusicEntry(
+                    id: track.parentIdentifier ?? track.id,
+                    creator: track.artist,
+                    title: track.title,
+                    venue: channel.name,
+                    coverage: nil,
+                    date: nil,
+                    year: nil,
+                    downloads: 0,
+                    dateString: "",
+                    description: nil
+                )
+                LiveMusicDetailView(entry: entry)
                     .environmentObject(playerVM)
                     .environmentObject(playlistVM)
             }
@@ -1236,6 +1154,87 @@ struct CuratedChannelsGrid: View {
                     guard let parts = await playerVM.resolveItemParts(identifier: bookId),
                           !parts.isEmpty else { return }
                     let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+                    await playerVM.playAlbumTracks(ordered, title: track.title)
+                }
+            } label: {
+                Image(systemName: "play.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(.blue)
+                    .frame(width: 48)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 8)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+    }
+
+    // MARK: - Featured Curated Track
+
+    private func loadFeaturedCuratedTrack() {
+        guard category == "Curated" else { return }
+        let musicChannels = filteredChannels
+        guard !musicChannels.isEmpty else { return }
+        let picked = musicChannels.randomElement()!
+        let pool = LiveCurationStore.shared.pool(for: picked.id)
+        guard let track = pool.randomElement() else { return }
+        featuredCuratedTrack = track
+        featuredCuratedChannel = picked
+    }
+
+    @ViewBuilder
+    private func featuredCuratedTrackRow(_ track: Track, channel: ChannelMeta) -> some View {
+        let itemId = track.parentIdentifier ?? track.id
+        HStack(spacing: 0) {
+            Button {
+                showCuratedTrackDetail = true
+            } label: {
+                HStack(spacing: 12) {
+                    AsyncImage(url: URL(string: "https://archive.org/services/img/\(itemId)")) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                        default:
+                            Image(systemName: channel.icon)
+                                .font(.largeTitle)
+                                .foregroundStyle(.white)
+                                .frame(width: 72, height: 72)
+                                .background(ChannelCategoryStyle.gradient(for: "Curated"))
+                        }
+                    }
+                    .frame(width: 72, height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Curated Discovery")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(track.title)
+                            .font(.headline)
+                            .lineLimit(2)
+                        Text(channel.name)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        if !track.artist.isEmpty {
+                            Text(track.artist)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                Task {
+                    let parts = await playerVM.resolveItemParts(identifier: itemId)
+                    guard let p = parts, !p.isEmpty else { return }
+                    let ordered = p.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
                     await playerVM.playAlbumTracks(ordered, title: track.title)
                 }
             } label: {
