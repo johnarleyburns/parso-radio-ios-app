@@ -859,7 +859,9 @@ struct CuratedChannelsGrid: View {
     @State private var resetConfirmChannel: ChannelMeta?
     @State private var editingChannel: ChannelMeta?
     @State private var renameText = ""
-    @State private var curationRefreshID = UUID()
+    @State private var discoveryTrack: Track?
+    @State private var discoveryChannel: String?
+    @State private var showDiscoveryDetail = false
 
     var category: String = "Curated"
     let onSelectChannel: (Channel) -> Void
@@ -888,20 +890,16 @@ struct CuratedChannelsGrid: View {
                 .padding(.top, 80)
             } else {
                 let hasHeader = (category == "Curated" || category == "Curated Books")
-                if category == "Curated" {
-                    CuratedDiscoveryHeader(label: "Curated Discovery", filterCategory: "Curated")
-                        .id(curationRefreshID)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 12)
+                Group {
+                    if let t = discoveryTrack, let ch = discoveryChannel {
+                        discoveryCardRow(t, channel: ch)
+                    } else {
+                        discoveryLoadingRow()
+                    }
                 }
-                if category == "Curated Books" {
-                    CuratedDiscoveryHeader(label: "Curated Book", filterCategory: "Curated Books")
-                        .id(curationRefreshID)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 12)
-                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, hasHeader ? 12 : 0)
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                     ForEach(orderedChannels, id: \.id) { meta in
                         let ch = runtimeChannels[meta.id]
@@ -952,7 +950,7 @@ struct CuratedChannelsGrid: View {
         .background(Color(.systemGroupedBackground))
         .refreshable {
             await LiveCurationStore.shared.reload(from: playerVM.db)
-            curationRefreshID = UUID()
+            loadDiscovery()
         }
         .navigationTitle(category == "Curated" ? "Curated Music" : "Curated Books")
         .navigationBarTitleDisplayMode(.inline)
@@ -976,6 +974,7 @@ struct CuratedChannelsGrid: View {
         .onAppear {
             Task {
                 await LiveCurationStore.shared.reload(from: playerVM.db)
+                loadDiscovery()
             }
         }
         .sheet(item: $showCurateChannel) { meta in
@@ -1020,9 +1019,101 @@ struct CuratedChannelsGrid: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        .sheet(isPresented: $showDiscoveryDetail) {
+            if let t = discoveryTrack, let ch = discoveryChannel {
+                LiveMusicDetailView(entry: LiveMusicEntry(
+                    id: t.parentIdentifier ?? t.id,
+                    creator: t.artist, title: t.title, venue: ch,
+                    coverage: nil, date: nil, year: nil,
+                    downloads: 0, dateString: "", description: nil
+                ))
+                .environmentObject(playerVM)
+                .environmentObject(playlistVM)
+            }
+        }
     }
 
-    @ViewBuilder
+    // MARK: - Discovery Card
+
+    private func loadDiscovery() {
+        let ids = Set(Channel.defaults
+            .filter { $0.category == category }
+            .map(\.id))
+        let metas = store.orderedChannels()
+            .filter { ids.contains($0.id) }
+        guard let channel = metas.randomElement() else { return }
+        let pool = LiveCurationStore.shared.pool(for: channel.id)
+        let candidates = category == "Curated Books"
+            ? pool.filter { $0.parentIdentifier != nil }
+            : pool
+        let source = candidates.isEmpty ? pool : candidates
+        guard let t = source.randomElement() else { return }
+        discoveryTrack = t
+        discoveryChannel = channel.name
+    }
+
+    private func discoveryCardRow(_ t: Track, channel ch: String) -> some View {
+        HStack(spacing: 0) {
+            Button { showDiscoveryDetail = true } label: {
+                HStack(spacing: 12) {
+                    AsyncImage(url: URL(string: "https://archive.org/services/img/\(t.parentIdentifier ?? t.id)")) { phase in
+                        switch phase {
+                        case .success(let image): image.resizable().scaledToFill()
+                        default:
+                            Image(systemName: "music.note").font(.largeTitle).foregroundStyle(.white)
+                                .frame(width: 72, height: 72)
+                                .background(ChannelCategoryStyle.gradient(for: "Curated"))
+                        }
+                    }
+                    .frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 10))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(category == "Curated" ? "Curated Discovery" : "Curated Book")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text(t.title).font(.headline).lineLimit(2)
+                        Text(ch).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                        if !t.artist.isEmpty {
+                            Text(t.artist).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+            Button {
+                Task {
+                    let itemId = t.parentIdentifier ?? t.id
+                    let parts = await playerVM.resolveItemParts(identifier: itemId)
+                    guard let p = parts, !p.isEmpty else { return }
+                    let ordered = p.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+                    await playerVM.playAlbumTracks(ordered, title: t.title)
+                }
+            } label: {
+                Image(systemName: "play.circle.fill").font(.title).foregroundStyle(.blue).frame(width: 48)
+            }
+            .buttonStyle(.plain).padding(.trailing, 8)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemGroupedBackground)))
+    }
+
+    private func discoveryLoadingRow() -> some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 10).fill(Color(.tertiarySystemFill)).frame(width: 72, height: 72)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(category == "Curated" ? "Curated Discovery" : "Curated Book")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("Placeholder title").font(.headline).lineLimit(2)
+                Text("Placeholder subtitle").font(.subheadline).lineLimit(1)
+                Text("Placeholder date").font(.caption)
+                ProgressView().padding(.top, 2)
+            }
+            .redacted(reason: .placeholder)
+            Spacer()
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemGroupedBackground)))
+    }
+
     private func curatedChannelCard(_ meta: ChannelMeta, channel: Channel?, approvedCount: Int) -> some View {
         Button {
             let ch = channel ?? store.runtimeChannel(from: meta)
@@ -1030,25 +1121,14 @@ struct CuratedChannelsGrid: View {
         } label: {
             ZStack {
                 curatedChannelBackground(channel)
-
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.55)],
-                    startPoint: .center,
-                    endPoint: .bottom
-                )
-
+                LinearGradient(colors: [.clear, .black.opacity(0.55)], startPoint: .center, endPoint: .bottom)
                 VStack(alignment: .leading, spacing: 2) {
                     Spacer()
-                    Text(meta.name)
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                        .padding(.bottom, 16)
+                    Text(meta.name).font(.headline).foregroundStyle(.white).lineLimit(2).padding(.bottom, 16)
                 }
                 .padding(.horizontal, 12)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 140)
+            .frame(maxWidth: .infinity).frame(height: 140)
             .clipShape(RoundedRectangle(cornerRadius: 20))
             .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
         }
@@ -1061,25 +1141,16 @@ struct CuratedChannelsGrid: View {
     @ViewBuilder
     private func curatedChannelBackground(_ channel: Channel?) -> some View {
         if let ch = channel, UIImage(named: ch.id) != nil {
-            Image(ch.id)
-                .resizable()
-                .scaledToFill()
-                .clipped()
+            Image(ch.id).resizable().scaledToFill().clipped()
         } else if let ch = channel, let imageURL = ch.imageURL, let url = URL(string: imageURL) {
             if url.isFileURL, let uiImage = UIImage(contentsOfFile: url.path) {
-                Image(uiImage: uiImage.squareScaled(to: CGSize(width: 300, height: 300)))
-                    .resizable()
-                    .scaledToFill()
-                    .clipped()
+                Image(uiImage: uiImage.squareScaled(to: CGSize(width: 300, height: 300))).resizable().scaledToFill().clipped()
             } else {
                 AsyncImage(url: url) { phase in
                     switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill().clipped()
-                    case .failure, .empty:
-                        ChannelCategoryStyle.gradient(for: "Curated")
-                    @unknown default:
-                        ChannelCategoryStyle.gradient(for: "Curated")
+                    case .success(let image): image.resizable().scaledToFill().clipped()
+                    case .failure, .empty: ChannelCategoryStyle.gradient(for: "Curated")
+                    @unknown default: ChannelCategoryStyle.gradient(for: "Curated")
                     }
                 }
             }
@@ -1088,7 +1159,6 @@ struct CuratedChannelsGrid: View {
         }
     }
 }
-
 // MARK: - Playlists Grid Sub-View
 
 struct PlaylistGridSubView: View {
