@@ -538,26 +538,12 @@ struct HomeView: View {
     @ViewBuilder
     private func channelCategoryView(for category: String) -> some View {
         if category == "Curated" || category == "Curated Books" {
-            VStack(spacing: 0) {
-                if category == "Curated" {
-                    CuratedDiscoveryHeader(label: "Curated Discovery", filterCategory: "Curated")
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 4)
-                }
-                if category == "Curated Books" {
-                    CuratedDiscoveryHeader(label: "Curated Book", filterCategory: "Curated Books")
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 4)
-                }
-                CuratedChannelsGrid(category: category, onSelectChannel: { channel in
-                    Task { await playerVM.load(channel: channel) }
-                    showPlayer = true
-                })
-                .environmentObject(playerVM)
-                .environmentObject(playlistVM)
-            }
+            CuratedChannelsGrid(category: category, onSelectChannel: { channel in
+                Task { await playerVM.load(channel: channel) }
+                showPlayer = true
+            })
+            .environmentObject(playerVM)
+            .environmentObject(playlistVM)
         } else {
             ChannelGridSubView(category: category,
                                channels: channels(in: category),
@@ -873,6 +859,7 @@ struct CuratedChannelsGrid: View {
     @State private var resetConfirmChannel: ChannelMeta?
     @State private var editingChannel: ChannelMeta?
     @State private var renameText = ""
+    @State private var curationRefreshID = UUID()
 
     var category: String = "Curated"
     let onSelectChannel: (Channel) -> Void
@@ -900,6 +887,20 @@ struct CuratedChannelsGrid: View {
                     description: Text("Tap + to create a curated channel, or import one from a friend."))
                 .padding(.top, 80)
             } else {
+                if category == "Curated" {
+                    CuratedDiscoveryHeader(label: "Curated Discovery", filterCategory: "Curated")
+                        .id(curationRefreshID)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                }
+                if category == "Curated Books" {
+                    CuratedDiscoveryHeader(label: "Curated Book", filterCategory: "Curated Books")
+                        .id(curationRefreshID)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                }
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                     ForEach(orderedChannels, id: \.id) { meta in
                         let ch = runtimeChannels[meta.id]
@@ -946,6 +947,10 @@ struct CuratedChannelsGrid: View {
             }
         }
         .background(Color(.systemGroupedBackground))
+        .refreshable {
+            await LiveCurationStore.shared.reload(from: playerVM.db)
+            curationRefreshID = UUID()
+        }
         .navigationTitle(category == "Curated" ? "Curated Music" : "Curated Books")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -1353,12 +1358,13 @@ struct CuratedDiscoveryHeader: View {
 
     @State private var track: Track?
     @State private var channelName: String?
-    @State private var isLoading = true
     @State private var showDetail = false
 
     var body: some View {
         Group {
-            if isLoading {
+            if let t = track, let ch = channelName {
+                curatedCard(t, channelName: ch)
+            } else {
                 HStack(spacing: 12) {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color(.tertiarySystemFill))
@@ -1380,8 +1386,6 @@ struct CuratedDiscoveryHeader: View {
                     RoundedRectangle(cornerRadius: 16)
                         .fill(Color(.secondarySystemGroupedBackground))
                 )
-            } else if let t = track, let ch = channelName {
-                curatedCard(t, channelName: ch)
             }
         }
         .task {
@@ -1389,7 +1393,6 @@ struct CuratedDiscoveryHeader: View {
             let (t, ch) = await pickRandomTrack()
             track = t
             channelName = ch
-            isLoading = false
         }
         .sheet(isPresented: $showDetail) {
             if let t = track, let ch = channelName {
