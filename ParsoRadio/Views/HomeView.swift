@@ -887,19 +887,20 @@ struct CuratedChannelsGrid: View {
                     description: Text("Tap + to create a curated channel, or import one from a friend."))
                 .padding(.top, 80)
             } else {
+                let hasHeader = (category == "Curated" || category == "Curated Books")
                 if category == "Curated" {
                     CuratedDiscoveryHeader(label: "Curated Discovery", filterCategory: "Curated")
                         .id(curationRefreshID)
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
-                        .padding(.bottom, 4)
+                        .padding(.bottom, 12)
                 }
                 if category == "Curated Books" {
                     CuratedDiscoveryHeader(label: "Curated Book", filterCategory: "Curated Books")
                         .id(curationRefreshID)
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
-                        .padding(.bottom, 4)
+                        .padding(.bottom, 12)
                 }
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                     ForEach(orderedChannels, id: \.id) { meta in
@@ -943,7 +944,9 @@ struct CuratedChannelsGrid: View {
                             }
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+                .padding(.top, hasHeader ? 0 : 16)
             }
         }
         .background(Color(.systemGroupedBackground))
@@ -1389,9 +1392,10 @@ struct CuratedDiscoveryHeader: View {
                 )
             }
         }
-        .task { await pickTrack() }
-        .onReceive(curationStore.objectWillChange) { _ in
-            Task { await pickTrack() }
+        .task {
+            // Brief delay to ensure any concurrent reload has settled
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            await pickTrack()
         }
         .sheet(isPresented: $showDetail) {
             if let t = track, let ch = channelName {
