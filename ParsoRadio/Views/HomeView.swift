@@ -34,11 +34,13 @@ struct HomeView: View {
     // Live Music on This Day
     @State private var dailyLiveEntry: LiveMusicEntry?
     @State private var showLiveDetail = false
+    @State private var liveMusicLoading = true
     private let liveMusicService = LiveMusicOnThisDayService()
 
     // Recently Added Audiobooks
     @State private var dailyAudiobook: AudiobookEntry?
     @State private var showAudiobookDetail = false
+    @State private var audiobookLoading = true
     private let audiobookService = RecentlyAddedAudiobooksService()
 
     // Session restore
@@ -177,8 +179,10 @@ struct HomeView: View {
             await playlistVM.loadPlaylists()
             let entry = await liveMusicService.fetchDailyEntry()
             dailyLiveEntry = entry
+            liveMusicLoading = false
             let ab = await audiobookService.fetchDailyEntry()
             dailyAudiobook = ab
+            audiobookLoading = false
             UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
 
             if let pendingId = UserDefaults.standard.string(forKey: "siri.pendingChannelId"),
@@ -216,7 +220,11 @@ struct HomeView: View {
     private var homeGrid: some View {
         VStack(spacing: 0) {
             // Live Music on This Day
-            if let entry = dailyLiveEntry {
+            if liveMusicLoading {
+                loadingCard("Live Music on This Day")
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+            } else if let entry = dailyLiveEntry {
                 liveMusicCard(entry)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
@@ -245,7 +253,12 @@ struct HomeView: View {
             .padding(.horizontal, 16)
 
             // Audiobook card between Podcasts and Audiobooks
-            if let entry = dailyAudiobook {
+            if audiobookLoading {
+                loadingCard("New Audiobooks")
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 12)
+            } else if let entry = dailyAudiobook {
                 audiobookCard(entry)
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
@@ -339,6 +352,27 @@ struct HomeView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Live Music on This Day: \(entry.displayName)" + (entry.locationSummary.map { " at \($0)" } ?? ""))
         .accessibilityHint("Tap left for details, tap right to play")
+    }
+
+    private func loadingCard(_ label: String) -> some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(.tertiarySystemFill))
+                .frame(width: 72, height: 72)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ProgressView()
+                    .padding(.top, 2)
+            }
+            Spacer()
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
     }
 
     // MARK: - Recently Added Audiobooks
