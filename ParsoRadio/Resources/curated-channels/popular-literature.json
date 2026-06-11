@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "popular-literature",
+    "name": "Popular Literature",
+    "icon": "chart.line.uptrend.xyaxis",
+    "imageFilename": "popular-literature.png"
+  },
+  "updatedAt": "2026-06-11",
+  "approved": [],
+  "rejected": []
+}

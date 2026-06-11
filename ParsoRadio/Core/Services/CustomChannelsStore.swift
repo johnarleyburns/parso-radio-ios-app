@@ -94,7 +94,7 @@ final class CustomChannelsStore: ObservableObject {
     /// JSON file is never consulted again for that channel.
     func importBundledCurationsIfNeeded(db: DatabaseService) async {
         let shippedChannels = Channel.defaults
-            .filter { $0.category == "Curated" && $0.iaQueryEntry != nil }
+            .filter { ($0.category == "Curated" || $0.category == "Curated Books") && $0.iaQueryEntry != nil }
         var imported = 0
 
         for ch in shippedChannels {
@@ -133,7 +133,7 @@ final class CustomChannelsStore: ObservableObject {
     /// no curation work is lost.
     private func loadBundledDefaults() {
         let shippedIds = Channel.defaults
-            .filter { $0.category == "Curated" && $0.iaQueryEntry != nil }
+            .filter { ($0.category == "Curated" || $0.category == "Curated Books") && $0.iaQueryEntry != nil }
             .map(\.id)
 
         let stamp = ISO8601DateFormatter().string(from: Date())
@@ -142,25 +142,22 @@ final class CustomChannelsStore: ObservableObject {
         var copiedToDocs = 0
 
         for chId in shippedIds {
-            // XcodeGen flattens directory groups into the bundle root,
-            // so each per-channel JSON sits at e.g. "chamber-music.json".
-            guard let bundleURL = Bundle.main.url(
-                forResource: chId, withExtension: "json") else {
-                continue
-            }
-            foundInBundle += 1
-
-            let userFile = Self.channelsDir.appendingPathComponent("\(chId).json")
-            // Only copy on first launch — NEVER overwrite an existing file.
-            // The user's approved tracks live in this file and destroying it
-            // would lose hours of curation work (the 103-vs-129 discrepancy bug).
-            if !fm.fileExists(atPath: userFile.path) {
-                do {
-                    try fm.copyItem(at: bundleURL, to: userFile)
-                    copiedToDocs += 1
-                } catch { /* skip */ }
+            // Copy the bundled per-channel JSON to Documents if this is the
+            // first launch (never overwrite an existing file — the user's
+            // approved tracks live in it).
+            if let bundleURL = Bundle.main.url(forResource: chId, withExtension: "json") {
+                foundInBundle += 1
+                let userFile = Self.channelsDir.appendingPathComponent("\(chId).json")
+                if !fm.fileExists(atPath: userFile.path) {
+                    do {
+                        try fm.copyItem(at: bundleURL, to: userFile)
+                        copiedToDocs += 1
+                    } catch { /* skip */ }
+                }
             }
 
+            // Always register the channel meta even without a bundled JSON —
+            // the user can curate from an empty starting point.
             if !customChannels.contains(where: { $0.id == chId }) {
                 let channel = Channel.defaults.first(where: { $0.id == chId })
                 let meta = ChannelMeta(
@@ -175,6 +172,15 @@ final class CustomChannelsStore: ObservableObject {
                     channelOrder.append(chId)
                 }
             }
+        }
+        // Remove shipped channels that no longer exist in Channel.defaults
+        // (e.g. classic-literature was deleted, most-popular was renamed).
+        let currentShippedIDs = Set(shippedIds)
+        customChannels.removeAll { meta in
+            meta.isShippedDefault && !currentShippedIDs.contains(meta.id)
+        }
+        channelOrder.removeAll { id in
+            !customChannels.contains(where: { $0.id == id })
         }
         saveMeta()
         Log.general.info("[CustomChannels] Bundle: found \(foundInBundle)/\(shippedIds.count), copied \(copiedToDocs) to Documents")
@@ -450,14 +456,18 @@ final class CustomChannelsStore: ObservableObject {
         var imageURL: String?
         if let def = channelDefinition(for: meta.id),
            let fn = def.channel.imageFilename, !fn.isEmpty {
-            let url = Self.channelsDir.appendingPathComponent(fn)
-            if FileManager.default.fileExists(atPath: url.path) {
-                imageURL = url.absoluteString
+            // Check Documents first (user-uploaded image), then bundle (shipped).
+            let docURL = Self.channelsDir.appendingPathComponent(fn)
+            if FileManager.default.fileExists(atPath: docURL.path) {
+                imageURL = docURL.absoluteString
+            } else if let bundleURL = Bundle.main.url(forResource: fn.replacingOccurrences(of: ".png", with: ""), withExtension: "png") {
+                imageURL = bundleURL.absoluteString
             }
         }
+        let builtIn = Channel.defaults.first(where: { $0.id == meta.id })
         return Channel(
-            id: meta.id, name: meta.name, category: "Curated", icon: meta.icon,
-            contentType: .music, preferredSource: "internet_archive",
+            id: meta.id, name: meta.name, category: builtIn?.category ?? "Curated", icon: meta.icon,
+            contentType: builtIn?.contentType ?? .music, preferredSource: "internet_archive",
             isDownloaded: false, imageURL: imageURL,
             iaQuery: meta.iaQuery)
     }

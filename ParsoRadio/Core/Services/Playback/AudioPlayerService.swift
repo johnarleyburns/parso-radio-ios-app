@@ -102,7 +102,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         // The streaming cache otherwise grows unbounded during playback.
         let maxMB = UserDefaults.standard.integer(forKey: "maxCacheMB")
         let budget: Int64 = maxMB > 0 ? Int64(maxMB) * 1_048_576 : 250 * 1_048_576
-        CacheManager.shared.evictIfNeeded(maxBytes: budget)
+        CacheManager.shared.evictIfNeededAsync(maxBytes: budget)
 
         // Build the player item. ALL remote http(s) playback now routes through
         // CachingResourceLoaderDelegate — the single streaming path — so the

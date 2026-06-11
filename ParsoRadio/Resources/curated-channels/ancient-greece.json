@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "ancient-greece",
+    "name": "Ancient Greece",
+    "icon": "building.columns",
+    "iaQuery": "collection:librivoxaudio AND language:(eng OR english) AND (subject:\"ancient greece\" OR subject:\"greek philosophy\" OR subject:\"greek history\" OR subject:\"greek mythology\" OR subject:\"greek drama\" OR creator:\"Plato\" OR creator:\"Aristotle\" OR creator:\"Homer\" OR creator:\"Sophocles\" OR creator:\"Euripides\" OR creator:\"Aeschylus\" OR creator:\"Aristophanes\" OR creator:\"Herodotus\" OR creator:\"Thucydides\" OR creator:\"Sappho\")",
+    "imageFilename": "ancient-greece.png"
+  },
+  "updatedAt": "2026-06-11",
+  "approved": [],
+  "rejected": []
+}

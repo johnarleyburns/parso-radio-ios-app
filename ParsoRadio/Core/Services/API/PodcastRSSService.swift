@@ -25,7 +25,6 @@ final class PodcastRSSService {
         var request = URLRequest(url: url)
         request.timeoutInterval = 30
         let (data, _) = try await session.data(for: request)
-        guard data.count < 10_000_000 else { throw URLError(.badServerResponse) }
         let result = RSSXMLParser().parse(data: data)
         let tracks = result.items.compactMap { $0.toTrack(channelId: channel.id) }
         return FetchResult(tracks: tracks, channelArtworkURL: result.channelImageURL)

@@ -473,19 +473,19 @@ extension Channel {
             contentType: .spokenWord, preferredSource: "internet_archive",
             summary: "The works of ancient Greece — philosophy (Plato, Aristotle), history (Herodotus, Thucydides), drama (Sophocles, Euripides), and mythology (Homer, Hesiod) — read by LibriVox volunteers."
         ),
-        // Curated Book — Classic Literature: most popular LibriVox downloads
+        // Curated Book — Popular Literature: top LibriVox by all-time downloads
         Channel(
-            id: "classic-literature", name: "Classic Literature", category: "Curated Books",
-            icon: "text.book.closed", tags: ["classic-literature"],
+            id: "popular-literature", name: "Popular Literature", category: "Curated Books",
+            icon: "chart.line.uptrend.xyaxis", tags: ["popular-literature"],
             contentType: .spokenWord, preferredSource: "internet_archive",
-            summary: "The most popular classic novels and stories from LibriVox — Austen, Dickens, Twain, Brontë, Dostoevsky, and more."
+            summary: "The most-downloaded LibriVox audiobooks — top 100 by all-time downloads, refreshed on each load."
         ),
-        // Curated Book — Most Popular: top LibriVox by all-time downloads
+        // Curated Book — Greater Books: broader literary canon from greaterbooks.com
         Channel(
-            id: "most-popular", name: "Most Popular", category: "Curated Books",
-            icon: "chart.line.uptrend.xyaxis", tags: ["most-popular"],
+            id: "greater-books", name: "Greater Books", category: "Curated Books",
+            icon: "text.book.closed", tags: ["greater-books"],
             contentType: .spokenWord, preferredSource: "internet_archive",
-            summary: "The most-downloaded LibriVox audiobooks — top 200 by all-time downloads, refreshed on each load."
+            summary: "A broader literary canon (the greaterbooks.com list) read by LibriVox volunteers — the world's essential novels, plays and poetry. Plays each work's first part."
         ),
 
         // MARK: Audiobooks — LibriVox via pure-Lucene IA registry

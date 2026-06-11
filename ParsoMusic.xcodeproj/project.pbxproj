@@ -75,6 +75,7 @@
 		4811616B59BB24D290E4A76B /* PlaylistDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22BB92612AFBFADB59CBAC08 /* PlaylistDetailView.swift */; };
 		48B13C95A40CA8501460E05E /* symphony-orchestra.json in Resources */ = {isa = PBXBuildFile; fileRef = 9810DA7C3DE640DDDCFA0199 /* symphony-orchestra.json */; };
 		4AEBC1FD6CDC18D3300CD19D /* Chapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDEF6AFE7454915B8D5E69C4 /* Chapter.swift */; };
+		4D02171FCF089C7108FB2CED /* ancient-greece.png in Resources */ = {isa = PBXBuildFile; fileRef = 3F2B3612CE2F86CEA0EA6E63 /* ancient-greece.png */; };
 		4D9FB117B167F758E2B48F47 /* SeekHapticsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 889B244531D120E47B697892 /* SeekHapticsController.swift */; };
 		4E03A9D2499C2915672B21EA /* ChannelCategoryStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69358BA9E20EE4C95AB9E2C7 /* ChannelCategoryStyle.swift */; };
 		503B8546B44A209935550F61 /* KidsMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B862CB1DD7816ECD1CD1C47 /* KidsMenuView.swift */; };
@@ -106,6 +107,7 @@
 		6D62A87805B1E83273AA20F5 /* lectures.png in Resources */ = {isa = PBXBuildFile; fileRef = B14C13C1E8BA9E87740B6150 /* lectures.png */; };
 		6D8E8A7B453EF6A023BF8817 /* ambient-rain.wav in Resources */ = {isa = PBXBuildFile; fileRef = 1CFA532A74DA31C73D1A2996 /* ambient-rain.wav */; };
 		6E95428D961EDC75A4EC3162 /* ArtworkThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37F4C52CA4DE123CF2E68DD0 /* ArtworkThumbnail.swift */; };
+		6EC206C68E81F460E2DF6E92 /* greater-books.png in Resources */ = {isa = PBXBuildFile; fileRef = 2CFBBA9DB0DF65A55AAE9966 /* greater-books.png */; };
 		70B26E72FFCA663FB82F8F9C /* SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E1484AFF5C3AEDF865A8F8 /* SharedViews.swift */; };
 		70D78217B29451F93023B70B /* Channel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64A9897ABD1D86A3E1AF26D /* Channel.swift */; };
 		715C32B68C8A052AB2D876E9 /* DatabaseServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08401263AE7B263F733F26A4 /* DatabaseServiceTests.swift */; };
@@ -173,13 +175,16 @@
 		B1FF771AB8797B9E52601496 /* string-quartet.json in Resources */ = {isa = PBXBuildFile; fileRef = 15D8E396006C8233FE78744C /* string-quartet.json */; };
 		B34D7224F5A5C0C86E9CF32A /* AutosaveBookmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBB5C8AEDEFACAE170CAD1C4 /* AutosaveBookmarkTests.swift */; };
 		B5766D549B08BF8C7FF0E1A7 /* CurationActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F822C789CDFAEE5CE0F7C8 /* CurationActions.swift */; };
+		B75C84641BDA628F0312DB25 /* greater-books.json in Resources */ = {isa = PBXBuildFile; fileRef = 8036A9D010314B147B1D7E34 /* greater-books.json */; };
 		B75CB7D6A29D00838D24A13D /* PodcastSubscriptionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ED27595071C4252DD93968 /* PodcastSubscriptionStore.swift */; };
 		B78F29C4DD67EC6E8CE7BFAA /* ChannelInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06CD3D7F52CB363E3D6AE390 /* ChannelInfoView.swift */; };
 		B805CC750AB10D8297985071 /* ContributionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07BAB0B9341409075417CF0D /* ContributionStore.swift */; };
+		B8B0AA1C4E276765BDC76A63 /* popular-literature.json in Resources */ = {isa = PBXBuildFile; fileRef = 7D3F146F675CA4944E523D3A /* popular-literature.json */; };
 		BAD8E347EEE13D9D95CCBB3F /* CuratedDiscoveryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C069B5B1E2A189E88F09A857 /* CuratedDiscoveryUITests.swift */; };
 		BB08F1C271701AFC4649FB6A /* LiveMusicEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ACC987BE1533B6DDBB9C8ED /* LiveMusicEntry.swift */; };
 		BBF14D0CB49219F282AD3901 /* IconPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D4EA4460508162148C6D7B8 /* IconPickerView.swift */; };
 		BD8CD97F82ADEFCFE16E1DFB /* ParsoRadioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B87E93B96AC679441C5D9C18 /* ParsoRadioApp.swift */; };
+		BED5313BC08C1EDA5D5B93FE /* popular-literature.png in Resources */ = {isa = PBXBuildFile; fileRef = D9D7687BBF785DEC8FB31DF2 /* popular-literature.png */; };
 		C011BA623E39B4510B368914 /* PlaylistsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 408611D03ED584C14BD78530 /* PlaylistsScreen.swift */; };
 		C3023E6BBCC38B3DCDF99DAA /* AddItemToPlaylistSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4224E4ED0BB0C27DE0F93255 /* AddItemToPlaylistSheet.swift */; };
 		C3C6AF3FF017D5C9A6A42633 /* emperor_1024.png in Resources */ = {isa = PBXBuildFile; fileRef = 0A7E90666E210FCFA957B68D /* emperor_1024.png */; };
@@ -197,6 +202,7 @@
 		D4F80FDD1662B71D5B2EE82E /* LicenseValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B7979B424C80BC83AF791CB /* LicenseValidator.swift */; };
 		D51065A5BBCE6076248A87C9 /* ambient-flowing-water.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = C3F8F816B70FE40285708BB3 /* ambient-flowing-water.mp4 */; };
 		DAC706B4C5FDD3B3DFE5D69B /* ChapterListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93CBB2A39882407B90E3D1BA /* ChapterListView.swift */; };
+		DB18249FE37310D84EB94B6D /* ancient-greece.json in Resources */ = {isa = PBXBuildFile; fileRef = 55C6D051A19FDE10054604DA /* ancient-greece.json */; };
 		DE4CE6933E5914C942CAE949 /* ChannelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1871AC84712E9DF59FE75FD /* ChannelTests.swift */; };
 		DE8F57C46CF55B5B75B95167 /* InternetArchiveIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72F574D4D0A469FE5C17CA50 /* InternetArchiveIntegrationTests.swift */; };
 		DF014FC5804B0742804D2900 /* ProceduralVisualizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B4A95C273F97DB7E660381E /* ProceduralVisualizerTests.swift */; };
@@ -289,6 +295,7 @@
 		25A595446D6EAAAE98DC5782 /* PlaybackResilience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackResilience.swift; sourceTree = "<group>"; };
 		2691F688AF18B143A48D86C2 /* PlaybackReliabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackReliabilityTests.swift; sourceTree = "<group>"; };
 		2B031855161493F78B9EC73C /* AuditionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditionTests.swift; sourceTree = "<group>"; };
+		2CFBBA9DB0DF65A55AAE9966 /* greater-books.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "greater-books.png"; sourceTree = "<group>"; };
 		2D2CD67EED9E80B06927D21B /* PlaylistViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistViewModelTests.swift; sourceTree = "<group>"; };
 		2F910C100E117764CC0AD109 /* RecentlyPlayedScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentlyPlayedScreen.swift; sourceTree = "<group>"; };
 		319BF4D2D344D37C50639230 /* ambient-ocean.mp4 */ = {isa = PBXFileReference; path = "ambient-ocean.mp4"; sourceTree = "<group>"; };
@@ -304,6 +311,7 @@
 		3AC17078A324F84AE9DF9B95 /* ClickWheelUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClickWheelUITests.swift; sourceTree = "<group>"; };
 		3AFD91652EDE21EF83DB38C9 /* RecentlyAddedAudiobooksService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentlyAddedAudiobooksService.swift; sourceTree = "<group>"; };
 		3BA1D85AF428068B9B423D87 /* SeekWheelMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeekWheelMath.swift; sourceTree = "<group>"; };
+		3F2B3612CE2F86CEA0EA6E63 /* ancient-greece.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ancient-greece.png"; sourceTree = "<group>"; };
 		3F63695CB8456D7EA8E01CA5 /* CurationManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurationManifest.swift; sourceTree = "<group>"; };
 		3F87427E81C463E49905B379 /* guitar-classical.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "guitar-classical.json"; sourceTree = "<group>"; };
 		408611D03ED584C14BD78530 /* PlaylistsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistsScreen.swift; sourceTree = "<group>"; };
@@ -327,6 +335,7 @@
 		523EC831724A9E1554F52F07 /* WheelHelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WheelHelpView.swift; sourceTree = "<group>"; };
 		541C7F61260980159C6C33C2 /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
 		54E80A79B728316F479F22AF /* CustomChannelsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomChannelsStore.swift; sourceTree = "<group>"; };
+		55C6D051A19FDE10054604DA /* ancient-greece.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "ancient-greece.json"; sourceTree = "<group>"; };
 		57C19B41B7F1B162E9DDE2FE /* curated.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = curated.png; sourceTree = "<group>"; };
 		58ED27595071C4252DD93968 /* PodcastSubscriptionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastSubscriptionStore.swift; sourceTree = "<group>"; };
 		5A1D6AC4924235F2DBF41D00 /* AudioPlayerServiceContentModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerServiceContentModeTests.swift; sourceTree = "<group>"; };
@@ -358,6 +367,8 @@
 		7953AA397605499350A49B0F /* SourceValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceValidatorTests.swift; sourceTree = "<group>"; };
 		7B1D4EC9BBB7507808AE1928 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		7CB0E98514EF95516DB6D67C /* PlaylistViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistViewModel.swift; sourceTree = "<group>"; };
+		7D3F146F675CA4944E523D3A /* popular-literature.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "popular-literature.json"; sourceTree = "<group>"; };
+		8036A9D010314B147B1D7E34 /* greater-books.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "greater-books.json"; sourceTree = "<group>"; };
 		8077965F421B4DAD1FD0987E /* AudiobookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudiobookDetailView.swift; sourceTree = "<group>"; };
 		80CF9F0405624E94CEB49E69 /* ChannelListScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelListScreen.swift; sourceTree = "<group>"; };
 		80D373AF2B69B812692BDEF2 /* LiveMusicDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMusicDetailView.swift; sourceTree = "<group>"; };
@@ -426,6 +437,7 @@
 		D51A1FA12F087CC8D58F658B /* PlayerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewModel.swift; sourceTree = "<group>"; };
 		D7ADF9DE80D08941E24D5986 /* VerifiedThumb.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifiedThumb.swift; sourceTree = "<group>"; };
 		D8D274E175EF66D77D026321 /* IntentHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentHandler.swift; sourceTree = "<group>"; };
+		D9D7687BBF785DEC8FB31DF2 /* popular-literature.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "popular-literature.png"; sourceTree = "<group>"; };
 		DA124B6998F39EBA48B5DDB3 /* KidsModeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidsModeController.swift; sourceTree = "<group>"; };
 		DA93D17C743E1DAAE63574FA /* SearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewModel.swift; sourceTree = "<group>"; };
 		DAEC2FB29C75A68CDE7F19F8 /* Playlist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Playlist.swift; sourceTree = "<group>"; };
@@ -719,14 +731,20 @@
 			isa = PBXGroup;
 			children = (
 				83041D8B542A7CBE592CC11E /* ajc-project.json */,
+				55C6D051A19FDE10054604DA /* ancient-greece.json */,
+				3F2B3612CE2F86CEA0EA6E63 /* ancient-greece.png */,
 				EF624BAC34C599223C0E7AAB /* cafe-lento.json */,
 				47452184754EBB5B141C94B3 /* chamber-music.json */,
 				4091C7FD4C72D8D8F70CDE19 /* childrens-books.json */,
 				C0D35835326E82BF54A1D2AC /* childrens-songs.json */,
 				37CA750A60E1CBD6C6F66A3E /* great-books.json */,
+				8036A9D010314B147B1D7E34 /* greater-books.json */,
+				2CFBBA9DB0DF65A55AAE9966 /* greater-books.png */,
 				3F87427E81C463E49905B379 /* guitar-classical.json */,
 				B15356314E8468CAF1A16FDA /* lv-general-fiction.json */,
 				8A67EC6251A6FABA629041AF /* piano-hour.json */,
+				7D3F146F675CA4944E523D3A /* popular-literature.json */,
+				D9D7687BBF785DEC8FB31DF2 /* popular-literature.png */,
 				15D8E396006C8233FE78744C /* string-quartet.json */,
 				9810DA7C3DE640DDDCFA0199 /* symphony-orchestra.json */,
 				982763116214F8757CB50AD4 /* tribal-works.json */,
@@ -899,7 +917,7 @@
 			path = ParsoRadio/UITests;
 			sourceTree = "<group>";
 		};
-		"TEMP_F26CE3B1-206E-4EB7-8B1A-FA79F87C54B6" /* Integration */ = {
+		"TEMP_7BE62873-4E0D-42E4-A860-E9A8377F4036" /* Integration */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1065,6 +1083,8 @@
 				7A89C71CE1940AD1EB3549A5 /* ambient-rain.mp4 in Resources */,
 				6D8E8A7B453EF6A023BF8817 /* ambient-rain.wav in Resources */,
 				0E9AC9737F5A403663F2A2B9 /* ambient.png in Resources */,
+				DB18249FE37310D84EB94B6D /* ancient-greece.json in Resources */,
+				4D02171FCF089C7108FB2CED /* ancient-greece.png in Resources */,
 				28DECE1713373A0C35696493 /* audiobooks.png in Resources */,
 				8471135BF78FE92F76ABCEC9 /* beethoven_1024.png in Resources */,
 				7F5F2E0C72032E88106D1F5A /* cafe-lento.json in Resources */,
@@ -1075,6 +1095,8 @@
 				785AEA6010A13E196EFBAE9E /* curation.json in Resources */,
 				C3C6AF3FF017D5C9A6A42633 /* emperor_1024.png in Resources */,
 				4707D51B63BB00C5FC58D55A /* great-books.json in Resources */,
+				B75C84641BDA628F0312DB25 /* greater-books.json in Resources */,
+				6EC206C68E81F460E2DF6E92 /* greater-books.png in Resources */,
 				1F4C25D43C66860CFAA50523 /* guitar-classical.json in Resources */,
 				00BF7706360EDAEF47E95AC8 /* ia_queries.json in Resources */,
 				6D62A87805B1E83273AA20F5 /* lectures.png in Resources */,
@@ -1082,6 +1104,8 @@
 				3E0893127E36AAF14B2D9C48 /* piano-hour.json in Resources */,
 				A26AE15645E3E4FA7A751441 /* playlists.png in Resources */,
 				0D77F5E2EDA30091AD973A1B /* podcasts.png in Resources */,
+				B8B0AA1C4E276765BDC76A63 /* popular-literature.json in Resources */,
+				BED5313BC08C1EDA5D5B93FE /* popular-literature.png in Resources */,
 				B1FF771AB8797B9E52601496 /* string-quartet.json in Resources */,
 				48B13C95A40CA8501460E05E /* symphony-orchestra.json in Resources */,
 				208D6C4693591C307344FA8F /* tribal-works.json in Resources */,

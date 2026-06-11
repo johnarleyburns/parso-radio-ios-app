@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "greater-books",
+    "name": "Greater Books",
+    "icon": "text.book.closed",
+    "iaQuery": "collection:librivoxaudio AND language:eng AND (creator:\"Homer\" OR creator:\"Sophocles\" OR creator:\"Euripides\" OR creator:\"Aristophanes\" OR creator:\"Virgil\" OR creator:\"Ovid\" OR creator:\"Dante Alighieri\" OR creator:\"Geoffrey Chaucer\" OR creator:\"Miguel de Cervantes\" OR creator:\"William Shakespeare\" OR creator:\"Christopher Marlowe\" OR creator:\"Moli\u00e8re\" OR creator:\"John Milton\" OR creator:\"Daniel Defoe\" OR creator:\"Jonathan Swift\" OR creator:\"Henry Fielding\" OR creator:\"Voltaire\" OR creator:\"Jane Austen\" OR creator:\"Mary Shelley\" OR creator:\"Walter Scott\" OR creator:\"Lord Byron\" OR creator:\"John Keats\" OR creator:\"William Blake\" OR creator:\"William Wordsworth\" OR creator:\"Edgar Allan Poe\" OR creator:\"Nathaniel Hawthorne\" OR creator:\"Herman Melville\" OR creator:\"Walt Whitman\" OR creator:\"Henry David Thoreau\" OR creator:\"Emily Bront\u00eb\" OR creator:\"Charlotte Bront\u00eb\" OR creator:\"Charles Dickens\" OR creator:\"George Eliot\" OR creator:\"Thomas Hardy\" OR creator:\"Lewis Carroll\" OR creator:\"Robert Louis Stevenson\" OR creator:\"Bram Stoker\" OR creator:\"Oscar Wilde\" OR creator:\"Rudyard Kipling\" OR creator:\"Arthur Conan Doyle\" OR creator:\"Jules Verne\" OR creator:\"H. G. Wells\" OR creator:\"Mark Twain\" OR creator:\"Frederick Douglass\" OR creator:\"Victor Hugo\" OR creator:\"Alexandre Dumas\" OR creator:\"Gustave Flaubert\" OR creator:\"\u00c9mile Zola\" OR creator:\"Fyodor Dostoevsky\" OR creator:\"Leo Tolstoy\" OR creator:\"Anton Chekhov\" OR creator:\"Alexander Pushkin\" OR creator:\"Nikolai Gogol\" OR creator:\"Henrik Ibsen\" OR creator:\"Joseph Conrad\" OR creator:\"Henry James\") AND NOT creator:\"William John Locke\" AND NOT creator:\"Homer Greene\" AND NOT creator:\"Homer Eon Flint\"",
+    "imageFilename": "greater-books.png"
+  },
+  "updatedAt": "2026-06-11",
+  "approved": [],
+  "rejected": []
+}

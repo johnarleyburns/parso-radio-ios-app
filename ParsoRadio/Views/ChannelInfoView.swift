@@ -97,33 +97,6 @@ struct ChannelInfoView: View {
 
     var body: some View {
         List {
-            Section {
-                HStack(spacing: 14) {
-                    if let urlStr = localImageURL, let url = URL(string: urlStr) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image.resizable().aspectRatio(contentMode: .fill)
-                                    .frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 8))
-                            default:
-                                channelIconView
-                            }
-                        }
-                    } else {
-                        channelIconView
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(displayName)
-                            .font(.title3).fontWeight(.semibold)
-                        Text(channel.category)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 4)
-                .accessibilityElement(children: .combine)
-            }
-
             // Channel image — shown full-width below the name box
             if let urlStr = localImageURL, let url = URL(string: urlStr) {
                 Section {
@@ -247,7 +220,7 @@ struct ChannelInfoView: View {
                 .foregroundStyle(.secondary)
             }
         }
-        .navigationTitle("Channel Info")
+        .navigationTitle(displayName)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showCurator) {
             if let meta = CustomChannelsStore.shared.customChannels.first(where: { $0.id == channel.id }) {

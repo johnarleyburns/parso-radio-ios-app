@@ -144,9 +144,19 @@ struct HomeView: View {
         .fullScreenCover(isPresented: $showPlayer) {
             NowPlayingScreen(dismiss: {
                 if let cat = playerVM.currentChannel?.category,
-                   cat != "For You",
-                   path.last != .channelCategory(cat) {
-                    path.append(.channelCategory(cat))
+                   cat != "For You" {
+                    // Navigate to the playing channel's category so the back
+                    // chevron returns the user to that category's channel list
+                    // instead of a different level in the navigation stack.
+                    if let last = path.last, last != .channelCategory(cat) {
+                        // Replace the last path element — don't append.
+                        // Appending would leave stale parent categories
+                        // (e.g. Curated → Curated Books → back goes to
+                        // Curated instead of homeGrid).
+                        path[path.count - 1] = .channelCategory(cat)
+                    } else if path.isEmpty {
+                        path.append(.channelCategory(cat))
+                    }
                 }
                 showPlayer = false
             })
@@ -176,7 +186,9 @@ struct HomeView: View {
             }
         }
         .task {
-            await playlistVM.loadPlaylists()
+            if playlistVM.playlists.isEmpty {
+                await playlistVM.loadPlaylists()
+            }
             let entry = await liveMusicService.fetchDailyEntry()
             dailyLiveEntry = entry
             liveMusicLoading = false
@@ -1154,9 +1166,7 @@ struct CuratedChannelsGrid: View {
 
     @ViewBuilder
     private func curatedChannelBackground(_ channel: Channel?) -> some View {
-        if let ch = channel, UIImage(named: ch.id) != nil {
-            Image(ch.id).resizable().scaledToFill().clipped()
-        } else if let ch = channel, let imageURL = ch.imageURL, let url = URL(string: imageURL) {
+        if let ch = channel, let imageURL = ch.imageURL, let url = URL(string: imageURL) {
             if url.isFileURL, let uiImage = UIImage(contentsOfFile: url.path) {
                 Image(uiImage: uiImage.squareScaled(to: CGSize(width: 300, height: 300))).resizable().scaledToFill().clipped()
             } else {
@@ -1168,6 +1178,8 @@ struct CuratedChannelsGrid: View {
                     }
                 }
             }
+        } else if let ch = channel, UIImage(named: ch.id) != nil {
+            Image(ch.id).resizable().scaledToFill().clipped()
         } else {
             ChannelCategoryStyle.gradient(for: "Curated")
         }

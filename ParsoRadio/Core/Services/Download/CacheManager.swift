@@ -54,12 +54,10 @@ struct CacheManager {
         let total = totalCacheBytes()
         guard total > maxBytes else { return }
 
-        // Gather all cache files with access timestamps
         var files: [(url: URL, accessed: Date, size: Int64)] = []
         gatherFiles(in: audioDir, into: &files)
         gatherFiles(in: streamingDir, into: &files)
 
-        // Sort oldest-first (LRU)
         files.sort { $0.accessed < $1.accessed }
 
         var removed: Int64 = 0
@@ -67,6 +65,27 @@ struct CacheManager {
             guard total - removed > maxBytes else { break }
             try? fileManager.removeItem(at: file.url)
             removed += file.size
+        }
+    }
+
+    func evictIfNeededAsync(maxBytes: Int64) {
+        let total = totalCacheBytes()
+        guard total > maxBytes else { return }
+        Task.detached(priority: .utility) { [audioDir, streamingDir, fileManager, xattrName] in
+            var files: [(url: URL, accessed: Date, size: Int64)] = []
+            Self.gatherFilesStatic(in: audioDir, fileManager: fileManager,
+                                    xattrName: xattrName, into: &files)
+            Self.gatherFilesStatic(in: streamingDir, fileManager: fileManager,
+                                    xattrName: xattrName, into: &files)
+
+            files.sort { $0.accessed < $1.accessed }
+
+            var removed: Int64 = 0
+            for file in files {
+                guard total - removed > maxBytes else { break }
+                try? fileManager.removeItem(at: file.url)
+                removed += file.size
+            }
         }
     }
 
@@ -109,6 +128,42 @@ struct CacheManager {
             let accessed = lastAccess(fileURL) ?? Date.distantPast
             files.append((url: fileURL, accessed: accessed, size: Int64(size)))
         }
+    }
+
+    private static func gatherFilesStatic(in dir: URL, fileManager: FileManager,
+                                          xattrName: String,
+                                          into files: inout [(url: URL, accessed: Date, size: Int64)]) {
+        guard let enumerator = fileManager.enumerator(at: dir,
+            includingPropertiesForKeys: [.fileSizeKey],
+            options: [.skipsHiddenFiles]) else { return }
+        for case let fileURL as URL in enumerator {
+            guard let values = try? fileURL.resourceValues(forKeys: [.fileSizeKey]),
+                  let size = values.fileSize else { continue }
+            let accessed = Self.lastAccessStatic(fileURL, fileManager: fileManager,
+                                                  xattrName: xattrName) ?? Date.distantPast
+            files.append((url: fileURL, accessed: accessed, size: Int64(size)))
+        }
+    }
+
+    private static func lastAccessStatic(_ url: URL, fileManager: FileManager,
+                                          xattrName: String) -> Date? {
+        let raw = url.withUnsafeFileSystemRepresentation { path -> Data? in
+            guard let path else { return nil }
+            let len = getxattr(path, xattrName, nil, 0, 0, 0)
+            guard len > 0 else { return nil }
+            var buf = Data(count: len)
+            let result = buf.withUnsafeMutableBytes { ptr in
+                getxattr(path, xattrName, ptr.baseAddress, len, 0, 0)
+            }
+            guard result > 0 else { return nil }
+            return buf
+        }
+        guard let data = raw else { return nil }
+        var ts: Int64 = 0
+        _ = data.withUnsafeBytes { buf in
+            ts = buf.load(as: Int64.self)
+        }
+        return ts > 0 ? Date(timeIntervalSince1970: TimeInterval(ts)) : nil
     }
 
     private func getxattrData(_ url: URL) -> Data? {
