@@ -66,15 +66,27 @@ final class LiveMusicOnThisDayTests: XCTestCase {
 
     func testCacheRoundtrip() async throws {
         service.clearCachedEntry()
+        let todayMMDD = LiveMusicOnThisDayService.todayMMDD()
+        let mockDate = "2024-\(todayMMDD)"
         MockURLProtocol.requestHandler = { _ in
-            let json = #"{"response":{"docs":[{"identifier":"gd1977-05-08.sbd.miller.12345","creator":"Grateful Dead","date":"1977-05-08","year":1977,"downloads":50000,"description":"Grateful Dead • 1977-05-08 • Barton Hall, Ithaca, NY • SBD"}]}}"#
+            let json = """
+            {"response":{"docs":[{"identifier":"gd1977-05-08.sbd.miller.12345","creator":"Grateful Dead","date":"\(mockDate)","year":1977,"downloads":50000,"description":"Grateful Dead • 1977-05-08 • Barton Hall, Ithaca, NY • SBD"}]}}
+            """
             return (HTTPURLResponse(url: URL(string: "https://archive.org")!, statusCode: 200, httpVersion: nil, headerFields: nil)!, Data(json.utf8))
         }
-        let _ = await service.fetchDailyEntry()
+        let first = await service.fetchDailyEntry()
+        XCTAssertNotNil(first, "First fetch should succeed when network is available")
+        XCTAssertEqual(first?.id, "gd1977-05-08.sbd.miller.12345")
+
+        // Verify the pool was cached in UserDefaults
+        let today = LiveMusicOnThisDayService.todayKey()
+        let poolKey = "liveMusicPool_" + today
+        XCTAssertNotNil(UserDefaults.standard.data(forKey: poolKey), "Pool should be cached after first fetch")
+
         // Second call should return cached without hitting network
         MockURLProtocol.requestHandler = { _ in throw URLError(.notConnectedToInternet) }
         let cached = await service.fetchDailyEntry()
-        XCTAssertNotNil(cached)
+        XCTAssertNotNil(cached, "Should return cached entry even when network is unavailable")
         XCTAssertEqual(cached?.id, "gd1977-05-08.sbd.miller.12345")
     }
 
