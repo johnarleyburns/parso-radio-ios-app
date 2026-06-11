@@ -425,7 +425,7 @@ final class PlayerViewModel: ObservableObject {
         #endif
     }
 
-    func load(channel: Channel, autoPlay: Bool = true) async {
+    func load(channel: Channel, autoPlay: Bool = false) async {
         // OFFLINE GUARD — the very first thing, BEFORE we stop the current audio.
         // If this channel needs the network, we're offline, and it has no
         // downloaded tracks, tell the user and leave whatever is playing (e.g. a
@@ -1010,7 +1010,7 @@ final class PlayerViewModel: ObservableObject {
     }
 
     private func playTrack(_ track: Track, seekTo: Double?, recordHistory: Bool = true,
-                           autoPlay: Bool = true) async {
+                           autoPlay: Bool = false) async {
         // Snapshot the context this play was initiated under. If it changes
         // during the (awaited) URL resolution, we abandon before committing
         // audio so a stale track never plays under a context we've left.

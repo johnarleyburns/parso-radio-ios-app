@@ -10,6 +10,8 @@ struct NowPlayingScreen: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dismiss) private var envDismiss
     @State private var showChapters = false
+    @State private var chapterListItems: [Track] = []
+    @State private var chapterListLoading = false
     @State private var sleepTimerNow: Date = Date()
     private static let sleepTimerOptions: [Int] = [15, 30, 45, 60]
     @State private var showChannelInfo = false
@@ -70,32 +72,36 @@ struct NowPlayingScreen: View {
                         .frame(height: max(160, geo.size.height * 0.55))
                         .padding(.top, 16)
 
-                    // Track metadata below the image
-                    if let track = playerVM.currentTrack, !isAmbientLoop {
-                        Button {
-                            if track.parentIdentifier != nil || track.isMultiPart == true {
-                                Task { await openTrackAlbumDetail() }
-                            } else {
-                                showMoreOptions = true
-                            }
-                        } label: {
-                            VStack(spacing: 4) {
-                                Text(track.title)
-                                    .font(.system(size: mainBoldSize, weight: .bold))
-                                    .lineLimit(2)
-                                if let artist = cleaned(track.artist) {
-                                    Text(artist)
-                                        .font(.system(size: mainRegularSize))
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
+                    // Track metadata below the image — always reserve space so
+                    // the channel name doesn't jump when a track loads.
+                    Group {
+                        if let track = playerVM.currentTrack, !isAmbientLoop {
+                            Button {
+                                if track.parentIdentifier != nil || track.isMultiPart == true {
+                                    Task { await openTrackAlbumDetail() }
+                                } else {
+                                    showMoreOptions = true
+                                }
+                            } label: {
+                                VStack(spacing: 4) {
+                                    Text(track.title)
+                                        .font(.system(size: mainBoldSize, weight: .bold))
+                                        .lineLimit(2)
+                                    if let artist = cleaned(track.artist) {
+                                        Text(artist)
+                                            .font(.system(size: mainRegularSize))
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
                                 }
                             }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Opens track info")
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Opens track info")
-                        .padding(.horizontal, 24)
-                        .padding(.top, 8)
                     }
+                    .frame(minHeight: 54)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 8)
 
                     // Channel name between track info and transport
                     if !isAmbientLoop {
@@ -180,6 +186,11 @@ struct NowPlayingScreen: View {
                     ChannelInfoView(channel: ch, playerVM: playerVM)
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                if playerVM.currentTrack != nil {
+                    miniPlayerOverlay
+                }
+            }
         }
         .sheet(isPresented: $showAlbumInfo) {
             let parentId = playerVM.playlistTracks.first?.parentIdentifier
@@ -188,6 +199,7 @@ struct NowPlayingScreen: View {
                 tracks: playerVM.playlistTracks,
                 parentIdentifier: parentId
             )
+            .environmentObject(playerVM)
         }
         .sheet(isPresented: $showTrackAlbumInfo) {
             NowPlayingAlbumDetailView(
@@ -195,6 +207,7 @@ struct NowPlayingScreen: View {
                 tracks: trackAlbumParts,
                 parentIdentifier: trackAlbumParentId
             )
+            .environmentObject(playerVM)
         }
         .sheet(isPresented: $showAddToPlaylist) {
             if let track = playerVM.currentTrack {
@@ -253,6 +266,19 @@ struct NowPlayingScreen: View {
             }
 
             HStack(spacing: 0) {
+                if !isAmbientLoop {
+                    Button {
+                        playerVM.toggleShuffle()
+                    } label: {
+                        Image(systemName: "shuffle")
+                            .font(.system(size: 18))
+                            .foregroundStyle(playerVM.shuffleMode ? .blue : .secondary)
+                    }
+                    .accessibilityLabel(playerVM.shuffleMode ? "Shuffle on" : "Shuffle off")
+                    .buttonStyle(.plain)
+                    .frame(width: 44, height: 44)
+                }
+
                 Spacer()
 
                 if !isAmbientLoop {
@@ -291,8 +317,31 @@ struct NowPlayingScreen: View {
                 }
 
                 Spacer()
+
+                if !isAmbientLoop {
+                    Button {
+                        playerVM.toggleRepeat()
+                    } label: {
+                        Image(systemName: "repeat.1")
+                            .font(.system(size: 18))
+                            .foregroundStyle(playerVM.repeatMode == .one ? .blue : .secondary)
+                    }
+                    .accessibilityLabel(playerVM.repeatMode == .one ? "Repeat on" : "Repeat off")
+                    .buttonStyle(.plain)
+                    .frame(width: 44, height: 44)
+                }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 4)
+
+            if !isAmbientLoop {
+                HStack(spacing: 12) {
+                    playbackSpeedRow
+                    sleepTimerRow
+                    AirPlayButton()
+                        .frame(width: 32, height: 32)
+                }
+                .padding(.horizontal, 12)
+            }
         }
     }
 
@@ -575,38 +624,9 @@ struct NowPlayingScreen: View {
                     }
 
                     if !isAmbientLoop {
-                        Section("Playback") {
-                            playbackSpeedRow
-                            sleepTimerRow
-                            Toggle(isOn: Binding(
-                                get: { playerVM.shuffleMode },
-                                set: { on in
-                                    if playerVM.shuffleMode != on { playerVM.toggleShuffle() }
-                                }
-                            )) {
-                                Label("Shuffle", systemImage: "shuffle")
-                            }
-                            Toggle(isOn: Binding(
-                                get: { playerVM.repeatMode == .one },
-                                set: { on in
-                                    if (playerVM.repeatMode == .one) != on { playerVM.toggleRepeat() }
-                                }
-                            )) {
-                                Label("Repeat Track", systemImage: "repeat.1")
-                            }
-                            if playerVM.currentTrackIsMultiPart {
-                                NavigationLink {
-                                    ChapterListView(onDismiss: { showMoreOptions = false })
-                                        .environmentObject(playerVM)
-                                } label: {
-                                    Label(isLectureChannel ? "Lecture List" : (usesChapterTerminology ? "Chapter List" : "Track List"), systemImage: "list.number")
-                                }
-                            }
-                            HStack {
-                                Label("AirPlay", systemImage: "airplayaudio")
-                                Spacer()
-                                AirPlayButton()
-                                    .frame(width: 32, height: 32)
+                        if playerVM.currentTrackIsMultiPart {
+                            Section(isLectureChannel ? "Lectures" : (usesChapterTerminology ? "Chapters" : "Tracks")) {
+                                explodedChapterList
                             }
                         }
 
@@ -687,6 +707,59 @@ struct NowPlayingScreen: View {
     }
 
     // MARK: - Playback Controls
+
+    private var explodedChapterList: some View {
+        Group {
+            if chapterListLoading {
+                ProgressView("Loading…")
+                    .frame(maxWidth: .infinity, alignment: .center)
+            } else if chapterListItems.isEmpty {
+                Text("No items")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(chapterListItems) { item in
+                    Button {
+                        showMoreOptions = false
+                        Task { await playerVM.playRecentTrack(item) }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if let pn = item.partNumber {
+                                Text("\(pn)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                                    .frame(width: 24, alignment: .trailing)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.title)
+                                    .font(.body)
+                                    .lineLimit(2)
+                                    .foregroundStyle(playerVM.currentTrack?.id == item.id ? Color.accentColor : .primary)
+                                    .fontWeight(playerVM.currentTrack?.id == item.id ? .bold : .regular)
+                                if item.duration > 0 {
+                                    Text(item.duration.formattedTime)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer()
+                            if playerVM.currentTrack?.id == item.id {
+                                Image(systemName: "play.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.blue)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .task {
+            chapterListLoading = true
+            chapterListItems = await playerVM.fetchCurrentItemChapters() ?? []
+            chapterListLoading = false
+        }
+    }
 
     private var playbackSpeedRow: some View {
         Picker(selection: Binding(
@@ -865,6 +938,34 @@ struct NowPlayingScreen: View {
         trackAlbumParentId = identifier
         trackAlbumTitle = track.artist + " — " + track.title
         showTrackAlbumInfo = true
+    }
+
+    @ViewBuilder
+    private var miniPlayerOverlay: some View {
+        if let track = playerVM.currentTrack {
+            HStack(spacing: 12) {
+                ArtworkThumbnail(track: track, size: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(track.title)
+                        .font(.subheadline).fontWeight(.semibold).lineLimit(1)
+                    Text(track.artist)
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer()
+                Button {
+                    playerVM.togglePlayPause()
+                } label: {
+                    Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 22))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(playerVM.isPlaying ? "Pause" : "Play")
+            }
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(.thinMaterial)
+            .overlay(Rectangle().frame(height: 0.5).foregroundStyle(.separator), alignment: .top)
+        }
     }
 
     private func cleaned(_ value: String?) -> String? {
