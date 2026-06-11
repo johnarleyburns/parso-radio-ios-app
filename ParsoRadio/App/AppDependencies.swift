@@ -21,23 +21,23 @@ final class AppDependencies: ObservableObject {
     let networkMonitor: NetworkMonitor
     let ageAssuranceService: AgeAssuranceService
 
-    init(
+    @MainActor init(
         db: DatabaseService,
         downloadManager: DownloadManager,
         archiveService: InternetArchiveService,
         fmaService: FMAService,
         queueManager: QueueManager,
         audioPlayer: AudioPlayerService,
-        artworkService: ArtworkService = .shared,
-        kidsModeController: KidsModeController = .shared,
-        liveCurationStore: LiveCurationStore = .shared,
-        customChannelsStore: CustomChannelsStore = .shared,
-        podcastStore: PodcastSubscriptionStore = .shared,
+        artworkService: ArtworkService,
+        kidsModeController: KidsModeController,
+        liveCurationStore: LiveCurationStore,
+        customChannelsStore: CustomChannelsStore,
+        podcastStore: PodcastSubscriptionStore,
         contributionStore: ContributionStore,
-        iaQueryRegistry: IAQueryRegistry = .shared,
-        curationManifestStore: CurationManifestStore = .shared,
-        networkMonitor: NetworkMonitor = .shared,
-        ageAssuranceService: AgeAssuranceService = .shared
+        iaQueryRegistry: IAQueryRegistry,
+        curationManifestStore: CurationManifestStore,
+        networkMonitor: NetworkMonitor,
+        ageAssuranceService: AgeAssuranceService
     ) {
         self.db = db
         self.downloadManager = downloadManager

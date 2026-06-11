@@ -197,7 +197,7 @@ struct HomeView: View {
             audiobookLoading = false
             UserDefaults.standard.removeObject(forKey: "wasPlayingOnQuit")
 
-            if let pendingId = UserDefaults.standard.string(forKey: "siri.pendingChannelId"),
+            if UserDefaults.standard.string(forKey: "siri.pendingChannelId") != nil,
                let ts = UserDefaults.standard.object(forKey: "siri.pendingTimestamp") as? TimeInterval,
                Date().timeIntervalSince1970 - ts < 60 {
                 UserDefaults.standard.removeObject(forKey: "siri.pendingChannelId")

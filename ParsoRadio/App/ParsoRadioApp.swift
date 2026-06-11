@@ -21,7 +21,16 @@ struct ParsoMusicApp: App {
             fmaService: FMAService(),
             queueManager: QueueManager(db: db),
             audioPlayer: audioPlayer,
-            contributionStore: ContributionStore()
+            artworkService: .shared,
+            kidsModeController: .shared,
+            liveCurationStore: .shared,
+            customChannelsStore: .shared,
+            podcastStore: .shared,
+            contributionStore: ContributionStore(),
+            iaQueryRegistry: .shared,
+            curationManifestStore: .shared,
+            networkMonitor: .shared,
+            ageAssuranceService: .shared
         )
         AppIntentBridge.shared.playerVM = nil
         deps.podcastStore.configure(db: db)

@@ -84,9 +84,12 @@ struct ChannelInfoView: View {
         return channel.name
     }
 
+    private var isCuratedCategory: Bool {
+        channel.category == "Curated" || channel.category == "Curated Books"
+    }
+
     private var hasApprovedTracks: Bool {
-        channel.category == "Curated"
-            && !LiveCurationStore.shared.pool(for: channel.id).isEmpty
+        isCuratedCategory && !LiveCurationStore.shared.pool(for: channel.id).isEmpty
     }
 
     private var exportSlug: String {
@@ -140,7 +143,7 @@ struct ChannelInfoView: View {
             }
 
             // Curate this Channel (for user-curated or shipped channels)
-            if channel.category == "Curated",
+            if isCuratedCategory,
                CustomChannelsStore.shared.customChannels.contains(where: { $0.id == channel.id }) {
                 Section {
                     Button {
@@ -245,7 +248,7 @@ struct ChannelInfoView: View {
             guard let item else { return }
             Task {
                 if let data = try? await item.loadTransferable(type: Data.self),
-                   let image = UIImage(data: data) {
+                   UIImage(data: data) != nil {
                     saveChannelImage(data)
                 }
             }
