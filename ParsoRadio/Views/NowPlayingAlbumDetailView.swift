@@ -75,7 +75,7 @@ struct NowPlayingAlbumDetailView: View {
                                     .frame(width: 24, alignment: .trailing)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(track.title)
-                                        .font(.body).lineLimit(1)
+                                        .font(.body).lineLimit(3)
                                     Text(track.duration.formattedTime)
                                         .font(.caption).foregroundStyle(.secondary)
                                 }

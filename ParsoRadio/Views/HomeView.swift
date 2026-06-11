@@ -118,7 +118,7 @@ struct HomeView: View {
                         .environmentObject(playerVM)
                         .environmentObject(offlineService)
                 case .channelInfo(let ch):
-                    ChannelInfoView(channel: ch)
+                    ChannelInfoView(channel: ch, playerVM: playerVM)
                 case .channelCategory(let category):
                     channelCategoryView(for: category)
                 case .playlists:
@@ -538,12 +538,10 @@ struct HomeView: View {
     @ViewBuilder
     private func channelCategoryView(for category: String) -> some View {
         if category == "Curated" || category == "Curated Books" {
-            CuratedChannelsGrid(category: category, onSelectChannel: { channel in
+            CuratedChannelsGrid(playerVM: playerVM, playlistVM: playlistVM, category: category, onSelectChannel: { channel in
                 Task { await playerVM.load(channel: channel) }
                 showPlayer = true
             })
-            .environmentObject(playerVM)
-            .environmentObject(playlistVM)
         } else {
             ChannelGridSubView(category: category,
                                channels: channels(in: category),
@@ -849,10 +847,14 @@ struct ChannelGridSubView: View {
 // MARK: - Curated Channels Grid
 
 struct CuratedChannelsGrid: View {
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var playlistVM: PlaylistViewModel
+    // WARNING: playerVM and playlistVM must be `let`, NOT @EnvironmentObject.
+    // @EnvironmentObject triggers body recomputation when PlayerViewModel
+    // publishes (currentChannel changes during audition). That recompute
+    // cascade destabilizes .sheet(item:) on the curator screen, causing the
+    // curator to jump channels and lose verdicts. See CurationTests.
+    let playerVM: PlayerViewModel
+    let playlistVM: PlaylistViewModel
     @StateObject private var store = CustomChannelsStore.shared
-    @ObservedObject private var curationStore = LiveCurationStore.shared
 
     @State private var showNewChannel = false
     @State private var showCurateChannel: ChannelMeta?
@@ -952,7 +954,7 @@ struct CuratedChannelsGrid: View {
         .refreshable {
             discoveryTrack = nil
             discoveryChannel = nil
-            await curationStore.reload(from: playerVM.db)
+            await LiveCurationStore.shared.reload(from: playerVM.db)
             loadDiscovery()
         }
         .navigationTitle(category == "Curated" ? "Curated Music" : "Curated Books")
@@ -976,12 +978,9 @@ struct CuratedChannelsGrid: View {
         }
         .onAppear {
             Task {
-                await curationStore.reload(from: playerVM.db)
+                await LiveCurationStore.shared.reload(from: playerVM.db)
                 loadDiscovery()
             }
-        }
-        .onReceive(curationStore.objectWillChange) { _ in
-            DispatchQueue.main.async { loadDiscovery() }
         }
         .sheet(item: $showCurateChannel) { meta in
             CuratorChannelEditView(channelMeta: meta, playerVM: playerVM, onDismiss: { showCurateChannel = nil })
@@ -1054,7 +1053,7 @@ struct CuratedChannelsGrid: View {
             return
         }
         for channel in metas.shuffled() {
-            let pool = curationStore.pool(for: channel.id)
+            let pool = LiveCurationStore.shared.pool(for: channel.id)
             let candidates = category == "Curated Books"
                 ? pool.filter { $0.parentIdentifier != nil }
                 : pool
@@ -1443,7 +1442,6 @@ struct CuratedDiscoveryHeader: View {
 
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var playlistVM: PlaylistViewModel
-    @ObservedObject private var curationStore = LiveCurationStore.shared
 
     @State private var track: Track?
     @State private var channelName: String?
@@ -1502,7 +1500,7 @@ struct CuratedDiscoveryHeader: View {
         let metas = CustomChannelsStore.shared.orderedChannels()
             .filter { ids.contains($0.id) }
         guard let channel = metas.randomElement() else { return }
-        let pool = curationStore.pool(for: channel.id)
+        let pool = LiveCurationStore.shared.pool(for: channel.id)
         let candidates = filterCategory == "Curated Books"
             ? pool.filter { $0.parentIdentifier != nil }
             : pool

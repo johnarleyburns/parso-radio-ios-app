@@ -4,9 +4,9 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 2 For You + 18 Lectures + 12 Podcasts + 4 Ambient + 10 Curated
-        // + 21 Audiobooks (LibriVox) = 66.
-        XCTAssertEqual(Channel.defaults.count, 66)
+        // 2 For You + 18 Lectures + 12 Podcasts + 4 Ambient + 9 Curated
+        // + 5 Curated Books + 21 Audiobooks (LibriVox) = 71.
+        XCTAssertEqual(Channel.defaults.count, 71)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {
@@ -17,8 +17,8 @@ final class ChannelTests: XCTestCase {
         XCTAssertTrue(Channel.defaults.allSatisfy { $0.category != "Classical" },
             "No legacy Classical channels should remain")
         for ch in Channel.defaults where ch.preferredSource == "internet_archive" {
-            XCTAssertTrue(["Curated", "Audiobooks", "For You"].contains(ch.category),
-                "IA channel '\(ch.id)' must be Curated, Audiobooks or For You")
+            XCTAssertTrue(["Curated", "Curated Books", "Audiobooks", "For You"].contains(ch.category),
+                "IA channel '\(ch.id)' must be Curated, Curated Books, Audiobooks or For You")
             guard let entry = ch.iaQueryEntry else {
                 XCTFail("IA channel '\(ch.id)' must be registry-backed"); continue
             }
@@ -105,8 +105,8 @@ final class ChannelTests: XCTestCase {
 
     func testChildrensChannelsAreRegistryBackedAndSafe() {
         let books = Channel.defaults.first { $0.id == "childrens-books" }
-        XCTAssertEqual(books?.category, "Curated",
-            "Children's Books is a Curated channel (not just an Audiobook)")
+        XCTAssertTrue(books?.category == "Curated" || books?.category == "Curated Books",
+            "Children's Books is a Curated or Curated Books channel")
         XCTAssertEqual(books?.contentType, .spokenWord)
         let bq = books?.iaQueryEntry?.iaQuery ?? ""
         XCTAssertTrue(bq.contains("collection:librivoxaudio"),
@@ -137,7 +137,8 @@ final class ChannelTests: XCTestCase {
     func testCuratedBookChannelsAreExplicitAllowlists() {
         for id in ["great-books"] {
             let ch = Channel.defaults.first { $0.id == id }
-            XCTAssertEqual(ch?.category, "Curated", "\(id) must be Curated")
+            XCTAssertTrue(ch?.category == "Curated" || ch?.category == "Curated Books",
+                "\(id) must be Curated or Curated Books")
             XCTAssertEqual(ch?.contentType, .spokenWord)
             let q = ch?.iaQueryEntry?.iaQuery ?? ""
             XCTAssertTrue(q.contains("collection:librivoxaudio"),
@@ -164,8 +165,8 @@ final class ChannelTests: XCTestCase {
         XCTAssertEqual(ids, [
             "guitar-classical", "string-quartet",
             "symphony-orchestra", "piano-hour", "tribal-works", "cafe-lento",
-            "childrens-songs", "childrens-books",
-            "great-books"
+            "childrens-songs", "ajc-project",
+            "chamber-music"
         ])
         // Every Curated channel must be pure-Lucene registry-backed, and its
         // matchTag stamp must equal its own id (the isolation contract).
@@ -322,7 +323,7 @@ final class ChannelTests: XCTestCase {
     func testMainMenuCategoryOrder() {
         let order = MainMenuView.orderedCategories()
         XCTAssertEqual(order, ["Curated", "Ambient", "Podcasts",
-                               "Audiobooks", "Lectures"])
+                                "Audiobooks", "Curated Books", "Lectures"])
         XCTAssertFalse(order.contains("For You"),
             "For You channels live inside Playlists, not the top-level menu")
         // Every category in `order` must actually have at least one channel.

@@ -438,12 +438,54 @@ extension Channel {
             minTrackDuration: 60,   // drop sub-minute noise clips
             summary: "Family-friendly children's music — vintage nursery-rhyme 78s and curated kids' compilations. Content is filtered for a young audience."
         ),
+        // Aadam Jacobs Collection — classical guitar recordings from the
+        // Adam Jacobs Collection on IA (mainly solo guitar repertoire).
+        Channel(
+            id: "ajc-project", name: "AJC Project", category: "Curated",
+            icon: "guitars", tags: ["ajc-project"],
+            preferredSource: "internet_archive",
+            summary: "Classical guitar recordings from the Aadam Jacobs Collection — solo guitar repertoire by Sor, Giuliani, Bach, Villa-Lobos and others."
+        ),
+        // Chamber Music — string quartets, piano trios, wind quintets, etc.
+        Channel(
+            id: "chamber-music", name: "Chamber Music", category: "Curated",
+            icon: "music.quarternote.3", tags: ["chamber-music"],
+            preferredSource: "internet_archive",
+            summary: "Intimate chamber music — string quartets, piano trios, sonatas, and small ensemble works from the classical and romantic eras."
+        ),
         // Curated book channels — explicit author/work allowlists (LibriVox,
         Channel(
-            id: "great-books", name: "Great Books", category: "Curated",
+            id: "great-books", name: "Great Books", category: "Curated Books",
             icon: "books.vertical", tags: ["great-books"],
             contentType: .spokenWord, preferredSource: "internet_archive",
             summary: "The foundational works of philosophy, science and literature. Plays a book's first part; add the whole book to a playlist to continue."
+        ),
+        Channel(
+            id: "childrens-books", name: "Children's Books", category: "Curated Books",
+            icon: "books.vertical.fill", tags: ["childrens-books"],
+            contentType: .spokenWord, preferredSource: "internet_archive",
+            summary: "Classic children's literature from LibriVox — fairy tales, adventure stories, and beloved characters."
+        ),
+        // Curated Book — Ancient Greece: philosophy, history, plays, mythology
+        Channel(
+            id: "ancient-greece", name: "Ancient Greece", category: "Curated Books",
+            icon: "building.columns", tags: ["ancient-greece"],
+            contentType: .spokenWord, preferredSource: "internet_archive",
+            summary: "The works of ancient Greece — philosophy (Plato, Aristotle), history (Herodotus, Thucydides), drama (Sophocles, Euripides), and mythology (Homer, Hesiod) — read by LibriVox volunteers."
+        ),
+        // Curated Book — Classic Literature: most popular LibriVox downloads
+        Channel(
+            id: "classic-literature", name: "Classic Literature", category: "Curated Books",
+            icon: "text.book.closed", tags: ["classic-literature"],
+            contentType: .spokenWord, preferredSource: "internet_archive",
+            summary: "The most popular classic novels and stories from LibriVox — Austen, Dickens, Twain, Brontë, Dostoevsky, and more."
+        ),
+        // Curated Book — Most Popular: top LibriVox by all-time downloads
+        Channel(
+            id: "most-popular", name: "Most Popular", category: "Curated Books",
+            icon: "chart.line.uptrend.xyaxis", tags: ["most-popular"],
+            contentType: .spokenWord, preferredSource: "internet_archive",
+            summary: "The most-downloaded LibriVox audiobooks — top 200 by all-time downloads, refreshed on each load."
         ),
 
         // MARK: Audiobooks — LibriVox via pure-Lucene IA registry
@@ -525,12 +567,6 @@ extension Channel {
             id: "lv-poetry", name: "Poetry", category: "Audiobooks",
             icon: "text.quote", tags: ["lv-poetry"],
             contentType: .spokenWord, preferredSource: "internet_archive"
-        ),
-        Channel(
-            id: "childrens-books", name: "Children's Books", category: "Curated",
-            icon: "books.vertical.fill", tags: ["childrens-books"],
-            contentType: .spokenWord, preferredSource: "internet_archive",
-            summary: "Classic children's stories and fairy tales read aloud by LibriVox volunteers. Plays the first part of each book; add the whole book to a playlist to keep going."
         ),
         Channel(
             id: "lv-philosophy-mind", name: "Philosophy & Mind", category: "Audiobooks",

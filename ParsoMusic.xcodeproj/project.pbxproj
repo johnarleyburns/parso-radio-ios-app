@@ -87,6 +87,7 @@
 		56C07AE74C8A0AF0D6D3CC69 /* OfflineDownloadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB65F9F98F3AEE3ADFDD0D9C /* OfflineDownloadService.swift */; };
 		5820FD1966A172EAB7AC4205 /* CurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65A70B355173D018938808BC /* CurationTests.swift */; };
 		5887B9165B1DE83A5F0B6FF5 /* ChannelListScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80CF9F0405624E94CEB49E69 /* ChannelListScreen.swift */; };
+		59513F75A1CA2B52FF542870 /* CuratorChannelStabilityUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73CEA7874A90A22019F7BFDB /* CuratorChannelStabilityUITests.swift */; };
 		5D57151810B0CBFBED72064F /* LiveMusicOnThisDayService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 633A4E3748A0A1E00396E1C8 /* LiveMusicOnThisDayService.swift */; };
 		5DD80CFF492FB1232B061A3D /* OxfordLecturesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD420E3E901333A4D3B5173 /* OxfordLecturesService.swift */; };
 		5FC65B5A77472F1E207A2E94 /* ChannelListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BD2F9FC4A7D7F5317CBBDE5 /* ChannelListViewModel.swift */; };
@@ -348,6 +349,7 @@
 		72F574D4D0A469FE5C17CA50 /* InternetArchiveIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InternetArchiveIntegrationTests.swift; sourceTree = "<group>"; };
 		738B747069BDFF0D7E307EC4 /* AudioPlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerService.swift; sourceTree = "<group>"; };
 		73C5AEBDB5A582B018E2E4C0 /* ContributionToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributionToast.swift; sourceTree = "<group>"; };
+		73CEA7874A90A22019F7BFDB /* CuratorChannelStabilityUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CuratorChannelStabilityUITests.swift; sourceTree = "<group>"; };
 		74AFA50F58F0D7D00F231823 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		74DB30E39BA5D529C7D77651 /* AgeAssuranceServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgeAssuranceServiceTests.swift; sourceTree = "<group>"; };
 		757A78446FCB2410EF1A1F18 /* ContiguousFileCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContiguousFileCache.swift; sourceTree = "<group>"; };
@@ -887,6 +889,7 @@
 				3AC17078A324F84AE9DF9B95 /* ClickWheelUITests.swift */,
 				C069B5B1E2A189E88F09A857 /* CuratedDiscoveryUITests.swift */,
 				DD67EF05FFF99D16D948F1F4 /* CurationUITests.swift */,
+				73CEA7874A90A22019F7BFDB /* CuratorChannelStabilityUITests.swift */,
 				49009BD3557DA38A2154E000 /* ImageDisplayUITests.swift */,
 				D2B4F0FB209DE025D791D60A /* LiveMusicOnThisDayUITests.swift */,
 				A0638D5F50BA788FC4D96EAA /* PodcastUITests.swift */,
@@ -896,7 +899,7 @@
 			path = ParsoRadio/UITests;
 			sourceTree = "<group>";
 		};
-		"TEMP_B4B319CC-FDF7-409B-B7BC-06B08A62228D" /* Integration */ = {
+		"TEMP_F26CE3B1-206E-4EB7-8B1A-FA79F87C54B6" /* Integration */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1283,6 +1286,7 @@
 				CEF5B15C177E7156B9BFB8DD /* ClickWheelUITests.swift in Sources */,
 				BAD8E347EEE13D9D95CCBB3F /* CuratedDiscoveryUITests.swift in Sources */,
 				45B3A5211CDFB2360EAE1845 /* CurationUITests.swift in Sources */,
+				59513F75A1CA2B52FF542870 /* CuratorChannelStabilityUITests.swift in Sources */,
 				51673E4595F65CF84EA222E2 /* ImageDisplayUITests.swift in Sources */,
 				1F5C1A40BAFB0F46903FA961 /* LiveMusicOnThisDayUITests.swift in Sources */,
 				696E2985E6A9DB6AD2DCB782 /* PodcastUITests.swift in Sources */,

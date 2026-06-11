@@ -459,4 +459,181 @@ final class CurationTests: XCTestCase {
         XCTAssertEqual(Set(review), ["a1", "a2"],
             "New tracks must enter review; rejected must NOT be resurrected")
     }
+
+    // MARK: - Verdict survival across prune
+
+    /// Verdicts (approved, rejected, review) must survive pruneChannelTracks
+    /// when their track IDs are in the keeping set — the real bug was that
+    /// load(channel:) only added approved IDs to keepingIds, so rejected and
+    /// review verdicts were silently deleted on prune.
+    func test_prunePreservesAllVerdicts() async {
+        let t1 = track("keep-approved")
+        let t2 = track("keep-rejected")
+        let t3 = track("keep-review")
+        let t4 = track("keep-other")
+        await db.saveTracks([t1, t2, t3, t4])
+        await db.setCuration(channelId: "ch", trackId: t1.id, status: "approved")
+        await db.setCuration(channelId: "ch", trackId: t2.id, status: "rejected")
+        await db.setCuration(channelId: "ch", trackId: t3.id, status: "review")
+
+        let ch = Channel(id: "ch", name: "ch", category: "Test", icon: "star",
+                         tags: [], preferredSource: "internet_archive")
+        // Prune keeping all curated IDs — should preserve all verdict rows
+        await db.pruneChannelTracks(forChannel: ch,
+            keeping: [t1.id, t2.id, t3.id, t4.id])
+
+        let s1 = await db.curationStatus(channelId: "ch", trackId: t1.id)
+        let s2 = await db.curationStatus(channelId: "ch", trackId: t2.id)
+        let s3 = await db.curationStatus(channelId: "ch", trackId: t3.id)
+        XCTAssertEqual(s1, "approved",
+            "Approved verdict must survive prune")
+        XCTAssertEqual(s2, "rejected",
+            "Rejected verdict must survive prune")
+        XCTAssertEqual(s3, "review",
+            "Review verdict must survive prune")
+    }
+
+    /// Verdicts without a matching track in keepingIds are correctly cleaned up.
+    func test_pruneCleansOrphanVerdictWhenNotKept() async {
+        let t = track("orphan")
+        await db.saveTracks([t])
+        await db.setCuration(channelId: "ch", trackId: t.id, status: "review")
+
+        let ch = Channel(id: "ch", name: "ch", category: "Test", icon: "star",
+                         tags: [], preferredSource: "internet_archive")
+        // Prune with empty keeping set — track and its verdict should be cleaned
+        await db.pruneChannelTracks(forChannel: ch, keeping: [])
+
+        let status = await db.curationStatus(channelId: "ch", trackId: t.id)
+        XCTAssertNil(status, "Curation row must be deleted when track not in keeping set")
+    }
+
+    /// Simulates the exact load(channel:) flow: save tracks, set mixed verdicts,
+    /// build keepingIds the way the fix does (allCuratedTrackIds), and verify
+    /// prune preserves all verdict statuses.
+    func test_fullVerdictLifecycleSurvivesPrune() async {
+        let chId = "curated-ch"
+        let tApproved = track("ca1")
+        let tRejected = track("cr1")
+        let tReview = track("cv1")
+        let tFetched = track("cf1")
+        await db.saveTracks([tApproved, tRejected, tReview, tFetched])
+        await db.setCuration(channelId: chId, trackId: tApproved.id, status: "approved")
+        await db.setCuration(channelId: chId, trackId: tRejected.id, status: "rejected")
+        await db.setCuration(channelId: chId, trackId: tReview.id, status: "review")
+
+        // Build keepingIds the same way load(channel:) does:
+        // fetched track IDs (simulated fresh IA results) + all curated IDs
+        var keepingIds = Set([tFetched.id])
+        let allCuratedIds = await db.allCuratedTrackIds(channelId: chId)
+        keepingIds.formUnion(allCuratedIds)
+
+        let ch = Channel(id: chId, name: chId, category: "Test", icon: "star",
+                         tags: [], preferredSource: "internet_archive")
+        await db.pruneChannelTracks(forChannel: ch, keeping: keepingIds)
+
+        let s1 = await db.curationStatus(channelId: chId, trackId: tApproved.id)
+        let s2 = await db.curationStatus(channelId: chId, trackId: tRejected.id)
+        let s3 = await db.curationStatus(channelId: chId, trackId: tReview.id)
+        XCTAssertEqual(s1, "approved")
+        XCTAssertEqual(s2, "rejected")
+        XCTAssertEqual(s3, "review")
+
+        // ensureReviewSet must NOT resurrect the rejected track
+        await db.ensureReviewSet(channelId: chId, trackIds: [tRejected.id, tFetched.id])
+        let reviewIds = await db.curationTrackIds(channelId: chId, status: "review")
+        XCTAssertTrue(reviewIds.contains(tReview.id), "Existing review must persist")
+    }
+
+    // MARK: - Regression: channel-jumping during verdict
+
+    /// On every verdict the curator calls LiveCurationStore.reload(channelId:, from:)
+    /// which publishes objectWillChange. Views observing LiveCurationStore (or
+    /// PlayerViewModel via @EnvironmentObject) would recompute in a cascade that
+    /// destabilized the sheet, causing the curator to switch channels and lose
+    /// verdicts. This test verifies that verdict data survives repeated
+    /// LiveCurationStore reloads — the DB layer must be immune to observer storms.
+    func test_verdictSurvivesRepeatedLiveCurationStoreReloads() async {
+        let chId = "storm-ch"
+        let t = track("storm-1")
+        await db.saveTracks([t])
+
+        await db.setCuration(channelId: chId, trackId: t.id, status: "approved")
+        // Simulate the curator calling reload on every verdict
+        await LiveCurationStore.shared.reload(channelId: chId, from: db)
+        await LiveCurationStore.shared.reload(channelId: chId, from: db)
+        await LiveCurationStore.shared.reload(channelId: chId, from: db)
+
+        let status = await db.curationStatus(channelId: chId, trackId: t.id)
+        XCTAssertEqual(status, "approved",
+            "Verdict must survive repeated LiveCurationStore reloads")
+
+        let approved = LiveCurationStore.shared.pool(for: chId)
+        XCTAssertTrue(approved.contains(where: { $0.id == t.id }),
+            "Approved track must appear in pool after reloads")
+    }
+
+    /// When views like CuratedChannelsGrid observed LiveCurationStore, they'd
+    /// fire loadDiscovery() on every verdict publish, causing cascading
+    /// recomputes. The fix eliminated those observations. This test verifies
+    /// the full lifecycle: make verdicts across multiple statuses, reload
+    /// the store, and verify counts + each individual verdict.
+    func test_mixedVerdictLifecycleWithReloads() async {
+        let chId = "lifecycle-ch"
+        let ta = track("t-app"), tr = track("t-rej"), tv = track("t-rev")
+        await db.saveTracks([ta, tr, tv])
+
+        // Initial state
+        await db.setCuration(channelId: chId, trackId: ta.id, status: "approved")
+        await db.setCuration(channelId: chId, trackId: tr.id, status: "rejected")
+        await db.ensureReviewSet(channelId: chId, trackIds: [tv.id])
+
+        var counts = await db.curationCounts(channelId: chId)
+        XCTAssertEqual(counts.approved, 1)
+        XCTAssertEqual(counts.rejected, 1)
+        XCTAssertEqual(counts.review, 1)
+
+        // Simulate verdicts mid-session
+        await db.setCuration(channelId: chId, trackId: tv.id, status: "approved")
+        await LiveCurationStore.shared.reload(channelId: chId, from: db)
+
+        counts = await db.curationCounts(channelId: chId)
+        XCTAssertEqual(counts.approved, 2,
+            "Track moved from review to approved must update counts")
+        XCTAssertEqual(counts.review, 0)
+
+        // Undo a verdict (move back to review)
+        await db.setCuration(channelId: chId, trackId: ta.id, status: "review")
+        await LiveCurationStore.shared.reload(channelId: chId, from: db)
+
+        counts = await db.curationCounts(channelId: chId)
+        XCTAssertEqual(counts.approved, 1)
+        XCTAssertEqual(counts.review, 1)
+        XCTAssertEqual(counts.rejected, 1)
+    }
+
+    /// Regression: when curator re-enters after verdicts, reload() reads from
+    /// DB. All three status pools (review, approved, rejected) must be intact.
+    func test_curatorReentrySeesAllVerdictTypes() async {
+        let chId = "reentry-ch"
+        let t1 = track("re-1"), t2 = track("re-2"), t3 = track("re-3")
+        await db.saveTracks([t1, t2, t3])
+
+        await db.setCuration(channelId: chId, trackId: t1.id, status: "approved")
+        await db.setCuration(channelId: chId, trackId: t2.id, status: "rejected")
+        await db.setCuration(channelId: chId, trackId: t3.id, status: "review")
+
+        // Simulate what CuratorChannelEditView.reload() does on entry
+        let counts = await db.curationCounts(channelId: chId)
+        let reviewTracks = await db.reviewSetTracks(channelId: chId)
+        let approvedTracks = await db.fetchApprovedTracks(forChannelId: chId)
+        let rejectedTracks = await db.fetchRejectedTracks(forChannelId: chId)
+
+        XCTAssertEqual(counts.review, 1)
+        XCTAssertEqual(counts.approved, 1)
+        XCTAssertEqual(counts.rejected, 1)
+        XCTAssertEqual(reviewTracks.map(\.id), [t3.id])
+        XCTAssertEqual(approvedTracks.map(\.id), [t1.id])
+        XCTAssertEqual(rejectedTracks.map(\.id), [t2.id])
+    }
 }

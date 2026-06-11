@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "ajc-project",
+    "name": "AJC Project",
+    "icon": "guitars",
+    "iaQuery": "collection:aadamjacobs AND mediatype:audio"
+  },
+  "updatedAt": "2026-06-09",
+  "approved": [],
+  "rejected": []
+}

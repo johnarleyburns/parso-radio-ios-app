@@ -699,7 +699,8 @@ struct CuratorChannelEditView: View {
             .onChange(of: showSearchAdd) { _, shown in
                 if !shown { Task { await reload() } }
             }
-            .onDisappear { playerVM.stopAudition() }
+            .onDisappear { playerVM.stopAudition(); playerVM.audioPlayer.throttleTimer = false }
+            .onAppear { playerVM.audioPlayer.throttleTimer = true }
             .onChange(of: scenePhase) { _, phase in
                 if phase != .active { playerVM.stopAudition() }
             }
@@ -788,11 +789,52 @@ struct CuratorChannelEditView: View {
             } message: {
                 Text("This removes all \(counts.review) tracks from the review queue. Approved and rejected verdicts are preserved.")
             }
+            .safeAreaInset(edge: .bottom) {
+                if playerVM.currentTrack != nil {
+                    miniPlayer
+                }
+            }
         }
     }
 
     private var runtimeChannel: Channel {
         CustomChannelsStore.shared.runtimeChannel(from: channelMeta)
+    }
+
+    // MARK: - Miniplayer
+
+    @ViewBuilder
+    private var miniPlayer: some View {
+        if let track = playerVM.currentTrack {
+            Button {
+                onDismiss()
+            } label: {
+                HStack(spacing: 12) {
+                    ArtworkThumbnail(track: track, size: 40)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(track.title)
+                            .font(.subheadline).fontWeight(.semibold).lineLimit(1)
+                        Text(track.artist)
+                            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    Spacer()
+                    Button {
+                        playerVM.togglePlayPause()
+                    } label: {
+                        Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 22))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(playerVM.isPlaying ? "Pause" : "Play")
+                }
+                .padding(.horizontal, 14).padding(.vertical, 8)
+                .background(.thinMaterial)
+                .overlay(Rectangle().frame(height: 0.5).foregroundStyle(.separator), alignment: .top)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     // MARK: - Review row (with undo support)

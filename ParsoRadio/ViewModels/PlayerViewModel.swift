@@ -83,6 +83,9 @@ final class PlayerViewModel: ObservableObject {
     private var lastPositionSaveTime: Double = -5
     // Throttle @Published currentPosition to 2×/s to reduce cascading recomputation.
     private var lastPositionPublishTime: Double = -1
+    // Throttle audition stall-model confirmations to 1 Hz so the 4×/s main-queue
+    // timer doesn't interrupt curator List scrolling with unnecessary work.
+    private var lastAuditionStallConfirm: Double = 0
     // Timestamp of the most recent scrub movement. The scrub guard in
     // onTimeUpdate auto-expires off this so an interrupted drag (whose .onEnded
     // never fired) can't latch isScrubbing true and freeze the timer / strand
@@ -298,37 +301,28 @@ final class PlayerViewModel: ObservableObject {
         audioPlayer.onTimeUpdate = { [weak self] seconds in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                // A periodic time tick only fires while the player is actually
-                // progressing (never while buffering/stalled), so any tick means
-                // THIS track is genuinely playing — confirm it (which also breaks
-                // the consecutive-stall streak; a mere resolve must NOT reset it).
-                //
-                // GUARD: AVPlayer's addPeriodicTimeObserver fires on a TIMER
-                // (every 0.25 s), NOT based on audio progress. A stuck/buffering
-                // item can fire with seconds == 0.0 indefinitely. Without this
-                // guard, a zero-second tick permanently disarms the stall
-                // watchdog (confirmPlayback sets confirmedGeneration, and
-                // evaluateStall then always returns .healthy), causing the
-                // "spins forever" bug on unplayable IA tracks (e.g. Navarra).
+                // AVPlayer's addPeriodicTimeObserver fires every 0.25 s on the
+                // main queue even when paused. During audition (curator reviewing)
+                // throttle to 1 Hz so scroll rendering isn't interrupted 4×/s.
+                if self.isAuditioning {
+                    let now = Date().timeIntervalSince1970
+                    if now - self.lastAuditionStallConfirm < 1.0 { return }
+                    self.lastAuditionStallConfirm = now
+                    if seconds > 0 {
+                        self.stallModel.confirmPlayback(generation: self.stallModel.loadGeneration)
+                    }
+                    return
+                }
                 if seconds > 0 {
                     self.stallModel.confirmPlayback(generation: self.stallModel.loadGeneration)
                 }
                 // The first time tick PAST zero means audio is genuinely
-                // progressing — hide the loading indicator. This MUST run even
-                // while isScrubbing: an interrupted wheel drag could otherwise
-                // strand "Buffering…" on a track that is actually playing. (The
-                // observer can fire once at 0 before playback actually starts,
-                // so the >0.1 guard avoids clearing too early.)
+                // progressing — hide the loading indicator.
                 if self.isLoading, seconds > 0.1 {
                     self.isLoading = false
                     self.loadingMessage = nil
                 }
-                // Self-healing scrub guard: while the user is ACTIVELY scrubbing
-                // (recent movement) the scrub owns currentPosition, so skip the
-                // player's reported time. But if the gesture's .onEnded never
-                // fired (cancelled by a sheet / track change / re-render) the
-                // flag would latch and freeze the timer forever — so it expires
-                // shortly after the last scrub movement.
+                // Self-healing scrub guard.
                 if self.isScrubbing {
                     if Date().timeIntervalSince(self.lastScrubActivity) < 0.6 { return }
                     self.isScrubbing = false
@@ -339,10 +333,7 @@ final class PlayerViewModel: ObservableObject {
                 }
                 let dur = self.audioPlayer.duration
                 if self.trackDuration != dur { self.trackDuration = dur }
-                // (minTrackDuration is enforced invisibly in advanceToNext via
-                // assetDuration pre-screening, before the track is revealed.)
-                // Persist position so the user resumes EXACTLY where they were —
-                // for every channel type (not just spoken-word) and playlists.
+                // Persist position so the user resumes EXACTLY where they were.
                 // Throttled: write DB at most once every 5 s (timer fires 4×/s).
                 if let track = self.currentTrack,
                    self.currentChannel?.contentType != .ambientLoop,
@@ -361,7 +352,6 @@ final class PlayerViewModel: ObservableObject {
                 }
             }
         }
-
     }
 
     convenience init(deps: AppDependencies) {
@@ -1328,6 +1318,7 @@ final class PlayerViewModel: ObservableObject {
         errorMessage = nil
         playbackContextToken &+= 1   // invalidate any in-flight playTrack
         isAuditioning = false
+        audioPlayer.isAuditioning = false
 
         // Restore the pre-audition playback context so the user resumes
         // exactly where they were before entering curation / search.
@@ -1797,6 +1788,7 @@ final class PlayerViewModel: ObservableObject {
             )
         }
         isAuditioning = true
+        audioPlayer.isAuditioning = true
         currentChannel = nil
         currentPlaylist = nil
         playlistTracks = []

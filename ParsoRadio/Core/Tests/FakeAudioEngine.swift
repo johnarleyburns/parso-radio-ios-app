@@ -16,6 +16,8 @@ final class FakeAudioEngine: AudioEngine {
     private(set) var duration: Double?
     var playbackRate: Float = 1.0
     var repeatMode: AudioPlayerService.RepeatMode = .off
+    var isAuditioning: Bool = false
+    var throttleTimer: Bool = false
 
     var onReady: ((Double) -> Void)?
     var onTimeUpdate: ((Double) -> Void)?

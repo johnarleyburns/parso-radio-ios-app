@@ -114,7 +114,7 @@ struct MainMenuView: View {
                         .environmentObject(playerVM)
                         .environmentObject(offlineService)
                 case .channelInfo(let ch):
-                    ChannelInfoView(channel: ch)
+                    ChannelInfoView(channel: ch, playerVM: playerVM)
                 case .channelList(let category):
                     if category == "Curated" {
                         CuratedChannelsListView(

@@ -222,5 +222,40 @@
     "matchTags": [
       "great-books"
     ]
+  },
+  {
+    "channelId": "ancient-greece",
+    "iaQuery": "collection:librivoxaudio AND language:(eng OR english) AND (subject:\"ancient greece\" OR subject:\"greek philosophy\" OR subject:\"greek history\" OR subject:\"greek mythology\" OR subject:\"greek drama\" OR creator:\"Plato\" OR creator:\"Aristotle\" OR creator:\"Homer\" OR creator:\"Sophocles\" OR creator:\"Euripides\" OR creator:\"Herodotus\" OR creator:\"Thucydides\" OR creator:\"Hesiod\" OR creator:\"Aeschylus\" OR creator:\"Aristophanes\" OR creator:\"Xenophon\" OR creator:\"Pindar\" OR creator:\"Sappho\")",
+    "matchTags": [
+      "ancient-greece"
+    ]
+  },
+  {
+    "channelId": "classic-literature",
+    "iaQuery": "collection:librivoxaudio AND language:(eng OR english)",
+    "matchTags": [
+      "classic-literature"
+    ]
+  },
+  {
+    "channelId": "most-popular",
+    "iaQuery": "collection:librivoxaudio AND language:(eng OR english)",
+    "matchTags": [
+      "most-popular"
+    ]
+  },
+  {
+    "channelId": "ajc-project",
+    "iaQuery": "collection:aadamjacobs AND mediatype:audio",
+    "matchTags": [
+      "ajc-project"
+    ]
+  },
+  {
+    "channelId": "chamber-music",
+    "iaQuery": "mediatype:audio AND (subject:\"chamber music\" OR subject:\"string quartet\" OR subject:\"piano trio\" OR subject:\"wind quintet\" OR subject:\"violin sonata\" OR subject:\"cello sonata\" OR subject:\"piano quartet\") AND NOT (subject:interview OR subject:lecture OR subject:vocal OR subject:jazz)",
+    "matchTags": [
+      "chamber-music"
+    ]
   }
 ]

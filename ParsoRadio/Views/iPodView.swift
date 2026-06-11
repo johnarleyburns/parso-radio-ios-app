@@ -13,6 +13,7 @@ struct NowPlayingScreen: View {
     @State private var sleepTimerNow: Date = Date()
     private static let sleepTimerOptions: [Int] = [15, 30, 45, 60]
     @State private var showChannelInfo = false
+    @State private var channelInfoTarget: Channel?
     @State private var showAlbumInfo = false
     @State private var showTrackAlbumInfo = false
     @State private var trackAlbumTitle = ""
@@ -23,6 +24,7 @@ struct NowPlayingScreen: View {
     @State private var showMoreOptions = false
     @State private var showFullMetadata = false
     @State private var isCurrentTrackFavorite = false
+    @State private var enrichedMeta: TrackMetadata?
     @ObservedObject private var kids = KidsModeController.shared
     @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
     @AppStorage("supporterBadgeHidden") private var supporterBadgeHidden = false
@@ -51,7 +53,7 @@ struct NowPlayingScreen: View {
     }
 
     private var titleText: String {
-        playerVM.currentPlaylist?.name ?? playerVM.currentChannel?.name ?? ""
+        playerVM.currentPlaylist?.name ?? playerVM.currentChannel?.name ?? playerVM.channelDescription
     }
 
     @ScaledMetric(relativeTo: .title3)      private var mainBoldSize: CGFloat = 19
@@ -99,6 +101,7 @@ struct NowPlayingScreen: View {
                     if !isAmbientLoop {
                         if playerVM.currentChannel != nil {
                             Button {
+                                channelInfoTarget = displayChannel
                                 showChannelInfo = true
                             } label: {
                                 HStack(spacing: 6) {
@@ -173,7 +176,9 @@ struct NowPlayingScreen: View {
         }
         .sheet(isPresented: $showChannelInfo) {
             NavigationStack {
-                ChannelInfoView(channel: displayChannel)
+                if let ch = channelInfoTarget {
+                    ChannelInfoView(channel: ch, playerVM: playerVM)
+                }
             }
         }
         .sheet(isPresented: $showAlbumInfo) {
@@ -554,6 +559,14 @@ struct NowPlayingScreen: View {
                         if let date = track.bestDate {
                             SharedViews.infoRow(track.dateLabel, date.formatted(.dateTime.year().month().day()))
                         }
+                        if let meta = enrichedMeta {
+                            if let work = meta.workTitle { SharedViews.infoRow("Work", work) }
+                            if let performer = meta.performer { SharedViews.infoRow("Performer", performer) }
+                            if let composer = meta.composer, composer != track.composer { SharedViews.infoRow("Composer (enriched)", composer) }
+                            if let catNo = meta.catalogNumber { SharedViews.infoRow("Catalog No.", catNo) }
+                            if let bio = meta.authorBio, !bio.isEmpty { SharedViews.infoRow("Author Bio", bio) }
+                            if !meta.genreTags.isEmpty { SharedViews.infoRow("Genres", meta.genreTags.joined(separator: ", ")) }
+                        }
                         DisclosureGroup("Full Metadata", isExpanded: $showFullMetadata) {
                             ForEach(fullMetadata(track), id: \.0) { pair in
                                 SharedViews.infoRow(pair.0, pair.1)
@@ -665,6 +678,9 @@ struct NowPlayingScreen: View {
             .task(id: playerVM.currentTrack?.id) {
                 if let t = playerVM.currentTrack {
                     isCurrentTrackFavorite = await playlistVM.isInFavorites(t)
+                    enrichedMeta = await playerVM.db.fetchTrackMetadata(trackID: t.id)
+                } else {
+                    enrichedMeta = nil
                 }
             }
         }
@@ -824,15 +840,16 @@ struct NowPlayingScreen: View {
         }
         add("Item", track.parentIdentifier)
         if let multi = track.isMultiPart { add("Multi-part item", multi ? "Yes" : "No") }
-        if !track.tags.isEmpty { add("Tags", track.tags.joined(separator: ", ")) }
+        if !track.tags.isEmpty { add("Subjects", track.tags.joined(separator: ", ")) }
         if !track.instruments.isEmpty { add("Instruments", track.instruments.joined(separator: ", ")) }
         if track.rawCreator != track.artist { add("Raw creator", track.rawCreator) }
         if let added = track.addedDate { add("Added", added.formatted(.dateTime.year().month().day())) }
         if let rec = track.recordingDate { add("Recorded", rec.formatted(.dateTime.year().month().day())) }
+        if let downloadURL = track.downloadURL { add("Download URL", downloadURL.absoluteString) }
+        if track.localFilePath != nil { add("Downloaded", "Yes") }
         add("Quality score", String(format: "%.2f", track.qualityScore))
         add("Metadata confidence", String(format: "%.2f", track.metadataConfidence))
         add("Stream URL", track.streamURL.absoluteString)
-        add("Local file", track.localFilePath)
         return rows
     }
 

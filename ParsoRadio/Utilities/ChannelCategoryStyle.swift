@@ -5,6 +5,7 @@ enum ChannelCategoryStyle {
         switch category {
         case "Classical":    return Color(red: 0.42, green: 0.20, blue: 0.80)
         case "Audiobooks":   return Color(red: 0.55, green: 0.35, blue: 0.10)
+        case "Curated Books":return Color(red: 0.40, green: 0.15, blue: 0.25)
         case "Contemporary": return Color(red: 0.20, green: 0.40, blue: 0.20)
         case "Lectures":     return Color(red: 0.00, green: 0.13, blue: 0.28)
         case "Podcasts":      return Color(red: 0.10, green: 0.20, blue: 0.40)
@@ -34,6 +35,9 @@ enum ChannelCategoryStyle {
         case "Ambient":
             top = Color(red: 0.08, green: 0.38, blue: 0.28)
             bottom = Color(red: 0.18, green: 0.58, blue: 0.42)
+        case "Curated Books":
+            top = Color(red: 0.40, green: 0.15, blue: 0.25)
+            bottom = Color(red: 0.55, green: 0.25, blue: 0.38)
         default:
             top = Color.gray
             bottom = Color.gray.opacity(0.6)
@@ -45,6 +49,7 @@ enum ChannelCategoryStyle {
         switch category {
         case "Playlists":     return "music.note.list"
         case "Curated":       return "star.fill"
+        case "Curated Books": return "books.vertical.fill"
         case "Ambient":       return "leaf.fill"
         case "Podcasts":          return "newspaper.fill"
         case "Audiobooks":    return "book.fill"

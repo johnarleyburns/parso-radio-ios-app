@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "channel": {
+    "id": "most-popular",
+    "name": "Most Popular",
+    "icon": "chart.line.uptrend.xyaxis",
+    "iaQuery": "collection:librivoxaudio AND language:(eng OR english)"
+  },
+  "updatedAt": "2026-06-10",
+  "approved": [],
+  "rejected": []
+}

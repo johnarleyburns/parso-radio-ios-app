@@ -54,8 +54,10 @@ extension ChannelExport: Transferable {
 /// determine what the channel plays (category, content type, source).
 struct ChannelInfoView: View {
     let channel: Channel
+    // WARNING: playerVM must be `let`, NOT @EnvironmentObject.
+    // See identical warning on CuratedChannelsGrid in HomeView.swift.
+    let playerVM: PlayerViewModel
 
-    @EnvironmentObject var playerVM: PlayerViewModel
     @State private var showCurator = false
     @State private var showIconPicker = false
     @State private var showImagePicker = false
@@ -67,8 +69,9 @@ struct ChannelInfoView: View {
     @State private var currentIcon: String
     @State private var localImageURL: String?
 
-    init(channel: Channel) {
+    init(channel: Channel, playerVM: PlayerViewModel) {
         self.channel = channel
+        self.playerVM = playerVM
         _currentIcon = State(initialValue: channel.icon)
         _localImageURL = State(initialValue: channel.imageURL)
     }
