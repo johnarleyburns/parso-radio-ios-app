@@ -171,12 +171,11 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     private func seedBuiltInPlaylists() {
         let count = (try? db.scalar(playlists.count)) ?? 0
         if count == 0 {
-            // Fresh DB: seed all four built-in playlists.
+            // Fresh DB: seed all three built-in playlists.
             let builtins: [(name: String, type: PlaylistType)] = [
                 ("Favorite Tracks", .tracks),
                 ("Favorite Albums", .album),
                 ("Favorite Books", .book),
-                ("Favorite Chapters", .chapter),
             ]
             for (name, type) in builtins {
                 let p = Playlist.new(name: name, isFavorites: true, type: type)
@@ -221,7 +220,6 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
             ("Favorite Tracks", .tracks),
             ("Favorite Albums", .album),
             ("Favorite Books", .book),
-            ("Favorite Chapters", .chapter),
         ]
         for (name, type) in builtins where !existingNames.contains(name) {
             let p = Playlist.new(name: name, isFavorites: true, type: type)
