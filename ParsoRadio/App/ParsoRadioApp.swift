@@ -14,6 +14,7 @@ struct ParsoMusicApp: App {
         let db = makeSharedDB()
         let dm = DownloadManager(db: db)
         let audioPlayer = AudioPlayerService()
+        let favStore = FavoritesStore(db: db)
         let deps = AppDependencies(
             db: db,
             downloadManager: dm,
@@ -30,7 +31,8 @@ struct ParsoMusicApp: App {
             iaQueryRegistry: .shared,
             curationManifestStore: .shared,
             networkMonitor: .shared,
-            ageAssuranceService: .shared
+            ageAssuranceService: .shared,
+            favoritesStore: favStore
         )
         AppIntentBridge.shared.playerVM = nil
         deps.podcastStore.configure(db: db)
@@ -51,6 +53,8 @@ struct ParsoMusicApp: App {
     @StateObject private var playlistVM: PlaylistViewModel = {
         PlaylistViewModel(db: ParsoMusicApp.deps.db)
     }()
+
+    @StateObject private var favorites = FavoritesStore(db: ParsoMusicApp.deps.db)
 
     @StateObject private var contributions =
         ContributionCoordinator(store: ParsoMusicApp.deps.contributionStore)
@@ -92,12 +96,14 @@ struct ParsoMusicApp: App {
                             .environmentObject(playlistVM)
                             .environmentObject(Self.deps.offlineService)
                             .environmentObject(Self.deps)
+                            .environmentObject(favorites)
                     } else {
                         HomeView()
                             .environmentObject(playerVM)
                             .environmentObject(playlistVM)
                             .environmentObject(Self.deps.offlineService)
                             .environmentObject(Self.deps)
+                            .environmentObject(favorites)
                     }
                 } else {
                     Color(.systemGroupedBackground).ignoresSafeArea()
@@ -177,6 +183,7 @@ struct KidsHomeView: View {
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
     @EnvironmentObject var deps: AppDependencies
+    @EnvironmentObject var favorites: FavoritesStore
     @ObservedObject private var kids = KidsModeController.shared
     @State private var showExitPin = false
     @State private var pinEntry = ""
@@ -268,6 +275,7 @@ struct KidsHomeView: View {
                 .environmentObject(playerVM)
                 .environmentObject(playlistVM)
                 .environmentObject(offlineService)
+                .environmentObject(favorites)
         }
         .task {
             let lastId = UserDefaults.standard.string(forKey: "lastChannelId")

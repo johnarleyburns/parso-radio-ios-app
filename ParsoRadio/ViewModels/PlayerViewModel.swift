@@ -1572,6 +1572,67 @@ final class PlayerViewModel: ObservableObject {
         await playTrack(ordered[0], seekTo: nil, recordHistory: false)
     }
 
+    func playSingleTrack(_ track: Track, seekTo: Double? = nil) async {
+        saveAutosaveForCurrentTrack()
+        if currentChannel?.feedURL != nil {
+            currentChannel = nil
+        }
+        currentPlaylist = nil
+        playlistTracks = []
+        playlistIndex = 0
+        playbackContextToken &+= 1
+        playHistory = []
+        await playTrack(track, seekTo: seekTo, recordHistory: false)
+    }
+
+    func playSequentialTracks(_ tracks: [Track]) async {
+        guard !tracks.isEmpty else { return }
+        saveAutosaveForCurrentTrack()
+        let tempPlaylist = Playlist(
+            id: "fav-seq:\(UUID().uuidString)",
+            name: "Favorites",
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFavorites: false,
+            isKidSafe: false
+        )
+        currentChannel = nil
+        currentPlaylist = tempPlaylist
+        playlistTracks = tracks
+        playlistIndex = 0
+        playbackContextToken &+= 1
+        playHistory = []
+        channelDescription = "Favorites"
+        await playTrack(tracks[0], seekTo: nil, recordHistory: false)
+    }
+
+    func playShuffledTracks(_ tracks: [Track]) async {
+        guard !tracks.isEmpty else { return }
+        let shuffled = tracks.shuffled()
+        await playSequentialTracks(shuffled)
+    }
+
+    func playSequentialItem(parts: [Track], startingAt: Track, seekTo: Double) async {
+        guard !parts.isEmpty else { return }
+        saveAutosaveForCurrentTrack()
+        let tempPlaylist = Playlist(
+            id: "fav-item:\(UUID().uuidString)",
+            name: startingAt.title,
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFavorites: false,
+            isKidSafe: false
+        )
+        currentChannel = nil
+        currentPlaylist = tempPlaylist
+        playlistTracks = parts
+        playlistIndex = parts.firstIndex(where: { $0.id == startingAt.id }) ?? 0
+        playbackContextToken &+= 1
+        playHistory = []
+        channelDescription = startingAt.title
+        await playTrack(startingAt, seekTo: seekTo, recordHistory: false)
+    }
+
     // One-tap: create a playlist named after the book/album and add every
     // part to it in order. Smoother than the picker for a fresh shelf.
     @discardableResult

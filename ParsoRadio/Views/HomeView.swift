@@ -7,6 +7,7 @@ enum HomeRoute: Hashable {
     case channelInfo(Channel)
     case channelCategory(String)
     case playlists
+    case favorites
     case recentlyPlayed
     case settings
     case about
@@ -18,6 +19,7 @@ struct HomeView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
+    @EnvironmentObject var favorites: FavoritesStore
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @State private var path: [HomeRoute] = []
@@ -38,6 +40,9 @@ struct HomeView: View {
     @State private var liveDetailTracks: [Track] = []
     @State private var liveDetailTitle = ""
     @State private var liveDetailParentId: String?
+    @State private var liveDetailLoading = false
+    @State private var showLiveDetailError = false
+    @State private var liveDetailErrorMessage = ""
     private let liveMusicService = LiveMusicOnThisDayService()
 
     // Recently Added Audiobooks
@@ -129,6 +134,11 @@ struct HomeView: View {
                     channelCategoryView(for: category)
                 case .playlists:
                     playlistsSubView
+                case .favorites:
+                    FavoritesScreen()
+                        .environmentObject(playerVM)
+                        .environmentObject(playlistVM)
+                        .environmentObject(favorites)
                 case .recentlyPlayed:
                     RecentlyPlayedScreen(dismissAll: { showPlayer = true })
                         .environmentObject(playerVM)
@@ -175,6 +185,7 @@ struct HomeView: View {
                 .environmentObject(playerVM)
                 .environmentObject(playlistVM)
                 .environmentObject(offlineService)
+                .environmentObject(favorites)
         }
         .sheet(isPresented: $showLiveDetail) {
             NowPlayingAlbumDetailView(
@@ -183,6 +194,11 @@ struct HomeView: View {
                 parentIdentifier: liveDetailParentId
             )
             .environmentObject(playerVM)
+        }
+        .alert("Live Music", isPresented: $showLiveDetailError) {
+            Button("OK") {}
+        } message: {
+            Text(liveDetailErrorMessage)
         }
         .sheet(isPresented: $showAudiobookDetail) {
             NowPlayingAlbumDetailView(
@@ -263,6 +279,7 @@ struct HomeView: View {
             let postPodcasts = ordered.filter { $0 == "Audiobooks" || $0 == "Curated Books" || $0 == "Lectures" }
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                categoryCard(title: "Favorites", imageName: "favorites", route: HomeRoute.favorites)
                 categoryCard(title: "Playlists", imageName: "playlists", route: HomeRoute.playlists)
 
                 ForEach(preAudiobooks, id: \.self) { category in
@@ -315,16 +332,22 @@ struct HomeView: View {
         HStack(spacing: 0) {
             // Left side: tap for detail
             Button {
+                guard !liveDetailLoading else { return }
+                liveDetailLoading = true
                 Task {
-                    guard let parts = await playerVM.resolveItemParts(identifier: entry.id),
-                          !parts.isEmpty else { return }
-                    liveDetailTracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
-                    liveDetailTitle = entry.displayName
-                    liveDetailParentId = entry.id
-                    // Defer sheet so NavigationStack processes content changes
-                    // before the inner sheet NavigationStack is created,
-                    // preventing "NavigationRequestObserver" frame collision.
-                    DispatchQueue.main.async { showLiveDetail = true }
+                    let parts = await playerVM.resolveItemParts(identifier: entry.id)
+                    if let p = parts, !p.isEmpty {
+                        liveDetailTracks = p.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+                        liveDetailTitle = entry.displayName
+                        liveDetailParentId = entry.id
+                        DispatchQueue.main.async { showLiveDetail = true }
+                    } else {
+                        DispatchQueue.main.async {
+                            liveDetailErrorMessage = "This recording doesn't have playable tracks. Try another."
+                            showLiveDetailError = true
+                        }
+                    }
+                    DispatchQueue.main.async { liveDetailLoading = false }
                 }
             } label: {
                 HStack(spacing: 12) {
@@ -359,25 +382,39 @@ struct HomeView: View {
                     }
 
                     Spacer()
+                    if liveDetailLoading {
+                        ProgressView()
+                    }
                 }
             }
             .buttonStyle(.plain)
+            .disabled(liveDetailLoading)
 
             // Right side: play button — enqueues full album
             Button {
+                guard !liveDetailLoading else { return }
+                liveDetailLoading = true
                 Task {
-                    guard let parts = await playerVM.resolveItemParts(identifier: entry.id),
-                          !parts.isEmpty else { return }
-                    let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
-                    await playerVM.playAlbumTracks(ordered, title: entry.displayName)
+                    let parts = await playerVM.resolveItemParts(identifier: entry.id)
+                    if let p = parts, !p.isEmpty {
+                        let ordered = p.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+                        await playerVM.playAlbumTracks(ordered, title: entry.displayName)
+                    } else {
+                        DispatchQueue.main.async {
+                            liveDetailErrorMessage = "This recording doesn't have playable tracks. Try another."
+                            showLiveDetailError = true
+                        }
+                    }
+                    DispatchQueue.main.async { liveDetailLoading = false }
                 }
             } label: {
                 Image(systemName: "play.circle.fill")
                     .font(.title)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(liveDetailLoading ? .gray : .blue)
                     .frame(width: 48)
             }
             .buttonStyle(.plain)
+            .disabled(liveDetailLoading)
             .padding(.trailing, 8)
         }
         .padding(12)

@@ -6,6 +6,7 @@ struct NowPlayingScreen: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
+    @EnvironmentObject var favorites: FavoritesStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dismiss) private var envDismiss
@@ -22,10 +23,7 @@ struct NowPlayingScreen: View {
     @State private var showAddItemToPlaylist = false
     @State private var showMoreOptions = false
     @State private var showFullMetadata = false
-    @State private var isCurrentTrackFavorite = false
-    @State private var isCurrentAlbumFavorite = false
-    @State private var isCurrentBookFavorite = false
-    @State private var showFavoriteActionSheet = false
+    @State private var isCurrentFavorite = false
     @State private var showShareActionSheet = false
     @State private var enrichedMeta: TrackMetadata?
     @ObservedObject private var kids = KidsModeController.shared
@@ -178,56 +176,25 @@ struct NowPlayingScreen: View {
 
     private var favoriteHeartButton: some View {
         Button {
-            if isBookChannel {
-                Task {
-                    await playlistVM.toggleFavoriteBook(playerVM.currentTrack!)
-                    isCurrentBookFavorite = await playlistVM.isInFavoriteBooks(playerVM.currentTrack!)
-                }
-            } else {
-                showFavoriteActionSheet = true
+            guard let track = playerVM.currentTrack else { return }
+            Task {
+                let ch = playerVM.currentChannel
+                let chapterIdx = track.partNumber
+                await favorites.toggle(
+                    track: track,
+                    channel: ch,
+                    positionSeconds: playerVM.currentPosition,
+                    chapterIndex: chapterIdx
+                )
+                isCurrentFavorite = await favorites.isFavorited(track: track, channel: ch)
             }
         } label: {
-            Image(systemName: heartIconName)
+            Image(systemName: isCurrentFavorite ? "heart.fill" : "heart")
                 .font(.system(size: 18))
-                .foregroundStyle(heartIconColor)
+                .foregroundStyle(isCurrentFavorite ? .red : .accentColor)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(heartAccessibilityLabel)
-        .confirmationDialog("Favorite", isPresented: $showFavoriteActionSheet) {
-            Button("Favorite Track") {
-                Task {
-                    guard let track = playerVM.currentTrack else { return }
-                    await playlistVM.toggleFavorite(track)
-                    isCurrentTrackFavorite = await playlistVM.isInFavorites(track)
-                }
-            }
-            Button("Favorite Album") {
-                Task {
-                    guard let track = playerVM.currentTrack else { return }
-                    await playlistVM.toggleFavoriteAlbum(track)
-                    isCurrentAlbumFavorite = await playlistVM.isInFavoriteAlbums(track)
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-    }
-
-    private var heartIconName: String {
-        if isBookChannel {
-            return isCurrentBookFavorite ? "heart.fill" : "heart"
-        }
-        return (isCurrentTrackFavorite || isCurrentAlbumFavorite) ? "heart.fill" : "heart"
-    }
-
-    private var heartIconColor: Color {
-        (isCurrentTrackFavorite || isCurrentAlbumFavorite || isCurrentBookFavorite) ? .red : .accentColor
-    }
-
-    private var heartAccessibilityLabel: String {
-        if isBookChannel {
-            return isCurrentBookFavorite ? "Remove book from favorites" : "Favorite this book"
-        }
-        return (isCurrentTrackFavorite || isCurrentAlbumFavorite) ? "Remove from favorites" : "Add to favorites"
+        .accessibilityLabel(isCurrentFavorite ? "Remove from favorites" : "Add to favorites")
     }
 
     private var shareButton: some View {
@@ -647,6 +614,14 @@ struct NowPlayingScreen: View {
         return cat == "Audiobooks" || cat == "Curated Books"
     }
 
+    private var isChapterItem: Bool {
+        guard let track = playerVM.currentTrack,
+              track.source == "internet_archive" else { return false }
+        if isBookChannel { return true }
+        let haystack = (track.tags.joined(separator: " ") + " " + track.id).lowercased()
+        return haystack.contains("librivox")
+    }
+
     private var sheetNavigationTitle: String {
         if isBookChannel { return "Book" }
         return "Album"
@@ -810,11 +785,7 @@ struct NowPlayingScreen: View {
             }
             .task(id: playerVM.currentTrack?.id) {
                 if let t = playerVM.currentTrack {
-                    isCurrentTrackFavorite = await playlistVM.isInFavorites(t)
-                    isCurrentAlbumFavorite = await playlistVM.isInFavoriteAlbums(t)
-                    if isBookChannel {
-                        isCurrentBookFavorite = await playlistVM.isInFavoriteBooks(t)
-                    }
+                    isCurrentFavorite = await favorites.isFavorited(track: t, channel: playerVM.currentChannel)
                     enrichedMeta = await playerVM.db.fetchTrackMetadata(trackID: t.id)
                 } else {
                     enrichedMeta = nil

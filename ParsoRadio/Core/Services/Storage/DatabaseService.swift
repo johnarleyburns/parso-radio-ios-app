@@ -108,6 +108,19 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     private let colPSCreatedAt = Expression<Double>("created_at")
     private let colPSArtworkURL = Expression<String?>("artwork_url")
 
+    // MARK: - Favorites table
+    private let favorites       = Table("favorites")
+    private let colFavId        = Column<String>("id").expr
+    private let colFavKind      = Column<String>("kind").expr
+    private let colFavDateAdded = Column<Double>("date_added").expr
+    private let colFavTitle     = Column<String>("title").expr
+    private let colFavCreator   = Column<String?>("creator").expr
+    private let colFavArtwork   = Column<String?>("artwork_url").expr
+    private let colFavSource    = Column<String>("source_identifier").expr
+    private let colFavChapter   = Column<Int?>("resume_chapter").expr
+    private let colFavPosition  = Column<Double?>("resume_position").expr
+    private let colFavResumeAt  = Column<Double?>("resume_updated_at").expr
+
     // MARK: - Track metadata enrichment table
     private let trackMeta = Table("track_metadata")
     private let colTMTrackID = Expression<String>("track_id")
@@ -158,11 +171,12 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     private func seedBuiltInPlaylists() {
         let count = (try? db.scalar(playlists.count)) ?? 0
         if count == 0 {
-            // Fresh DB: seed all three built-in playlists.
+            // Fresh DB: seed all four built-in playlists.
             let builtins: [(name: String, type: PlaylistType)] = [
                 ("Favorite Tracks", .tracks),
                 ("Favorite Albums", .album),
                 ("Favorite Books", .book),
+                ("Favorite Chapters", .chapter),
             ]
             for (name, type) in builtins {
                 let p = Playlist.new(name: name, isFavorites: true, type: type)
@@ -207,6 +221,7 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
             ("Favorite Tracks", .tracks),
             ("Favorite Albums", .album),
             ("Favorite Books", .book),
+            ("Favorite Chapters", .chapter),
         ]
         for (name, type) in builtins where !existingNames.contains(name) {
             let p = Playlist.new(name: name, isFavorites: true, type: type)
@@ -367,6 +382,21 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
             t.column(colTMEnrichmentSource)
         })
         try db.run("CREATE INDEX IF NOT EXISTS idx_track_meta_enriched ON track_metadata(enriched_at DESC)")
+
+        // Favorites table (new universal favorites system)
+        try db.run(favorites.create(ifNotExists: true) { t in
+            t.column(colFavId, primaryKey: true)
+            t.column(colFavKind)
+            t.column(colFavDateAdded)
+            t.column(colFavTitle)
+            t.column(colFavCreator)
+            t.column(colFavArtwork)
+            t.column(colFavSource)
+            t.column(colFavChapter)
+            t.column(colFavPosition)
+            t.column(colFavResumeAt)
+        })
+        try db.run("CREATE INDEX IF NOT EXISTS idx_fav_kind ON favorites(kind, date_added DESC)")
 
         // Enable FK enforcement
         _ = try? db.run("PRAGMA foreign_keys = ON")
@@ -1582,4 +1612,202 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
               let arr = try? JSONDecoder().decode([String].self, from: data) else { return [] }
         return arr
     }
+
+    // MARK: - Favorites CRUD
+
+    func fetchAllFavorites() async -> [Favorite] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let query = favorites.order(colFavDateAdded.desc)
+                let result = (try? db.prepare(query))?
+                    .compactMap(rowToFavorite) ?? []
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    func fetchFavorites(ofKind kind: FavoriteKind) async -> [Favorite] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let query = favorites
+                    .filter(colFavKind == kind.rawValue)
+                    .order(colFavDateAdded.desc)
+                let result = (try? db.prepare(query))?
+                    .compactMap(rowToFavorite) ?? []
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    func isFavorited(id: String) async -> Bool {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let count = (try? db.scalar(
+                    favorites.filter(colFavId == id).count)) ?? 0
+                continuation.resume(returning: count > 0)
+            }
+        }
+    }
+
+    func fetchFavorite(id: String) async -> Favorite? {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let row = try? db.pluck(favorites.filter(colFavId == id))
+                continuation.resume(returning: row.flatMap(rowToFavorite))
+            }
+        }
+    }
+
+    func saveFavorite(_ fav: Favorite) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let insert = favorites.insert(or: .replace,
+                    colFavId       <- fav.id,
+                    colFavKind     <- fav.kind.rawValue,
+                    colFavDateAdded <- fav.dateAdded.timeIntervalSince1970,
+                    colFavTitle    <- fav.title,
+                    colFavCreator  <- fav.creator,
+                    colFavArtwork  <- fav.artworkURL?.absoluteString,
+                    colFavSource   <- fav.sourceIdentifier,
+                    colFavChapter  <- fav.resumePoint?.chapterIndex,
+                    colFavPosition <- fav.resumePoint?.positionSeconds,
+                    colFavResumeAt <- fav.resumePoint?.updatedAt.timeIntervalSince1970
+                )
+                _ = try? db.run(insert)
+                continuation.resume()
+            }
+        }
+    }
+
+    func deleteFavorite(id: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? db.run(favorites.filter(colFavId == id).delete())
+                continuation.resume()
+            }
+        }
+    }
+
+    func updateResumePoint(favoriteId: String, resumePoint: ResumePoint) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? db.run(favorites.filter(colFavId == favoriteId).update(
+                    colFavChapter  <- resumePoint.chapterIndex,
+                    colFavPosition <- resumePoint.positionSeconds,
+                    colFavResumeAt <- resumePoint.updatedAt.timeIntervalSince1970
+                ))
+                continuation.resume()
+            }
+        }
+    }
+
+    func favoriteCount() async -> Int {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let c = (try? db.scalar(favorites.count)) ?? 0
+                continuation.resume(returning: c)
+            }
+        }
+    }
+
+    func favoriteCount(ofKind kind: FavoriteKind) async -> Int {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let c = (try? db.scalar(
+                    favorites.filter(colFavKind == kind.rawValue).count)) ?? 0
+                continuation.resume(returning: c)
+            }
+        }
+    }
+
+    /// Migrate legacy playlist-based favorites into the new favorites table.
+    /// Call once on first launch after migration.
+    func migrateLegacyFavorites(playlistVM: Any) async {
+        // Legacy playlists are accessed through the existing playlist system.
+        // This migration reads the legacy playlist tracks, resolves their
+        // content type based on channel context heuristics, and writes them
+        // into the new favorites table. Each legacy track entry becomes one
+        // Favorite. Book chapters collapse to book favorites automatically
+        // (the favoriteID function handles this).
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let existingCount = (try? db.scalar(favorites.count)) ?? 0
+                guard existingCount == 0 else {
+                    continuation.resume()
+                    return
+                }
+
+                // Fetch legacy favorites from the "Favorite Tracks" playlist
+                let legacyIds = (try? db.prepare(
+                    playlistTracks
+                        .join(playlists, on: playlists[colPlaylistId] == playlistTracks[colPTPlaylistId])
+                        .filter(playlists[colIsFavorites] == true)
+                        .filter(playlists[colPlaylistType] == PlaylistType.tracks.rawValue)
+                        .select(playlistTracks[colPTTrackId])
+                ).compactMap { $0[colPTTrackId] }) ?? []
+
+                guard !legacyIds.isEmpty else {
+                    continuation.resume()
+                    return
+                }
+
+                for trackId in legacyIds {
+                    guard let row = try? db.pluck(tracks.filter(colId == trackId)) else { continue }
+                    guard let track = rowToTrack(row) else { continue }
+
+                    let dateAdded = Date()
+                    let fav = Favorite(
+                        id: track.favoriteID(for: track.favoriteKind(channel: nil)),
+                        kind: track.favoriteKind(channel: nil),
+                        dateAdded: dateAdded,
+                        title: track.title,
+                        creator: cleaned(track.artist),
+                        artworkURL: track.resolvedArtworkURL,
+                        sourceIdentifier: track.parentIdentifier ?? track.id,
+                        resumePoint: nil
+                    )
+                    _ = try? db.run(favorites.insert(or: .ignore,
+                        colFavId       <- fav.id,
+                        colFavKind     <- fav.kind.rawValue,
+                        colFavDateAdded <- fav.dateAdded.timeIntervalSince1970,
+                        colFavTitle    <- fav.title,
+                        colFavCreator  <- fav.creator,
+                        colFavArtwork  <- fav.artworkURL?.absoluteString,
+                        colFavSource   <- fav.sourceIdentifier
+                    ))
+                }
+                continuation.resume()
+            }
+        }
+    }
+
+    private func rowToFavorite(_ row: Row) -> Favorite? {
+        guard let kind = FavoriteKind(rawValue: row[colFavKind]) else { return nil }
+        let resumePoint: ResumePoint?
+        if let pos = row[colFavPosition],
+           let updated = row[colFavResumeAt] {
+            resumePoint = ResumePoint(
+                chapterIndex: row[colFavChapter],
+                positionSeconds: pos,
+                updatedAt: Date(timeIntervalSince1970: updated)
+            )
+        } else {
+            resumePoint = nil
+        }
+        return Favorite(
+            id: row[colFavId],
+            kind: kind,
+            dateAdded: Date(timeIntervalSince1970: row[colFavDateAdded]),
+            title: row[colFavTitle],
+            creator: row[colFavCreator],
+            artworkURL: row[colFavArtwork].flatMap(URL.init),
+            sourceIdentifier: row[colFavSource],
+            resumePoint: resumePoint
+        )
+    }
+}
+
+private func cleaned(_ s: String) -> String? {
+    let t = s.trimmingCharacters(in: .whitespaces)
+    return t.isEmpty ? nil : t
 }
