@@ -35,12 +35,18 @@ struct HomeView: View {
     @State private var dailyLiveEntry: LiveMusicEntry?
     @State private var showLiveDetail = false
     @State private var liveMusicLoading = true
+    @State private var liveDetailTracks: [Track] = []
+    @State private var liveDetailTitle = ""
+    @State private var liveDetailParentId: String?
     private let liveMusicService = LiveMusicOnThisDayService()
 
     // Recently Added Audiobooks
     @State private var dailyAudiobook: AudiobookEntry?
     @State private var showAudiobookDetail = false
     @State private var audiobookLoading = true
+    @State private var audiobookDetailTracks: [Track] = []
+    @State private var audiobookDetailTitle = ""
+    @State private var audiobookDetailParentId: String?
     private let audiobookService = RecentlyAddedAudiobooksService()
 
     // Session restore
@@ -148,14 +154,20 @@ struct HomeView: View {
                     // Navigate to the playing channel's category so the back
                     // chevron returns the user to that category's channel list
                     // instead of a different level in the navigation stack.
-                    if let last = path.last, last != .channelCategory(cat) {
-                        // Replace the last path element — don't append.
-                        // Appending would leave stale parent categories
-                        // (e.g. Curated → Curated Books → back goes to
-                        // Curated instead of homeGrid).
-                        path[path.count - 1] = .channelCategory(cat)
-                    } else if path.isEmpty {
-                        path.append(.channelCategory(cat))
+                    // Deferred to next run-loop frame so path mutation and
+                    // showPlayer = false don't collide in the same frame,
+                    // which triggers "Update NavigationRequestObserver tried
+                    // to update multiple times per frame."
+                    DispatchQueue.main.async {
+                        if let last = path.last, last != .channelCategory(cat) {
+                            // Replace the last path element — don't append.
+                            // Appending would leave stale parent categories
+                            // (e.g. Curated → Curated Books → back goes to
+                            // Curated instead of homeGrid).
+                            path[path.count - 1] = .channelCategory(cat)
+                        } else if path.isEmpty {
+                            path.append(.channelCategory(cat))
+                        }
                     }
                 }
                 showPlayer = false
@@ -165,24 +177,26 @@ struct HomeView: View {
                 .environmentObject(offlineService)
         }
         .sheet(isPresented: $showLiveDetail) {
-            if let entry = dailyLiveEntry {
-                LiveMusicDetailView(entry: entry)
-                    .environmentObject(playerVM)
-                    .environmentObject(playlistVM)
-            }
+            NowPlayingAlbumDetailView(
+                title: liveDetailTitle,
+                tracks: liveDetailTracks,
+                parentIdentifier: liveDetailParentId
+            )
+            .environmentObject(playerVM)
         }
         .sheet(isPresented: $showAudiobookDetail) {
-            if let entry = dailyAudiobook {
-                AudiobookDetailView(entry: entry)
-                    .environmentObject(playerVM)
-                    .environmentObject(playlistVM)
-            }
+            NowPlayingAlbumDetailView(
+                title: audiobookDetailTitle,
+                tracks: audiobookDetailTracks,
+                parentIdentifier: audiobookDetailParentId
+            )
+            .environmentObject(playerVM)
         }
         .onChange(of: kids.isEnabled) { _, enabled in
             guard enabled else { return }
             path = []
             if let target = playerVM.enterKidsMode() {
-                Task { @MainActor in await playerVM.load(channel: target, autoPlay: true) }
+                Task { @MainActor in await playerVM.load(channel: target, autoPlay: false) }
             }
         }
         .task {
@@ -301,7 +315,14 @@ struct HomeView: View {
         HStack(spacing: 0) {
             // Left side: tap for detail
             Button {
-                showLiveDetail = true
+                Task {
+                    guard let parts = await playerVM.resolveItemParts(identifier: entry.id),
+                          !parts.isEmpty else { return }
+                    liveDetailTracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+                    liveDetailTitle = entry.displayName
+                    liveDetailParentId = entry.id
+                    showLiveDetail = true
+                }
             } label: {
                 HStack(spacing: 12) {
                     VerifiedThumb(url: entry.thumbnailURL, fallbackName: {
@@ -399,7 +420,14 @@ struct HomeView: View {
     private func audiobookCard(_ entry: AudiobookEntry) -> some View {
         HStack(spacing: 0) {
             Button {
-                showAudiobookDetail = true
+                Task {
+                    guard let parts = await playerVM.resolveItemParts(identifier: entry.id),
+                          !parts.isEmpty else { return }
+                    audiobookDetailTracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+                    audiobookDetailTitle = entry.displayName
+                    audiobookDetailParentId = entry.id
+                    showAudiobookDetail = true
+                }
             } label: {
                 HStack(spacing: 12) {
                     AudioBookThumb(entry: entry)
@@ -485,7 +513,8 @@ struct HomeView: View {
                 if let img = imageName {
                     Image(img)
                         .resizable()
-                        .scaledToFill()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipped()
                 } else {
                     ChannelCategoryStyle.gradient(for: title)
@@ -830,19 +859,21 @@ struct ChannelGridSubView: View {
         if UIImage(named: assetName) != nil {
             Image(assetName)
                 .resizable()
-                .scaledToFill()
+                .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
         } else if let imageURL = channel.imageURL, let url = URL(string: imageURL) {
             if url.isFileURL, let uiImage = UIImage(contentsOfFile: url.path) {
                 Image(uiImage: uiImage.squareScaled(to: CGSize(width: 300, height: 300)))
                     .resizable()
-                    .scaledToFill()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipped()
             } else {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
-                        image.resizable().scaledToFill().clipped()
+                        image.resizable().aspectRatio(contentMode: .fill).frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
                     case .failure, .empty:
                         ChannelCategoryStyle.gradient(for: category)
                     @unknown default:
@@ -872,11 +903,15 @@ struct CuratedChannelsGrid: View {
     @State private var showCurateChannel: ChannelMeta?
     @State private var deleteConfirmChannel: ChannelMeta?
     @State private var resetConfirmChannel: ChannelMeta?
+    @State private var mergeConfirmChannel: ChannelMeta?
     @State private var editingChannel: ChannelMeta?
     @State private var renameText = ""
     @State private var discoveryTrack: Track?
     @State private var discoveryChannel: String?
     @State private var showDiscoveryDetail = false
+    @State private var discoveryDetailTracks: [Track] = []
+    @State private var discoveryDetailTitle = ""
+    @State private var discoveryDetailParentId: String?
 
     var category: String = "Curated"
     let onSelectChannel: (Channel) -> Void
@@ -942,6 +977,11 @@ struct CuratedChannelsGrid: View {
                                 }
                                 if meta.isShippedDefault {
                                     Divider()
+                                    Button {
+                                        mergeConfirmChannel = meta
+                                    } label: {
+                                        Label("Merge Shipped Curation", systemImage: "arrow.merge")
+                                    }
                                     Button {
                                         resetConfirmChannel = meta
                                     } label: {
@@ -1024,6 +1064,20 @@ struct CuratedChannelsGrid: View {
         } message: {
             Text("This clears all your curation verdicts and restores the original list of approved tracks for this channel.")
         }
+        .alert("Merge \"\(mergeConfirmChannel?.name ?? "")\"?", isPresented: Binding(
+            get: { mergeConfirmChannel != nil },
+            set: { if !$0 { mergeConfirmChannel = nil } }
+        )) {
+            Button("Merge") {
+                guard let meta = mergeConfirmChannel else { return }
+                Task {
+                    await store.mergeShippedCuration(chId: meta.id, db: playerVM.db)
+                }
+            }
+            Button("Cancel", role: .cancel) { mergeConfirmChannel = nil }
+        } message: {
+            Text("Add shipped approved tracks to your curation. Your existing verdicts are preserved — this only adds new tracks you haven't judged yet.")
+        }
         .alert("Rename Channel", isPresented: Binding(
             get: { editingChannel != nil },
             set: { if !$0 { editingChannel = nil } }
@@ -1037,16 +1091,12 @@ struct CuratedChannelsGrid: View {
             Button("Cancel", role: .cancel) {}
         }
         .sheet(isPresented: $showDiscoveryDetail) {
-            if let t = discoveryTrack, let ch = discoveryChannel {
-                LiveMusicDetailView(entry: LiveMusicEntry(
-                    id: t.parentIdentifier ?? t.id,
-                    creator: t.artist, title: t.title, venue: ch,
-                    coverage: nil, date: nil, year: nil,
-                    downloads: 0, dateString: "", description: nil
-                ))
-                .environmentObject(playerVM)
-                .environmentObject(playlistVM)
-            }
+            NowPlayingAlbumDetailView(
+                title: discoveryDetailTitle,
+                tracks: discoveryDetailTracks,
+                parentIdentifier: discoveryDetailParentId
+            )
+            .environmentObject(playerVM)
         }
     }
 
@@ -1080,11 +1130,23 @@ struct CuratedChannelsGrid: View {
 
     private func discoveryCardRow(_ t: Track, channel ch: String) -> some View {
         HStack(spacing: 0) {
-            Button { showDiscoveryDetail = true } label: {
+            Button {
+                Task {
+                    let identifier = t.parentIdentifier ?? t.id
+                    guard let parts = await playerVM.resolveItemParts(identifier: identifier),
+                          !parts.isEmpty else { return }
+                    discoveryDetailTracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+                    discoveryDetailTitle = t.title
+                    discoveryDetailParentId = identifier
+                    showDiscoveryDetail = true
+                }
+            } label: {
                 HStack(spacing: 12) {
                     AsyncImage(url: URL(string: "https://archive.org/services/img/\(t.parentIdentifier ?? t.id)")) { phase in
                         switch phase {
-                        case .success(let image): image.resizable().scaledToFill()
+                        case .success(let image):
+                            image.resizable().aspectRatio(contentMode: .fill)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
                         default:
                             Image(systemName: "music.note").font(.largeTitle).foregroundStyle(.white)
                                 .frame(width: 72, height: 72)
@@ -1168,18 +1230,27 @@ struct CuratedChannelsGrid: View {
     private func curatedChannelBackground(_ channel: Channel?) -> some View {
         if let ch = channel, let imageURL = ch.imageURL, let url = URL(string: imageURL) {
             if url.isFileURL, let uiImage = UIImage(contentsOfFile: url.path) {
-                Image(uiImage: uiImage.squareScaled(to: CGSize(width: 300, height: 300))).resizable().scaledToFill().clipped()
+                Image(uiImage: uiImage.squareScaled(to: CGSize(width: 300, height: 300)))
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
             } else {
                 AsyncImage(url: url) { phase in
                     switch phase {
-                    case .success(let image): image.resizable().scaledToFill().clipped()
+                    case .success(let image):
+                        image.resizable().aspectRatio(contentMode: .fill).frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
                     case .failure, .empty: ChannelCategoryStyle.gradient(for: "Curated")
                     @unknown default: ChannelCategoryStyle.gradient(for: "Curated")
                     }
                 }
             }
         } else if let ch = channel, UIImage(named: ch.id) != nil {
-            Image(ch.id).resizable().scaledToFill().clipped()
+            Image(ch.id)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
         } else {
             ChannelCategoryStyle.gradient(for: "Curated")
         }
@@ -1273,7 +1344,7 @@ struct PlaylistGridSubView: View {
             if let img = imageName {
                 Image(img)
                     .resizable()
-                    .scaledToFill()
+                    .aspectRatio(contentMode: .fill)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipped()
             } else {
@@ -1329,19 +1400,19 @@ struct PlaylistGridCard: View {
                 if playlist.isFavorites {
                     Image("favorites")
                         .resizable()
-                        .scaledToFill()
+                        .aspectRatio(contentMode: .fill)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipped()
                 } else if let img = cardImage {
                     Image(uiImage: img)
                         .resizable()
-                        .scaledToFill()
+                        .aspectRatio(contentMode: .fill)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipped()
                 } else {
                     Image("playlists")
                         .resizable()
-                        .scaledToFill()
+                        .aspectRatio(contentMode: .fill)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipped()
                 }
@@ -1414,7 +1485,7 @@ private struct SectionCard: View {
                 if let img = imageName {
                     Image(img)
                         .resizable()
-                        .scaledToFill()
+                        .aspectRatio(contentMode: .fill)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipped()
                 } else {
@@ -1458,6 +1529,9 @@ struct CuratedDiscoveryHeader: View {
     @State private var track: Track?
     @State private var channelName: String?
     @State private var showDetail = false
+    @State private var headerDetailTracks: [Track] = []
+    @State private var headerDetailTitle = ""
+    @State private var headerDetailParentId: String?
 
     var body: some View {
         Group {
@@ -1492,16 +1566,12 @@ struct CuratedDiscoveryHeader: View {
             await pickTrack()
         }
         .sheet(isPresented: $showDetail) {
-            if let t = track, let ch = channelName {
-                LiveMusicDetailView(entry: LiveMusicEntry(
-                    id: t.parentIdentifier ?? t.id,
-                    creator: t.artist, title: t.title, venue: ch,
-                    coverage: nil, date: nil, year: nil,
-                    downloads: 0, dateString: "", description: nil
-                ))
-                .environmentObject(playerVM)
-                .environmentObject(playlistVM)
-            }
+            NowPlayingAlbumDetailView(
+                title: headerDetailTitle,
+                tracks: headerDetailTracks,
+                parentIdentifier: headerDetailParentId
+            )
+            .environmentObject(playerVM)
         }
     }
 
@@ -1525,12 +1595,23 @@ struct CuratedDiscoveryHeader: View {
     private func curatedCard(_ track: Track, channelName: String) -> some View {
         let itemId = track.parentIdentifier ?? track.id
         return HStack(spacing: 0) {
-            Button { showDetail = true } label: {
+            Button {
+                Task {
+                    let identifier = track.parentIdentifier ?? track.id
+                    guard let parts = await playerVM.resolveItemParts(identifier: identifier),
+                          !parts.isEmpty else { return }
+                    headerDetailTracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+                    headerDetailTitle = track.title
+                    headerDetailParentId = identifier
+                    showDetail = true
+                }
+            } label: {
                 HStack(spacing: 12) {
                     AsyncImage(url: URL(string: "https://archive.org/services/img/\(itemId)")) { phase in
                         switch phase {
                         case .success(let image):
-                            image.resizable().scaledToFill()
+                            image.resizable().aspectRatio(contentMode: .fill)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
                         default:
                             Image(systemName: "music.note")
                                 .font(.largeTitle).foregroundStyle(.white)
