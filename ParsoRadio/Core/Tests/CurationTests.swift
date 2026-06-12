@@ -636,4 +636,41 @@ final class CurationTests: XCTestCase {
         XCTAssertEqual(approvedTracks.map(\.id), [t1.id])
         XCTAssertEqual(rejectedTracks.map(\.id), [t2.id])
     }
+
+    // MARK: - mergeShippedCuration
+
+    func test_mergeShippedCurationPreservesExistingVerdicts() async {
+        let channelId = "guitar-classical"
+        let existing = track("existing-track")
+        let rejected = track("rejected-track")
+        await db.saveTracks([existing, rejected])
+
+        await db.setCuration(channelId: channelId, trackId: existing.id, status: "approved")
+        await db.setCuration(channelId: channelId, trackId: rejected.id, status: "rejected")
+
+        await CustomChannelsStore.shared.mergeShippedCuration(chId: channelId, db: db)
+
+        let status = await db.curationStatus(channelId: channelId, trackId: existing.id)
+        XCTAssertEqual(status, "approved", "Existing approved verdict must not change")
+
+        let rejStatus = await db.curationStatus(channelId: channelId, trackId: rejected.id)
+        XCTAssertEqual(rejStatus, "rejected", "Existing rejected verdict must not change")
+    }
+
+    func test_mergeShippedCurationDoesNotOverwriteExistingVerdicts() async {
+        let channelId = "ancient-greece"
+
+        // Pre-populate DB with an approved verdict for a known track ID that
+        // might appear in the shipped JSON. If the merge blindly overwrote,
+        // the status would change.
+        let myTrack = track("protected-track")
+        await db.saveTracks([myTrack])
+        await db.setCuration(channelId: channelId, trackId: myTrack.id, status: "review")
+
+        await CustomChannelsStore.shared.mergeShippedCuration(chId: channelId, db: db)
+
+        let status = await db.curationStatus(channelId: channelId, trackId: myTrack.id)
+        XCTAssertEqual(status, "review",
+            "Existing verdict (review) must not be overwritten by merge")
+    }
 }

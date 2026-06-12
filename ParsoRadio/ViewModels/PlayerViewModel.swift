@@ -285,6 +285,7 @@ final class PlayerViewModel: ObservableObject {
                 self.errorMessage = "Non-audio material — skipping"
                 self.isLoading = false
                 self.loadingMessage = nil
+                let wasIntendedToPlay = self.isPlaying
                 self.isPlaying = false
                 self.audioPlayer.skip()
                 self.currentTrack = nil
@@ -293,7 +294,7 @@ final class PlayerViewModel: ObservableObject {
                 self.audioPlayer.invalidateStreamingCache(for: track.id)
                 // Advance to next if in a channel/playlist
                 if self.currentChannel != nil || self.currentPlaylist != nil {
-                    await self.advanceToNext(autoPlay: true)
+                    await self.advanceToNext(autoPlay: wasIntendedToPlay)
                 }
             }
         }
@@ -1333,12 +1334,12 @@ final class PlayerViewModel: ObservableObject {
         if let track = pre.track {
             Task {
                 await playTrack(track, seekTo: pre.position > 1 ? pre.position : nil,
-                                recordHistory: false, autoPlay: pre.isPlaying)
+                                recordHistory: false, autoPlay: false)
             }
         } else if let channel = pre.channel {
-            Task { await load(channel: channel, autoPlay: pre.isPlaying) }
+            Task { await load(channel: channel, autoPlay: false) }
         } else if let playlist = pre.playlist {
-            Task { await loadPlaylist(playlist, autoPlay: pre.isPlaying) }
+            Task { await loadPlaylist(playlist, autoPlay: false) }
         }
     }
 
@@ -1685,6 +1686,15 @@ final class PlayerViewModel: ObservableObject {
             isLoading = false
             loadingMessage = nil
             errorMessage = "Couldn't find a playable track in this channel."
+            return
+        }
+        // When the user didn't intend to play (paused channel load), don't
+        // auto-advance on load failure — let them stay on the current track
+        // instead of cycling every 10 seconds.
+        if !autoPlay {
+            isLoading = false
+            loadingMessage = nil
+            errorMessage = "This track couldn't be loaded. Tap to try another."
             return
         }
         // Keep the spinner up and move on. currentTrack = nil so the failed

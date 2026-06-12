@@ -424,6 +424,25 @@ final class CustomChannelsStore: ObservableObject {
         await LiveCurationStore.shared.reload(from: db)
     }
 
+    /// Merge shipped approved tracks from the bundled JSON into the user's
+    /// existing verdicts. Only adds tracks the user hasn't already judged —
+    /// preserves existing approved, rejected, and review verdicts.
+    func mergeShippedCuration(chId: String, db: DatabaseService) async {
+        guard let def = channelDefinition(for: chId), !def.approved.isEmpty else { return }
+
+        let existingIds = Set(await db.allCuratedTrackIds(channelId: chId))
+        var added = 0
+        for entry in def.approved where !existingIds.contains(entry.id) {
+            await db.setCuration(channelId: chId, trackId: entry.id, status: "approved")
+            added += 1
+        }
+
+        if added > 0 {
+            Log.general.info("[CustomChannels] Merged \(added) shipped verdicts into \(chId)")
+            await LiveCurationStore.shared.reload(from: db)
+        }
+    }
+
     /// Reset to alphabetical order, clearing any manual reordering.
     func resetOrder() {
         channelOrder.removeAll()

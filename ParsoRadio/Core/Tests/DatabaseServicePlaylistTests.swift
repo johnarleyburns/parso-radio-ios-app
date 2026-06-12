@@ -23,6 +23,10 @@ final class DatabaseServicePlaylistTests: XCTestCase {
     func testFavoritesPlaylistSeededAtCreation() async throws {
         let all = await db.fetchPlaylists()
         XCTAssertTrue(all.contains { $0.isFavorites }, "Favorites playlist must be seeded on first schema creation")
+        XCTAssertTrue(all.contains { $0.name == "Favorite Tracks" && $0.type == .tracks })
+        XCTAssertTrue(all.contains { $0.name == "Favorite Albums" && $0.type == .album })
+        XCTAssertTrue(all.contains { $0.name == "Favorite Books" && $0.type == .book })
+        XCTAssertEqual(all.filter(\.isFavorites).count, 3, "Three built-in favorites playlists expected")
     }
 
     // Item 2: persisted custom playlist order. Favorites stays pinned first

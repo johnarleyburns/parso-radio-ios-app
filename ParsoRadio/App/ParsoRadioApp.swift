@@ -310,7 +310,7 @@ struct KidsHomeView: View {
         if playerVM.isLoading || playerVM.currentChannel != nil { return }
         guard let ch = Channel.defaults.first(where: { $0.id == channelId }) else { return }
         Task { @MainActor in
-            await playerVM.load(channel: ch, autoPlay: true)
+            await playerVM.load(channel: ch, autoPlay: false)
         }
     }
 }

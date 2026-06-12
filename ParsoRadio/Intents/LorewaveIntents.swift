@@ -38,7 +38,7 @@ struct PlayLorewaveIntent: AppIntent {
 
             AppIntentBridge.shared.setPendingCommand(channelId: channel.id)
             NotificationCenter.default.post(name: .siriIntentDidPerform, object: nil)
-            await vm.restoreLastSession(fallbackChannel: channel, autoPlay: true)
+            await vm.restoreLastSession(fallbackChannel: channel, autoPlay: false)
             LorewaveIntentDonations.donateResume()
             return .result()
         }
@@ -74,7 +74,7 @@ struct PlayChannelIntent: AppIntent {
         if let vm = AppIntentBridge.shared.playerVM {
             AppIntentBridge.shared.setPendingCommand(channelId: ch.id)
             NotificationCenter.default.post(name: .siriIntentDidPerform, object: nil)
-            await vm.load(channel: ch, autoPlay: true)
+            await vm.load(channel: ch, autoPlay: false)
             LorewaveIntentDonations.donateChannel(ch)
             if ch.category == "Podcasts" {
                 LorewaveIntentDonations.donatePodcast(ch)
@@ -112,7 +112,7 @@ struct PlayPodcastIntent: AppIntent {
         if let vm = AppIntentBridge.shared.playerVM {
             AppIntentBridge.shared.setPendingCommand(channelId: ch.id)
             NotificationCenter.default.post(name: .siriIntentDidPerform, object: nil)
-            await vm.load(channel: ch, autoPlay: true)
+            await vm.load(channel: ch, autoPlay: false)
             LorewaveIntentDonations.donatePodcast(ch)
             return .result()
         }

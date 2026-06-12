@@ -4,9 +4,310 @@
     "id": "great-books",
     "name": "Great Books",
     "icon": "books.vertical",
-    "iaQuery": "collection:librivoxaudio AND language:eng AND (creator:\"Homer\" OR creator:\"Aeschylus\" OR creator:\"Sophocles\" OR creator:\"Euripides\" OR creator:\"Aristophanes\" OR creator:\"Herodotus\" OR creator:\"Thucydides\" OR creator:\"Plato\" OR creator:\"Aristotle\" OR creator:\"Hippocrates\" OR creator:\"Lucretius\" OR creator:\"Epictetus\" OR creator:\"Marcus Aurelius\" OR creator:\"Virgil\" OR creator:\"Plutarch\" OR creator:\"Tacitus\" OR creator:\"Ptolemy\" OR creator:\"Plotinus\" OR creator:\"Augustine\" OR creator:\"Thomas Aquinas\" OR creator:\"Dante Alighieri\" OR creator:\"Geoffrey Chaucer\" OR creator:\"Niccol\u00f2 Machiavelli\" OR creator:\"Thomas Hobbes\" OR creator:\"Fran\u00e7ois Rabelais\" OR creator:\"Michel de Montaigne\" OR creator:\"William Shakespeare\" OR creator:\"William Gilbert\" OR creator:\"Galileo Galilei\" OR creator:\"William Harvey\" OR creator:\"Miguel de Cervantes\" OR creator:\"Francis Bacon\" OR creator:\"Ren\u00e9 Descartes\" OR creator:\"Benedict de Spinoza\" OR creator:\"John Milton\" OR creator:\"Blaise Pascal\" OR creator:\"Isaac Newton\" OR creator:\"Christiaan Huygens\" OR creator:\"John Locke\" OR creator:\"George Berkeley\" OR creator:\"David Hume\" OR creator:\"Jonathan Swift\" OR creator:\"Laurence Sterne\" OR creator:\"Henry Fielding\" OR creator:\"Montesquieu\" OR creator:\"Jean-Jacques Rousseau\" OR creator:\"Adam Smith\" OR creator:\"Edward Gibbon\" OR creator:\"Immanuel Kant\" OR creator:\"Alexander Hamilton\" OR creator:\"John Stuart Mill\" OR creator:\"James Boswell\" OR creator:\"Antoine Lavoisier\" OR creator:\"Michael Faraday\" OR creator:\"Hegel\" OR creator:\"Johann Wolfgang von Goethe\" OR creator:\"Herman Melville\" OR creator:\"Charles Darwin\" OR creator:\"Karl Marx\" OR creator:\"Leo Tolstoy\" OR creator:\"Fyodor Dostoevsky\" OR creator:\"William James\" OR creator:\"Sigmund Freud\") AND NOT creator:\"William John Locke\" AND NOT creator:\"Homer Greene\" AND NOT creator:\"Homer Eon Flint\""
+    "iaQuery": "collection:librivoxaudio AND language:eng AND (creator:\"Homer\" OR creator:\"Aeschylus\" OR creator:\"Sophocles\" OR creator:\"Euripides\" OR creator:\"Aristophanes\" OR creator:\"Herodotus\" OR creator:\"Thucydides\" OR creator:\"Plato\" OR creator:\"Aristotle\" OR creator:\"Hippocrates\" OR creator:\"Lucretius\" OR creator:\"Epictetus\" OR creator:\"Marcus Aurelius\" OR creator:\"Virgil\" OR creator:\"Plutarch\" OR creator:\"Tacitus\" OR creator:\"Ptolemy\" OR creator:\"Plotinus\" OR creator:\"Augustine\" OR creator:\"Thomas Aquinas\" OR creator:\"Dante Alighieri\" OR creator:\"Geoffrey Chaucer\" OR creator:\"Niccolò Machiavelli\" OR creator:\"Thomas Hobbes\" OR creator:\"François Rabelais\" OR creator:\"Michel de Montaigne\" OR creator:\"William Shakespeare\" OR creator:\"William Gilbert\" OR creator:\"Galileo Galilei\" OR creator:\"William Harvey\" OR creator:\"Miguel de Cervantes\" OR creator:\"Francis Bacon\" OR creator:\"René Descartes\" OR creator:\"Benedict de Spinoza\" OR creator:\"John Milton\" OR creator:\"Blaise Pascal\" OR creator:\"Isaac Newton\" OR creator:\"Christiaan Huygens\" OR creator:\"John Locke\" OR creator:\"George Berkeley\" OR creator:\"David Hume\" OR creator:\"Jonathan Swift\" OR creator:\"Laurence Sterne\" OR creator:\"Henry Fielding\" OR creator:\"Montesquieu\" OR creator:\"Jean-Jacques Rousseau\" OR creator:\"Adam Smith\" OR creator:\"Edward Gibbon\" OR creator:\"Immanuel Kant\" OR creator:\"Alexander Hamilton\" OR creator:\"John Stuart Mill\" OR creator:\"James Boswell\" OR creator:\"Antoine Lavoisier\" OR creator:\"Michael Faraday\" OR creator:\"Hegel\" OR creator:\"Johann Wolfgang von Goethe\" OR creator:\"Herman Melville\" OR creator:\"Charles Darwin\" OR creator:\"Karl Marx\" OR creator:\"Leo Tolstoy\" OR creator:\"Fyodor Dostoevsky\" OR creator:\"William James\" OR creator:\"Sigmund Freud\") AND NOT creator:\"William John Locke\" AND NOT creator:\"Homer Greene\" AND NOT creator:\"Homer Eon Flint\""
   },
   "updatedAt": "2026-06-11",
-  "approved": [],
+  "approved": [
+    {
+      "id": "moby_dick_librivox",
+      "title": "Moby Dick, or the Whale",
+      "creator": "Herman Melville",
+      "duration": 88670.0
+    },
+    {
+      "id": "odyssey_butler_librivox",
+      "title": "The Odyssey",
+      "creator": "Homer",
+      "duration": 40705.0
+    },
+    {
+      "id": "romeo_and_juliet_librivox",
+      "title": "Romeo and Juliet",
+      "creator": "William Shakespeare",
+      "duration": 10922.0
+    },
+    {
+      "id": "romeoandjuliet_ss_0901_librivox",
+      "title": "Romeo and Juliet",
+      "creator": "William Shakespeare",
+      "duration": 11696.0
+    },
+    {
+      "id": "divine_comedy_librivox",
+      "title": "The Divine Comedy",
+      "creator": "Dante Alighieri",
+      "duration": 44605.0
+    },
+    {
+      "id": "gulliver_ld_librivox",
+      "title": "Gulliver's Travels",
+      "creator": "Jonathan Swift",
+      "duration": 40232.0
+    },
+    {
+      "id": "alcibiades1_1212_librivox",
+      "title": "Alcibiades I",
+      "creator": "Plato",
+      "duration": 8144.0
+    },
+    {
+      "id": "meditations_0708_librivox",
+      "title": "Meditations",
+      "creator": "Marcus Aurelius",
+      "duration": 25160.0
+    },
+    {
+      "id": "dream_psychology_librivox",
+      "title": "Dream Psychology",
+      "creator": "Sigmund Freud",
+      "duration": 21842.0
+    },
+    {
+      "id": "origin_species_librivox",
+      "title": "On the Origin of Species by Means of Natural Selection",
+      "creator": "Charles Darwin",
+      "duration": 87757.0
+    },
+    {
+      "id": "canterburytales_librivox",
+      "title": "The Canterbury Tales",
+      "creator": "Geoffrey Chaucer",
+      "duration": 69799.0
+    },
+    {
+      "id": "communistmanifesto_librivox",
+      "title": "The Communist Manifesto, by Karl Marx and Friedrich Engels",
+      "creator": "Karl Marx; Friedrich Engels",
+      "duration": 96.53
+    },
+    {
+      "id": "illiad_0801_librivox3",
+      "title": "The Iliad",
+      "creator": "Homer",
+      "duration": 52183.0
+    },
+    {
+      "id": "decline_fall_1_0707_librivox",
+      "title": "The Decline and Fall of the Roman Empire Vol. I",
+      "creator": "Edward Gibbon",
+      "duration": 71420.0
+    },
+    {
+      "id": "war_and_peace_01_librivox",
+      "title": "War and Peace, Book 01: 1805",
+      "creator": "Leo Tolstoy (transl. Aylmer and Louise Maude)",
+      "duration": 19899.0
+    },
+    {
+      "id": "romeo_juliet_1001_librivox",
+      "title": "Romeo and Juliet (LibriVox Version 2)",
+      "creator": "William Shakespeare",
+      "duration": 11018.0
+    },
+    {
+      "id": "federalist_papers_librivox",
+      "title": "The Federalist Papers",
+      "creator": "Alexander Hamilton; John Jay; James Madison",
+      "duration": 76310.0
+    },
+    {
+      "id": "paradise_lost_08083_librivox",
+      "title": "Paradise Lost",
+      "creator": "John Milton",
+      "duration": 581.16
+    },
+    {
+      "id": "don_quixote_vol1_librivox",
+      "title": "Don Quixote, Volume 1",
+      "creator": "Miguel de Cervantes Saavedra",
+      "duration": 76596.0
+    },
+    {
+      "id": "annakarenina_mas_1202_librivox",
+      "title": "Anna Karenina",
+      "creator": "Leo Tolstoy",
+      "duration": 132759.0
+    },
+    {
+      "id": "prince_pa_librivox",
+      "title": "The Prince",
+      "creator": "Niccolo Machiavelli",
+      "duration": 348.18
+    },
+    {
+      "id": "platos_republic_0902_librivox1",
+      "title": "Plato's Republic",
+      "creator": "Plato",
+      "duration": 47624.0
+    },
+    {
+      "id": "history_peloponnesian_war_librivox",
+      "title": "The History of the Peloponnesian War",
+      "creator": "Thucydides",
+      "duration": 75444.0
+    },
+    {
+      "id": "hamlet_0911_librivox",
+      "title": "The Tragedy of Hamlet, Prince of Denmark",
+      "creator": "William Shakespeare",
+      "duration": 14000.0
+    },
+    {
+      "id": "midsummer_nights_dream_0806_librivox",
+      "title": "A Midsummer Night's Dream",
+      "creator": "William Shakespeare",
+      "duration": 7466.0
+    },
+    {
+      "id": "merchant_of_venice_1005_librivox",
+      "title": "The Merchant of Venice",
+      "creator": "William Shakespeare",
+      "duration": 8776.0
+    },
+    {
+      "id": "confessions_augustine_0911_librivox",
+      "title": "Confessions",
+      "creator": "Saint Augustine of Hippo",
+      "duration": 49778.0
+    },
+    {
+      "id": "politics_0802_librivox",
+      "title": "Politics",
+      "creator": "Aristotle",
+      "duration": 33290.0
+    },
+    {
+      "id": "autobiography_charles_darwin_am_librivox",
+      "title": "The Autobiography of Charles Darwin",
+      "creator": "Charles Darwin",
+      "duration": 9893.0
+    },
+    {
+      "id": "wealth_nations01_se",
+      "title": "The Wealth of Nations - Book 1",
+      "creator": "Adam Smith",
+      "duration": 33445.0
+    },
+    {
+      "id": "city_of_god_ds_librivox",
+      "title": "The City of God",
+      "creator": "Augustine of Hippo, St.",
+      "duration": 145636.0
+    },
+    {
+      "id": "annakarenina1_1011_librivox",
+      "title": "Anna Karenina, Book 1",
+      "creator": "Leo Tolstoy",
+      "duration": 47702.67
+    },
+    {
+      "id": "romeojuliet_v4_1502_librivox",
+      "title": "Romeo and Juliet (version 4)",
+      "creator": "William Shakespeare",
+      "duration": 11117.0
+    },
+    {
+      "id": "king_lear_librivox",
+      "title": "King Lear",
+      "creator": "William Shakespeare",
+      "duration": 12182.0
+    },
+    {
+      "id": "whatibelieve_1101_librivox",
+      "title": "What I Believe",
+      "creator": "Leo Tolstoy",
+      "duration": 28730.0
+    },
+    {
+      "id": "personal_anthology_shakespeare_librivox",
+      "title": "A Personal Anthology of Shakespeare, compiled by Martin Clifton",
+      "creator": "William Shakespeare",
+      "duration": 2013.0
+    },
+    {
+      "id": "iliad_popetranslation_1506_librivox",
+      "title": "The Iliad (Pope Translation)",
+      "creator": "Homer",
+      "duration": 69075.0
+    },
+    {
+      "id": "capital_vol1_0810_librivox",
+      "title": "Capital: A Critical Analysis of Capitalist Production, Volume 1",
+      "creator": "Karl Marx",
+      "duration": 141574.0
+    },
+    {
+      "id": "childhood_english_librivox",
+      "title": "Childhood (English trans.)",
+      "creator": "Leo Tolstoy",
+      "duration": 14796.0
+    },
+    {
+      "id": "modestproposal",
+      "title": "A Modest Proposal, by Jonathan Swift",
+      "creator": "Jonathan Swift",
+      "duration": 1635.0
+    },
+    {
+      "id": "meditations_descartes_dew_librivox",
+      "title": "Meditations on First Philosophy",
+      "creator": "René Descartes",
+      "duration": 12549.0
+    },
+    {
+      "id": "as_you_like_it_0902_librivox",
+      "title": "As You Like It",
+      "creator": "William Shakespeare",
+      "duration": 8604.0
+    },
+    {
+      "id": "euthyphro_librivox",
+      "title": "Euthyphro",
+      "creator": "Plato",
+      "duration": 7258.02
+    },
+    {
+      "id": "macbeth_0810_librivox",
+      "title": "The Tragedy of Macbeth",
+      "creator": "William Shakespeare",
+      "duration": 7897.0
+    },
+    {
+      "id": "themeditationsofmarcusaurelius_1801_librivox",
+      "title": "The Meditations of the Emperor Marcus Aurelius Antoninus",
+      "creator": "Marcus Aurelius",
+      "duration": 17266.0
+    },
+    {
+      "id": "typee_librivox",
+      "title": "Typee",
+      "creator": "Herman Melville",
+      "duration": 42161.0
+    },
+    {
+      "id": "iliad_of_homer_1011_librivox",
+      "title": "The Iliad of Homer",
+      "creator": "Homer",
+      "duration": 56425.0
+    },
+    {
+      "id": "on_liberty_librivox",
+      "title": "On Liberty",
+      "creator": "John Stuart Mill",
+      "duration": 19314.0
+    },
+    {
+      "id": "discourse_method_librivox",
+      "title": "Discourse on the Method of Rightly Conducting One's Reason and of Seeking Truth in the Sciences",
+      "creator": "René Descartes",
+      "duration": 149.53
+    },
+    {
+      "id": "othello_1005_librivox",
+      "title": "Othello",
+      "creator": "William Shakespeare",
+      "duration": 11223.0
+    }
+  ],
   "rejected": []
 }

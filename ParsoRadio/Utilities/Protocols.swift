@@ -32,7 +32,7 @@ protocol DatabaseServiceProtocol: AnyObject {
     func clearPosition(channelId: String) async
 
     // Playlist operations
-    func createPlaylist(name: String, isFavorites: Bool) async throws -> Playlist
+    func createPlaylist(name: String, isFavorites: Bool, type: PlaylistType) async throws -> Playlist
     func fetchPlaylists() async -> [Playlist]
     func setPlaylistOrder(_ ids: [String]) async
     func renamePlaylist(id: String, name: String) async

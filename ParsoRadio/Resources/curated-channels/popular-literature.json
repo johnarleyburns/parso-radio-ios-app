@@ -7,6 +7,295 @@
     "imageFilename": "popular-literature.png"
   },
   "updatedAt": "2026-06-11",
-  "approved": [],
+  "approved": [
+    {
+      "id": "art_of_war_librivox",
+      "title": "The Art of War",
+      "creator": "Sun Tzu",
+      "duration": 4334.0
+    },
+    {
+      "id": "alice_in_wonderland_librivox",
+      "title": "Alice's Adventures in Wonderland, by Lewis Carroll",
+      "creator": "Lewis Carroll",
+      "duration": 10731.0
+    },
+    {
+      "id": "tom_sawyer_librivox",
+      "title": "The Adventures of Tom Sawyer",
+      "creator": "Mark Twain",
+      "duration": 24372.0
+    },
+    {
+      "id": "adventures_holmes",
+      "title": "The Adventures of Sherlock Holmes",
+      "creator": "Sir Arthur Conan Doyle",
+      "duration": 37079.0
+    },
+    {
+      "id": "moby_dick_librivox",
+      "title": "Moby Dick, or the Whale",
+      "creator": "Herman Melville",
+      "duration": 88670.0
+    },
+    {
+      "id": "huck_finn_librivox",
+      "title": "Adventures of Huckleberry Finn",
+      "creator": "Mark Twain",
+      "duration": 38527.0
+    },
+    {
+      "id": "pride_and_prejudice_librivox",
+      "title": "Pride and Prejudice",
+      "creator": "Jane Austen",
+      "duration": 47204.0
+    },
+    {
+      "id": "dracula_librivox",
+      "title": "Dracula",
+      "creator": "Bram Stoker",
+      "duration": 991.09
+    },
+    {
+      "id": "adventures_sherlockholmes_1007_librivox",
+      "title": "The Adventures of Sherlock Holmes",
+      "creator": "Sir Arthur Conan Doyle",
+      "duration": 40483.0
+    },
+    {
+      "id": "count_monte_cristo_0711_librivox",
+      "title": "The Count of Monte Cristo",
+      "creator": "Alexandre Dumas",
+      "duration": 178995.0
+    },
+    {
+      "id": "pride_prejudice_krs_librivox",
+      "title": "Pride and Prejudice (version 3)",
+      "creator": "Jane Austen",
+      "duration": 37380.0
+    },
+    {
+      "id": "peter_pan_0707_librivox",
+      "title": "Peter Pan",
+      "creator": "J. M. Barrie",
+      "duration": 18249.0
+    },
+    {
+      "id": "secret_garden_librivox",
+      "title": "The Secret Garden",
+      "creator": "Frances Hodgson Burnett",
+      "duration": 32905.0
+    },
+    {
+      "id": "solo_pride_librivox",
+      "title": "Pride and Prejudice (version 2)",
+      "creator": "Jane Austen",
+      "duration": 48301.0
+    },
+    {
+      "id": "odyssey_butler_librivox",
+      "title": "The Odyssey",
+      "creator": "Homer",
+      "duration": 40705.0
+    },
+    {
+      "id": "grimms_english_librivox",
+      "title": "Grimms' Fairy Tales",
+      "creator": "Jacob and Wilhelm Grimm",
+      "duration": 37952.0
+    },
+    {
+      "id": "1891_collection_bt_librivox",
+      "title": "1891 Collection",
+      "creator": "Various",
+      "duration": 63226.759999999995
+    },
+    {
+      "id": "prideandprejudice_1005_librivox",
+      "title": "Pride and Prejudice (version 4)",
+      "creator": "Jane Austen",
+      "duration": 40193.0
+    },
+    {
+      "id": "alices_adventures_1003",
+      "title": "Alice's Adventures in Wonderland",
+      "creator": "Lewis Carroll",
+      "duration": 10041.0
+    },
+    {
+      "id": "uncle_toms_cabin_librivox",
+      "title": "Uncle Tom's Cabin",
+      "creator": "Harriet Beecher Stowe",
+      "duration": 65193.0
+    },
+    {
+      "id": "tale_two_cities_librivox",
+      "title": "A Tale of Two Cities",
+      "creator": "Charles Dickens",
+      "duration": 53975.0
+    },
+    {
+      "id": "adventures_sherlock_holmes_rg_librivox",
+      "title": "The Adventures of Sherlock Holmes (Version 2)",
+      "creator": "Sir Arthur Conan Doyle",
+      "duration": 48567.0
+    },
+    {
+      "id": "adventures_pinocchio_librivox",
+      "title": "The Adventures of Pinocchio",
+      "creator": "C. Collodi",
+      "duration": 16538.0
+    },
+    {
+      "id": "treasure_island_ap_librivox",
+      "title": "Treasure Island",
+      "creator": "Robert Louis Stevenson",
+      "duration": 27152.0
+    },
+    {
+      "id": "emma_solo_librivox",
+      "title": "Emma",
+      "creator": "Jane Austen",
+      "duration": 64950.0
+    },
+    {
+      "id": "huckleberry_mfs_librivox",
+      "title": "Adventures of Huckleberry Finn (version 02)",
+      "creator": "Mark Twain",
+      "duration": 41599.0
+    },
+    {
+      "id": "memoirs_holmes_0709_librivox",
+      "title": "The Memoirs of Sherlock Holmes",
+      "creator": "Sir Arthur Conan Doyle",
+      "duration": 30876.0
+    },
+    {
+      "id": "aesop_fables_volume_one_librivox",
+      "title": "Aesop's Fables, Volume 1 (Fables 1-25)",
+      "creator": "Aesop",
+      "duration": 8287.759999999998
+    },
+    {
+      "id": "andersensfairy_1307_librivox",
+      "title": "Andersen's Fairy Tales (Version 2)",
+      "creator": "Hans Christian Andersen",
+      "duration": 20954.0
+    },
+    {
+      "id": "jane_eyre_ver03_0809_librivox",
+      "title": "Jane Eyre (version 3)",
+      "creator": "Charlotte Brontë",
+      "duration": 66989.0
+    },
+    {
+      "id": "swiss_family_robinson_librivox",
+      "title": "The Swiss Family Robinson",
+      "creator": "Johann David Wyss",
+      "duration": 45914.0
+    },
+    {
+      "id": "andersens_fairytales_librivox",
+      "title": "Andersen's Fairy Tales",
+      "creator": "Hans Christian Andersen",
+      "duration": 21064.0
+    },
+    {
+      "id": "return_holmes_0708_librivox",
+      "title": "The Return of Sherlock Holmes",
+      "creator": "Sir Arthur Conan Doyle",
+      "duration": 40018.0
+    },
+    {
+      "id": "great_expectations_mfs_0812_librivox",
+      "title": "Great Expectations",
+      "creator": "Charles Dickens",
+      "duration": 73563.0
+    },
+    {
+      "id": "robinson_crusoe_librivox",
+      "title": "The Life and Strange Surprising Adventures of Robinson Crusoe of York, Mariner",
+      "creator": "Daniel Defoe",
+      "duration": 50112.0
+    },
+    {
+      "id": "game_of_life_0911_librivox",
+      "title": "The Game of Life and How to Play It",
+      "creator": "Florence Scovel Shinn",
+      "duration": 9669.0
+    },
+    {
+      "id": "bleak_house_cl_librivox",
+      "title": "Bleak House",
+      "creator": "Charles Dickens",
+      "duration": 156619.0
+    },
+    {
+      "id": "anthem_librivox",
+      "title": "Anthem",
+      "creator": "Ayn Rand",
+      "duration": 7922.0
+    },
+    {
+      "id": "romeo_and_juliet_librivox",
+      "title": "Romeo and Juliet",
+      "creator": "William Shakespeare",
+      "duration": 10922.0
+    },
+    {
+      "id": "anne_greengables_librivox",
+      "title": "Anne of Green Gables (version 3)",
+      "creator": "Lucy Maud Montgomery",
+      "duration": 31052.0
+    },
+    {
+      "id": "invisible_man_librivox",
+      "title": "The Invisible Man",
+      "creator": "H.G. Wells",
+      "duration": 17645.0
+    },
+    {
+      "id": "grimm_fairy_tales_1202_librivox",
+      "title": "Grimm's Fairy Tales (version 2)",
+      "creator": "Jacob & Wilhelm Grimm",
+      "duration": 40041.0
+    },
+    {
+      "id": "walden_librivox",
+      "title": "Walden",
+      "creator": "Henry David Thoreau",
+      "duration": 51472.0
+    },
+    {
+      "id": "timemachine_sjm_librivox",
+      "title": "The Time Machine (version 3)",
+      "creator": "H. G. Wells",
+      "duration": 13181.0
+    },
+    {
+      "id": "wizard_of_oz",
+      "title": "The Wonderful Wizard of Oz",
+      "creator": "L. Frank Baum",
+      "duration": 13491.0
+    },
+    {
+      "id": "jane_eyre_librivox",
+      "title": "Jane Eyre",
+      "creator": "Charlotte Brontë",
+      "duration": 74196.0
+    },
+    {
+      "id": "english_fairy_tales_joy_librivox",
+      "title": "English Fairy Tales",
+      "creator": "Joseph Jacobs",
+      "duration": 20129.0
+    },
+    {
+      "id": "anne_of_green_gables_librivox",
+      "title": "Anne of Green Gables",
+      "creator": "Lucy Maud Montgomery",
+      "duration": 630.11
+    }
+  ],
   "rejected": []
 }

@@ -14,9 +14,6 @@ struct NowPlayingScreen: View {
     @State private var chapterListLoading = false
     @State private var sleepTimerNow: Date = Date()
     private static let sleepTimerOptions: [Int] = [15, 30, 45, 60]
-    @State private var showChannelInfo = false
-    @State private var channelInfoTarget: Channel?
-    @State private var showAlbumInfo = false
     @State private var showTrackAlbumInfo = false
     @State private var trackAlbumTitle = ""
     @State private var trackAlbumParts: [Track] = []
@@ -26,6 +23,10 @@ struct NowPlayingScreen: View {
     @State private var showMoreOptions = false
     @State private var showFullMetadata = false
     @State private var isCurrentTrackFavorite = false
+    @State private var isCurrentAlbumFavorite = false
+    @State private var isCurrentBookFavorite = false
+    @State private var showFavoriteActionSheet = false
+    @State private var showShareActionSheet = false
     @State private var enrichedMeta: TrackMetadata?
     @ObservedObject private var kids = KidsModeController.shared
     @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
@@ -45,17 +46,6 @@ struct NowPlayingScreen: View {
         guard isAmbientLoop else { return nil }
         return AmbientStaticService.bundledVideoURL(
             forChannelId: playerVM.currentChannel?.id ?? "")
-    }
-
-    private var titleIcon: String? {
-        if let pl = playerVM.currentPlaylist {
-            return pl.isFavorites ? "heart.fill" : "music.note.list"
-        }
-        return playerVM.currentChannel?.icon
-    }
-
-    private var titleText: String {
-        playerVM.currentPlaylist?.name ?? playerVM.currentChannel?.name ?? playerVM.channelDescription
     }
 
     @ScaledMetric(relativeTo: .title3)      private var mainBoldSize: CGFloat = 19
@@ -103,49 +93,11 @@ struct NowPlayingScreen: View {
                     .padding(.horizontal, 24)
                     .padding(.top, 8)
 
-                    // Channel name between track info and transport
-                    if !isAmbientLoop {
-                        if playerVM.currentChannel != nil {
-                            Button {
-                                channelInfoTarget = displayChannel
-                                showChannelInfo = true
-                            } label: {
-                                HStack(spacing: 6) {
-                                    if let icon = titleIcon {
-                                        Image(systemName: icon)
-                                            .font(.caption)
-                                            .foregroundStyle(.blue)
-                                    }
-                                    Text(titleText)
-                                        .font(.caption)
-                                        .foregroundStyle(.blue)
-                                        .lineLimit(1)
-                                }
-                            }
-                            .padding(.horizontal, 24)
-                            .padding(.top, 12)
-                            .accessibilityHint("Opens channel info")
-                        } else if !titleText.isEmpty {
-                            Button {
-                                showAlbumInfo = true
-                            } label: {
-                                Text(titleText)
-                                    .font(.caption)
-                                    .foregroundStyle(.blue)
-                                    .lineLimit(1)
-                            }
-                            .padding(.horizontal, 24)
-                            .padding(.top, 12)
-                            .accessibilityHint("Opens album info")
-                        }
-                    }
-
                     Spacer()
 
                     transportControls
                         .padding(.horizontal, 24)
-
-                    Spacer(minLength: 16)
+                        .padding(.bottom, 16)
                 }
                 .frame(maxWidth: min(geo.size.width, horizontalSizeClass == .regular ? 480 : geo.size.width))
                 .frame(maxWidth: .infinity)
@@ -179,27 +131,6 @@ struct NowPlayingScreen: View {
                 .padding(.trailing, 16)
                 .accessibilityLabel("Track Info")
             }
-        }
-        .sheet(isPresented: $showChannelInfo) {
-            NavigationStack {
-                if let ch = channelInfoTarget {
-                    ChannelInfoView(channel: ch, playerVM: playerVM)
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                if playerVM.currentTrack != nil {
-                    miniPlayerOverlay
-                }
-            }
-        }
-        .sheet(isPresented: $showAlbumInfo) {
-            let parentId = playerVM.playlistTracks.first?.parentIdentifier
-            NowPlayingAlbumDetailView(
-                title: titleText,
-                tracks: playerVM.playlistTracks,
-                parentIdentifier: parentId
-            )
-            .environmentObject(playerVM)
         }
         .sheet(isPresented: $showTrackAlbumInfo) {
             NowPlayingAlbumDetailView(
@@ -243,11 +174,126 @@ struct NowPlayingScreen: View {
         }
     }
 
+    // MARK: - Favorites & Share Buttons
+
+    private var favoriteHeartButton: some View {
+        Button {
+            if isBookChannel {
+                Task {
+                    await playlistVM.toggleFavoriteBook(playerVM.currentTrack!)
+                    isCurrentBookFavorite = await playlistVM.isInFavoriteBooks(playerVM.currentTrack!)
+                }
+            } else {
+                showFavoriteActionSheet = true
+            }
+        } label: {
+            Image(systemName: heartIconName)
+                .font(.system(size: 18))
+                .foregroundStyle(heartIconColor)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(heartAccessibilityLabel)
+        .confirmationDialog("Favorite", isPresented: $showFavoriteActionSheet) {
+            Button("Favorite Track") {
+                Task {
+                    guard let track = playerVM.currentTrack else { return }
+                    await playlistVM.toggleFavorite(track)
+                    isCurrentTrackFavorite = await playlistVM.isInFavorites(track)
+                }
+            }
+            Button("Favorite Album") {
+                Task {
+                    guard let track = playerVM.currentTrack else { return }
+                    await playlistVM.toggleFavoriteAlbum(track)
+                    isCurrentAlbumFavorite = await playlistVM.isInFavoriteAlbums(track)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private var heartIconName: String {
+        if isBookChannel {
+            return isCurrentBookFavorite ? "heart.fill" : "heart"
+        }
+        return (isCurrentTrackFavorite || isCurrentAlbumFavorite) ? "heart.fill" : "heart"
+    }
+
+    private var heartIconColor: Color {
+        (isCurrentTrackFavorite || isCurrentAlbumFavorite || isCurrentBookFavorite) ? .red : .accentColor
+    }
+
+    private var heartAccessibilityLabel: String {
+        if isBookChannel {
+            return isCurrentBookFavorite ? "Remove book from favorites" : "Favorite this book"
+        }
+        return (isCurrentTrackFavorite || isCurrentAlbumFavorite) ? "Remove from favorites" : "Add to favorites"
+    }
+
+    private var shareButton: some View {
+        Button {
+            if isBookChannel, let track = playerVM.currentTrack {
+                shareBook(track)
+            } else if let track = playerVM.currentTrack {
+                if track.parentIdentifier != nil || track.isMultiPart == true {
+                    showShareActionSheet = true
+                } else {
+                    shareTrack(track)
+                }
+            }
+        } label: {
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 18))
+                .foregroundStyle(Color.accentColor)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Share")
+        .confirmationDialog("Share", isPresented: $showShareActionSheet) {
+            if let track = playerVM.currentTrack {
+                Button("Share Track") { shareTrack(track) }
+                Button("Share \(isBookChannel ? "Book" : "Album")") { shareAlbumOrBook(track) }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private func shareTrack(_ track: Track) {
+        guard let url = ShareURLBuilder.url(for: track) else { return }
+        let activityVC = UIActivityViewController(activityItems: [url, track.title], applicationActivities: nil)
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let root = scene.windows.first?.rootViewController {
+            root.present(activityVC, animated: true)
+        }
+    }
+
+    private func shareBook(_ track: Track) {
+        shareAlbumOrBook(track)
+    }
+
+    private func shareAlbumOrBook(_ track: Track) {
+        let id = track.parentIdentifier ?? track.id
+        guard let url = URL(string: "https://archive.org/details/\(id)") else { return }
+        let activityVC = UIActivityViewController(activityItems: [url, track.title], applicationActivities: nil)
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let root = scene.windows.first?.rootViewController {
+            root.present(activityVC, animated: true)
+        }
+    }
+
     // MARK: - Transport Controls
 
     private var transportControls: some View {
         VStack(spacing: 12) {
             if !isAmbientLoop, let dur = playerVM.trackDuration, dur > 0 {
+                if !kids.isEnabled {
+                    HStack(spacing: 0) {
+                        favoriteHeartButton
+                        Spacer()
+                        shareButton
+                    }
+                    .padding(.horizontal, 4)
+                }
+
                 HStack(spacing: 0) {
                     Text(playerVM.currentPosition.formattedTime)
                         .font(.system(size: mainRegularSize))
@@ -422,9 +468,6 @@ struct NowPlayingScreen: View {
         .overlay(alignment: .topTrailing) {
             if !isAmbientLoop, playerVM.currentTrack != nil {
                 HStack(spacing: 8) {
-                    if playerVM.shuffleMode {
-                        statusBadge("shuffle", tint: .blue, label: "Shuffle is on")
-                    }
                     if playerVM.repeatMode == .one {
                         statusBadge("repeat.1", tint: .blue, label: "Repeat track is on")
                     }
@@ -442,6 +485,20 @@ struct NowPlayingScreen: View {
                     .background(.black.opacity(0.5), in: Circle())
                     .transition(.opacity)
                     .accessibilityLabel("Loading")
+            }
+        }
+        .overlay {
+            if !isAmbientLoop, playerVM.currentTrack != nil {
+                HStack(spacing: 0) {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { playerVM.seekBy(-10) }
+                        .accessibilityLabel("Skip back 10 seconds")
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { playerVM.seekBy(10) }
+                        .accessibilityLabel("Skip forward 10 seconds")
+                }
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 20))
@@ -585,26 +642,81 @@ struct NowPlayingScreen: View {
 
     // MARK: - Combined Track Info Sheet
 
+    private var isBookChannel: Bool {
+        let cat = playerVM.currentChannel?.category
+        return cat == "Audiobooks" || cat == "Curated Books"
+    }
+
+    private var sheetNavigationTitle: String {
+        if isBookChannel { return "Book" }
+        return "Album"
+    }
+
+    private var albumIAImageURL: URL? {
+        guard let track = playerVM.currentTrack,
+              track.source == "internet_archive" else { return nil }
+        let id = track.parentIdentifier ?? track.id
+        return URL(string: "https://archive.org/services/img/\(id)")
+    }
+
+    private var albumIADetailsURL: URL? {
+        guard let track = playerVM.currentTrack,
+              track.source == "internet_archive" else { return nil }
+        let id = track.parentIdentifier ?? track.id
+        return URL(string: "https://archive.org/details/\(id)")
+    }
+
+    private func shareAlbumURL(for track: Track) -> URL? {
+        if track.source == "internet_archive" {
+            let id = track.parentIdentifier ?? track.id
+            return URL(string: "https://archive.org/details/\(id)")
+        }
+        return ShareURLBuilder.url(for: track)
+    }
+
+    private var fallbackAlbumImage: some View {
+        Rectangle()
+            .fill(Color(.systemGray5))
+            .overlay {
+                Image(systemName: isBookChannel ? "book.fill" : "music.note")
+                    .font(.system(size: 50))
+                    .foregroundStyle(.secondary)
+            }
+    }
+
     private var combinedTrackSheet: some View {
         NavigationStack {
             List {
                 if let track = playerVM.currentTrack {
-                    Section("Now Playing") {
-                        SharedViews.infoRow("Title", track.title)
-                        if let a = cleaned(track.artist) { SharedViews.infoRow("Artist", a) }
-                        if let c = cleaned(track.composer) { SharedViews.infoRow("Composer", c.capitalized) }
-                        if let dur = trackInfoDuration(track) {
-                            SharedViews.infoRow("Duration", dur.formattedTime)
-                        }
-                        if playerVM.currentTrackIsMultiPart, playerVM.currentItemChapterCount > 1 {
-                            SharedViews.infoRow(isLectureChannel ? "Lectures" : (usesChapterTerminology ? "Chapters" : "Tracks"), "\(playerVM.currentItemChapterCount)")
-                            if playerVM.currentItemTotalDuration > 0 {
-                                SharedViews.infoRow("Total Time", playerVM.currentItemTotalDuration.formattedTime)
+                    Section {
+                        if let url = albumIAImageURL {
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image.resizable().scaledToFill()
+                                default:
+                                    fallbackAlbumImage
+                                }
                             }
-                            if let idx = playerVM.currentItemPartIndex {
-                                SharedViews.infoRow(isLectureChannel ? "Lecture" : (usesChapterTerminology ? "Chapter" : "Track"), "\(idx) of \(playerVM.currentItemChapterCount)")
-                            }
+                        } else {
+                            fallbackAlbumImage
                         }
+                    }
+                    .frame(height: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+                    .listRowBackground(Color.clear)
+
+                    Section {
+                        if isBookChannel {
+                            SharedViews.infoRow("Name", playerVM.itemDisplayName(for: track))
+                            if let a = cleaned(track.artist) { SharedViews.infoRow("Author", a) }
+                        } else {
+                            SharedViews.infoRow("Name", playerVM.itemDisplayName(for: track))
+                            if let a = cleaned(track.artist) { SharedViews.infoRow("Artist", a) }
+                            if let c = cleaned(track.composer) { SharedViews.infoRow("Composer", c.capitalized) }
+                        }
+
                         if let date = track.bestDate {
                             SharedViews.infoRow(track.dateLabel, date.formatted(.dateTime.year().month().day()))
                         }
@@ -616,7 +728,7 @@ struct NowPlayingScreen: View {
                             if let bio = meta.authorBio, !bio.isEmpty { SharedViews.infoRow("Author Bio", bio) }
                             if !meta.genreTags.isEmpty { SharedViews.infoRow("Genres", meta.genreTags.joined(separator: ", ")) }
                         }
-                        DisclosureGroup("Full Metadata", isExpanded: $showFullMetadata) {
+                        DisclosureGroup(isBookChannel ? "More about this book..." : "More about this album...", isExpanded: $showFullMetadata) {
                             ForEach(fullMetadata(track), id: \.0) { pair in
                                 SharedViews.infoRow(pair.0, pair.1)
                             }
@@ -625,7 +737,7 @@ struct NowPlayingScreen: View {
 
                     if !isAmbientLoop {
                         if playerVM.currentTrackIsMultiPart {
-                            Section(isLectureChannel ? "Lectures" : (usesChapterTerminology ? "Chapters" : "Tracks")) {
+                            Section(isBookChannel ? "Chapters" : "Tracks") {
                                 explodedChapterList
                             }
                         }
@@ -636,7 +748,7 @@ struct NowPlayingScreen: View {
                                     showMoreOptions = false
                                     Task { await playerVM.playEntireCurrentItem() }
                                 } label: {
-                                    Label("Play Entire \(itemKindLabel(track))", systemImage: "play.rectangle.fill")
+                                    Label("Play Entire \(isBookChannel ? "Book" : "Album")", systemImage: "play.rectangle.fill")
                                 }
                             }
                         }
@@ -645,21 +757,22 @@ struct NowPlayingScreen: View {
                             bookmarksSection(for: track)
 
                             Section {
-                                if let shareURL = shareURL(for: track) {
-                                    ShareLink(item: shareURL, message: Text(track.title)) {
-                                        Label("Share Track", systemImage: "square.and.arrow.up")
+                                if isBookChannel, track.source == "internet_archive" {
+                                    if let iaURL = albumIADetailsURL {
+                                        Link(destination: iaURL) {
+                                            Label("View book on archive.org", systemImage: "safari")
+                                        }
                                     }
                                 }
-                                Button {
-                                    Task {
-                                        await playlistVM.toggleFavorite(track)
-                                        isCurrentTrackFavorite = await playlistVM.isInFavorites(track)
+
+                                if !isBookChannel, track.source == "internet_archive" {
+                                    if let iaURL = albumIADetailsURL {
+                                        Link(destination: iaURL) {
+                                            Label("View Album on archive.org", systemImage: "safari")
+                                        }
                                     }
-                                } label: {
-                                    Label(isCurrentTrackFavorite ? "Remove from Favorites" : "Add to Favorites",
-                                          systemImage: isCurrentTrackFavorite ? "heart.fill" : "heart")
-                                        .foregroundStyle(isCurrentTrackFavorite ? Color.red : Color.accentColor)
                                 }
+
                                 Button {
                                     showMoreOptions = false
                                     showAddToPlaylist = true
@@ -671,7 +784,7 @@ struct NowPlayingScreen: View {
                                         showMoreOptions = false
                                         showAddItemToPlaylist = true
                                     } label: {
-                                        Label("Add \(itemKindLabel(track)) to Playlist", systemImage: "text.badge.plus")
+                                        Label("Add \(isBookChannel ? "Book" : "Album") to Playlist", systemImage: "text.badge.plus")
                                     }
                                     Button {
                                         showMoreOptions = false
@@ -680,7 +793,7 @@ struct NowPlayingScreen: View {
                                             await playerVM.addEntireItemToNewPlaylist(from: track, named: nm, using: playlistVM)
                                         }
                                     } label: {
-                                        Label("Add \(itemKindLabel(track)) to New Playlist \"\(shortName(playerVM.itemDisplayName(for: track)))\"", systemImage: "rectangle.stack.badge.plus")
+                                        Label("Add \(isBookChannel ? "Book" : "Album") to New Playlist \"\(shortName(playerVM.itemDisplayName(for: track)))\"", systemImage: "rectangle.stack.badge.plus")
                                     }
                                 }
                             }
@@ -688,7 +801,7 @@ struct NowPlayingScreen: View {
                     }
                 }
             }
-            .navigationTitle(isLectureChannel ? "Lecture Info" : (usesChapterTerminology ? "Chapter Info" : "Track Info"))
+            .navigationTitle(sheetNavigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -698,6 +811,10 @@ struct NowPlayingScreen: View {
             .task(id: playerVM.currentTrack?.id) {
                 if let t = playerVM.currentTrack {
                     isCurrentTrackFavorite = await playlistVM.isInFavorites(t)
+                    isCurrentAlbumFavorite = await playlistVM.isInFavoriteAlbums(t)
+                    if isBookChannel {
+                        isCurrentBookFavorite = await playlistVM.isInFavoriteBooks(t)
+                    }
                     enrichedMeta = await playerVM.db.fetchTrackMetadata(trackID: t.id)
                 } else {
                     enrichedMeta = nil
@@ -751,6 +868,11 @@ struct NowPlayingScreen: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .listRowBackground(
+                        playerVM.currentTrack?.id == item.id
+                            ? Color.accentColor.opacity(0.12)
+                            : Color.clear
+                    )
                 }
             }
         }
@@ -784,29 +906,28 @@ struct NowPlayingScreen: View {
     private var sleepTimerRow: some View {
         let active = playerVM.isSleepTimerActive
         Menu {
-            ForEach(Self.sleepTimerOptions, id: \.self) { mins in
-                Button("\(mins) minutes") { playerVM.startSleepTimer(minutes: mins) }
+            Section("Sleep Timer") {
+                ForEach(Self.sleepTimerOptions, id: \.self) { mins in
+                    Button("\(mins) minutes") { playerVM.startSleepTimer(minutes: mins) }
+                }
+                Button("End of Track") { playerVM.setSleepAtEndOfTrack(true) }
             }
-            Button("End of Track") { playerVM.setSleepAtEndOfTrack(true) }
             if active {
-                Divider()
-                Button(role: .destructive) {
-                    playerVM.cancelSleepTimer()
-                } label: { Text("Cancel Sleep Timer") }
+                Section {
+                    Button(role: .destructive) {
+                        playerVM.cancelSleepTimer()
+                    } label: { Text("Cancel Sleep Timer") }
+                }
             }
         } label: {
-            HStack {
-                Label("Sleep Timer", systemImage: active ? "moon.fill" : "moon")
-                Spacer()
-                Text(sleepTimerStatus)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            Image(systemName: active ? "moon.fill" : "moon")
+                .font(.system(size: 16))
+                .frame(width: 32, height: 32)
         }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now in
             sleepTimerNow = now
         }
-        .accessibilityLabel("Sleep timer, currently \(sleepTimerStatus)")
+        .accessibilityLabel(active ? "Sleep timer, \(sleepTimerStatus)" : "Sleep timer")
     }
 
     private var sleepTimerStatus: String {
@@ -865,37 +986,8 @@ struct NowPlayingScreen: View {
         }
     }
 
-    private func shareURL(for track: Track) -> URL? {
-        ShareURLBuilder.url(for: track)
-    }
-
-    private func trackInfoDuration(_ track: Track) -> Double? {
-        if let d = playerVM.trackDuration, d > 0 { return d }
-        return track.duration > 0 ? track.duration : nil
-    }
-
     private func shortName(_ s: String, max: Int = 26) -> String {
         s.count > max ? String(s.prefix(max - 1)) + "…" : s
-    }
-
-    private var usesChapterTerminology: Bool {
-        if playerVM.currentChannel?.category == "Lectures" { return true }
-        guard let t = playerVM.currentTrack else { return false }
-        return itemKindLabel(t) == "Book"
-    }
-
-    private var isLectureChannel: Bool {
-        playerVM.currentChannel?.category == "Lectures"
-    }
-
-    private func itemKindLabel(_ track: Track) -> String {
-        if playerVM.currentChannel?.category == "Lectures" { return "Series" }
-        if playerVM.currentChannel?.category == "Audiobooks" { return "Book" }
-        let hay = (track.parentIdentifier ?? track.id).lowercased()
-        if hay.contains("librivox") || track.tags.contains(where: {
-            $0.contains("librivox") || $0.contains("audiobook")
-        }) { return "Book" }
-        return "Album"
     }
 
     private func fullMetadata(_ track: Track) -> [(String, String)] {
@@ -916,7 +1008,6 @@ struct NowPlayingScreen: View {
         if !track.tags.isEmpty { add("Subjects", track.tags.joined(separator: ", ")) }
         if !track.instruments.isEmpty { add("Instruments", track.instruments.joined(separator: ", ")) }
         if track.rawCreator != track.artist { add("Raw creator", track.rawCreator) }
-        if let added = track.addedDate { add("Added", added.formatted(.dateTime.year().month().day())) }
         if let rec = track.recordingDate { add("Recorded", rec.formatted(.dateTime.year().month().day())) }
         if let downloadURL = track.downloadURL { add("Download URL", downloadURL.absoluteString) }
         if track.localFilePath != nil { add("Downloaded", "Yes") }

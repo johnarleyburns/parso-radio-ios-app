@@ -58,8 +58,9 @@ final class PlaylistPersistenceIntegrationTests: XCTestCase {
     func testFavoritesHeartToggle() async throws {
         await vm.loadPlaylists()
         guard let fav = vm.favoritesPlaylist else {
-            XCTFail("No Favorites playlist"); return
+            XCTFail("No Favorite Tracks playlist"); return
         }
+        XCTAssertEqual(fav.name, "Favorite Tracks")
 
         let track = makeTrack(id: "heart-track-1")
         await db.saveTracks([track])

@@ -15,6 +15,15 @@ final class PlaylistViewModelTests: XCTestCase {
     func testLoadPlaylistsIncludesFavorites() async throws {
         await vm.loadPlaylists()
         XCTAssertTrue(vm.playlists.contains { $0.isFavorites }, "Favorites playlist must be present after loadPlaylists()")
+        XCTAssertNotNil(vm.favoritesPlaylist, "favoritesPlaylist (tracks) must be non-nil")
+        XCTAssertNotNil(vm.favoriteAlbumsPlaylist, "favoriteAlbumsPlaylist must be non-nil")
+        XCTAssertNotNil(vm.favoriteBooksPlaylist, "favoriteBooksPlaylist must be non-nil")
+        XCTAssertEqual(vm.favoritesPlaylist?.name, "Favorite Tracks")
+        XCTAssertEqual(vm.favoriteAlbumsPlaylist?.name, "Favorite Albums")
+        XCTAssertEqual(vm.favoriteBooksPlaylist?.name, "Favorite Books")
+        XCTAssertEqual(vm.favoritesPlaylist?.type, .tracks)
+        XCTAssertEqual(vm.favoriteAlbumsPlaylist?.type, .album)
+        XCTAssertEqual(vm.favoriteBooksPlaylist?.type, .book)
     }
 
     func testCreatePlaylistAppearsAfterLoad() async throws {
@@ -154,9 +163,106 @@ final class PlaylistViewModelTests: XCTestCase {
             "reorderPlaylists must persist the new order")
     }
 
+    func testIsInFavoriteAlbumsAndToggle() async throws {
+        await vm.loadPlaylists()
+        let track = makeTrack(id: "vm-alb-trk-1", parentIdentifier: "album-abc")
+        await db.saveTracks([track])
+
+        let before = await vm.isInFavoriteAlbums(track)
+        XCTAssertFalse(before)
+
+        await vm.toggleFavoriteAlbum(track)
+        let after = await vm.isInFavoriteAlbums(track)
+        XCTAssertTrue(after)
+
+        // toggle again → remove
+        await vm.toggleFavoriteAlbum(track)
+        let final = await vm.isInFavoriteAlbums(track)
+        XCTAssertFalse(final)
+    }
+
+    func testIsInFavoriteBooksAndToggle() async throws {
+        await vm.loadPlaylists()
+        let track = makeTrack(id: "vm-bk-trk-1", parentIdentifier: "book-abc")
+        await db.saveTracks([track])
+
+        let before = await vm.isInFavoriteBooks(track)
+        XCTAssertFalse(before)
+
+        await vm.toggleFavoriteBook(track)
+        let after = await vm.isInFavoriteBooks(track)
+        XCTAssertTrue(after)
+
+        // toggle again → remove
+        await vm.toggleFavoriteBook(track)
+        let final = await vm.isInFavoriteBooks(track)
+        XCTAssertFalse(final)
+    }
+
+    func testAlbumFavoriteUsesParentIdentifier() async throws {
+        await vm.loadPlaylists()
+        let t1 = makeTrack(id: "vm-alb-p1", parentIdentifier: "album-xyz", partNumber: 1)
+        let t2 = makeTrack(id: "vm-alb-p2", parentIdentifier: "album-xyz", partNumber: 2)
+        await db.saveTracks([t1, t2])
+
+        // Neither is favorited yet
+        var f1 = await vm.isInFavoriteAlbums(t1)
+        var f2 = await vm.isInFavoriteAlbums(t2)
+        XCTAssertFalse(f1)
+        XCTAssertFalse(f2)
+
+        // Favorite t1 → both report favorited (same parent)
+        await vm.toggleFavoriteAlbum(t1)
+        f1 = await vm.isInFavoriteAlbums(t1)
+        f2 = await vm.isInFavoriteAlbums(t2)
+        XCTAssertTrue(f1)
+        XCTAssertTrue(f2)
+
+        // Unfavorite via t2 → both unfavorited
+        await vm.toggleFavoriteAlbum(t2)
+        f1 = await vm.isInFavoriteAlbums(t1)
+        f2 = await vm.isInFavoriteAlbums(t2)
+        XCTAssertFalse(f1)
+        XCTAssertFalse(f2)
+    }
+
+    func testTrackFavoriteAndAlbumFavoriteIndependent() async throws {
+        await vm.loadPlaylists()
+        let track = makeTrack(id: "vm-ind-1", parentIdentifier: "album-ind")
+        await db.saveTracks([track])
+
+        // Not in either
+        var inFav = await vm.isInFavorites(track)
+        var inAlb = await vm.isInFavoriteAlbums(track)
+        XCTAssertFalse(inFav)
+        XCTAssertFalse(inAlb)
+
+        // Favorite track only
+        await vm.toggleFavorite(track)
+        inFav = await vm.isInFavorites(track)
+        inAlb = await vm.isInFavoriteAlbums(track)
+        XCTAssertTrue(inFav)
+        XCTAssertFalse(inAlb)
+
+        // Favorite album too
+        await vm.toggleFavoriteAlbum(track)
+        inFav = await vm.isInFavorites(track)
+        inAlb = await vm.isInFavoriteAlbums(track)
+        XCTAssertTrue(inFav)
+        XCTAssertTrue(inAlb)
+
+        // Unfavorite track only
+        await vm.toggleFavorite(track)
+        inFav = await vm.isInFavorites(track)
+        inAlb = await vm.isInFavoriteAlbums(track)
+        XCTAssertFalse(inFav)
+        XCTAssertTrue(inAlb)
+    }
+
     // MARK: - Helpers
 
-    private func makeTrack(id: String) -> Track {
+    private func makeTrack(id: String, parentIdentifier: String? = nil,
+                           partNumber: Int? = nil) -> Track {
         Track(
             id: id, source: "internet_archive",
             title: "VM Test Track", artist: "Test Artist",
@@ -166,7 +272,10 @@ final class PlaylistViewModelTests: XCTestCase {
             license: .publicDomain, tags: [],
             qualityScore: 0.75,
             rawCreator: "", composer: nil, instruments: [],
-            metadataConfidence: 2.0
+            metadataConfidence: 2.0,
+            partNumber: partNumber,
+            totalParts: partNumber != nil ? 2 : nil,
+            parentIdentifier: parentIdentifier
         )
     }
 }

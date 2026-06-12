@@ -26,7 +26,7 @@ final class AppIntentBridge {
 
         setPendingCommand(channelId: channel.id)
         NotificationCenter.default.post(name: .siriIntentDidPerform, object: nil)
-        await vm.restoreLastSession(fallbackChannel: channel, autoPlay: true)
+        await vm.restoreLastSession(fallbackChannel: channel, autoPlay: false)
         LorewaveIntentDonations.donateResume()
     }
 
@@ -36,7 +36,7 @@ final class AppIntentBridge {
 
         setPendingCommand(channelId: channel.id)
         NotificationCenter.default.post(name: .siriIntentDidPerform, object: nil)
-        await vm.load(channel: channel, autoPlay: true)
+        await vm.load(channel: channel, autoPlay: false)
 
         LorewaveIntentDonations.donateChannel(channel)
         if channel.category == "Podcasts" {

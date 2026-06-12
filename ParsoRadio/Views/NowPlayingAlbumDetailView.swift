@@ -20,10 +20,6 @@ struct NowPlayingAlbumDetailView: View {
         return URL(string: "https://archive.org/details/\(id)")
     }
 
-    private var formattedTotalDuration: String {
-        tracks.reduce(0) { $0 + $1.duration }.formattedTime
-    }
-
     private var isLibrivox: Bool {
         let haystack = (tracks.first?.tags.joined(separator: " ") ?? "").lowercased()
             + (tracks.first?.id ?? "").lowercased()
@@ -59,10 +55,6 @@ struct NowPlayingAlbumDetailView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
                             .font(.title3).fontWeight(.bold)
-                        if !tracks.isEmpty {
-                            Text("\(tracks.count) \(trackLabel.lowercased()) · \(formattedTotalDuration)")
-                                .font(.subheadline).foregroundStyle(.secondary)
-                        }
                     }
                     .padding(.top, 8)
                 }
@@ -88,12 +80,12 @@ struct NowPlayingAlbumDetailView: View {
                 if let url = iaURL {
                     Section {
                         Link(destination: url) {
-                            Label("View on Internet Archive", systemImage: "safari")
+                            Label(isLibrivox ? "View book on archive.org" : "View Album on archive.org", systemImage: "safari")
                         }
                     }
                 }
             }
-            .navigationTitle("\(itemTypeName) Info")
+            .navigationTitle(itemTypeName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

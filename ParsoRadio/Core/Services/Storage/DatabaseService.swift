@@ -60,6 +60,7 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     private let colCreatedAt     = Column<Double>("created_at").expr
     private let colUpdatedAt     = Column<Double>("updated_at").expr
     private let colIsFavorites   = Column<Bool>("is_favorites").expr
+    private let colPlaylistType  = Column<String>("playlist_type").expr
     private let colPlaylistOrder = Column<Int?>("sort_order").expr
     // Parental flag: parents mark playlists kid-safe; only those appear in Kids
     // Mode (and they're read-only there). Added via idempotent migration so
@@ -152,6 +153,73 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
     private func addColumnIfNotExists(table: String, column: String, definition: String) {
         guard !columnExists(table: table, column: column) else { return }
         _ = try? db.run("ALTER TABLE \(table) ADD COLUMN \(column) \(definition)")
+    }
+
+    private func seedBuiltInPlaylists() {
+        let count = (try? db.scalar(playlists.count)) ?? 0
+        if count == 0 {
+            // Fresh DB: seed all three built-in playlists.
+            let builtins: [(name: String, type: PlaylistType)] = [
+                ("Favorite Tracks", .tracks),
+                ("Favorite Albums", .album),
+                ("Favorite Books", .book),
+            ]
+            for (name, type) in builtins {
+                let p = Playlist.new(name: name, isFavorites: true, type: type)
+                _ = try? db.run(playlists.insert(
+                    colPlaylistId    <- p.id,
+                    colPlaylistName  <- p.name,
+                    colCreatedAt     <- p.createdAt.timeIntervalSince1970,
+                    colUpdatedAt     <- p.updatedAt.timeIntervalSince1970,
+                    colIsFavorites   <- true,
+                    colPlaylistType  <- type.rawValue,
+                    colPlaylistKidSafe <- false
+                ))
+            }
+        } else {
+            // Existing DB: migrate legacy "Favorites" → "Favorite Tracks",
+            // backfill playlist_type on rows missing it, and insert any missing built-ins.
+            migrateBuiltInPlaylists()
+        }
+    }
+
+    private func migrateBuiltInPlaylists() {
+        // Backfill playlist_type: any is_favorites row with NULL/empty type → "tracks".
+        _ = try? db.run(
+            playlists
+                .filter(colIsFavorites == true)
+                .filter(colPlaylistType == "" || colPlaylistType == "tracks")
+                .update(colPlaylistType <- PlaylistType.tracks.rawValue)
+        )
+        // Rename legacy "Favorites" to "Favorite Tracks".
+        _ = try? db.run(
+            playlists
+                .filter(colPlaylistName == "Favorites" && colIsFavorites == true)
+                .update(colPlaylistName <- "Favorite Tracks", colUpdatedAt <- Date().timeIntervalSince1970)
+        )
+        // Insert missing built-in playlists.
+        let existingNames = Set(
+            (try? db.prepare(
+                playlists.filter(colIsFavorites == true).select(colPlaylistName)
+            ).compactMap { $0[colPlaylistName] }) ?? []
+        )
+        let builtins: [(name: String, type: PlaylistType)] = [
+            ("Favorite Tracks", .tracks),
+            ("Favorite Albums", .album),
+            ("Favorite Books", .book),
+        ]
+        for (name, type) in builtins where !existingNames.contains(name) {
+            let p = Playlist.new(name: name, isFavorites: true, type: type)
+            _ = try? db.run(playlists.insert(
+                colPlaylistId    <- p.id,
+                colPlaylistName  <- p.name,
+                colCreatedAt     <- p.createdAt.timeIntervalSince1970,
+                colUpdatedAt     <- p.updatedAt.timeIntervalSince1970,
+                colIsFavorites   <- true,
+                colPlaylistType  <- type.rawValue,
+                colPlaylistKidSafe <- false
+            ))
+        }
     }
 
     private func createSchema() throws {
@@ -269,6 +337,7 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
         // so EVERY existing playlist remains adult-by-default — parents must
         // explicitly opt-in per playlist.
         addColumnIfNotExists(table: "playlists", column: "is_kid_safe", definition: "INTEGER NOT NULL DEFAULT 0")
+        addColumnIfNotExists(table: "playlists", column: "playlist_type", definition: "TEXT NOT NULL DEFAULT 'tracks'")
         addColumnIfNotExists(table: "podcast_subscriptions", column: "artwork_url", definition: "TEXT")
 
         // Track metadata enrichment (MusicBrainz, Wikidata, Cover Art Archive)
@@ -302,17 +371,8 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
         // Enable FK enforcement
         _ = try? db.run("PRAGMA foreign_keys = ON")
 
-        // Seed Favorites playlist if playlists table is empty
-        if (try? db.scalar(playlists.count)) == 0 {
-            let fav = Playlist.new(name: "Favorites", isFavorites: true)
-            _ = try? db.run(playlists.insert(
-                colPlaylistId   <- fav.id,
-                colPlaylistName <- fav.name,
-                colCreatedAt    <- fav.createdAt.timeIntervalSince1970,
-                colUpdatedAt    <- fav.updatedAt.timeIntervalSince1970,
-                colIsFavorites  <- true
-            ))
-        }
+        // Seed built-in favorites playlists.
+        seedBuiltInPlaylists()
     }
 
     // MARK: - Track write
@@ -765,8 +825,9 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
 
     // MARK: - Playlists
 
-    func createPlaylist(name: String, isFavorites: Bool = false) async throws -> Playlist {
-        let p = Playlist.new(name: name, isFavorites: isFavorites)
+    func createPlaylist(name: String, isFavorites: Bool = false,
+                        type: PlaylistType = .tracks) async throws -> Playlist {
+        let p = Playlist.new(name: name, isFavorites: isFavorites, type: type)
         return try await withCheckedThrowingContinuation { continuation in
             queue.async { [self] in
                 do {
@@ -778,6 +839,7 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
                         self.colCreatedAt    <- p.createdAt.timeIntervalSince1970,
                         self.colUpdatedAt    <- p.updatedAt.timeIntervalSince1970,
                         self.colIsFavorites  <- p.isFavorites,
+                        self.colPlaylistType <- p.type.rawValue,
                         self.colPlaylistOrder <- maxOrder + 1,
                         self.colPlaylistKidSafe <- p.isKidSafe
                     ))
@@ -805,6 +867,7 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
                         createdAt:   Date(timeIntervalSince1970: row[self.colCreatedAt]),
                         updatedAt:   Date(timeIntervalSince1970: row[self.colUpdatedAt]),
                         isFavorites: row[self.colIsFavorites],
+                        type:        PlaylistType(rawValue: row[self.colPlaylistType]) ?? .tracks,
                         isKidSafe:   row[self.colPlaylistKidSafe]
                     )
                 }

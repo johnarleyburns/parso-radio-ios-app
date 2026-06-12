@@ -58,7 +58,6 @@ struct ChannelInfoView: View {
     // See identical warning on CuratedChannelsGrid in HomeView.swift.
     let playerVM: PlayerViewModel
 
-    @State private var showCurator = false
     @State private var showIconPicker = false
     @State private var showImagePicker = false
     @State private var selectedImageItem: PhotosPickerItem?
@@ -68,6 +67,8 @@ struct ChannelInfoView: View {
     @State private var episodeCount: Int = 0
     @State private var currentIcon: String
     @State private var localImageURL: String?
+
+    @State private var showMergeConfirm = false
 
     init(channel: Channel, playerVM: PlayerViewModel) {
         self.channel = channel
@@ -142,16 +143,10 @@ struct ChannelInfoView: View {
                 }
             }
 
-            // Curate this Channel (for user-curated or shipped channels)
+            // Channel customization (for user-curated channels)
             if isCuratedCategory,
                CustomChannelsStore.shared.customChannels.contains(where: { $0.id == channel.id }) {
                 Section {
-                    Button {
-                        showCurator = true
-                    } label: {
-                        Label("Curate this Channel", systemImage: "checklist")
-                            .foregroundStyle(Color.accentColor)
-                    }
                     Button {
                         showIconPicker = true
                     } label: {
@@ -190,6 +185,21 @@ struct ChannelInfoView: View {
                 }
             }
 
+            // Merge Shipped Curation (for shipped default channels)
+            if isCuratedCategory,
+               chStore.customChannels.contains(where: { $0.id == channel.id && $0.isShippedDefault }) {
+                Section {
+                    Button {
+                        showMergeConfirm = true
+                    } label: {
+                        Label("Merge Shipped Curation", systemImage: "arrow.merge")
+                            .foregroundStyle(Color.accentColor)
+                    }
+                } footer: {
+                    Text("Add shipped approved tracks to your curation. Existing verdicts are preserved — only new tracks you haven't judged yet are added.")
+                }
+            }
+
             Section("About") {
                 Text(channel.infoSentence)
                     .font(.body)
@@ -225,11 +235,6 @@ struct ChannelInfoView: View {
         }
         .navigationTitle(displayName)
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showCurator) {
-            if let meta = CustomChannelsStore.shared.customChannels.first(where: { $0.id == channel.id }) {
-                CuratorChannelEditView(channelMeta: meta, playerVM: playerVM, onDismiss: { showCurator = false })
-            }
-        }
         .task {
             if channel.feedURL != nil {
                 let tracks = await DatabaseService.shared.fetchTracks(forChannel: channel)
@@ -252,6 +257,17 @@ struct ChannelInfoView: View {
                     saveChannelImage(data)
                 }
             }
+        }
+        .alert("Merge \"\(displayName)\"?", isPresented: $showMergeConfirm) {
+            Button("Merge") {
+                Task {
+                    await CustomChannelsStore.shared.mergeShippedCuration(
+                        chId: channel.id, db: playerVM.db)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Add shipped approved tracks to your curation. Your existing verdicts are preserved — this only adds new tracks you haven't judged yet.")
         }
     }
 
