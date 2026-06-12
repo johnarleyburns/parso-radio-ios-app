@@ -321,7 +321,10 @@ struct HomeView: View {
                     liveDetailTracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
                     liveDetailTitle = entry.displayName
                     liveDetailParentId = entry.id
-                    showLiveDetail = true
+                    // Defer sheet so NavigationStack processes content changes
+                    // before the inner sheet NavigationStack is created,
+                    // preventing "NavigationRequestObserver" frame collision.
+                    DispatchQueue.main.async { showLiveDetail = true }
                 }
             } label: {
                 HStack(spacing: 12) {
@@ -426,7 +429,7 @@ struct HomeView: View {
                     audiobookDetailTracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
                     audiobookDetailTitle = entry.displayName
                     audiobookDetailParentId = entry.id
-                    showAudiobookDetail = true
+                    DispatchQueue.main.async { showAudiobookDetail = true }
                 }
             } label: {
                 HStack(spacing: 12) {
@@ -1138,7 +1141,7 @@ struct CuratedChannelsGrid: View {
                     discoveryDetailTracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
                     discoveryDetailTitle = t.title
                     discoveryDetailParentId = identifier
-                    showDiscoveryDetail = true
+                    DispatchQueue.main.async { showDiscoveryDetail = true }
                 }
             } label: {
                 HStack(spacing: 12) {
@@ -1603,7 +1606,7 @@ struct CuratedDiscoveryHeader: View {
                     headerDetailTracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
                     headerDetailTitle = track.title
                     headerDetailParentId = identifier
-                    showDetail = true
+                    DispatchQueue.main.async { showDetail = true }
                 }
             } label: {
                 HStack(spacing: 12) {

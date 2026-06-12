@@ -292,9 +292,16 @@ final class PlayerViewModel: ObservableObject {
                 self.trackDuration = nil
                 // Invalidate cache so re-visit doesn't hit the same bad file
                 self.audioPlayer.invalidateStreamingCache(for: track.id)
+                // When the user didn't intend to play (paused channel load),
+                // don't auto-advance — let them stay instead of cycling a new
+                // track every 10 seconds.
+                guard wasIntendedToPlay else {
+                    self.errorMessage = "This track couldn't be loaded. Tap to try another."
+                    return
+                }
                 // Advance to next if in a channel/playlist
                 if self.currentChannel != nil || self.currentPlaylist != nil {
-                    await self.advanceToNext(autoPlay: wasIntendedToPlay)
+                    await self.advanceToNext(autoPlay: true)
                 }
             }
         }

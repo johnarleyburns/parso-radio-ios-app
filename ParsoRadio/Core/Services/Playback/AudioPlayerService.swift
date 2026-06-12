@@ -243,14 +243,20 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         // playback: .readyToPlay means buffers are loaded, so 10 s is
         // plenty even on slow connections (20 s stall watchdog is the
         // ultimate safety net).
-        nonAudioTimer?.cancel()
-        nonAudioTimer = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard let self,
-                      (self.player?.currentTime().seconds ?? 0) < 0.1 else { return }
-                self.onNonAudio?()
+        // Only arm when we intend to play — when autoPlay is false the
+        // AVPlayer never starts, so the time observer never ticks, so
+        // the non-audio timer would fire and trigger a 10-second
+        // advanceToNext → playTrack → nonAudioTimer → ... cycle.
+        if pendingAutoPlay {
+            nonAudioTimer?.cancel()
+            nonAudioTimer = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    guard let self,
+                          (self.player?.currentTime().seconds ?? 0) < 0.1 else { return }
+                    self.onNonAudio?()
+                }
             }
         }
         if let d = duration { onReady?(d) }
