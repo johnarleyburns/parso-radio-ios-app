@@ -228,6 +228,43 @@ final class DatabaseServicePlaylistTests: XCTestCase {
         XCTAssertFalse(bachHeard.contains("cross-2"))
     }
 
+    // MARK: - Local file round-trip
+
+    func testLocalTrackSurvivesPlaylistRoundTrip() async throws {
+        let fm = FileManager.default
+        let audioDir = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("audio", isDirectory: true)
+        try? fm.createDirectory(at: audioDir, withIntermediateDirectories: true)
+        let fileURL = audioDir.appendingPathComponent("test-local-roundtrip.mp3")
+        // Stage a minimal valid MP3 file (ID3 header + silence frame)
+        try Data([0xFF, 0xFB, 0x90, 0x00]).write(to: fileURL)
+
+        let track = Track(
+            id: "local-roundtrip-1", source: "local",
+            title: "Test Local", artist: "Test Artist",
+            duration: 10,
+            streamURL: URL(string: "https://example.com/fallback")!,
+            downloadURL: nil,
+            localFilePath: fileURL.path,
+            license: .publicDomain, tags: [],
+            qualityScore: 0, rawCreator: "Test Artist",
+            composer: nil, instruments: [],
+            metadataConfidence: 0,
+            isLocal: true
+        )
+        let playlist = try await db.createPlaylist(name: "Local Roundtrip")
+        await db.addTrack(track, toPlaylist: playlist.id)
+
+        let fetched = await db.fetchTracks(forPlaylist: playlist.id)
+        XCTAssertEqual(fetched.count, 1, "track must survive the round trip")
+        let rehydrated = fetched[0]
+        XCTAssertTrue(rehydrated.isLocal, "isLocal must be true after round trip")
+        XCTAssertNotNil(rehydrated.localFilePath, "localFilePath must survive")
+        XCTAssertNotNil(rehydrated.resolvedLocalURL, "resolvedLocalURL must resolve to the staged file")
+
+        try? fm.removeItem(at: fileURL)
+    }
+
     // MARK: - Helpers
 
     private func makeTrack(id: String, composer: String? = nil) -> Track {

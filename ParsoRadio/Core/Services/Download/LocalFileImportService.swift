@@ -13,10 +13,9 @@ final class LocalFileImportService {
         let granted = url.startAccessingSecurityScopedResource()
         defer { if granted { url.stopAccessingSecurityScopedResource() } }
         let existing = await db.fetchTracks(forPlaylist: playlist.id)
-        let existingKeys = Set(existing.map { $0.title.lowercased() + "|" + $0.artist.lowercased() })
+        let existingKeys = Set(existing.map { dedupKey($0) })
         let track = try await processAudioFile(at: url)
-        let key = track.title.lowercased() + "|" + track.artist.lowercased()
-        guard !existingKeys.contains(key) else { return track }
+        guard !existingKeys.contains(dedupKey(track)) else { return track }
         await db.addTrack(track, toPlaylist: playlist.id)
         return track
     }
@@ -25,7 +24,7 @@ final class LocalFileImportService {
         let granted = url.startAccessingSecurityScopedResource()
         defer { if granted { url.stopAccessingSecurityScopedResource() } }
         let existing = await db.fetchTracks(forPlaylist: playlist.id)
-        var existingKeys = Set(existing.map { $0.title.lowercased() + "|" + $0.artist.lowercased() })
+        var existingKeys = Set(existing.map { dedupKey($0) })
         let audioTypes: [UTType] = [.mp3, .mpeg4Audio, .aiff, .wav]
         var results: [Track] = []
         let enumerator = FileManager.default.enumerator(
@@ -40,7 +39,7 @@ final class LocalFileImportService {
                   let contentType = resourceValues.contentType,
                   audioTypes.contains(where: { contentType.conforms(to: $0) }) else { continue }
             if let track = try? await processAudioFile(at: fileURL) {
-                let key = track.title.lowercased() + "|" + track.artist.lowercased()
+                let key = dedupKey(track)
                 guard !existingKeys.contains(key) else { continue }
                 existingKeys.insert(key)
                 await db.addTrack(track, toPlaylist: playlist.id)
@@ -101,5 +100,9 @@ final class LocalFileImportService {
     private func metadataString(_ metadata: [AVMetadataItem]?, key: AVMetadataKey) async -> String? {
         guard let item = metadata?.first(where: { $0.commonKey == key }) else { return nil }
         return try? await item.load(.stringValue)
+    }
+
+    private func dedupKey(_ track: Track) -> String {
+        track.localFilePath ?? track.id
     }
 }
