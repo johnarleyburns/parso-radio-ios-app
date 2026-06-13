@@ -6,7 +6,7 @@ import Foundation
 /// direct stream URL. Local imports and ambient placeholders aren't
 /// shareable.
 ///
-/// Extracted from `iPodView` so it's directly unit-testable.
+/// Builds a share URL for a track; unit-tested in isolation.
 enum ShareURLBuilder {
     static func url(for track: Track) -> URL? {
         guard !track.isLocal else { return nil }

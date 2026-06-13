@@ -160,7 +160,6 @@
 		9DB6C708B3E32AC8BB85A32F /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0375C35445220CE8FBF07C1E /* NetworkMonitor.swift */; };
 		9F5D01F122F889F8CCFD5106 /* SleepTimerControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF89D1CB3A4B1CCA709E33D /* SleepTimerControl.swift */; };
 		9F60761256BD70B18F96B561 /* License.swift in Sources */ = {isa = PBXBuildFile; fileRef = 374FD21E0EEC15CD32818CAA /* License.swift */; };
-		A0B391E23322DDE9A7EF8ECA /* NowPlayingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00BEF5C147DD89B49885F990 /* NowPlayingView.swift */; };
 		A16F9A7F4CF8F3C1B6AEB2C5 /* ShortcutsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BBCD0FDE1B3F8327A7F3376 /* ShortcutsProvider.swift */; };
 		A17A7CFE3B157C962AB71AFE /* SessionRestoreController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBFF46627F227213DEDA1EBD /* SessionRestoreController.swift */; };
 		A203A13B573B7B85001D3835 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1D4EC9BBB7507808AE1928 /* SearchView.swift */; };
@@ -266,7 +265,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		00BEF5C147DD89B49885F990 /* NowPlayingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingView.swift; sourceTree = "<group>"; };
 		01D14830D84C636438B50CA8 /* ambient-rain.mp4 */ = {isa = PBXFileReference; path = "ambient-rain.mp4"; sourceTree = "<group>"; };
 		0325EF0B25F026DED201D666 /* ParsoMusicIntegrationTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ParsoMusicIntegrationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0375C35445220CE8FBF07C1E /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
@@ -884,7 +882,6 @@
 				C00C3B2C6316BE3F266CFB42 /* LoopingVideoView.swift */,
 				FED3C76B0FA691C2A233C206 /* MenuRoute.swift */,
 				B59B04E5E3B2CB43961C8AF0 /* NowPlayingAlbumDetailView.swift */,
-				00BEF5C147DD89B49885F990 /* NowPlayingView.swift */,
 				22BB92612AFBFADB59CBAC08 /* PlaylistDetailView.swift */,
 				7835336CE6F2D4EB7555CB38 /* PlaylistListView.swift */,
 				408611D03ED584C14BD78530 /* PlaylistsScreen.swift */,
@@ -1000,7 +997,7 @@
 			path = ParsoRadio/UITests;
 			sourceTree = "<group>";
 		};
-		"TEMP_C283EF4F-3A84-40B3-A782-ECC575D4E3C9" /* Integration */ = {
+		"TEMP_D5C8B951-3D4F-4ED9-A0A2-19D89C8D5CAB" /* Integration */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1354,7 +1351,6 @@
 				9DB6C708B3E32AC8BB85A32F /* NetworkMonitor.swift in Sources */,
 				44092C9D30DC1DB6F32E4A4B /* NowPlayingAlbumDetailView.swift in Sources */,
 				F82AEE11F01E1FE159AF0A08 /* NowPlayingSheet.swift in Sources */,
-				A0B391E23322DDE9A7EF8ECA /* NowPlayingView.swift in Sources */,
 				56C07AE74C8A0AF0D6D3CC69 /* OfflineDownloadService.swift in Sources */,
 				5DD80CFF492FB1232B061A3D /* OxfordLecturesService.swift in Sources */,
 				BD8CD97F82ADEFCFE16E1DFB /* ParsoRadioApp.swift in Sources */,
