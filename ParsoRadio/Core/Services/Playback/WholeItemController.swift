@@ -59,49 +59,12 @@ final class WholeItemController {
             }
             await db.deleteTracks(forParentIdentifier: identifier)
             await db.saveTracks(fetched)
+            await db.setIsMultiPart(true, forTrackId: identifier)
             let ordered = fetched.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
             vm.itemPartsCache[identifier] = ordered
             return ordered
         } catch {
-            vm.itemPartsCache.updateValue(nil, forKey: identifier)
             return nil
-        }
-    }
-
-    func probeCurrentTrack() {
-        guard let vm = playerVM else { return }
-        guard let track = vm.currentTrack, track.source == "internet_archive" else {
-            vm.currentTrackIsMultiPart = false
-            vm.currentItemChapterCount = 0
-            vm.currentItemTotalDuration = 0
-            vm.currentItemPartIndex = nil
-            return
-        }
-        let identifier = track.parentIdentifier ?? track.id
-        Task { [weak self, weak vm] in
-            guard let self, let vm else { return }
-            let parts = await self.resolveItemParts(identifier: identifier)
-            guard vm.currentTrack?.id == track.id ||
-                  (track.parentIdentifier != nil &&
-                   vm.currentTrack?.parentIdentifier == track.parentIdentifier)
-            else { return }
-            vm.currentTrackIsMultiPart = (parts != nil)
-            guard let parts else {
-                vm.currentItemChapterCount = 0
-                vm.currentItemTotalDuration = 0
-                vm.currentItemPartIndex = nil
-                return
-            }
-            vm.currentItemChapterCount = parts.count
-            vm.currentItemTotalDuration = parts.reduce(0.0) { $0 + max(0, $1.duration) }
-            if let pn = vm.currentTrack?.partNumber {
-                vm.currentItemPartIndex = pn
-            } else if let cur = vm.currentTrack?.id,
-                      let idx = parts.firstIndex(where: { $0.id == cur }) {
-                vm.currentItemPartIndex = idx + 1
-            } else {
-                vm.currentItemPartIndex = 1
-            }
         }
     }
 
@@ -141,9 +104,5 @@ final class WholeItemController {
         vm.playbackContextToken &+= 1
         vm.playHistory = []
         await vm.playTrack(ordered[0], seekTo: nil, recordHistory: false)
-    }
-
-    func playAlbumTracks(_ ordered: [Track], title: String) async {
-        await playerVM?.playAlbumTracks(ordered, title: title)
     }
 }

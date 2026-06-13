@@ -1,16 +1,12 @@
 import SwiftUI
 
 struct SearchTabView: View {
-    @State private var query = ""
-    @State private var showSearch = false
+    @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var playlistVM: PlaylistViewModel
 
     var body: some View {
-        NavigationStack {
-            SearchView()
-                .navigationTitle("Search")
-                .navigationBarTitleDisplayMode(.large)
-        }
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
-                    prompt: "Search Internet Archive")
+        SearchView()
+            .environmentObject(playerVM)
+            .environmentObject(playlistVM)
     }
 }

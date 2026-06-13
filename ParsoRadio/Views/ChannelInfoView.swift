@@ -236,7 +236,7 @@ struct ChannelInfoView: View {
         .navigationTitle(displayName)
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            if channel.feedURL != nil {
+            if channel.mediaKind == .podcast {
                 let tracks = await DatabaseService.shared.fetchTracks(forChannel: channel)
                 episodeCount = tracks.count
             }

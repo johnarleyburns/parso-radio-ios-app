@@ -585,6 +585,20 @@ final class DatabaseService: @unchecked Sendable, DatabaseServiceProtocol {
         }
     }
 
+    func fetchAllDownloadedTracks(limit: Int = 100) async -> [Track] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let query = self.tracks
+                    .filter(self.colLocalPath != nil)
+                    .order(self.colFetchedAt.desc)
+                    .limit(limit)
+                let result = (try? self.db.prepare(query))?
+                    .compactMap(self.rowToTrack) ?? []
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
     func evictOldTracks(olderThan days: Int = 30) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in

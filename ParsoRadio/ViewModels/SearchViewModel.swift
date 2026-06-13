@@ -20,16 +20,18 @@ final class SearchViewModel: ObservableObject {
     enum ItemKind: String { case track, album, book }
 
     // Search scope filter (the segmented control under the search box). `all`
-    // (= "Both") is the default; `music` excludes book/podcast/radio
+    // (= "All") is the default; `music` excludes book/podcast/radio
     // collections; `audiobooks` restricts to the book collections.
+    // `podcasts` searches via iTunes podcast API.
     enum SearchScope: String, CaseIterable, Identifiable {
-        case all, music, audiobooks
+        case all, music, audiobooks, podcasts
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .all:        return "Both"
+            case .all:        return "All"
             case .music:      return "Music"
             case .audiobooks: return "Audiobooks"
+            case .podcasts:   return "Podcasts"
             }
         }
     }
@@ -37,6 +39,7 @@ final class SearchViewModel: ObservableObject {
     @Published var query: String = ""
     @Published var scope: SearchScope = .all
     @Published var results: [ResultGroup] = []
+    @Published var podcastResults: [PodcastSearchResult] = []
     @Published var isSearching: Bool = false
     @Published var errorMessage: String? = nil
     @Published var hasMorePages: Bool = false
@@ -57,11 +60,14 @@ final class SearchViewModel: ObservableObject {
     private let historyLimit = 12
 
     private let archiveService: InternetArchiveService
+    private let podcastSearchService: PodcastSearchService
     private var searchTask: Task<Void, Never>? = nil
     private var currentPage = 0
 
-    init(archiveService: InternetArchiveService = InternetArchiveService()) {
+    init(archiveService: InternetArchiveService = InternetArchiveService(),
+         podcastSearchService: PodcastSearchService = PodcastSearchService.shared) {
         self.archiveService = archiveService
+        self.podcastSearchService = podcastSearchService
         recentSearches = UserDefaults.standard.stringArray(forKey: historyKey) ?? []
     }
 
@@ -95,7 +101,7 @@ final class SearchViewModel: ObservableObject {
     // returns nothing, never before the response arrives.
     var showNoResults: Bool {
         hasSearched && !isSearching && errorMessage == nil
-            && query.count >= 2 && results.isEmpty
+            && query.count >= 2 && results.isEmpty && podcastResults.isEmpty
     }
 
     // Lazily fetch duration + kind for one result (one IA metadata request).
@@ -151,9 +157,8 @@ final class SearchViewModel: ObservableObject {
 
     func searchChanged() {
         searchTask?.cancel()
-        // A new query invalidates any prior "no results" verdict until the
-        // next request actually completes.
         hasSearched = false
+        podcastResults = []
         guard query.count >= 2 else { results = []; return }
         searchTask = Task {
             try? await Task.sleep(nanoseconds: 400_000_000)  // 400 ms debounce
@@ -181,18 +186,23 @@ final class SearchViewModel: ObservableObject {
     private func performSearch(page: Int) async {
         isSearching = true
         errorMessage = nil
+        results = []
+        podcastResults = []
         do {
-            let groups = try await archiveService.search(query: query, page: page, scope: scope)
-            if page == 0 { results = groups } else { results.append(contentsOf: groups) }
-            currentPage = page
-            hasMorePages = groups.count == 20
-            prefetchKinds()
+            if scope == .podcasts {
+                let podcastHits = try await podcastSearchService.search(term: query)
+                podcastResults = podcastHits
+            } else {
+                let groups = try await archiveService.search(query: query, page: page, scope: scope)
+                if page == 0 { results = groups } else { results.append(contentsOf: groups) }
+                currentPage = page
+                hasMorePages = groups.count == 20
+                prefetchKinds()
+            }
         } catch {
-            errorMessage = "Search failed — check your connection"
+            errorMessage = "Search failed \u{2014} check your connection"
         }
         isSearching = false
-        // The query has now produced a definitive result (or an error);
-        // only now may the "No results" message be shown.
         hasSearched = true
         if page == 0, errorMessage == nil { recordHistory(query) }
     }

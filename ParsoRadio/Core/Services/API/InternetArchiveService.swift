@@ -327,6 +327,8 @@ struct InternetArchiveService {
             return " AND NOT collection:(librivoxaudio OR audio_bookspoetry"
                  + " OR podcasts OR podcasts_mirror OR podcasts_mirror_bobarchives"
                  + " OR radioprograms OR oldtimeradio)"
+        case .podcasts:
+            return ""
         }
     }
 

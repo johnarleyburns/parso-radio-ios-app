@@ -12,7 +12,8 @@ struct SearchView: View {
     @State private var failedTrackIds: Set<String> = []
     @State private var flashTrackId: String?
     @FocusState private var searchFocused: Bool
-    @Environment(\.dismiss) private var dismiss
+
+    @ObservedObject private var podcastStore = PodcastSubscriptionStore.shared
 
     init(dismissAll: (() -> Void)? = nil,
          archiveService: InternetArchiveService = InternetArchiveService()) {
@@ -28,7 +29,7 @@ struct SearchView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                         .accessibilityHidden(true)
-                    TextField("Search music, audiobooks…", text: $searchVM.query)
+                    TextField("Search music, audiobooks, podcasts...", text: $searchVM.query)
                         .focused($searchFocused)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
@@ -48,7 +49,6 @@ struct SearchView: View {
                 .padding(.horizontal)
                 .padding(.top, 8)
 
-                // Scope filter: Both (default) / Music / Audiobooks.
                 Picker("Search scope", selection: $searchVM.scope) {
                     ForEach(SearchViewModel.SearchScope.allCases) { scope in
                         Text(scope.label).tag(scope)
@@ -70,14 +70,19 @@ struct SearchView: View {
                     } else if searchVM.showNoResults {
                         ContentUnavailableView.search(text: searchVM.query)
                     }
-                    resultsList
+                    if searchVM.scope == .podcasts {
+                        podcastResultsList
+                    } else {
+                        resultsList
+                    }
                 }
             }
             .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { searchFocused = false }
                 }
             }
             .sheet(item: $showAddToPlaylist) { track in
@@ -107,7 +112,7 @@ struct SearchView: View {
                     Button("Add \(label) to Playlist") {
                         showAddItemToPlaylist = group
                     }
-                    Button("Add \(label) to New Playlist “\(shortTitle(group.title))”") {
+                    Button("Add \(label) to New Playlist \u{201C}\(shortTitle(group.title))\u{201D}") {
                         Task {
                             await playerVM.addEntireItemToNewPlaylist(
                                 from: searchTrack(group),
@@ -118,7 +123,7 @@ struct SearchView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             }
-            .onAppear { searchFocused = true }   // cursor ready immediately
+            .onAppear { searchFocused = true }
             .sheet(item: $infoGroup) { group in
                 trackInfoSheet(group)
             }
@@ -136,7 +141,55 @@ struct SearchView: View {
         }
     }
 
-    // MARK: - Recent searches (shown when the query is empty)
+    // MARK: - Podcast Results
+
+    private var podcastResultsList: some View {
+        List {
+            ForEach(searchVM.podcastResults) { podcast in
+                Button {
+                    Task {
+                        await podcastStore.add(
+                            name: podcast.title,
+                            feedURL: podcast.feedURL,
+                            artworkURL: podcast.artworkURL
+                        )
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        if let artURL = podcast.artworkURL, let url = URL(string: artURL) {
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image.resizable().scaledToFill()
+                                default:
+                                    Color(.systemGray5)
+                                }
+                            }
+                            .frame(width: 48, height: 48)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        } else {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(.systemGray5))
+                                .frame(width: 48, height: 48)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(podcast.title)
+                                .font(.body).lineLimit(2)
+                            Text(podcast.artist)
+                                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Text("\(podcast.trackCount) episodes")
+                                .font(.caption2).foregroundStyle(.tertiary)
+                        }
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    // MARK: - Recent searches
 
     @ViewBuilder
     private var historyList: some View {
@@ -144,7 +197,7 @@ struct SearchView: View {
             ContentUnavailableView(
                 "Search the Internet Archive",
                 systemImage: "magnifyingglass",
-                description: Text("Find music, albums and audiobooks.")
+                description: Text("Find music, audiobooks, and podcasts.")
             )
         } else {
             List {
@@ -175,7 +228,7 @@ struct SearchView: View {
         }
     }
 
-    // MARK: - Results
+    // MARK: - IA Results
 
     private var resultsList: some View {
         List {
@@ -242,8 +295,6 @@ struct SearchView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.accentColor)
-                    // The whole row is one actionable element below; this
-                    // duplicate would just be noise for VoiceOver.
                     .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
@@ -265,15 +316,15 @@ struct SearchView: View {
 
     private func kindIcon(_ group: SearchViewModel.ResultGroup) -> String {
         switch searchVM.itemKinds[group.id] {
-        case .book:  return "book.closed.fill"      // a book
-        case .album: return "opticaldisc.fill"      // a record album
-        case .track: return "music.note"            // a single track
-        case nil:    return "waveform"              // not yet classified
+        case .book:  return "book.closed.fill"
+        case .album: return "opticaldisc.fill"
+        case .track: return "music.note"
+        case nil:    return "waveform"
         }
     }
 
     private func shortTitle(_ s: String, max: Int = 24) -> String {
-        s.count > max ? String(s.prefix(max - 1)) + "…" : s
+        s.count > max ? String(s.prefix(max - 1)) + "\u{2026}" : s
     }
 
     private func kindLabel(_ kind: SearchViewModel.ItemKind) -> String {
@@ -284,7 +335,6 @@ struct SearchView: View {
         }
     }
 
-    // Single-track Track for "Add to Playlist".
     private func searchTrack(_ group: SearchViewModel.ResultGroup) -> Track {
         Track(
             id: group.id, source: "internet_archive",

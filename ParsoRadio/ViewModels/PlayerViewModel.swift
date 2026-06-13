@@ -481,7 +481,7 @@ final class PlayerViewModel: ObservableObject {
         UserDefaults.standard.set(visited, forKey: "visitedChannelIds")
 
         LorewaveIntentDonations.donateChannel(channel)
-        if channel.category == "Podcasts" {
+        if channel.mediaKind == .podcast {
             LorewaveIntentDonations.donatePodcast(channel)
         }
 
@@ -585,13 +585,13 @@ final class PlayerViewModel: ObservableObject {
                     errorMessage = "Listen to at least \(RecommendationQueryBuilder.minPlays) tracks first — then your \(channel.name) picks will appear here."
                     return
                 }
-            } else if channel.feedURL != nil {
+            } else if channel.mediaKind == .podcast {
                 // News/podcast channels: fetch from RSS feed via PodcastRSSService.
                 fetched = try await podcastService.fetchTracks(channel: channel)
-            } else if channel.preferredSource == "nps" || channel.contentType == .ambientLoop {
+            } else if channel.mediaKind == .ambient {
                 // Ambient static channels: hardcoded tracks, no network fetch needed.
                 fetched = ambientService.fetchTracks(channel: channel)
-            } else if channel.category == "Lectures" {
+            } else if channel.mediaKind == .lecture {
                 // Oxford channels fetch from podcasts.ox.ac.uk via OxfordLecturesService.
                 fetched = try await oxfordService.fetchTracks(unitSlug: channel.tags.first ?? "")
             } else if let entry = channel.iaQueryEntry {
@@ -600,12 +600,12 @@ final class PlayerViewModel: ObservableObject {
                 // .spokenWord LibriVox channels use the registry query, not
                 // the legacy fetchSpokenWordTracks path. matchTags stamp
                 // isolates them in the shared DB; sort=random gives variety.
-                let lang = channel.category == "Audiobooks" ? "eng" : nil
+                let lang = channel.mediaKind == .audiobook ? "eng" : nil
                 fetched = try await archiveService.fetchTracks(
                     iaQuery: entry.iaQuery, matchTags: entry.matchTags,
                     language: lang
                 )
-            } else if channel.contentType == .spokenWord {
+            } else if channel.mediaKind == .audiobook {
                 // Spoken-word channels with no registry entry: legacy IA path.
                 fetched = try await archiveService.fetchSpokenWordTracks(channel: channel)
             } else if channel.composers.isEmpty {
@@ -697,7 +697,7 @@ final class PlayerViewModel: ObservableObject {
         // NEWS: on re-entry, if a NEWER episode than the one last played has
         // appeared in the feed, jump straight to the newest and play it,
         // ignoring the saved position. (News only; only when newer arrived.)
-        if channel.feedURL != nil, !fetched.isEmpty {
+        if channel.mediaKind == .podcast, !fetched.isEmpty {
             let newest = fetched.max {
                 ($0.bestDate ?? .distantPast) < ($1.bestDate ?? .distantPast)
             }
@@ -1378,69 +1378,7 @@ final class PlayerViewModel: ObservableObject {
     // ordered parts for multi-file items. Network is hit at most once per
     // identifier across all sessions (verdict persisted in the DB).
     func resolveItemParts(identifier: String) async -> [Track]? {
-        // 1. In-session cache (key present → definitive; nil value = single).
-        if let cached = itemPartsCache[identifier] { return cached }
-
-        // 2. DB-first: already-expanded parts win — but ONLY if they form a
-        //    clean single-format, contiguous set. Stale mixed-format rows from
-        //    an older extraction are rejected so we re-probe and self-heal.
-        let dbParts = await db.fetchTracks(forParentIdentifier: identifier)
-        if dbParts.count >= 2, Self.partsAreClean(dbParts) {
-            let ordered = dbParts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
-            itemPartsCache[identifier] = ordered
-            return ordered
-        }
-
-        // 3. Persisted single-file verdict on the item-level track.
-        if let itemTrack = await db.fetchTrack(id: identifier),
-           itemTrack.isMultiPart == false {
-            itemPartsCache.updateValue(nil, forKey: identifier)
-            return nil
-        }
-
-        // 4. Network probe with 10s hard timeout (belt-and-suspenders on top
-        //    of the URLSession's own 8s/12s timeouts).
-        do {
-            let fetched = try await withThrowingTaskGroup(of: [Track].self) { group in
-                group.addTask {
-                    let shortSession = URLSession(configuration: {
-                        let c = URLSessionConfiguration.default
-                        c.timeoutIntervalForRequest = 8
-                        c.timeoutIntervalForResource = 12
-                        return c
-                    }())
-                    let svc = InternetArchiveService(session: shortSession)
-                    return try await svc.fetchTracksForIdentifier(identifier)
-                }
-                group.addTask {
-                    try await Task.sleep(nanoseconds: 10_000_000_000)
-                    throw URLError(.timedOut)
-                }
-                let result = try await group.next()!
-                group.cancelAll()
-                return result
-            }
-            if fetched.count <= 1 {
-                await db.setIsMultiPart(false, forTrackId: identifier)
-                itemPartsCache.updateValue(nil, forKey: identifier)
-                return nil
-            }
-            // Do NOT stamp probed chapters with the channel's matchTag: that
-            // is what made every chapter join the channel pool, so skipping a
-            // LibriVox channel cycled through one book's chapters. Unstamped
-            // parts are still saved (retrievable by parent_identifier) and
-            // added to playlists, but never match a channel → the channel
-            // only ever offers the book's first track.
-            await db.deleteTracks(forParentIdentifier: identifier)
-            await db.saveTracks(fetched)
-            await db.setIsMultiPart(true, forTrackId: identifier)
-            let ordered = fetched.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
-            itemPartsCache[identifier] = ordered
-            return ordered
-        } catch {
-            // Network error or timeout: do NOT cache (absence = retry on next load).
-            return nil
-        }
+        await wholeItem.resolveItemParts(identifier: identifier)
     }
 
     // A DB part-set is trustworthy only if it is ONE audio format and its
@@ -1492,7 +1430,7 @@ final class PlayerViewModel: ObservableObject {
 
     func playSingleTrack(_ track: Track, seekTo: Double? = nil) async {
         saveAutosaveForCurrentTrack()
-        if currentChannel?.feedURL != nil {
+        if currentChannel?.mediaKind == .podcast {
             currentChannel = nil
         }
         currentPlaylist = nil
@@ -1701,11 +1639,11 @@ final class PlayerViewModel: ObservableObject {
         var fetched: [Track] = []
         do {
             if let entry = channel.iaQueryEntry {
-                let lang = channel.category == "Audiobooks" ? "eng" : nil
+                let lang = channel.mediaKind == .audiobook ? "eng" : nil
                 fetched = try await archiveService.fetchTracks(
                     iaQuery: entry.iaQuery, matchTags: entry.matchTags,
                     language: lang)
-            } else if channel.contentType == .spokenWord {
+            } else if channel.mediaKind == .audiobook {
                 fetched = try await archiveService.fetchSpokenWordTracks(channel: channel)
             }
             guard !fetched.isEmpty, contextToken == playbackContextToken else { return }

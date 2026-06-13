@@ -4,21 +4,18 @@ struct RootTabView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            TabView {
-                ListenView()
-                    .tabItem { Label("Listen", systemImage: "sparkles") }
+        TabView {
+            ListenView()
+                .tabItem { Label("Listen", systemImage: "sparkles") }
 
-                LibraryView()
-                    .tabItem { Label("Library", systemImage: "music.note.list") }
+            LibraryView()
+                .tabItem { Label("Library", systemImage: "music.note.list") }
 
-                SearchTabView()
-                    .tabItem { Label("Search", systemImage: "magnifyingglass") }
-            }
-
+            SearchTabView()
+                .tabItem { Label("Search", systemImage: "magnifyingglass") }
+        }
+        .safeAreaInset(edge: .bottom) {
             MiniPlayer()
-                .environmentObject(playerVM)
-                .padding(.bottom, 49)
         }
     }
 }

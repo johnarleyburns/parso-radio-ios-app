@@ -2,27 +2,27 @@ import SwiftUI
 
 struct ListenView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var favorites: FavoritesStore
     @EnvironmentObject var deps: AppDependencies
     @State private var showSettings = false
+    @State private var nowPlayingChannel: Channel?
+
+    private func select(_ channel: Channel) { nowPlayingChannel = channel }
 
     var body: some View {
         NavigationStack {
             List {
-                ForYouSection()
+                ForYouSection(onSelect: select)
 
                 ForEach(LibrarySection.ordered) { section in
                     channelsSection(for: section)
                 }
 
-                LiveMusicSection()
+                LiveMusicSection(onSelect: select)
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Listen")
-            .navigationDestination(for: Channel.self) { channel in
-                PlayerView(channel: channel)
-                    .environmentObject(playerVM)
-            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: {
@@ -33,6 +33,12 @@ struct ListenView: View {
             .sheet(isPresented: $showSettings) {
                 NavigationStack { SettingsView() }
             }
+            .fullScreenCover(item: $nowPlayingChannel) { channel in
+                NowPlayingSheet()
+                    .environmentObject(playerVM)
+                    .environmentObject(favorites)
+                    .task { await playerVM.load(channel: channel) }
+            }
         }
     }
 
@@ -42,9 +48,10 @@ struct ListenView: View {
         if !channels.isEmpty {
             Section(section.label) {
                 ForEach(channels, id: \.id) { channel in
-                    NavigationLink(value: channel) {
+                    Button { select(channel) } label: {
                         Label(channel.name, systemImage: channel.icon)
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -52,16 +59,17 @@ struct ListenView: View {
 }
 
 private struct ForYouSection: View {
-    @EnvironmentObject var playerVM: PlayerViewModel
+    let onSelect: (Channel) -> Void
 
     var body: some View {
         let forYouChannels = Channel.defaults.filter { $0.category == "For You" }
         if !forYouChannels.isEmpty {
             Section("For You") {
                 ForEach(forYouChannels, id: \.id) { channel in
-                    NavigationLink(value: channel) {
+                    Button { onSelect(channel) } label: {
                         Label(channel.name, systemImage: channel.icon)
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -69,14 +77,15 @@ private struct ForYouSection: View {
 }
 
 private struct LiveMusicSection: View {
-    @EnvironmentObject var playerVM: PlayerViewModel
+    let onSelect: (Channel) -> Void
 
     var body: some View {
         Section("Live Music on This Day") {
             ForEach(Channel.defaults.filter { $0.category == "Curated" }.prefix(5), id: \.id) { channel in
-                NavigationLink(value: channel) {
+                Button { onSelect(channel) } label: {
                     Label(channel.name, systemImage: "calendar")
                 }
+                .buttonStyle(.plain)
             }
         }
     }

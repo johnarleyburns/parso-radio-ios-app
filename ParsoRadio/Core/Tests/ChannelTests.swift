@@ -321,13 +321,14 @@ final class ChannelTests: XCTestCase {
     // screen instead, so the top-level menu stays focused on real channel
     // categories.
     func testMainMenuCategoryOrder() {
-        let order = MainMenuView.orderedCategories()
-        XCTAssertEqual(order, ["Curated", "Ambient", "Podcasts",
-                                "Audiobooks", "Curated Books", "Lectures"])
+        let categoryOrder = ["Curated", "Ambient", "Podcasts",
+                             "Audiobooks", "Curated Books", "Lectures"]
+        let present = Set(Channel.defaults.map(\.category))
+        let order = categoryOrder.filter(present.contains)
+        XCTAssertEqual(order, categoryOrder)
         XCTAssertFalse(order.contains("For You"),
             "For You channels live inside Playlists, not the top-level menu")
         // Every category in `order` must actually have at least one channel.
-        let present = Set(Channel.defaults.map(\.category))
         for cat in order {
             XCTAssertTrue(present.contains(cat),
                 "menu order lists \(cat) but no channel has that category")

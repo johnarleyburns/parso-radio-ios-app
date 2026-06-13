@@ -2,24 +2,18 @@ import SwiftUI
 
 struct MiniPlayer: View {
     @EnvironmentObject var playerVM: PlayerViewModel
-    @State private var showNowPlaying = false
+    @EnvironmentObject var playlistVM: PlaylistViewModel
+    @EnvironmentObject var offlineService: OfflineDownloadService
+    @EnvironmentObject var favorites: FavoritesStore
+    @State private var showPlayer = false
 
     var body: some View {
         if playerVM.currentTrack != nil {
             Button {
-                showNowPlaying = true
+                showPlayer = true
             } label: {
                 HStack(spacing: 12) {
-                    if let channel = playerVM.currentChannel {
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(ChannelCategoryStyle.gradient(for: channel.category))
-                            .frame(width: 40, height: 40)
-                            .overlay {
-                                Image(systemName: channel.icon)
-                                    .font(.caption)
-                                    .foregroundStyle(.white.opacity(0.8))
-                            }
-                    }
+                    ArtworkThumbnail(track: playerVM.currentTrack!, size: 40)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(playerVM.currentTrack?.title ?? "")
@@ -44,11 +38,20 @@ struct MiniPlayer: View {
                 .padding(.horizontal)
                 .padding(.vertical, 8)
                 .background(.regularMaterial)
+                .overlay(Rectangle()
+                    .frame(height: 0.5)
+                    .foregroundStyle(.separator),
+                         alignment: .top)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .fullScreenCover(isPresented: $showNowPlaying) {
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Mini player: \(playerVM.currentTrack?.title ?? "")")
+            .accessibilityHint("Opens the full player screen")
+            .fullScreenCover(isPresented: $showPlayer) {
                 NowPlayingSheet()
                     .environmentObject(playerVM)
+                    .environmentObject(favorites)
             }
         }
     }

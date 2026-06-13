@@ -22,9 +22,8 @@ struct FavoritesScreen: View {
         .navigationTitle("Favorites")
         .task { await favorites.loadAll() }
         .fullScreenCover(isPresented: $showPlayer) {
-            NowPlayingScreen(dismiss: { showPlayer = false })
+            NowPlayingSheet()
                 .environmentObject(playerVM)
-                .environmentObject(playlistVM)
                 .environmentObject(favorites)
         }
     }
