@@ -6,16 +6,22 @@ struct RootTabView: View {
     var body: some View {
         TabView {
             ListenView()
+                .miniPlayerDock()
                 .tabItem { Label("Listen", systemImage: "sparkles") }
 
             LibraryView()
+                .miniPlayerDock()
                 .tabItem { Label("Library", systemImage: "music.note.list") }
 
             SearchTabView()
+                .miniPlayerDock()
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
         }
-        .safeAreaInset(edge: .bottom) {
-            MiniPlayer()
-        }
+    }
+}
+
+private extension View {
+    func miniPlayerDock() -> some View {
+        safeAreaInset(edge: .bottom) { MiniPlayer() }
     }
 }
