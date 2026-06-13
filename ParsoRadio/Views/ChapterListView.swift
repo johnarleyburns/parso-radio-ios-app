@@ -45,7 +45,7 @@ struct ChapterListView: View {
         .navigationTitle("Chapters")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            chapters = await playerVM.fetchCurrentItemChapters() ?? []
+            chapters = await playerVM.bookmarks.fetchCurrentItemChapters() ?? []
             isLoading = false
         }
     }

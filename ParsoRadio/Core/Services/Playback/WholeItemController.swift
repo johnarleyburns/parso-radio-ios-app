@@ -77,6 +77,27 @@ final class WholeItemController {
         }
     }
 
+    func playAlbumTracks(_ ordered: [Track], title: String) async {
+        guard let vm = playerVM, !ordered.isEmpty else { return }
+        vm.saveAutosaveForCurrentTrack()
+        let albumPlaylist = Playlist(
+            id: "album:\(UUID().uuidString)",
+            name: title,
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFavorites: false,
+            isKidSafe: false
+        )
+        vm.currentChannel = nil
+        vm.currentPlaylist = albumPlaylist
+        vm.playlistTracks = ordered
+        vm.playlistIndex = 0
+        vm.playbackContextToken &+= 1
+        vm.playHistory = []
+        vm.channelDescription = title
+        await vm.playTrack(ordered[0], seekTo: nil, recordHistory: false)
+    }
+
     func playEntireCurrentItem() async {
         guard let vm = playerVM, let track = vm.currentTrack else { return }
         let identifier = track.parentIdentifier ?? track.id

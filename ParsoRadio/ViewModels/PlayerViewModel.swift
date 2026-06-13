@@ -1405,27 +1405,8 @@ final class PlayerViewModel: ObservableObject {
         await wholeItem.playEntireCurrentItem()
     }
 
-    /// Play a list of tracks as a transient album (no saved playlist in DB).
-    /// Used for "Live Music on This Day" and similar one-shot playback.
     func playAlbumTracks(_ ordered: [Track], title: String) async {
-        guard !ordered.isEmpty else { return }
-        saveAutosaveForCurrentTrack()
-        let albumPlaylist = Playlist(
-            id: "album:\(UUID().uuidString)",
-            name: title,
-            createdAt: Date(),
-            updatedAt: Date(),
-            isFavorites: false,
-            isKidSafe: false
-        )
-        currentChannel = nil
-        currentPlaylist = albumPlaylist
-        playlistTracks = ordered
-        playlistIndex = 0
-        playbackContextToken &+= 1
-        playHistory = []
-        channelDescription = title
-        await playTrack(ordered[0], seekTo: nil, recordHistory: false)
+        await wholeItem.playAlbumTracks(ordered, title: title)
     }
 
     func playSingleTrack(_ track: Track, seekTo: Double? = nil) async {
@@ -1918,14 +1899,6 @@ final class PlayerViewModel: ObservableObject {
                   "searchHistory", "shuffleMode", "wasPlayingOnQuit"] {
             d.removeObject(forKey: k)
         }
-    }
-
-    // MARK: - Chapters (multi-part items)
-
-    /// Ordered chapters of the currently-playing multi-part item, or nil if
-    /// the current item is single-file or there's nothing playing.
-    func fetchCurrentItemChapters() async -> [Track]? {
-        await bookmarks.fetchCurrentItemChapters()
     }
 
     // MARK: - Autosave bookmark (never lose position)
