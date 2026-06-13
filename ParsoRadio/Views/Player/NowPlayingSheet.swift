@@ -2,7 +2,16 @@ import SwiftUI
 
 struct NowPlayingSheet: View {
     @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var favorites: FavoritesStore
     @Environment(\.dismiss) private var dismiss
+
+    private var behavior: PlaybackBehavior {
+        playerVM.currentChannel?.behavior ?? MediaKind.music.behavior
+    }
+
+    private var channelCategory: String {
+        playerVM.currentChannel?.category ?? ""
+    }
 
     var body: some View {
         NavigationStack {
@@ -13,9 +22,14 @@ struct NowPlayingSheet: View {
 
                     trackInfo
 
-                    if let channel = playerVM.currentChannel {
-                        behaviorComposedControls(for: channel)
+                    TransportControls()
+                        .disabled(playerVM.isLoading)
+
+                    if let track = playerVM.currentTrack {
+                        globalControls(for: track)
                     }
+
+                    behaviorSpecificControls
 
                     if let msg = playerVM.errorMessage {
                         Text(msg)
@@ -37,38 +51,54 @@ struct NowPlayingSheet: View {
                     }
                 }
             }
+            .task { await favorites.loadAll() }
         }
     }
 
     @ViewBuilder
     private var artwork: some View {
-        if let channel = playerVM.currentChannel {
-            ZStack {
+        ZStack {
+            if let img = playerVM.currentArtwork {
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 260, height: 260)
+                    .clipShape(RoundedRectangle(cornerRadius: 28))
+                    .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
+            } else {
+                let gradient = playerVM.currentChannel.map {
+                    ChannelCategoryStyle.gradient(for: $0.category)
+                } ?? LinearGradient(
+                    colors: [Color(.systemGray3), Color(.systemGray5)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                )
+                let icon = playerVM.currentChannel?.icon ?? "music.note"
                 RoundedRectangle(cornerRadius: 28)
-                    .fill(ChannelCategoryStyle.gradient(for: channel.category))
+                    .fill(gradient)
                     .frame(width: 260, height: 260)
                     .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
-
-                if playerVM.isLoading && playerVM.currentTrack == nil {
-                    VStack(spacing: 12) {
-                        ProgressView()
-                            .tint(.white)
-                            .scaleEffect(1.5)
-                        if let msg = playerVM.loadingMessage {
-                            Text(msg)
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.8))
+                    .overlay {
+                        if playerVM.isLoading && playerVM.currentTrack == nil {
+                            VStack(spacing: 12) {
+                                ProgressView()
+                                    .tint(.white)
+                                    .scaleEffect(1.5)
+                                if let msg = playerVM.loadingMessage {
+                                    Text(msg)
+                                        .font(.caption)
+                                        .foregroundStyle(.white.opacity(0.8))
+                                }
+                            }
+                        } else {
+                            Image(systemName: icon)
+                                .font(.system(size: 80, weight: .light))
+                                .foregroundStyle(.white.opacity(0.9))
                         }
                     }
-                } else {
-                    Image(systemName: channel.icon)
-                        .font(.system(size: 80, weight: .light))
-                        .foregroundStyle(.white.opacity(0.9))
-                }
             }
-            .opacity(playerVM.isLoading && playerVM.currentTrack != nil ? 0.75 : 1)
-            .animation(.easeInOut(duration: 0.3), value: playerVM.isLoading)
         }
+        .opacity(playerVM.isLoading && playerVM.currentTrack != nil ? 0.75 : 1)
+        .animation(.easeInOut(duration: 0.3), value: playerVM.isLoading)
     }
 
     @ViewBuilder
@@ -113,18 +143,71 @@ struct NowPlayingSheet: View {
     }
 
     @ViewBuilder
-    private func behaviorComposedControls(for channel: Channel) -> some View {
-        let b = channel.behavior
-        VStack(spacing: 16) {
-            if b.showsScrubbableProgress {
-                ScrubBar(tint: ChannelCategoryStyle.color(for: channel.category))
+    private func globalControls(for track: Track) -> some View {
+        HStack(spacing: 24) {
+            Button {
+                Task {
+                    await favorites.toggle(track: track, channel: playerVM.currentChannel,
+                                           positionSeconds: playerVM.currentPosition)
+                }
+            } label: {
+                let fid = track.favoriteID(for: track.favoriteKind(channel: playerVM.currentChannel))
+                let isFav = favorites.favorites.contains(where: { $0.id == fid })
+                Image(systemName: isFav ? "heart.fill" : "heart")
+                    .font(.title3)
+                    .foregroundStyle(isFav ? .red : .secondary)
+            }
+            .accessibilityLabel(
+                (favorites.favorites.contains(where: {
+                    $0.id == track.favoriteID(for: track.favoriteKind(channel: playerVM.currentChannel))
+                }) ? "Remove from favorites" : "Add to favorites")
+            )
+
+            if let shareURL = ShareURLBuilder.url(for: track) {
+                ShareLink(item: shareURL) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.title3)
+                }
+                .accessibilityLabel("Share")
             }
 
-            TransportControls(tint: ChannelCategoryStyle.color(for: channel.category))
-                .disabled(playerVM.isLoading)
+            AirPlayButton()
+                .frame(width: 32, height: 32)
+                .accessibilityLabel("AirPlay")
+
+            if track.source == "internet_archive" {
+                let identifier = track.parentIdentifier ?? track.id
+                let cleanId = identifier.contains("/")
+                    ? String(identifier.split(separator: "/").first ?? "")
+                    : identifier
+                if let url = URL(string: "https://archive.org/details/\(cleanId)") {
+                    Link(destination: url) {
+                        Image(systemName: "safari")
+                            .font(.title3)
+                    }
+                    .accessibilityLabel("View on archive.org")
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var behaviorSpecificControls: some View {
+        let b = behavior
+        VStack(spacing: 16) {
+            if b.showsScrubbableProgress {
+                ScrubBar(tint: ChannelCategoryStyle.color(for: channelCategory))
+            }
+
+            if b.allowsShuffleToggle {
+                HStack(spacing: 24) {
+                    ShuffleControl()
+                    RepeatControl()
+                }
+            }
 
             HStack(spacing: 20) {
-                if b.allowsShuffleToggle { ShuffleToggle() }
                 if b.supportsSpeedControl { SpeedControl() }
                 if b.supportsSleepTimer { SleepTimerControl() }
             }
@@ -135,6 +218,32 @@ struct NowPlayingSheet: View {
             }
 
             if b.supportsBookSkip { BookSkipControls() }
+        }
+    }
+}
+
+private struct ShuffleControl: View {
+    @EnvironmentObject var playerVM: PlayerViewModel
+    var body: some View {
+        Button {
+            playerVM.toggleShuffle()
+        } label: {
+            Label("Shuffle", systemImage: playerVM.shuffleMode ? "shuffle" : "shuffle")
+                .font(.caption)
+                .foregroundStyle(playerVM.shuffleMode ? .blue : .secondary)
+        }
+    }
+}
+
+private struct RepeatControl: View {
+    @EnvironmentObject var playerVM: PlayerViewModel
+    var body: some View {
+        Button {
+            playerVM.toggleRepeat()
+        } label: {
+            Label("Repeat", systemImage: playerVM.repeatMode == .one ? "repeat.1" : "repeat")
+                .font(.caption)
+                .foregroundStyle(playerVM.repeatMode == .one ? .blue : .secondary)
         }
     }
 }

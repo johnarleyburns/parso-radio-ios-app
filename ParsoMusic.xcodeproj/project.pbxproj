@@ -235,7 +235,6 @@
 		F5A061D9490702A81411969D /* Protocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = B34424A6DB88ABDBF54B570B /* Protocols.swift */; };
 		F82AEE11F01E1FE159AF0A08 /* NowPlayingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FB775046C7A77D112C6863E /* NowPlayingSheet.swift */; };
 		F910F493BC85FDDBF73B84F5 /* PlaylistPersistenceIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BBA4563EA395DF3D05C8504 /* PlaylistPersistenceIntegrationTests.swift */; };
-		F97C086EFF2364DE94209841 /* ShuffleToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B15FDFAF88EA0F614623E67 /* ShuffleToggle.swift */; };
 		FAB65AAF1DA32976898E11F6 /* Favorite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BCBD95BFF8293FBE5110615 /* Favorite.swift */; };
 		FBB510A8FF738C35AC9E57B9 /* ajc-project.json in Resources */ = {isa = PBXBuildFile; fileRef = 83041D8B542A7CBE592CC11E /* ajc-project.json */; };
 		FE0B1DCF2669E37B3C981762 /* AuditionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B031855161493F78B9EC73C /* AuditionTests.swift */; };
@@ -280,7 +279,6 @@
 		0985427D0957C5CADF826547 /* FavoritesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesTests.swift; sourceTree = "<group>"; };
 		0A6572B847B27B1A9AEF47B4 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		0A7E90666E210FCFA957B68D /* emperor_1024.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = emperor_1024.png; sourceTree = "<group>"; };
-		0B15FDFAF88EA0F614623E67 /* ShuffleToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShuffleToggle.swift; sourceTree = "<group>"; };
 		0BBCD0FDE1B3F8327A7F3376 /* ShortcutsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsProvider.swift; sourceTree = "<group>"; };
 		0C8451E139D80F827B5503B6 /* DatabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseService.swift; sourceTree = "<group>"; };
 		0CAF856CD61A7903011B53E0 /* AppIntentBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIntentBridge.swift; sourceTree = "<group>"; };
@@ -563,7 +561,6 @@
 				E9D3AC1C89E650C2DB7C7A29 /* MiniPlayer.swift */,
 				8FB775046C7A77D112C6863E /* NowPlayingSheet.swift */,
 				CC7EDED8B1614E0F13CB6C76 /* ScrubBar.swift */,
-				0B15FDFAF88EA0F614623E67 /* ShuffleToggle.swift */,
 				9AF89D1CB3A4B1CCA709E33D /* SleepTimerControl.swift */,
 				17173938B9F7ED4B5BAF367F /* SpeedControl.swift */,
 				F9795324A8193961BA1E7902 /* TransportControls.swift */,
@@ -1000,7 +997,7 @@
 			path = ParsoRadio/UITests;
 			sourceTree = "<group>";
 		};
-		"TEMP_DB7ABDF3-D2A7-4FBE-A226-AA7CD6B5310B" /* Integration */ = {
+		"TEMP_D8A62C5C-BBD3-47E9-938D-107EE82CA20F" /* Integration */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1389,7 +1386,6 @@
 				3FEB8403E0A89CB63B6ABFA1 /* ShareURLBuilder.swift in Sources */,
 				70B26E72FFCA663FB82F8F9C /* SharedViews.swift in Sources */,
 				A16F9A7F4CF8F3C1B6AEB2C5 /* ShortcutsProvider.swift in Sources */,
-				F97C086EFF2364DE94209841 /* ShuffleToggle.swift in Sources */,
 				9F5D01F122F889F8CCFD5106 /* SleepTimerControl.swift in Sources */,
 				261F1F93E707FD863D781094 /* SleepTimerController.swift in Sources */,
 				E019694F77C618994E5D126E /* SourceValidator.swift in Sources */,
