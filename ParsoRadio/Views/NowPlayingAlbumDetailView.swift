@@ -75,6 +75,25 @@ struct NowPlayingAlbumDetailView: View {
                             }
                         }
                     }
+                    .accessibilityIdentifier("albumDetailTrackList")
+                } else {
+                    Section {
+                        VStack(spacing: 12) {
+                            Image(systemName: "music.note.list")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
+                            Text("No playable tracks available")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                            Text("This recording may not contain audio in a supported format.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 32)
+                    }
+                    .accessibilityIdentifier("albumDetailEmptyState")
                 }
 
                 if let url = iaURL {
@@ -90,6 +109,7 @@ struct NowPlayingAlbumDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .accessibilityIdentifier("albumDetailDoneButton")
                 }
             }
         }

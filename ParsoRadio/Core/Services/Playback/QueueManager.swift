@@ -35,13 +35,25 @@ final class QueueManager {
         defaults.set(recentByChannel, forKey: Self.persistKey)
     }
 
+    // Podcast/news channels are always sequential newest-first; registry-backed
+    // IA channels and Lecture channels always shuffle their pool. All other
+    // channels defer to their MediaKind-derived behavior.queueStyle, modulated
+    // by the global shuffle toggle.
+    static func effectiveQueueStyle(_ channel: Channel, shuffleMode: Bool) -> PlaybackBehavior.QueueStyle {
+        if channel.feedURL != nil { return .sequentialNewestFirst }
+        if shuffleMode { return .shuffledPool }
+        if channel.iaQueryEntry != nil { return .shuffledPool }
+        if channel.category == "Lectures" { return .shuffledPool }
+        return .sequentialInOrder
+    }
+
     // Curated radio-style channels always shuffle regardless of the global
     // toggle: registry-backed IA channels and Lecture channels (which
     // aggregate a whole faculty). Sequential only makes sense for
     // podcast/news. Pure + static so it is deterministically unit-testable
     // without draining a seeded-random queue.
     static func usesShuffle(channel: Channel, shuffleMode: Bool) -> Bool {
-        shuffleMode || channel.iaQueryEntry != nil || channel.category == "Lectures"
+        effectiveQueueStyle(channel, shuffleMode: shuffleMode) == .shuffledPool
     }
 
     private func recents(_ channelId: String) -> [String] { recentByChannel[channelId] ?? [] }
@@ -140,7 +152,7 @@ final class QueueManager {
                 approvedPool = curated
             }
             let pick: Track
-            if Self.usesShuffle(channel: channel, shuffleMode: shuffleMode) {
+            if Self.effectiveQueueStyle(channel, shuffleMode: shuffleMode) == .shuffledPool {
                 pick = weightedRandom(from: approvedPool,
                                       seed: dailySeed(for: channel),
                                       variance: recent.count)
@@ -198,7 +210,7 @@ final class QueueManager {
         //    Oxford tracks also carry no addedDate, so the non-shuffle path
         //    would just emit an arbitrary DB order anyway).
         // Sequential newest-first only makes sense for podcast/news channels.
-        let effectiveShuffle = Self.usesShuffle(channel: channel, shuffleMode: shuffleMode)
+        let effectiveShuffle = Self.effectiveQueueStyle(channel, shuffleMode: shuffleMode) == .shuffledPool
 
         let track: Track
         if effectiveShuffle {

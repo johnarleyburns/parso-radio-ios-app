@@ -687,6 +687,41 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertFalse(PlayerViewModel.partsAreClean([]))
     }
 
+    // resolveItemParts: DB-first path returns clean multi-part items from cache.
+    func testResolveItemPartsReturnsDBParts() async {
+        let parts = (1...3).map { makeBookPart(parent: "resolve-db-test", part: $0) }
+        await db.saveTracks(parts)
+        let result = await vm.resolveItemParts(identifier: "resolve-db-test")
+        XCTAssertNotNil(result, "resolveItemParts must return parts from DB when they pass partsAreClean")
+        XCTAssertEqual(result?.count, 3)
+        XCTAssertEqual(result?.map(\.partNumber), [1, 2, 3])
+    }
+
+    // resolveItemParts: single-item in DB with isMultiPart=false returns nil.
+    func testResolveItemPartsReturnsNilForSingleFileVerdict() async {
+        let single = Track(
+            id: "single-item", source: "internet_archive",
+            title: "One Track", artist: "Artist",
+            duration: 300,
+            streamURL: URL(string: "https://archive.org/download/single-item")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: [],
+            qualityScore: 0.7, rawCreator: "", composer: nil, instruments: [],
+            metadataConfidence: 1.0
+        )
+        await db.saveTracks([single])
+        await db.setIsMultiPart(false, forTrackId: "single-item")
+        let result = await vm.resolveItemParts(identifier: "single-item")
+        XCTAssertNil(result, "resolveItemParts must return nil for single-file items with isMultiPart=false verdict")
+    }
+
+    // resolveItemParts: empty DB and no active network mock falls through
+    // to network probe, which times out → returns nil (not a crash).
+    func testResolveItemPartsReturnsNilWhenNothingInDB() async {
+        let result = await vm.resolveItemParts(identifier: "nonexistent-identifier")
+        XCTAssertNil(result, "resolveItemParts must return nil when no data exists and network is unavailable")
+    }
+
     func testAddEntireItemToNewPlaylistCreatesNamedPlaylistInOrder() async throws {
         let plVM = PlaylistViewModel(db: db)
         let channel = Channel.fmaJazzTestChannel

@@ -234,7 +234,7 @@ final class PlayerViewModel: ObservableObject {
                     return
                 }
                 // Ambient loop channels: seek back to the beginning instead of advancing.
-                if let channel = self.currentChannel, channel.contentType == .ambientLoop {
+                if let channel = self.currentChannel, channel.mediaKind == .ambient {
                     self.audioPlayer.seek(to: 0)
                     self.audioPlayer.resume()
                     self.isPlaying = true
@@ -247,7 +247,7 @@ final class PlayerViewModel: ObservableObject {
                     self.deleteAutosaveForTrack(finishedId)
                 }
                 // Natural finish: clear saved position so the next track starts fresh.
-                if let channel = self.currentChannel, channel.contentType == .spokenWord {
+                if let channel = self.currentChannel, channel.behavior.persistsResumePosition {
                     await self.db.clearPosition(channelId: channel.id)
                 }
                 await self.advanceToNext()
@@ -359,7 +359,7 @@ final class PlayerViewModel: ObservableObject {
                 // Persist position so the user resumes EXACTLY where they were.
                 // Throttled: write DB at most once every 5 s (timer fires 4×/s).
                 if let track = self.currentTrack,
-                   self.currentChannel?.contentType != .ambientLoop,
+                   self.currentChannel?.mediaKind != .ambient,
                    seconds - self.lastPositionSaveTime >= 5.0 {
                     self.lastPositionSaveTime = seconds
                     if let playlist = self.currentPlaylist {
@@ -403,7 +403,7 @@ final class PlayerViewModel: ObservableObject {
     /// (playlist/channel), the per-track autosave, and the global session.
     func saveCurrentSpot() {
         guard let track = currentTrack,
-              currentChannel?.contentType != .ambientLoop else { return }
+              currentChannel?.mediaKind != .ambient else { return }
         let pos = currentPosition
         let trackId = track.id
         if let playlist = currentPlaylist {
@@ -456,7 +456,7 @@ final class PlayerViewModel: ObservableObject {
         // timed out ~10 s, then silently advanced the still-current playlist to
         // the wrong track — destroying the user's resume point. (Ambient loops
         // are bundled, so they're never blocked.)
-        if channel.contentType != .ambientLoop, !NetworkMonitor.shared.isOnline {
+        if channel.mediaKind != .ambient, !NetworkMonitor.shared.isOnline {
             let localCount = await db.offlineTrackCount(forChannel: channel)
             if localCount == 0 {
                 transientMessage = "You're offline. Only downloaded playlists can be played without a connection."
@@ -509,7 +509,7 @@ final class PlayerViewModel: ObservableObject {
         shuffleMode = false
         // Lock-screen controls follow the content: spoken-word channels get
         // ±15 s skip buttons; music channels get next/prev track.
-        audioPlayer.setContentMode(channel.contentType == .spokenWord ? .spokenWord : .music)
+        audioPlayer.setContentMode(channel.behavior.showsScrubbableProgress ? .spokenWord : .music)
         isLoading = true
         loadingMessage = "Finding tracks…"
         errorMessage = nil
@@ -686,7 +686,7 @@ final class PlayerViewModel: ObservableObject {
         // Ambient loops: always play THIS channel's own bundled loop track so
         // the title/artwork are correct — never a stale saved position that
         // could point at a previously-played non-ambient track.
-        if channel.contentType == .ambientLoop {
+        if channel.mediaKind == .ambient {
             if let amb = fetched.first {
                 await playTrack(amb, seekTo: nil, autoPlay: autoPlay)
             }
@@ -766,7 +766,7 @@ final class PlayerViewModel: ObservableObject {
 
     func skip() {
         // Ambient loops have exactly one track; forward just restarts it.
-        if let channel = currentChannel, channel.contentType == .ambientLoop {
+        if let channel = currentChannel, channel.mediaKind == .ambient {
             audioPlayer.seek(to: 0)
             currentPosition = 0
             return
@@ -784,7 +784,7 @@ final class PlayerViewModel: ObservableObject {
         errorMessage = nil
         isLoading = true
         loadingMessage = "Loading…"
-        if let channel = currentChannel, channel.contentType == .spokenWord {
+        if let channel = currentChannel, channel.behavior.persistsResumePosition {
             Task {
                 await db.clearPosition(channelId: channel.id)
                 await advanceToNext()
@@ -903,7 +903,7 @@ final class PlayerViewModel: ObservableObject {
         // pick. SPOKEN-WORD only — on a music channel a played album track has a
         // parentIdentifier too, but we want the NEXT skip to jump to a fresh
         // random album track, not march sequentially through one album.
-        if channel.contentType == .spokenWord,
+        if channel.behavior.showsScrubbableProgress,
            let current = currentTrack, current.parentIdentifier != nil {
             if let nextPart = await queueManager.nextPart(after: current, channel: channel) {
                 await playTrack(nextPart, seekTo: nil, recordHistory: false, autoPlay: autoPlay)
@@ -946,7 +946,7 @@ final class PlayerViewModel: ObservableObject {
         // repeated visits the whole album gets heard. Audiobooks/lectures
         // (spoken-word) keep playing the FIRST part on the channel; the user
         // adds the whole book to a playlist to hear it in order.
-        if channel.contentType == .music {
+        if channel.mediaKind == .music {
             track = await randomAlbumTrack(for: track) ?? track
         }
         await playTrack(track, seekTo: nil, recordHistory: false, autoPlay: autoPlay)
@@ -1152,7 +1152,7 @@ final class PlayerViewModel: ObservableObject {
                         try await svc.resolveAudioURL(for: identifier)
                     }
                 }
-            } else if currentChannel?.contentType == .ambientLoop,
+            } else if currentChannel?.mediaKind == .ambient,
                       let bundled = AmbientStaticService.bundledLoopURL(
                         forChannelId: currentChannel?.id ?? "") {
                 // Offline + gapless: a committed local loop asset wins over
@@ -1167,7 +1167,7 @@ final class PlayerViewModel: ObservableObject {
             // restarts and cross-channel listening.
             var effectiveSeek = seekTo ?? 0
             if seekTo == nil,
-               currentChannel?.contentType != .ambientLoop,
+               currentChannel?.mediaKind != .ambient,
                let auto = await db.fetchAutosaveBookmark(forTrack: track.id) {
                 effectiveSeek = auto.positionSeconds
             }
@@ -1184,7 +1184,7 @@ final class PlayerViewModel: ObservableObject {
                   loadGen == stallModel.loadGeneration else { return }
             let resumeAt = max(effectiveSeek, 0)
             audioPlayer.play(url: url, track: track,
-                             looping: currentChannel?.contentType == .ambientLoop,
+                             looping: currentChannel?.mediaKind == .ambient,
                              startAt: resumeAt,
                              autoPlay: autoPlay)
             if let ch = currentChannel {
@@ -1208,7 +1208,7 @@ final class PlayerViewModel: ObservableObject {
             // audio (the first periodic time tick clears it). Previously this
             // cleared the moment play() returned — seconds before sound. Ambient
             // loops start instantly from a bundled asset, so clear immediately.
-            if currentChannel?.contentType == .ambientLoop {
+            if currentChannel?.mediaKind == .ambient {
                 isLoading = false
                 loadingMessage = nil
             } else {
@@ -1231,7 +1231,7 @@ final class PlayerViewModel: ObservableObject {
 
             // Record EVERY real track in Recently Played — channels, playlists,
             // search picks, first-of-channel. (Ambient loops are excluded.)
-            if currentChannel?.contentType != .ambientLoop {
+            if currentChannel?.mediaKind != .ambient {
                 let ctx = currentChannel?.id
                     ?? currentPlaylist.map { Self.playlistKey($0.id) }
                     ?? "direct"
@@ -1242,7 +1242,7 @@ final class PlayerViewModel: ObservableObject {
             }
 
             if let channel = currentChannel {
-                if channel.contentType != .spokenWord {
+                if !channel.behavior.persistsResumePosition {
                     await db.savePosition(channelId: channel.id, trackId: track.id, seconds: 0)
                 }
                 Task { await prefetchNextURL(channel: channel) }
@@ -1271,7 +1271,7 @@ final class PlayerViewModel: ObservableObject {
     // model only applies the verdict. See PLAYBACK-DESIGN.md.
     @MainActor
     func handleStallIfNeeded(generation: Int, autoPlay: Bool = true) async {
-        guard currentChannel?.contentType != .ambientLoop else { return }
+        guard currentChannel?.mediaKind != .ambient else { return }
         switch stallModel.evaluateStall(generation: generation, autoPlay: autoPlay) {
         case .ignoreStale, .healthy:
             return
@@ -2209,7 +2209,7 @@ final class PlayerViewModel: ObservableObject {
     /// finish is about to delete it anyway).
     func saveAutosaveForCurrentTrack() {
         guard let track = currentTrack else { return }
-        guard currentChannel?.contentType != .ambientLoop else { return }
+        guard currentChannel?.mediaKind != .ambient else { return }
         let pos = currentPosition
         guard pos > 5 else { return }
         // Prefer the live AVPlayer duration (accurate after readyToPlay); fall
@@ -2257,7 +2257,7 @@ final class PlayerViewModel: ObservableObject {
     func persistSession(position: Double) {
         let d = UserDefaults.standard
         guard let track = currentTrack,
-              currentChannel?.contentType != .ambientLoop else { return }
+              currentChannel?.mediaKind != .ambient else { return }
         guard !isAuditioning else { return }
         if let pl = currentPlaylist {
             d.set("playlist", forKey: "session.kind")

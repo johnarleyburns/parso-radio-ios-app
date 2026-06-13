@@ -13,12 +13,14 @@ final class PlaylistViewModel: ObservableObject {
     private var trackFavoriteCache: [String: Bool] = [:]
     private var albumFavoriteCache: [String: Bool] = [:]
     private var bookFavoriteCache: [String: Bool] = [:]
+    private var chapterFavoriteCache: [String: Bool] = [:]
 
     init(db: DatabaseService) { self.db = db }
 
     var favoritesPlaylist: Playlist? { playlists.first { $0.isFavorites && $0.type == .tracks } }
     var favoriteAlbumsPlaylist: Playlist? { playlists.first { $0.isFavorites && $0.type == .album } }
     var favoriteBooksPlaylist: Playlist? { playlists.first { $0.isFavorites && $0.type == .book } }
+    var favoriteChaptersPlaylist: Playlist? { playlists.first { $0.isFavorites && $0.type == .chapter } }
 
     func loadPlaylists() async {
         playlists = await db.fetchPlaylists()
@@ -179,6 +181,27 @@ final class PlaylistViewModel: ObservableObject {
         } else {
             await addTrack(track, to: fav)
             bookFavoriteCache[parentId] = true
+        }
+    }
+
+    // MARK: - Chapter favorites
+
+    func isInFavoriteChapters(_ track: Track) async -> Bool {
+        if let cached = chapterFavoriteCache[track.id] { return cached }
+        guard let fav = favoriteChaptersPlaylist else { return false }
+        let result = await db.isTrack(track.id, inPlaylist: fav.id)
+        chapterFavoriteCache[track.id] = result
+        return result
+    }
+
+    func toggleFavoriteChapter(_ track: Track) async {
+        guard let fav = favoriteChaptersPlaylist else { return }
+        if await isInFavoriteChapters(track) {
+            await removeTrack(track, from: fav)
+            chapterFavoriteCache[track.id] = false
+        } else {
+            await addTrack(track, to: fav)
+            chapterFavoriteCache[track.id] = true
         }
     }
 }

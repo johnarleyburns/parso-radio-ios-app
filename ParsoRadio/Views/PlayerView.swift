@@ -118,7 +118,7 @@ struct PlayerView: View {
     private var controls: some View {
         VStack(spacing: 16) {
             // Progress bar + time — only for spoken-word channels with known duration.
-            if channel.contentType == .spokenWord {
+            if channel.behavior.showsScrubbableProgress {
                 progressBar
             }
 

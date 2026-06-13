@@ -117,6 +117,19 @@ final class LiveMusicOnThisDayTests: XCTestCase {
         XCTAssertEqual(entry.displayName, "Grateful Dead")
     }
 
+    func testEntryDisplayNameWithEmptyCreator() {
+        let entry = LiveMusicEntry(id: "id1", creator: "", title: nil, venue: nil, coverage: nil, date: nil, year: nil, downloads: 1, dateString: "01-01", description: nil)
+        // displayName falls back to creator when title is nil; empty creator is pathological
+        // but must not crash — the UI should show an empty string rather than crash
+        XCTAssertEqual(entry.displayName, "")
+    }
+
+    func testEntryDisplayNameWithEmptyCreatorAndTitle() {
+        let entry = LiveMusicEntry(id: "id1", creator: "", title: "Cornell 77", venue: nil, coverage: nil, date: nil, year: nil, downloads: 1, dateString: "01-01", description: nil)
+        // title takes precedence over creator
+        XCTAssertEqual(entry.displayName, "Cornell 77")
+    }
+
     func testFormattedDate() {
         let entry = LiveMusicEntry(id: "id1", creator: "Test", title: nil, venue: nil, coverage: nil, date: "2023-06-09", year: 2023, downloads: 1, dateString: "06-09", description: nil)
         XCTAssertEqual(entry.formattedDate, "June 9, 2023")

@@ -37,7 +37,7 @@ struct NowPlayingScreen: View {
     }
 
     private var isAmbientLoop: Bool {
-        playerVM.currentChannel?.contentType == .ambientLoop
+        playerVM.currentChannel?.mediaKind == .ambient
     }
 
     private var ambientVideoURL: URL? {
@@ -549,7 +549,7 @@ struct NowPlayingScreen: View {
                     .lineLimit(1)
             }
 
-            if playerVM.currentChannel?.contentType != .music {
+            if playerVM.currentChannel?.mediaKind != .music {
                 if let part = track.partNumber, let total = track.totalParts, total > 1 {
                     Text("Part \(part) of \(total)")
                         .font(.system(size: mainRegularSize))
@@ -563,7 +563,7 @@ struct NowPlayingScreen: View {
                 }
             }
 
-            if playerVM.currentChannel?.preferredSource == "podcast",
+            if playerVM.currentChannel?.mediaKind == .podcast,
                let date = track.bestDate {
                 Text(date.formatted(.dateTime.year().month().day()))
                     .font(.system(size: mainRegularSize))
