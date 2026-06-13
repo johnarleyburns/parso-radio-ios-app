@@ -1740,17 +1740,11 @@ final class PlayerViewModel: ObservableObject {
     // MARK: - Book navigation (Librivox)
 
     func skipToNextBook() async {
-        guard let channel = currentChannel, let current = currentTrack else { return }
-        if let first = await queueManager.firstPartOfNextBook(after: current, channel: channel) {
-            await playTrack(first, seekTo: 0, recordHistory: true)
-        }
+        await wholeItem.skipToNextBook()
     }
 
     func skipToPreviousBook() async {
-        guard let channel = currentChannel, let current = currentTrack else { return }
-        if let first = await queueManager.firstPartOfPreviousBook(before: current, channel: channel) {
-            await playTrack(first, seekTo: 0, recordHistory: true)
-        }
+        await wholeItem.skipToPreviousBook()
     }
 
     // MARK: - Variable playback speed
@@ -1853,37 +1847,16 @@ final class PlayerViewModel: ObservableObject {
 
     // MARK: - Autosave bookmark (never lose position)
 
-    /// Write the safety-net autosave for the currently-playing track.
-    /// Fires-and-forgets a DB write so the call site stays synchronous.
-    /// No-op when: nothing is playing, it's an ambient loop, the user has
-    /// barely started (<5 s), or they're within 5 s of the end (a natural
-    /// finish is about to delete it anyway).
     func saveAutosaveForCurrentTrack() {
-        guard let track = currentTrack else { return }
-        guard currentChannel?.mediaKind != .ambient else { return }
-        let pos = currentPosition
-        guard pos > 5 else { return }
-        // Prefer the live AVPlayer duration (accurate after readyToPlay); fall
-        // back to the Track's stored duration when the player hasn't reported
-        // one yet (tests, very first playTrack call, etc.).
-        let dur = (trackDuration ?? 0) > 0 ? (trackDuration ?? 0) : track.duration
-        if dur > 0, pos > dur - 5 { return }
-        let trackId = track.id
-        Task { [db] in
-            await db.saveAutosaveBookmark(trackId: trackId, positionSeconds: pos)
-        }
+        sessionRestore.saveAutosaveForCurrentTrack()
     }
 
-    /// Delete the autosave for `trackId` (e.g. on natural completion).
     func deleteAutosaveForTrack(_ trackId: String) {
-        Task { [db] in
-            await db.deleteAutosaveBookmark(forTrack: trackId)
-        }
+        sessionRestore.deleteAutosaveForTrack(trackId)
     }
 
-    /// Lookup helper for playTrack — returns the autosave offset if any.
     func autosavePosition(forTrack trackId: String) async -> Double? {
-        await db.fetchAutosaveBookmark(forTrack: trackId)?.positionSeconds
+        await sessionRestore.autosavePosition(forTrack: trackId)
     }
 
     // MARK: - Session restore (always pick up where you were)

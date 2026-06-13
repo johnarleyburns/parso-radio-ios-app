@@ -79,7 +79,7 @@ final class WholeItemController {
 
     func playAlbumTracks(_ ordered: [Track], title: String) async {
         guard let vm = playerVM, !ordered.isEmpty else { return }
-        vm.saveAutosaveForCurrentTrack()
+        vm.sessionRestore.saveAutosaveForCurrentTrack()
         let albumPlaylist = Playlist(
             id: "album:\(UUID().uuidString)",
             name: title,
@@ -98,6 +98,22 @@ final class WholeItemController {
         await vm.playTrack(ordered[0], seekTo: nil, recordHistory: false)
     }
 
+    func skipToNextBook() async {
+        guard let vm = playerVM, let channel = vm.currentChannel,
+              let current = vm.currentTrack else { return }
+        if let first = await queueManager.firstPartOfNextBook(after: current, channel: channel) {
+            await vm.playTrack(first, seekTo: 0, recordHistory: true)
+        }
+    }
+
+    func skipToPreviousBook() async {
+        guard let vm = playerVM, let channel = vm.currentChannel,
+              let current = vm.currentTrack else { return }
+        if let first = await queueManager.firstPartOfPreviousBook(before: current, channel: channel) {
+            await vm.playTrack(first, seekTo: 0, recordHistory: true)
+        }
+    }
+
     func playEntireCurrentItem() async {
         guard let vm = playerVM, let track = vm.currentTrack else { return }
         let identifier = track.parentIdentifier ?? track.id
@@ -109,7 +125,7 @@ final class WholeItemController {
         } else {
             ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
         }
-        vm.saveAutosaveForCurrentTrack()
+        vm.sessionRestore.saveAutosaveForCurrentTrack()
         let albumPlaylist = Playlist(
             id: "album:\(identifier)",
             name: vm.itemDisplayName(for: track),

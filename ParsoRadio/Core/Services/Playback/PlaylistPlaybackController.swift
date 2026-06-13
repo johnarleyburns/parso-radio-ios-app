@@ -18,7 +18,7 @@ final class PlaylistPlaybackController {
                       shuffle: Bool = false,
                       autoPlay: Bool = true) async {
         guard let vm = playerVM else { return }
-        vm.saveAutosaveForCurrentTrack()
+        vm.sessionRestore.saveAutosaveForCurrentTrack()
         vm.shuffleMode = shuffle
         vm.beginTransition(pre: track)
         vm.currentPlaylist = playlist

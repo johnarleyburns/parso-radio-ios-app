@@ -40,6 +40,29 @@ final class SessionRestoreController {
         d.set(position, forKey: "session.position")
     }
 
+    func saveAutosaveForCurrentTrack() {
+        guard let vm = playerVM, let track = vm.currentTrack else { return }
+        guard vm.currentChannel?.mediaKind != .ambient else { return }
+        let pos = vm.currentPosition
+        guard pos > 5 else { return }
+        let dur = (vm.trackDuration ?? 0) > 0 ? (vm.trackDuration ?? 0) : track.duration
+        if dur > 0, pos > dur - 5 { return }
+        let trackId = track.id
+        Task { [db] in
+            await db.saveAutosaveBookmark(trackId: trackId, positionSeconds: pos)
+        }
+    }
+
+    func deleteAutosaveForTrack(_ trackId: String) {
+        Task { [db] in
+            await db.deleteAutosaveBookmark(forTrack: trackId)
+        }
+    }
+
+    func autosavePosition(forTrack trackId: String) async -> Double? {
+        await db.fetchAutosaveBookmark(forTrack: trackId)?.positionSeconds
+    }
+
     func restoreLastSession(fallbackChannel: Channel, autoPlay: Bool) async {
         guard let vm = playerVM else { return }
         let d = UserDefaults.standard
