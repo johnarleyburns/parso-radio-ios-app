@@ -398,7 +398,7 @@ final class WholeBookIntegrationTests: XCTestCase {
         do { playlist = try await db.createPlaylist(name: "Plato Shelf") }
         catch { throw XCTSkip("DB error: \(error)") }
 
-        await vm.addEntireItemToPlaylist(from: itemTrack, to: playlist, using: plVM)
+        await vm.addEntireItemToPlaylist(playlist)
 
         let persisted = await db.fetchTracks(forParentIdentifier: identifier)
         if persisted.isEmpty { throw XCTSkip("Laws_Plato unavailable / network down") }

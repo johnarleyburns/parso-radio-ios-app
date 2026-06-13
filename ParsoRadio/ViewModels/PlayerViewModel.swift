@@ -11,8 +11,6 @@ final class PlayerViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var loadingMessage: String?
     @Published var errorMessage: String?
-    // Brief, non-destructive notice (e.g. "you're offline") shown as an alert
-    // without disturbing whatever is currently playing.
     @Published var transientMessage: String?
     @Published var currentPosition: Double = 0
     @Published var trackDuration: Double?
@@ -28,26 +26,25 @@ final class PlayerViewModel: ObservableObject {
     @Published var currentArtwork: UIImage? = nil
     @Published var artworkDominantColor: Color = .accentColor
     @Published var currentPlaylist: Playlist? = nil
-    // Drives the "Add Book/Album to Playlist" button. Set false on every
-    // track change; set true once the silent probe confirms a multi-file item.
     @Published var currentTrackIsMultiPart: Bool = false
-    // Multi-part summary for the current item, filled by the silent probe:
-    // total chapters/tracks, summed runtime, and which part is playing (1-based,
-    // nil if unknown). Surfaced on the track box ("Part m of n") and Track Info.
     @Published var currentItemChapterCount: Int = 0
     @Published var currentItemTotalDuration: Double = 0
     @Published var currentItemPartIndex: Int? = nil
 
-    // Sleep timer: non-nil endsAt → a Task is counting down to pause(); the
-    // "End of Track" flag stops at the next natural onTrackFinished.
     @Published var sleepTimerEndsAt: Date? = nil
     @Published var sleepAtEndOfTrack: Bool = false
-    private var sleepTimerTask: Task<Void, Never>? = nil
-
-    // Bookmarks for the currently-playing track. Reloaded on track change.
     @Published var bookmarksForCurrentTrack: [Bookmark] = []
-    // Mirrors audioPlayer.playbackRate (Float) as a Double for SwiftUI bindings.
     @Published var playbackRate: Double
+
+    // Extracted controllers (Phase 3)
+    private(set) lazy var sleepTimer = SleepTimerController(playerVM: self)
+    private(set) lazy var bookmarks = BookmarkController(db: db, playerVM: self)
+    private(set) lazy var recentlyPlayed = RecentlyPlayedController(db: db, playerVM: self)
+    private(set) lazy var sessionRestore = SessionRestoreController(db: db, playerVM: self)
+    private(set) lazy var recommendations = RecommendationsController(db: db, archiveService: archiveService)
+    private(set) lazy var audition = AuditionController(playerVM: self)
+    private(set) lazy var wholeItem = WholeItemController(db: db, archiveService: archiveService,
+                                              queueManager: queueManager, playerVM: self)
 
     let audioPlayer: any AudioEngine
 
@@ -78,7 +75,7 @@ final class PlayerViewModel: ObservableObject {
     //   value .some(nil) → confirmed single-file (never probe again)
     //   value [Track]    → confirmed multi-file, parts in part order
     // Cleared on channel switch (IA item file lists are immutable per session).
-    private var itemPartsCache: [String: [Track]?] = [:]
+    var itemPartsCache: [String: [Track]?] = [:]
     // Throttle spoken-word position saves to once every 5 s (onTimeUpdate fires 4×/s).
     private var lastPositionSaveTime: Double = -5
     // Throttle @Published currentPosition to 2×/s to reduce cascading recomputation.
@@ -102,7 +99,7 @@ final class PlayerViewModel: ObservableObject {
     var playlistTracks: [Track] = []
     var playlistIndex: Int = 0
     // Guards against double-advance when skip() fires onTrackFinished before the Task runs.
-    private var isSkipping = false
+    var isSkipping = false
     // We auto-skip ONLY on a true failure: the stream URL can't be resolved
     // within loadTimeout (no network response), or the AVPlayerItem reports
     // .failed (dead URL / 404 / undecodable). A merely-slow connection is NOT
@@ -118,7 +115,7 @@ final class PlayerViewModel: ObservableObject {
     private let stallTimeout: Double
     // internal (not private) so tests can drive the watchdog's decision directly.
     var stallModel = StallModel(maxConsecutiveSkips: 4)
-    private var stallWatchdog: Task<Void, Never>?
+    var stallWatchdog: Task<Void, Never>?
     // Retry transient resolve/load failures (timeout, 5xx, connection lost) with
     // exponential backoff before skipping; permanent failures (404/unsupported)
     // skip immediately. Per-item attempt counts; cleared on success. Pure policy.
@@ -134,9 +131,9 @@ final class PlayerViewModel: ObservableObject {
     // contexts is abandoned instead of starting — otherwise a playlist chapter
     // mid-resolve could begin playing under the channel we just switched to,
     // showing the channel's name (the "Cafe Lento plays part 9 of my book" bug).
-    private var playbackContextToken = 0
-    private var isAuditioning = false
-    private var preAuditionState: (
+    var playbackContextToken = 0
+    var isAuditioning = false
+    var preAuditionState: (
         channel: Channel?, playlist: Playlist?,
         playlistTracks: [Track], playlistIndex: Int,
         playHistory: [Track], shuffleMode: Bool,
@@ -1032,7 +1029,7 @@ final class PlayerViewModel: ObservableObject {
         await playTrack(previous, seekTo: nil, recordHistory: false)
     }
 
-    private func playTrack(_ track: Track, seekTo: Double?, recordHistory: Bool = true,
+    func playTrack(_ track: Track, seekTo: Double?, recordHistory: Bool = true,
                            autoPlay: Bool = true) async {
         // Snapshot the context this play was initiated under. If it changes
         // during the (awaited) URL resolution, we abandon before committing
@@ -1327,67 +1324,11 @@ final class PlayerViewModel: ObservableObject {
     /// backgrounds the app. No-op when current playback came from a real
     /// channel/playlist — we never disturb genuine listening.
     func stopAudition() {
-        guard currentChannel == nil, currentPlaylist == nil else { return }
-        guard currentTrack != nil || isLoading || preAuditionState != nil else { return }
-        stallWatchdog?.cancel()
-        stallWatchdog = nil
-        audioPlayer.skip()
-        currentTrack = nil
-        trackDuration = nil
-        isPlaying = false
-        isLoading = false
-        loadingMessage = nil
-        failedAuditionTrackId = nil
-        errorMessage = nil
-        playbackContextToken &+= 1   // invalidate any in-flight playTrack
-        isAuditioning = false
-        audioPlayer.isAuditioning = false
-
-        // Restore the pre-audition playback context so the user resumes
-        // exactly where they were before entering curation / search.
-        guard let pre = preAuditionState else { return }
-        preAuditionState = nil
-        currentChannel = pre.channel
-        currentPlaylist = pre.playlist
-        playlistTracks = pre.playlistTracks
-        playlistIndex = pre.playlistIndex
-        playHistory = pre.playHistory
-        shuffleMode = pre.shuffleMode
-        if let track = pre.track {
-            Task {
-                await playTrack(track, seekTo: pre.position > 1 ? pre.position : nil,
-                                recordHistory: false, autoPlay: false)
-            }
-        } else if let channel = pre.channel {
-            Task { await load(channel: channel, autoPlay: false) }
-        } else if let playlist = pre.playlist {
-            Task { await loadPlaylist(playlist, autoPlay: false) }
-        }
+        audition.stopAudition()
     }
 
-    /// Stop audition playback WITHOUT restoring the pre-audition channel/
-    /// playlist context. Use when a verdict was made on the playing track and
-    /// the user expects silence — not the old channel resuming. Also used when
-    /// the review queue is exhausted.
-    ///
-    /// IMPORTANT: isAuditioning and preAuditionState are PRESERVED so the
-    /// next auditionTrack() call won't overwrite the original snapshot, and
-    /// stopAudition() can restore the original context when the user exits.
     func stopAuditionWithoutRestore() {
-        guard currentChannel == nil, currentPlaylist == nil,
-              (currentTrack != nil || isLoading) else { return }
-        stallWatchdog?.cancel()
-        stallWatchdog = nil
-        audioPlayer.skip()
-        currentTrack = nil
-        trackDuration = nil
-        isPlaying = false
-        isLoading = false
-        loadingMessage = nil
-        failedAuditionTrackId = nil
-        errorMessage = nil
-        playbackContextToken &+= 1
-        // Keep isAuditioning = true and preAuditionState intact.
+        audition.stopAuditionWithoutRestore()
     }
 
     // MARK: - Whole book/album
@@ -1518,50 +1459,12 @@ final class PlayerViewModel: ObservableObject {
     // "Add Entire Book/Album to Playlist" — adds every part in book/album
     // order. playlistVM is passed in (no stored reference) to keep the view
     // models decoupled and avoid a retain cycle.
-    func addEntireItemToPlaylist(
-        from track: Track, to playlist: Playlist, using playlistVM: PlaylistViewModel
-    ) async {
-        let identifier = track.parentIdentifier ?? track.id
-        guard let parts = await resolveItemParts(identifier: identifier),
-              !parts.isEmpty else { return }
-        let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
-        await playlistVM.addTracks(ordered, to: playlist)
+    func addEntireItemToPlaylist(_ playlist: Playlist) async {
+        await wholeItem.addEntireItemToPlaylist(playlist)
     }
 
-    /// Play the CURRENT track's whole item (album / book) as a transient
-    /// playlist queue — in order, or SHUFFLED when `shuffleMode` is on. Track
-    /// Info's "Play Entire Album/Book" calls this. Leaves the channel context
-    /// so the album owns playback; advancePlaylist walks the parts.
     func playEntireCurrentItem() async {
-        guard let track = currentTrack else { return }
-        let identifier = track.parentIdentifier ?? track.id
-        guard let parts = await resolveItemParts(identifier: identifier),
-              !parts.isEmpty else { return }
-        let ordered: [Track]
-        if shuffleMode, parts.count > 1 {
-            ordered = parts.shuffled()
-        } else {
-            ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
-        }
-        saveAutosaveForCurrentTrack()
-        // Build a transient (non-persisted) album playlist. The id is prefixed
-        // "album:" so any saved-position writes don't collide with real
-        // playlists. Bump the context token so prior in-flight loads bail.
-        let albumPlaylist = Playlist(
-            id: "album:\(identifier)",
-            name: itemDisplayName(for: track),
-            createdAt: Date(),
-            updatedAt: Date(),
-            isFavorites: false,
-            isKidSafe: false
-        )
-        currentChannel = nil
-        currentPlaylist = albumPlaylist
-        playlistTracks = ordered
-        playlistIndex = 0
-        playbackContextToken &+= 1
-        playHistory = []
-        await playTrack(ordered[0], seekTo: nil, recordHistory: false)
+        await wholeItem.playEntireCurrentItem()
     }
 
     /// Play a list of tracks as a transient album (no saved playlist in DB).
@@ -1850,7 +1753,7 @@ final class PlayerViewModel: ObservableObject {
     // entering the main screen never shows stale elapsed time / artwork.
     // If `pre` is known, pre-populate it so its metadata shows under the
     // spinner; playTrack then finalises + starts audio in one update.
-    private func beginTransition(pre: Track?) {
+    func beginTransition(pre: Track?) {
         audioPlayer.skip()
         currentArtwork = nil
         artworkDominantColor = .accentColor
@@ -1868,29 +1771,7 @@ final class PlayerViewModel: ObservableObject {
     /// outside any channel / playlist context (the curator's verdict isn't
     /// playback, so no history / position recording is wanted).
     func auditionTrack(_ track: Track) async {
-        // Only snapshot the pre-audition context ONCE — on the first track the
-        // curator plays. Subsequent auto-advances within the same curation session
-        // must NOT overwrite the snapshot, otherwise stopAudition() restores
-        // (nil, nil, ...) instead of the original channel/playlist context.
-        if !isAuditioning {
-            preAuditionState = (
-                channel: currentChannel, playlist: currentPlaylist,
-                playlistTracks: playlistTracks, playlistIndex: playlistIndex,
-                playHistory: playHistory, shuffleMode: shuffleMode,
-                track: currentTrack, position: currentPosition, isPlaying: isPlaying
-            )
-        }
-        isAuditioning = true
-        audioPlayer.isAuditioning = true
-        currentChannel = nil
-        currentPlaylist = nil
-        playlistTracks = []
-        playlistIndex = 0
-        playbackContextToken &+= 1
-        playHistory = []
-        channelDescription = preAuditionState?.channel?.name ?? ""
-        beginTransition(pre: track)
-        await playTrack(track, seekTo: nil, recordHistory: false)
+        await audition.auditTrack(track)
     }
 
     // Play a single Internet Archive search result immediately.
@@ -2016,101 +1897,56 @@ final class PlayerViewModel: ObservableObject {
 
     // MARK: - Sleep timer
 
-    /// Start a countdown that pauses playback after `minutes` minutes. Replaces
-    /// any active timer. `0` cancels.
     func startSleepTimer(minutes: Int) {
-        cancelSleepTimer()
-        guard minutes > 0 else { return }
-        let endsAt = Date().addingTimeInterval(TimeInterval(minutes) * 60)
-        sleepTimerEndsAt = endsAt
-        sleepTimerTask = Task { [weak self] in
-            let interval = endsAt.timeIntervalSinceNow
-            if interval > 0 {
-                try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
-            }
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard let self else { return }
-                self.audioPlayer.pause()
-                self.isPlaying = false
-                self.sleepTimerEndsAt = nil
-                self.sleepTimerTask = nil
-            }
-        }
+        sleepTimer.startSleepTimer(minutes: minutes)
     }
 
-    /// Schedule a pause at the natural end of the currently-playing track.
-    /// Replaces any countdown-based timer.
     func setSleepAtEndOfTrack(_ on: Bool) {
-        cancelSleepTimer()
-        sleepAtEndOfTrack = on
+        sleepTimer.setSleepAtEndOfTrack(on)
     }
 
     func cancelSleepTimer() {
-        sleepTimerTask?.cancel()
-        sleepTimerTask = nil
-        sleepTimerEndsAt = nil
-        sleepAtEndOfTrack = false
+        sleepTimer.cancelSleepTimer()
     }
 
-    /// True iff any sleep mode is engaged.
     var isSleepTimerActive: Bool {
-        sleepTimerEndsAt != nil || sleepAtEndOfTrack
+        sleepTimer.isSleepTimerActive
     }
 
     // MARK: - Bookmarks
 
-    /// Bookmark the current playback position. No-op if nothing's playing.
     func addBookmarkAtCurrentPosition(label: String? = nil) async {
-        guard let track = currentTrack else { return }
-        let bm = Bookmark.new(trackId: track.id,
-                              positionSeconds: currentPosition,
-                              label: label)
-        await db.saveBookmark(bm)
-        bookmarksForCurrentTrack = await db.fetchBookmarks(forTrack: track.id)
+        await bookmarks.addBookmarkAtCurrentPosition(label: label)
     }
 
     func deleteBookmark(_ bookmark: Bookmark) async {
-        await db.deleteBookmark(id: bookmark.id)
-        if let id = currentTrack?.id, id == bookmark.trackId {
-            bookmarksForCurrentTrack = await db.fetchBookmarks(forTrack: id)
-        }
+        await bookmarks.deleteBookmark(bookmark)
     }
 
-    /// Seek to a bookmarked position within the currently-playing track.
     func seekToBookmark(_ bookmark: Bookmark) {
-        guard currentTrack?.id == bookmark.trackId else { return }
-        seek(to: bookmark.positionSeconds)
+        bookmarks.seekToBookmark(bookmark)
     }
 
     // MARK: - Recently played
 
     func recentlyPlayedTracks(limit: Int = 30) async -> [Track] {
-        await db.fetchRecentlyPlayedTracks(limit: limit)
+        await recentlyPlayed.recentlyPlayedTracks(limit: limit)
     }
 
-    /// Play a track straight from the Recently Played list. Looks up the
-    /// last channel it was played in so the rotation context matches.
     func playRecentTrack(_ track: Track) async {
-        await playTrack(track, seekTo: nil)
+        await recentlyPlayed.playRecentTrack(track)
     }
 
-    /// Remove a single track from Recently Played (every channel it was
-    /// played in). The track itself stays in the local DB for playback.
     func removeFromRecentlyPlayed(_ track: Track) async {
-        await db.deletePlayHistory(trackId: track.id)
+        await recentlyPlayed.removeFromRecentlyPlayed(track)
     }
 
-    /// Clear the entire Recently Played list.
     func clearRecentlyPlayed() async {
-        await db.clearAllPlayHistory()
+        await recentlyPlayed.clearRecentlyPlayed()
     }
 
-    /// Settings → "Clear Listening History": wipe the all-time play history that
-    /// powers the "for you" recommendation channels (and the Recently Played
-    /// view, which is a window onto the same data). Playlists/downloads kept.
     func clearListeningHistory() async {
-        await db.clearAllPlayHistory()
+        await recentlyPlayed.clearListeningHistory()
     }
 
     /// Build the track list for a "for you" channel from listening history.
@@ -2120,51 +1956,7 @@ final class PlayerViewModel: ObservableObject {
     /// pool). Returns nil when there isn't enough qualifying history yet —
     /// caller shows the "listen to N tracks first" prompt.
     private func fetchRecommendations(for channel: Channel) async throws -> [Track]? {
-        let history = await db.fetchRecentlyPlayedWithChannel(limit: 200)
-        let catById = Dictionary(Channel.defaults.map { ($0.id, $0.category) },
-                                 uniquingKeysWith: { a, _ in a })
-        let isBooks = channel.id == "books-for-you"
-        // ONLY count plays from the user's actual curated/audiobook channels —
-        // For You, Ambient, News, Lectures, playlists are excluded so the
-        // recommendations stay tightly within the wedge.
-        let relevantCats: Set<String> = isBooks ? ["Audiobooks"] : ["Curated"]
-        let relevantPlays = history.filter { relevantCats.contains(catById[$0.channelId] ?? "") }
-        guard relevantPlays.count >= RecommendationQueryBuilder.minPlays else { return nil }
-
-        let weights = RecommendationQueryBuilder.channelWeights(
-            fromHistory: history, categoryFilter: relevantCats, categoryById: catById)
-        let allocations = RecommendationQueryBuilder.allocateSamples(weights: weights)
-        guard !allocations.isEmpty else { return nil }
-
-        // Fetch each contributing channel's NATIVE registry query in parallel.
-        // Stamp every fetched track with the For-You channel id so the DB
-        // isolates them in the music-for-you / books-for-you pool.
-        let svc = archiveService
-        let stampTags = [channel.id]
-        var pool: [Track] = []
-        await withTaskGroup(of: [Track].self) { group in
-            for (channelId, count) in allocations {
-                guard let source = Channel.defaults.first(where: { $0.id == channelId }),
-                      let entry = source.iaQueryEntry else { continue }
-                group.addTask {
-                    // Bound each query: a single slow IA response must not hang
-                    // the whole "for you" build (the group waits for ALL tasks),
-                    // which left Music/Books For You spinning ~60s with no track.
-                    let tracks = (try? await Self.withTimeout(15) {
-                        try await svc.fetchTracks(
-                            iaQuery: entry.iaQuery, matchTags: stampTags)
-                    }) ?? []
-                    return Array(tracks.shuffled().prefix(count))
-                }
-            }
-            for await tracks in group { pool.append(contentsOf: tracks) }
-        }
-
-        // Recommend NEW material only — drop anything already in the history,
-        // and dedupe across channel overlaps.
-        let playedIds = Set(history.map(\.track.id))
-        var seen = Set<String>()
-        return pool.filter { !playedIds.contains($0.id) && seen.insert($0.id).inserted }
+        try await recommendations.fetchRecommendations(for: channel)
     }
 
     /// Settings → "Clear All Data": stop playback and erase EVERYTHING — tracks,
@@ -2195,9 +1987,7 @@ final class PlayerViewModel: ObservableObject {
     /// Ordered chapters of the currently-playing multi-part item, or nil if
     /// the current item is single-file or there's nothing playing.
     func fetchCurrentItemChapters() async -> [Track]? {
-        guard let track = currentTrack else { return nil }
-        let identifier = track.parentIdentifier ?? track.id
-        return await resolveItemParts(identifier: identifier)
+        await bookmarks.fetchCurrentItemChapters()
     }
 
     // MARK: - Autosave bookmark (never lose position)
@@ -2237,101 +2027,20 @@ final class PlayerViewModel: ObservableObject {
 
     // MARK: - Session restore (always pick up where you were)
 
-    // Channel ids that were renamed/rebuilt; restore maps the old saved id to
-    // the new. The guitar channel was rebuilt under a fresh id to shed stale
-    // stamped tracks, so both prior ids forward to it.
     static let channelIdMigrations: [String: String] = [
         "classical-guitar": "guitar-classical",
         "spanish-guitar": "guitar-classical"
     ]
 
     static func migratedChannelId(_ id: String?) -> String? {
-        guard let id else { return nil }
-        return channelIdMigrations[id] ?? id
+        SessionRestoreController.migratedChannelId(id)
     }
 
-    /// Persist the full "where I was": context (channel/playlist), track and
-    /// offset. Called on every track start, on pause, on background, and
-    /// throttled during playback — so a relaunch (incl. post-update) resumes
-    /// exactly here.
     func persistSession(position: Double) {
-        let d = UserDefaults.standard
-        guard let track = currentTrack,
-              currentChannel?.mediaKind != .ambient else { return }
-        guard !isAuditioning else { return }
-        if let pl = currentPlaylist {
-            d.set("playlist", forKey: "session.kind")
-            d.set(pl.id, forKey: "session.contextId")
-        } else if let ch = currentChannel {
-            d.set("channel", forKey: "session.kind")
-            d.set(ch.id, forKey: "session.contextId")
-        } else {
-            d.set("track", forKey: "session.kind")
-            d.removeObject(forKey: "session.contextId")
-        }
-        d.set(track.id, forKey: "session.trackId")
-        d.set(position, forKey: "session.position")
+        sessionRestore.persistSession(position: position)
     }
 
-    /// Restore the last session on launch. Channel/playlist resume uses the
-    /// positions table; a globally-saved exact track wins if it differs (covers
-    /// a last-played search result). autoPlay decides whether to start paused.
     func restoreLastSession(fallbackChannel: Channel, autoPlay: Bool) async {
-        let d = UserDefaults.standard
-        let kind = d.string(forKey: "session.kind")
-        let contextId = d.string(forKey: "session.contextId")
-        let savedTrackId = d.string(forKey: "session.trackId")
-        let savedPosition = d.double(forKey: "session.position")
-
-        if kind == "playlist", let pid = contextId,
-           let pl = await db.fetchPlaylists().first(where: { $0.id == pid }) {
-            await resumePlaylist(pl, autoPlay: autoPlay)
-            // The DB position write is async fire-and-forget and can be LOST when
-            // iOS kills the app in the background; session.position (UserDefaults,
-            // written synchronously on pause/resign) is the durable record. If
-            // it's for the SAME resumed track but AHEAD of the DB offset the
-            // playlist restored from, jump to the real last spot — otherwise we'd
-            // snap back to a stale "previous resume point" (the reported bug).
-            if let cur = currentTrack, cur.id == savedTrackId,
-               savedPosition > currentPosition + 2 {
-                await playTrack(cur, seekTo: savedPosition,
-                                recordHistory: false, autoPlay: autoPlay)
-            }
-            return
-        }
-
-        // Channel context (default). Migrate any renamed id; fall back to the
-        // last-used channel from UserDefaults or the provided default.
-        let channelId = Self.migratedChannelId(
-            kind == "channel" ? contextId
-                : (Self.migratedChannelId(d.string(forKey: "lastChannelId"))))
-        let channel = Channel.defaults.first { $0.id == channelId } ?? fallbackChannel
-        await load(channel: channel, autoPlay: autoPlay)
-
-        if let tid = savedTrackId, let t = await db.fetchTrack(id: tid),
-           NetworkMonitor.shared.isOnline || t.localFilePath != nil {
-            // For Curated channels, verify the session-saved track is still
-            // approved. A track that was once playable may have been rejected
-            // since the last session.
-            let isCurated = channel.category == "Curated" && channel.iaQueryEntry != nil
-            let approved = isCurated
-                ? Set(LiveCurationStore.shared.pool(for: channel.id).map(\.id))
-                : nil
-            if isCurated, let approved, !approved.isEmpty, !approved.contains(tid) {
-                // Track was rejected or removed since last session — skip
-            } else if currentTrack?.id != tid {
-                // The exact last track differs from what the channel resumed
-                // (e.g. it was a one-off search result) → play that precise
-                // track + offset.
-                await playTrack(t, seekTo: savedPosition > 1 ? savedPosition : nil,
-                                autoPlay: autoPlay)
-            } else if savedPosition > currentPosition + 2 {
-                // SAME track, but the durable session offset is ahead of the DB
-                // resume (the DB write was lost when iOS killed the app in the
-                // background) → seek to the real last spot, not an older one.
-                await playTrack(t, seekTo: savedPosition,
-                                recordHistory: false, autoPlay: autoPlay)
-            }
+        await sessionRestore.restoreLastSession(fallbackChannel: fallbackChannel, autoPlay: autoPlay)
     }
-}
 }

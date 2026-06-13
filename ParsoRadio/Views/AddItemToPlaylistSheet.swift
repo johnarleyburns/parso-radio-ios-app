@@ -77,7 +77,7 @@ struct AddItemToPlaylistSheet: View {
 
     private func addToPlaylist(_ playlist: Playlist) async {
         isAdding = true
-        await playerVM.addEntireItemToPlaylist(from: track, to: playlist, using: playlistVM)
+        await playerVM.addEntireItemToPlaylist(playlist)
         await playlistVM.loadTracks(for: playlist)
         isAdding = false
         added = true

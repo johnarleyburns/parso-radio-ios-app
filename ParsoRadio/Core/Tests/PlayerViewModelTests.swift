@@ -651,7 +651,8 @@ final class PlayerViewModelTests: XCTestCase {
         await db.saveTracks(parts.shuffled())   // DB order is arbitrary
         let playlist = try await db.createPlaylist(name: "Audiobook Shelf")
 
-        await vm.addEntireItemToPlaylist(from: parts[0], to: playlist, using: plVM)
+        vm.currentTrack = parts[0]
+        await vm.addEntireItemToPlaylist(playlist)
 
         let inPlaylist = await db.fetchTracks(forPlaylist: playlist.id)
         XCTAssertEqual(Set(inPlaylist.map(\.id)), Set(parts.map(\.id)),
