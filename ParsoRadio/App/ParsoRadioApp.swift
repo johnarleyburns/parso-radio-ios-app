@@ -98,7 +98,7 @@ struct ParsoMusicApp: App {
                             .environmentObject(Self.deps)
                             .environmentObject(favorites)
                     } else {
-                        HomeView()
+                        RootTabView()
                             .environmentObject(playerVM)
                             .environmentObject(playlistVM)
                             .environmentObject(Self.deps.offlineService)
@@ -271,11 +271,8 @@ struct KidsHomeView: View {
             }
         }
         .fullScreenCover(isPresented: $showPlayer) {
-            NowPlayingScreen(dismiss: { showPlayer = false })
+            NowPlayingSheet()
                 .environmentObject(playerVM)
-                .environmentObject(playlistVM)
-                .environmentObject(offlineService)
-                .environmentObject(favorites)
         }
         .task {
             let lastId = UserDefaults.standard.string(forKey: "lastChannelId")
