@@ -50,24 +50,19 @@ enum ContentTypeHint {
 
 extension Track {
     func resolveContentType(channel: Channel?) -> ContentTypeHint {
-        if source == "podcast" { return .podcastEpisode }
-        if source == "oxford_lectures" { return .lecture }
-        if let cat = channel?.category,
-           (cat == "Audiobooks" || cat == "Curated Books") {
-            return .audiobook
+        switch mediaKind(in: channel) {
+        case .music, .ambient: return .musicTrack
+        case .audiobook: return .audiobook
+        case .podcast: return .podcastEpisode
+        case .lecture: return .lecture
         }
-        if parentIdentifier != nil,
-           channel?.contentType == .spokenWord {
-            return .audiobook
-        }
-        return .musicTrack
     }
 
     func favoriteKind(channel: Channel?) -> FavoriteKind {
-        switch resolveContentType(channel: channel) {
-        case .musicTrack: return .track
+        switch mediaKind(in: channel) {
+        case .music, .ambient: return .track
         case .audiobook: return .book
-        case .podcastEpisode: return .episode
+        case .podcast: return .episode
         case .lecture: return .lecture
         }
     }
