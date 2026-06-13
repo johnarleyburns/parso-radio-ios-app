@@ -44,7 +44,10 @@ struct ListenView: View {
 
     @ViewBuilder
     private func channelsSection(for section: LibrarySection) -> some View {
-        let channels = Channel.defaults.filter { $0.mediaKind == section.id }
+        let dedicated: Set<String> = ["For You", "Curated"]
+        let channels = Channel.defaults.filter {
+            $0.mediaKind == section.id && !dedicated.contains($0.category)
+        }
         if !channels.isEmpty {
             Section(section.label) {
                 ForEach(channels, id: \.id) { channel in
