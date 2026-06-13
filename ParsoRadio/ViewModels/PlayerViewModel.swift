@@ -45,6 +45,7 @@ final class PlayerViewModel: ObservableObject {
     private(set) lazy var audition = AuditionController(playerVM: self)
     private(set) lazy var wholeItem = WholeItemController(db: db, archiveService: archiveService,
                                               queueManager: queueManager, playerVM: self)
+    private(set) lazy var playlistPlayback = PlaylistPlaybackController(db: db, playerVM: self)
 
     let audioPlayer: any AudioEngine
 
@@ -865,7 +866,7 @@ final class PlayerViewModel: ObservableObject {
         // (currentChannel is nil in playlist mode, so the channel queue path
         // below would otherwise do nothing — which is why <next> was dead.)
         if currentPlaylist != nil {
-            await advancePlaylist()
+            await playlistPlayback.advancePlaylist()
             return
         }
         guard let channel = currentChannel else { return }
@@ -989,19 +990,6 @@ final class PlayerViewModel: ObservableObject {
         guard let dur = try? await asset.load(.duration) else { return nil }
         let secs = CMTimeGetSeconds(dur)
         return secs.isFinite && secs > 0 ? secs : nil
-    }
-
-    private func advancePlaylist() async {
-        guard !playlistTracks.isEmpty else { return }
-        if shuffleMode, playlistTracks.count > 1 {
-            var i = Int.random(in: 0..<playlistTracks.count)
-            if i == playlistIndex { i = (i + 1) % playlistTracks.count }
-            playlistIndex = i
-        } else {
-            playlistIndex = (playlistIndex + 1) % playlistTracks.count
-        }
-        // recordHistory:false — playlist back navigation uses the cursor.
-        await playTrack(playlistTracks[playlistIndex], seekTo: nil, recordHistory: false)
     }
 
     private func playPreviousTrack() async {
@@ -1723,68 +1711,30 @@ final class PlayerViewModel: ObservableObject {
         // spinner and no audio yet (item 9).
     }
 
-    // Per-playlist position is stored in the same positions table as
-    // channels, namespaced so it can never collide with a real channel id
-    // (channel ids contain no ':').
-    static func playlistKey(_ playlistId: String) -> String { "playlist:\(playlistId)" }
+    static func playlistKey(_ playlistId: String) -> String {
+        PlaylistPlaybackController.playlistKey(playlistId)
+    }
 
     func loadPlaylist(_ playlist: Playlist,
                        startingAt track: Track? = nil,
                        seekTo: Double = 0,
                        shuffle: Bool = false,
                        autoPlay: Bool = true) async {
-        // Save the outgoing track's spot before switching context.
-        saveAutosaveForCurrentTrack()
-        // Shuffle is per-context: a normal play/resume resets it OFF; only the
-        // Shuffle action turns it on. Prevents a stray shuffle from scrambling
-        // an audiobook playlist's chapter order.
-        shuffleMode = shuffle
-        beginTransition(pre: track)
-        currentPlaylist = playlist
-        currentChannel = nil
-        playbackContextToken &+= 1   // new context (see playbackContextToken)
-        playHistory = []
-        let tracks = await db.fetchTracks(forPlaylist: playlist.id)
-        playlistTracks = tracks
-        channelDescription = playlist.name
-        channelTrackCount = tracks.count
-        channelMostRecentDate = tracks.compactMap(\.addedDate).max()
-        guard !tracks.isEmpty else { playlistIndex = 0; return }
-        let startTrack = track ?? tracks.first!
-        playlistIndex = track
-            .flatMap { t in tracks.firstIndex(where: { $0.id == t.id }) } ?? 0
-        // recordHistory:false — currentTrack here is still the previously-playing
-        // CHANNEL track. Pushing it into playHistory is exactly why "back" on the
-        // first playlist track used to jump to a track not in the playlist.
-        await playTrack(startTrack, seekTo: seekTo, recordHistory: false, autoPlay: autoPlay)
+        await playlistPlayback.loadPlaylist(playlist, startingAt: track,
+                                             seekTo: seekTo, shuffle: shuffle,
+                                             autoPlay: autoPlay)
     }
 
-    // The saved spot in a playlist (track still present + offset), or nil.
     func savedPlaylistResume(_ playlist: Playlist) async -> (track: Track, seconds: Double)? {
-        guard let saved = await db.loadPosition(channelId: Self.playlistKey(playlist.id))
-        else { return nil }
-        let tracks = await db.fetchTracks(forPlaylist: playlist.id)
-        guard let track = tracks.first(where: { $0.id == saved.trackId }) else { return nil }
-        return (track, saved.seconds)
+        await playlistPlayback.savedPlaylistResume(playlist)
     }
 
-    // Shuffle: start on a RANDOM track and continue in random order (advance
-    // already picks randomly while shuffleMode is on). Previously this called
-    // loadPlaylist, which always started on the first track.
     func shufflePlaylist(_ playlist: Playlist) async {
-        let tracks = await db.fetchTracks(forPlaylist: playlist.id)
-        await loadPlaylist(playlist, startingAt: tracks.randomElement(), shuffle: true)
+        await playlistPlayback.shufflePlaylist(playlist)
     }
 
-    // Resume a playlist exactly where the user left off (the saved track at
-    // its saved offset). Falls back to a normal play-from-top if nothing saved.
     func resumePlaylist(_ playlist: Playlist, autoPlay: Bool = true) async {
-        if let resume = await savedPlaylistResume(playlist) {
-            await loadPlaylist(playlist, startingAt: resume.track, seekTo: resume.seconds,
-                               autoPlay: autoPlay)
-        } else {
-            await loadPlaylist(playlist, autoPlay: autoPlay)
-        }
+        await playlistPlayback.resumePlaylist(playlist, autoPlay: autoPlay)
     }
 
     // MARK: - Book navigation (Librivox)
