@@ -71,6 +71,8 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     var onReady: ((Double) -> Void)?
 
     var onNonAudio: (() -> Void)?
+    var onPlaybackFailure: (() -> Void)?
+    private var hasReceivedAudio = false
 
     /// 3 s timer started on .readyToPlay — if no audio tick arrives by then,
     /// the asset is non-audio (PDF/text that AVPlayer loaded but can't play).
@@ -166,7 +168,14 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
                     if let err = item.error as? NSError,
                        err.domain == AVFoundationErrorDomain
                         || err.domain == NSOSStatusErrorDomain {
-                        Task { @MainActor [weak self] in self?.onNonAudio?() }
+                        Task { @MainActor [weak self] in
+                            guard let self else { return }
+                            if self.hasReceivedAudio {
+                                self.onPlaybackFailure?()
+                            } else {
+                                self.onNonAudio?()
+                            }
+                        }
                     }
                 default:
                     break
@@ -197,6 +206,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
                     self.lastThrottledTickTime = now
                 }
                 // First real time tick → cancel the non-audio suspicion timer
+                self.hasReceivedAudio = true
                 self.nonAudioTimer?.cancel()
                 self.nonAudioTimer = nil
                 self.onTimeUpdate?(time.seconds)
@@ -635,6 +645,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         playToken &+= 1
         nonAudioTimer?.cancel()
         nonAudioTimer = nil
+        hasReceivedAudio = false
         player?.pause()
         playerLooper?.disableLooping()
         playerLooper = nil

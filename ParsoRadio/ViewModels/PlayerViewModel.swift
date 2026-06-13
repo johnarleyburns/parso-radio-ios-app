@@ -306,6 +306,21 @@ final class PlayerViewModel: ObservableObject {
             }
         }
 
+        audioPlayer.onPlaybackFailure = { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self, let track = self.currentTrack else { return }
+                Log.playback.warning("Mid-playback failure, auto-retrying: \(track.id)")
+                let savedPosition = self.currentPosition
+                self.audioPlayer.skip()
+                self.currentTrack = nil
+                // Retry once at the current position. skip() tears down the player
+                // and resets hasReceivedAudio — so if the retry also fails the
+                // .failed observer will route through onNonAudio (normal skip).
+                await self.playTrack(track, seekTo: savedPosition > 1 ? savedPosition : nil,
+                                   recordHistory: false, autoPlay: true)
+            }
+        }
+
         audioPlayer.onTimeUpdate = { [weak self] seconds in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -1018,7 +1033,7 @@ final class PlayerViewModel: ObservableObject {
     }
 
     private func playTrack(_ track: Track, seekTo: Double?, recordHistory: Bool = true,
-                           autoPlay: Bool = false) async {
+                           autoPlay: Bool = true) async {
         // Snapshot the context this play was initiated under. If it changes
         // during the (awaited) URL resolution, we abandon before committing
         // audio so a stale track never plays under a context we've left.

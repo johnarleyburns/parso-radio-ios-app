@@ -54,6 +54,7 @@ final class FakeAudioEngine: AudioEngine {
     func updateNowPlayingChannel(_ channelName: String) {}
 
     var onNonAudio: (() -> Void)?
+    var onPlaybackFailure: (() -> Void)?
 
     // MARK: Test drivers (simulate the engine's async callbacks)
 

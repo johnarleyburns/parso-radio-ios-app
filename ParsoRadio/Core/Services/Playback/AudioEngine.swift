@@ -29,6 +29,7 @@ protocol AudioEngine: AnyObject {
     var onTrackFinished: (() -> Void)? { get set }
     var onPreviousTrack: (() -> Void)? { get set }
     var onNonAudio: (() -> Void)? { get set }
+    var onPlaybackFailure: (() -> Void)? { get set }
 
     func play(url: URL, track: Track, looping: Bool, startAt: Double, autoPlay: Bool)
     func pause()
