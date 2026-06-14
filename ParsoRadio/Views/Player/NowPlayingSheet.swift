@@ -192,38 +192,42 @@ struct NowPlayingSheet: View {
 
         VStack(spacing: 4) {
             HStack(alignment: .bottom, spacing: 0) {
-                Button {
-                    Task {
-                        await favorites.toggle(track: track, channel: playerVM.currentChannel,
-                                               positionSeconds: playerVM.currentPosition)
+                VStack(spacing: 2) {
+                    Button {
+                        Task {
+                            await favorites.toggle(track: track, channel: playerVM.currentChannel,
+                                                   positionSeconds: playerVM.currentPosition)
+                        }
+                    } label: {
+                        Image(systemName: isFav ? "heart.fill" : "heart")
+                            .font(.body)
+                            .foregroundStyle(isFav ? .red : .secondary)
                     }
-                } label: {
-                    Image(systemName: isFav ? "heart.fill" : "heart")
-                        .font(.body)
-                        .foregroundStyle(isFav ? .red : .secondary)
-                }
-                .accessibilityLabel(isFav ? "Remove from favorites" : "Add to favorites")
+                    .accessibilityLabel(isFav ? "Remove from favorites" : "Add to favorites")
 
-                Text(playerVM.currentPosition.formattedTime)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                    .padding(.leading, 8)
+                    Text(playerVM.currentPosition.formattedTime)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
 
                 Spacer()
 
-                Text("-\(remaining.formattedTime)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                    .padding(.trailing, 8)
-
-                if let shareURL = ShareURLBuilder.url(for: track) {
-                    ShareLink(item: shareURL) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.body)
+                VStack(spacing: 2) {
+                    if let shareURL = ShareURLBuilder.url(for: track) {
+                        ShareLink(item: shareURL) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.body)
+                        }
+                        .accessibilityLabel("Share")
+                    } else {
+                        Color.clear.frame(width: 17, height: 17)
                     }
-                    .accessibilityLabel("Share")
+
+                    Text("-\(remaining.formattedTime)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
             }
             .buttonStyle(.plain)

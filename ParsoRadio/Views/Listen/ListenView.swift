@@ -31,20 +31,16 @@ struct ListenView: View {
             .listStyle(.insetGrouped)
             .navigationTitle("Listen")
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    HStack(spacing: 6) {
-                        Text("Listen")
-                            .font(.headline)
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 12) {
                         if contributionStore.isSupporter && !supporterBadgeHidden {
                             Image(systemName: "seal.fill")
                                 .font(.headline)
                                 .foregroundStyle(.yellow)
                         }
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showSettings = true } label: {
-                        Image(systemName: "gearshape")
+                        Button { showSettings = true } label: {
+                            Image(systemName: "gearshape")
+                        }
                     }
                 }
             }
@@ -101,6 +97,14 @@ struct ListenView: View {
                 HStack {
                     Text(section.label)
                     Spacer()
+                    if section.id == .music {
+                        Button { showNewCuratedChannel = true } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.body)
+                                .foregroundStyle(Color.accentColor)
+                        }
+                        .accessibilityLabel("Add curated music channel")
+                    }
                     if section.id == .audiobook {
                         Button { showNewCuratedChannel = true } label: {
                             Image(systemName: "plus.circle.fill")
