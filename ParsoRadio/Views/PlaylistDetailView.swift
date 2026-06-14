@@ -9,11 +9,11 @@ struct PlaylistDetailView: View {
     @EnvironmentObject var offlineService: OfflineDownloadService
     @State private var editMode: EditMode = .inactive
     @ObservedObject private var kids = KidsModeController.shared
-    // Where the user left off in THIS playlist (track still present + offset).
     @State private var resume: (track: Track, seconds: Double)? = nil
     @State private var showImagePicker = false
     @State private var selectedImageItem: PhotosPickerItem?
     @State private var customImage: UIImage?
+    @State private var loadingItemId: String?
 
     static var playlistImagesDir: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -62,30 +62,44 @@ struct PlaylistDetailView: View {
             Section {
                 HStack(spacing: 24) {
                     Button {
+                        loadingItemId = "__play__"
                         Task {
                             await playerVM.resumePlaylist(playlist)
                             dismissAll?()
                         }
                     } label: {
-                        Image(systemName: resume == nil ? "play.fill" : "play.fill")
-                            .font(.title2)
+                        if loadingItemId == "__play__" {
+                            ProgressView()
+                                .font(.title2)
+                        } else {
+                            Image(systemName: "play.fill")
+                                .font(.title2)
+                        }
                     }
                     .buttonStyle(.bordered)
+                    .disabled(loadingItemId != nil)
                     .accessibilityLabel(resume == nil ? "Play" : "Resume")
                     .accessibilityHint(resume == nil
                         ? "Plays this playlist from the beginning"
                             : "Resumes \(resume!.track.title) at \(resume!.seconds.formattedTime)")
 
                     Button {
+                        loadingItemId = "__shuffle__"
                         Task {
                             await playerVM.shufflePlaylist(playlist)
                             dismissAll?()
                         }
                     } label: {
-                        Image(systemName: "shuffle")
-                            .font(.title2)
+                        if loadingItemId == "__shuffle__" {
+                            ProgressView()
+                                .font(.title2)
+                        } else {
+                            Image(systemName: "shuffle")
+                                .font(.title2)
+                        }
                     }
                     .buttonStyle(.bordered)
+                    .disabled(loadingItemId != nil)
                     .accessibilityLabel("Shuffle")
                     .accessibilityHint("Plays this playlist in random order")
 
@@ -128,13 +142,14 @@ struct PlaylistDetailView: View {
 
             if !kids.isEnabled {
                 Section {
-                    NavigationLink {
-                        AddTracksView(playlist: playlist, db: playlistVM.db)
-                            .environmentObject(playlistVM)
-                            .environmentObject(playerVM)
-                    } label: {
-                        Label("Add to Playlist…", systemImage: "plus.circle")
-                    }
+                NavigationLink {
+                    AddTracksView(playlist: playlist, db: playlistVM.db)
+                        .environmentObject(playlistVM)
+                        .environmentObject(playerVM)
+                } label: {
+                    Label("Add to Playlist…", systemImage: "plus.circle")
+                }
+                .disabled(loadingItemId != nil)
                 }
 
                 // Parental "Kid Safe" toggle. Only shown when NOT in Kids Mode
@@ -182,11 +197,20 @@ struct PlaylistDetailView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
+                    guard loadingItemId == nil else { return }
+                    loadingItemId = track.id
                     Task {
                         await playerVM.loadPlaylist(playlist, startingAt: track)
                         dismissAll?()
                     }
                 }
+                .overlay {
+                    if loadingItemId == track.id {
+                        ProgressView()
+                    }
+                }
+                .opacity(loadingItemId == track.id ? 0.6 : 1.0)
+                .animation(.easeInOut(duration: 0.15), value: loadingItemId)
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityHint("Plays the playlist starting from this track")
@@ -230,6 +254,7 @@ struct PlaylistDetailView: View {
             resume = await playerVM.savedPlaylistResume(playlist)
             loadCustomImage()
         }
+        .sensoryFeedback(.impact(weight: .light), trigger: loadingItemId)
         .photosPicker(isPresented: $showImagePicker, selection: $selectedImageItem,
                        matching: .images)
         .onChange(of: selectedImageItem) { _, item in

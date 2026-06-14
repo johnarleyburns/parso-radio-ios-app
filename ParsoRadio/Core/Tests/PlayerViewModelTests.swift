@@ -1187,6 +1187,48 @@ final class PlayerViewModelTests: XCTestCase {
     }
 }
 
+// PlaylistDetailView tests: validates ViewModel state transitions that
+// drive the loading-indicator UI. When the user taps Play / Shuffle / a
+// track row, the ViewModel must immediately set the correct currentPlaylist,
+// playlistTracks, and playback context so the UI can show feedback.
+extension PlayerViewModelTests {
+
+    // Tapping a track row in a playlist must start playback from that
+    // exact track with the playlist context loaded.
+    func testLoadPlaylistStartingAtTrackPositionsCorrectly() async throws {
+        let pl = try await seedPlaylist(["at1", "at2", "at3", "at4"])
+        let order = await db.fetchTracks(forPlaylist: pl.id)
+
+        await vm.loadPlaylist(pl, startingAt: order[1])
+
+        XCTAssertEqual(vm.currentPlaylist?.id, pl.id,
+            "playlist context must be set so the header shows the playlist name")
+        XCTAssertEqual(vm.currentTrack?.id, order[1].id,
+            "playback must start from the tapped track")
+        XCTAssertEqual(vm.playlistIndex, 1,
+            "playlistIndex cursor must point at the tapped track")
+        XCTAssertEqual(vm.playlistTracks.map(\.id), order.map(\.id),
+            "all playlist tracks must be loaded in display order")
+    }
+
+    // Tapping the Play button must resume from the last-saved position.
+    func testResumePlaylistSetsCorrectPlaylistAndTrack() async throws {
+        vm.shuffleMode = false
+        let pl = try await seedPlaylist(["rp1", "rp2", "rp3"])
+        let order = await db.fetchTracks(forPlaylist: pl.id)
+        await db.savePosition(channelId: PlayerViewModel.playlistKey(pl.id),
+                              trackId: order[2].id, seconds: 421)
+
+        await vm.resumePlaylist(pl)
+
+        XCTAssertEqual(vm.currentPlaylist?.id, pl.id,
+            "playlist context must be set so the header shows the playlist name")
+        XCTAssertEqual(vm.currentTrack?.id, order[2].id,
+            "must resume the saved track, not the first track")
+        XCTAssertEqual(vm.currentPosition, 421, accuracy: 0.001)
+    }
+}
+
 // IAQueryRegistry: bundle JSON loads and matchTags act as an isolation stamp.
 final class IAQueryRegistryTests: XCTestCase {
 

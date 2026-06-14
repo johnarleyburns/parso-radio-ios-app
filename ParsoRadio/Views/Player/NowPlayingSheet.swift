@@ -156,14 +156,45 @@ struct NowPlayingSheet: View {
                     .disabled(playerVM.isLoading)
 
                 if b.allowsShuffleToggle {
-                    HStack {
+                    HStack(spacing: 0) {
                         ShuffleControl()
+
                         Spacer()
+
+                        HStack(spacing: 16) {
+                            if track.source == "internet_archive" {
+                                archiveLink(for: track)
+                            }
+                            AirPlayButton()
+                                .frame(width: 28, height: 28)
+                            Button {
+                                showAddToPlaylist = true
+                            } label: {
+                                Image(systemName: "plus.circle")
+                                    .font(.body)
+                            }
+                            .accessibilityLabel("Add to playlist")
+                            if b.supportsSleepTimer {
+                                sleepTimerMenu
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 12)
+
+                        Spacer()
+
                         RepeatControl()
+                    }
+                    .sheet(isPresented: $showAddToPlaylist) {
+                        AddItemToPlaylistSheet(track: track)
+                            .environmentObject(playlistVM)
+                            .environmentObject(playerVM)
                     }
                 }
 
-                actionButtons(for: track)
+                if !b.allowsShuffleToggle {
+                    actionButtons(for: track)
+                }
             } else {
                 TransportControls()
                     .disabled(playerVM.isLoading)
@@ -171,7 +202,7 @@ struct NowPlayingSheet: View {
 
             HStack(spacing: 20) {
                 if b.supportsSpeedControl { SpeedControl() }
-                if b.supportsSleepTimer { SleepTimerControl() }
+                if b.supportsSleepTimer, !b.allowsShuffleToggle { SleepTimerControl() }
             }
 
             HStack(spacing: 20) {
@@ -270,6 +301,42 @@ struct NowPlayingSheet: View {
             AddItemToPlaylistSheet(track: track)
                 .environmentObject(playlistVM)
                 .environmentObject(playerVM)
+        }
+    }
+
+    @ViewBuilder
+    private func archiveLink(for track: Track) -> some View {
+        let identifier = track.parentIdentifier ?? track.id
+        let cleanId = identifier.contains("/")
+            ? String(identifier.split(separator: "/").first ?? "")
+            : identifier
+        if let url = URL(string: "https://archive.org/details/\(cleanId)") {
+            Link(destination: url) {
+                Image(systemName: "safari")
+                    .font(.body)
+            }
+            .accessibilityLabel("View on archive.org")
+        }
+    }
+
+    private var sleepTimerMenu: some View {
+        Menu {
+            Button("15 min") { playerVM.startSleepTimer(minutes: 15) }
+            Button("30 min") { playerVM.startSleepTimer(minutes: 30) }
+            Button("45 min") { playerVM.startSleepTimer(minutes: 45) }
+            Button("60 min") { playerVM.startSleepTimer(minutes: 60) }
+            Divider()
+            Button("End of Track") { playerVM.setSleepAtEndOfTrack(true) }
+            if playerVM.isSleepTimerActive {
+                Divider()
+                Button("Cancel Timer", role: .destructive) {
+                    playerVM.cancelSleepTimer()
+                }
+            }
+        } label: {
+            Image(systemName: playerVM.isSleepTimerActive
+                  ? "moon.zzz.fill" : "moon.zzz")
+                .font(.body)
         }
     }
 }
