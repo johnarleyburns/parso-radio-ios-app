@@ -8,9 +8,14 @@ struct ChapterButton: View {
         Button {
             showChapters = true
         } label: {
-            Label("Chapters", systemImage: "list.bullet.rectangle")
-                .font(.caption)
+            VStack(spacing: 4) {
+                Image(systemName: "list.bullet.rectangle").font(.title3)
+                Text("Chapters").font(.caption2)
+            }
+            .frame(maxWidth: .infinity)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Chapters")
         .sheet(isPresented: $showChapters) {
             ChapterListView()
                 .environmentObject(playerVM)

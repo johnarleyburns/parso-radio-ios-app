@@ -18,9 +18,15 @@ struct SleepTimerControl: View {
                 }
             }
         } label: {
-            Label("Sleep Timer", systemImage: playerVM.isSleepTimerActive
-                  ? "moon.zzz.fill" : "moon.zzz")
-                .font(.caption)
+            VStack(spacing: 4) {
+                Image(systemName: playerVM.isSleepTimerActive
+                      ? "moon.zzz.fill" : "moon.zzz")
+                    .font(.title3)
+                Text("Sleep Timer").font(.caption2)
+            }
+            .frame(maxWidth: .infinity)
+            .foregroundStyle(playerVM.isSleepTimerActive ? Color.accentColor : .primary)
         }
+        .accessibilityLabel("Sleep Timer")
     }
 }

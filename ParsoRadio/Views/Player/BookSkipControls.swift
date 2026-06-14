@@ -4,22 +4,17 @@ struct BookSkipControls: View {
     @EnvironmentObject var playerVM: PlayerViewModel
 
     var body: some View {
-        HStack(spacing: 24) {
-            Button {
-                Task { await playerVM.skipToPreviousBook() }
-            } label: {
-                Label("Previous Book", systemImage: "backward.end.fill")
-                    .labelStyle(.iconOnly)
-                    .font(.title3)
-            }
-
-            Button {
-                Task { await playerVM.skipToNextBook() }
-            } label: {
-                Label("Next Book", systemImage: "forward.end.fill")
-                    .labelStyle(.iconOnly)
-                    .font(.title3)
-            }
+        PlayerAccessoryButton(
+            systemImage: "backward.end.fill",
+            title: "Prev Book"
+        ) {
+            Task { await playerVM.skipToPreviousBook() }
+        }
+        PlayerAccessoryButton(
+            systemImage: "forward.end.fill",
+            title: "Next Book"
+        ) {
+            Task { await playerVM.skipToNextBook() }
         }
     }
 }

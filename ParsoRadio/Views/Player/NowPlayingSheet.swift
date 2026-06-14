@@ -200,17 +200,15 @@ struct NowPlayingSheet: View {
                     .disabled(playerVM.isLoading)
             }
 
-            HStack(spacing: 20) {
+            let cols = [GridItem(.adaptive(minimum: 76), spacing: 12)]
+            LazyVGrid(columns: cols, spacing: 12) {
                 if b.supportsSpeedControl { SpeedControl() }
                 if b.supportsSleepTimer, !b.allowsShuffleToggle { SleepTimerControl() }
-            }
-
-            HStack(spacing: 20) {
                 if b.supportsChapters { ChapterButton() }
                 if b.supportsBookmarks { BookmarkButton() }
+                if b.supportsBookSkip { BookSkipControls() }
             }
-
-            if b.supportsBookSkip { BookSkipControls() }
+            .padding(.horizontal)
         }
         .padding(.top, 8)
     }
@@ -223,7 +221,7 @@ struct NowPlayingSheet: View {
 
         VStack(spacing: 4) {
             HStack(alignment: .bottom, spacing: 0) {
-                VStack(spacing: 2) {
+                VStack(spacing: 8) {
                     Button {
                         Task {
                             await favorites.toggle(track: track, channel: playerVM.currentChannel,
@@ -235,6 +233,7 @@ struct NowPlayingSheet: View {
                             .foregroundStyle(isFav ? .red : .secondary)
                     }
                     .accessibilityLabel(isFav ? "Remove from favorites" : "Add to favorites")
+                    .padding(.bottom, 8)
 
                     Text(playerVM.currentPosition.formattedTime)
                         .font(.caption2)
@@ -244,13 +243,14 @@ struct NowPlayingSheet: View {
 
                 Spacer()
 
-                VStack(spacing: 2) {
+                VStack(spacing: 8) {
                     if let shareURL = ShareURLBuilder.url(for: track) {
                         ShareLink(item: shareURL) {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.body)
                         }
                         .accessibilityLabel("Share")
+                        .padding(.bottom, 8)
                     } else {
                         Color.clear.frame(width: 17, height: 17)
                     }

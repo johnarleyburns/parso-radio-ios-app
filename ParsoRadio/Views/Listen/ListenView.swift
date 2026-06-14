@@ -10,6 +10,7 @@ struct ListenView: View {
     @State private var showAddPodcast = false
     @State private var showNewCuratedChannel = false
     @State private var curateMeta: ChannelMeta?
+    @State private var selectedRecentTrack: Track?
 
     @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
     @AppStorage("supporterBadgeHidden") private var supporterBadgeHidden = false
@@ -20,13 +21,17 @@ struct ListenView: View {
     var body: some View {
         NavigationStack {
             List {
+                JumpBackInSection(playerVM: playerVM) { track in
+                    selectedRecentTrack = track
+                }
+
+                LiveMusicSection(onSelect: select, playerVM: playerVM)
+
                 ForYouSection(onSelect: select)
 
                 ForEach(LibrarySection.ordered) { section in
                     channelsSection(for: section)
                 }
-
-                LiveMusicSection(onSelect: select, playerVM: playerVM)
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Listen")
@@ -34,9 +39,11 @@ struct ListenView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
                         if contributionStore.isSupporter && !supporterBadgeHidden {
-                            Image(systemName: "seal.fill")
-                                .font(.headline)
-                                .foregroundStyle(.yellow)
+                            Image("supporter")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 26, height: 26)
+                                .accessibilityLabel("Supporter")
                         }
                         Button { showSettings = true } label: {
                             Image(systemName: "gearshape")
@@ -52,7 +59,14 @@ struct ListenView: View {
                     .environmentObject(playerVM)
                     .environmentObject(favorites)
                     .environmentObject(playlistVM)
-                    .task { await playerVM.load(channel: channel) }
+                    .task { await playerVM.load(channel: channel, autoPlay: true) }
+            }
+            .fullScreenCover(item: $selectedRecentTrack) { track in
+                NowPlayingSheet()
+                    .environmentObject(playerVM)
+                    .environmentObject(favorites)
+                    .environmentObject(playlistVM)
+                    .task { await playerVM.playRecentTrack(track) }
             }
             .sheet(isPresented: $showAddPodcast) {
                 PodcastAddView(initialMode: .url)
@@ -76,9 +90,9 @@ struct ListenView: View {
     @ViewBuilder
     private func channelsSection(for section: LibrarySection) -> some View {
         let dedicated: Set<String> = ["For You"]
-        let channels = Channel.defaults.filter {
-            $0.mediaKind == section.id && !dedicated.contains($0.category)
-        }
+        let channels = Channel.defaults
+            .filter { $0.mediaKind == section.id && !dedicated.contains($0.category) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         if channels.isEmpty { EmptyView() }
         else {
             Section {
@@ -146,7 +160,9 @@ private struct ForYouSection: View {
     let onSelect: (Channel) -> Void
 
     var body: some View {
-        let forYouChannels = Channel.defaults.filter { $0.category == "For You" }
+        let forYouChannels = Channel.defaults
+            .filter { $0.category == "For You" }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         if !forYouChannels.isEmpty {
             Section("For You") {
                 ForEach(forYouChannels, id: \.id) { channel in
@@ -254,5 +270,42 @@ private struct LiveMusicSection: View {
             addedDate: Date()
         )
         await playerVM.playSingleTrack(track)
+    }
+}
+
+private struct JumpBackInSection: View {
+    let playerVM: PlayerViewModel
+    let onSelect: (Track) -> Void
+    @State private var items: [Track] = []
+
+    var body: some View {
+        if !items.isEmpty {
+            Section("Jump Back In") {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(items, id: \.id) { track in
+                            Button { onSelect(track) } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    AsyncImage(url: track.resolvedArtworkURL) { phase in
+                                        if let img = phase.image { img.resizable().scaledToFill() }
+                                        else { Color(.systemGray5).overlay(Image(systemName: "music.note")) }
+                                    }
+                                    .frame(width: 120, height: 120)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    Text(track.title).font(.caption.weight(.medium)).lineLimit(1)
+                                    Text(track.artist).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                }
+                                .frame(width: 120)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 0))
+            }
+            .task { items = await playerVM.recentlyPlayedTracks(limit: 10) }
+        }
     }
 }
