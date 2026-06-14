@@ -72,9 +72,7 @@ final class WholeItemController {
         guard let vm = playerVM, let track = vm.currentTrack else { return }
         let identifier = track.parentIdentifier ?? track.id
         guard let parts = await resolveItemParts(identifier: identifier) else { return }
-        for part in parts {
-            await vm.db.addTrack(part, toPlaylist: playlist.id)
-        }
+        await db.addTracksOrdered(parts, toPlaylist: playlist.id)
     }
 
     func playAlbumTracks(_ ordered: [Track], title: String) async {

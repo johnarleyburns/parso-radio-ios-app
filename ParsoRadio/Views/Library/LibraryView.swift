@@ -70,6 +70,15 @@ struct LibraryView: View {
                 )
             } else {
                 List {
+                    Button(role: .destructive) {
+                        Task {
+                            await offlineService.deleteAllDownloads()
+                            await loadDownloads()
+                        }
+                    } label: {
+                        Label("Clear All Downloads", systemImage: "trash")
+                    }
+
                     ForEach(downloadedTracks) { track in
                         Button {
                             Task { await playerVM.playSingleTrack(track) }
@@ -95,6 +104,16 @@ struct LibraryView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                Task {
+                                    await offlineService.removeOffline(track: track)
+                                    await loadDownloads()
+                                }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
                 }
                 .listStyle(.plain)

@@ -4,7 +4,7 @@ struct TransportControls: View {
     @EnvironmentObject var playerVM: PlayerViewModel
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 40) {
             Button {
                 Task { await playerVM.goToPreviousTrack() }
             } label: {
@@ -13,8 +13,6 @@ struct TransportControls: View {
             }
             .accessibilityLabel("Previous track")
             .buttonStyle(.plain)
-
-            Spacer()
 
             Button {
                 playerVM.togglePlayPause()
@@ -25,8 +23,6 @@ struct TransportControls: View {
             .accessibilityLabel(playerVM.isPlaying ? "Pause" : "Play")
             .buttonStyle(.plain)
 
-            Spacer()
-
             Button {
                 playerVM.skip()
             } label: {
@@ -36,7 +32,6 @@ struct TransportControls: View {
             .accessibilityLabel("Next track")
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 4)
         .padding(.vertical, 8)
     }
 }

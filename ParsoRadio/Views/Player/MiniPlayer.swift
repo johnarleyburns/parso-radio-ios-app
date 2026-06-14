@@ -52,6 +52,7 @@ struct MiniPlayer: View {
                 NowPlayingSheet()
                     .environmentObject(playerVM)
                     .environmentObject(favorites)
+                    .environmentObject(playlistVM)
             }
         }
     }

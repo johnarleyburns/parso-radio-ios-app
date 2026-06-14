@@ -3,7 +3,10 @@ import SwiftUI
 struct NowPlayingSheet: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var favorites: FavoritesStore
+    @EnvironmentObject var playlistVM: PlaylistViewModel
     @Environment(\.dismiss) private var dismiss
+
+    @State private var showAddToPlaylist = false
 
     private var behavior: PlaybackBehavior {
         playerVM.currentChannel?.behavior ?? MediaKind.music.behavior
@@ -15,33 +18,31 @@ struct NowPlayingSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    artwork
-                        .padding(.top, 16)
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 24) {
+                        artwork
+                            .padding(.top, 16)
 
-                    trackInfo
-
-                    TransportControls()
-                        .disabled(playerVM.isLoading)
-
-                    if let track = playerVM.currentTrack {
-                        globalControls(for: track)
+                        trackInfo
                     }
-
-                    behaviorSpecificControls
-
-                    if let msg = playerVM.errorMessage {
-                        Text(msg)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                    }
-
-                    Spacer(minLength: 32)
+                    .padding(.horizontal)
                 }
-                .padding(.horizontal)
+
+                Spacer(minLength: 0)
+
+                bottomControls
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
+
+                if let msg = playerVM.errorMessage {
+                    Text(msg)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                        .padding(.bottom, 4)
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -143,68 +144,29 @@ struct NowPlayingSheet: View {
     }
 
     @ViewBuilder
-    private func globalControls(for track: Track) -> some View {
-        HStack(spacing: 24) {
-            Button {
-                Task {
-                    await favorites.toggle(track: track, channel: playerVM.currentChannel,
-                                           positionSeconds: playerVM.currentPosition)
-                }
-            } label: {
-                let fid = track.favoriteID(for: track.favoriteKind(channel: playerVM.currentChannel))
-                let isFav = favorites.favorites.contains(where: { $0.id == fid })
-                Image(systemName: isFav ? "heart.fill" : "heart")
-                    .font(.title3)
-                    .foregroundStyle(isFav ? .red : .secondary)
-            }
-            .accessibilityLabel(
-                (favorites.favorites.contains(where: {
-                    $0.id == track.favoriteID(for: track.favoriteKind(channel: playerVM.currentChannel))
-                }) ? "Remove from favorites" : "Add to favorites")
-            )
-
-            if let shareURL = ShareURLBuilder.url(for: track) {
-                ShareLink(item: shareURL) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.title3)
-                }
-                .accessibilityLabel("Share")
-            }
-
-            AirPlayButton()
-                .frame(width: 32, height: 32)
-                .accessibilityLabel("AirPlay")
-
-            if track.source == "internet_archive" {
-                let identifier = track.parentIdentifier ?? track.id
-                let cleanId = identifier.contains("/")
-                    ? String(identifier.split(separator: "/").first ?? "")
-                    : identifier
-                if let url = URL(string: "https://archive.org/details/\(cleanId)") {
-                    Link(destination: url) {
-                        Image(systemName: "safari")
-                            .font(.title3)
-                    }
-                    .accessibilityLabel("View on archive.org")
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    @ViewBuilder
-    private var behaviorSpecificControls: some View {
+    private var bottomControls: some View {
         let b = behavior
-        VStack(spacing: 16) {
-            if b.showsScrubbableProgress {
-                ScrubBar(tint: ChannelCategoryStyle.color(for: channelCategory))
-            }
+        let tint = ChannelCategoryStyle.color(for: channelCategory)
 
-            if b.allowsShuffleToggle {
-                HStack(spacing: 24) {
-                    ShuffleControl()
-                    RepeatControl()
+        VStack(spacing: 8) {
+            if let track = playerVM.currentTrack {
+                progressSection(track: track, tint: tint)
+
+                TransportControls()
+                    .disabled(playerVM.isLoading)
+
+                if b.allowsShuffleToggle {
+                    HStack {
+                        ShuffleControl()
+                        Spacer()
+                        RepeatControl()
+                    }
                 }
+
+                actionButtons(for: track)
+            } else {
+                TransportControls()
+                    .disabled(playerVM.isLoading)
             }
 
             HStack(spacing: 20) {
@@ -219,6 +181,92 @@ struct NowPlayingSheet: View {
 
             if b.supportsBookSkip { BookSkipControls() }
         }
+        .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private func progressSection(track: Track, tint: Color) -> some View {
+        let fid = track.favoriteID(for: track.favoriteKind(channel: playerVM.currentChannel))
+        let isFav = favorites.favorites.contains(where: { $0.id == fid })
+        let remaining = (playerVM.trackDuration ?? 0) - playerVM.currentPosition
+
+        VStack(spacing: 4) {
+            HStack(alignment: .bottom, spacing: 0) {
+                Button {
+                    Task {
+                        await favorites.toggle(track: track, channel: playerVM.currentChannel,
+                                               positionSeconds: playerVM.currentPosition)
+                    }
+                } label: {
+                    Image(systemName: isFav ? "heart.fill" : "heart")
+                        .font(.body)
+                        .foregroundStyle(isFav ? .red : .secondary)
+                }
+                .accessibilityLabel(isFav ? "Remove from favorites" : "Add to favorites")
+
+                Text(playerVM.currentPosition.formattedTime)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .padding(.leading, 8)
+
+                Spacer()
+
+                Text("-\(remaining.formattedTime)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .padding(.trailing, 8)
+
+                if let shareURL = ShareURLBuilder.url(for: track) {
+                    ShareLink(item: shareURL) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.body)
+                    }
+                    .accessibilityLabel("Share")
+                }
+            }
+            .buttonStyle(.plain)
+
+            ScrubBar(tint: tint)
+        }
+    }
+
+    @ViewBuilder
+    private func actionButtons(for track: Track) -> some View {
+        HStack(spacing: 24) {
+            if track.source == "internet_archive" {
+                let identifier = track.parentIdentifier ?? track.id
+                let cleanId = identifier.contains("/")
+                    ? String(identifier.split(separator: "/").first ?? "")
+                    : identifier
+                if let url = URL(string: "https://archive.org/details/\(cleanId)") {
+                    Link(destination: url) {
+                        Image(systemName: "safari")
+                            .font(.title3)
+                    }
+                    .accessibilityLabel("View on archive.org")
+                }
+            }
+
+            AirPlayButton()
+                .frame(width: 32, height: 32)
+                .accessibilityLabel("AirPlay")
+
+            Button {
+                showAddToPlaylist = true
+            } label: {
+                Image(systemName: "plus.circle")
+                    .font(.title3)
+            }
+            .accessibilityLabel("Add to playlist")
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showAddToPlaylist) {
+            AddItemToPlaylistSheet(track: track)
+                .environmentObject(playlistVM)
+                .environmentObject(playerVM)
+        }
     }
 }
 
@@ -228,7 +276,7 @@ private struct ShuffleControl: View {
         Button {
             playerVM.toggleShuffle()
         } label: {
-            Label("Shuffle", systemImage: playerVM.shuffleMode ? "shuffle" : "shuffle")
+            Image(systemName: playerVM.shuffleMode ? "shuffle" : "shuffle")
                 .font(.caption)
                 .foregroundStyle(playerVM.shuffleMode ? .blue : .secondary)
         }
@@ -241,7 +289,7 @@ private struct RepeatControl: View {
         Button {
             playerVM.toggleRepeat()
         } label: {
-            Label("Repeat", systemImage: playerVM.repeatMode == .one ? "repeat.1" : "repeat")
+            Image(systemName: playerVM.repeatMode == .one ? "repeat.1" : "repeat")
                 .font(.caption)
                 .foregroundStyle(playerVM.repeatMode == .one ? .blue : .secondary)
         }

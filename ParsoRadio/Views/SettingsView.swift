@@ -25,7 +25,6 @@ struct SettingsView: View {
     @AppStorage("maxCacheMB") private var maxCacheMB = 250
     @AppStorage("wifiOnlyDownloads") private var wifiOnlyDownloads = true
     @ObservedObject private var networkMonitor = NetworkMonitor.shared
-    @State private var confirmClearDownloads = false
     @State private var confirmClearStreamingCache = false
     @State private var cacheSizeTrigger = 0
 
@@ -145,49 +144,8 @@ struct SettingsView: View {
                 } label: {
                     Label("Clear Streaming Cache", systemImage: "waveform.circle.badge.xmark")
                 }
-                Button(role: .destructive) {
-                    confirmClearDownloads = true
-                } label: {
-                    Label("Delete All Downloaded Tracks", systemImage: "arrow.down.circle.badge.xmark")
-                }
             } footer: {
-                Text("Deleting downloads keeps your playlists and history intact. Streaming cache is temporary and rebuilt as you listen.")
-            }
-
-            Section {
-                let playlistsWithDownloads = playlistVM.playlists.filter { pl in
-                    playlistVM.downloadedPlaylistIDs.contains(pl.id)
-                }
-                if playlistsWithDownloads.isEmpty {
-                    Text("No playlists with downloads.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(playlistsWithDownloads) { pl in
-                        HStack {
-                            Label(pl.name, systemImage: "music.note.list")
-                            Spacer()
-                            if working {
-                                ProgressView()
-                            } else {
-                                Button("Remove Downloads") {
-                                    Task {
-                                        working = true
-                                        await offlineService.removeOffline(playlist: pl)
-                                        await playlistVM.loadPlaylists()
-                                        cacheSizeTrigger &+= 1
-                                        working = false
-                                    }
-                                }
-                                .buttonStyle(.borderless)
-                                .foregroundStyle(.red)
-                                .font(.caption)
-                            }
-                        }
-                    }
-                }
-            } header: {
-                Text("Downloads by Playlist")
+                Text("Streaming cache is temporary and rebuilt as you listen. Delete downloads from the Downloads screen.")
             }
 
             Section {
@@ -265,19 +223,6 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Deletes temporary streaming cache files. Downloaded tracks are kept.")
-        }
-        .alert("Delete All Downloads?", isPresented: $confirmClearDownloads) {
-            Button("Delete Downloads", role: .destructive) {
-                Task {
-                    working = true
-                    await offlineService.deleteAllDownloads()
-                    cacheSizeTrigger &+= 1
-                    working = false
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Deletes all downloaded tracks. Playlists, history, and streaming cache are kept.")
         }
     }
 
