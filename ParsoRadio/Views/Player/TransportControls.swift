@@ -3,8 +3,28 @@ import SwiftUI
 struct TransportControls: View {
     @EnvironmentObject var playerVM: PlayerViewModel
 
+    private var behavior: PlaybackBehavior {
+        playerVM.currentChannel?.behavior ?? MediaKind.music.behavior
+    }
+
+    private var bookSkipDisabled: Bool {
+        playerVM.currentChannel == nil
+    }
+
     var body: some View {
         HStack(spacing: 28) {
+            if behavior.supportsBookSkip {
+                Button {
+                    Task { await playerVM.skipToPreviousBook() }
+                } label: {
+                    Image(systemName: "backward.end.fill")
+                        .font(.system(size: 30))
+                }
+                .accessibilityLabel("Previous book")
+                .buttonStyle(.plain)
+                .disabled(bookSkipDisabled)
+            }
+
             Button {
                 Task { await playerVM.goToPreviousTrack() }
             } label: {
@@ -49,6 +69,18 @@ struct TransportControls: View {
             }
             .accessibilityLabel("Next track")
             .buttonStyle(.plain)
+
+            if behavior.supportsBookSkip {
+                Button {
+                    Task { await playerVM.skipToNextBook() }
+                } label: {
+                    Image(systemName: "forward.end.fill")
+                        .font(.system(size: 30))
+                }
+                .accessibilityLabel("Next book")
+                .buttonStyle(.plain)
+                .disabled(bookSkipDisabled)
+            }
         }
         .padding(.vertical, 8)
     }

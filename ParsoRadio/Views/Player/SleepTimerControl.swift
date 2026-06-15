@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SleepTimerControl: View {
     @EnvironmentObject var playerVM: PlayerViewModel
+    var showLabel: Bool = true
 
     var body: some View {
         Menu {
@@ -22,7 +23,7 @@ struct SleepTimerControl: View {
                 Image(systemName: playerVM.isSleepTimerActive
                       ? "moon.zzz.fill" : "moon.zzz")
                     .font(.title3)
-                Text("Sleep Timer").font(.caption2)
+                if showLabel { Text("Sleep Timer").font(.caption2) }
             }
             .frame(maxWidth: .infinity)
             .foregroundStyle(playerVM.isSleepTimerActive ? Color.accentColor : .primary)

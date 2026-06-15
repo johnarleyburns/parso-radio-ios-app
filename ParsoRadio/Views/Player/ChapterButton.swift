@@ -3,6 +3,7 @@ import SwiftUI
 struct ChapterButton: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @State private var showChapters = false
+    var showLabel: Bool = true
 
     var body: some View {
         Button {
@@ -10,7 +11,7 @@ struct ChapterButton: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: "list.bullet.rectangle").font(.title3)
-                Text("Chapters").font(.caption2)
+                if showLabel { Text("Chapters").font(.caption2) }
             }
             .frame(maxWidth: .infinity)
         }

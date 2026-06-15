@@ -3,6 +3,7 @@ import SwiftUI
 struct SpeedControl: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     private let rates: [Double] = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+    var showLabel: Bool = true
 
     private var label: String {
         playerVM.playbackRate.formatted(.number.precision(.fractionLength(0...2))) + "\u{00d7}"
@@ -25,7 +26,7 @@ struct SpeedControl: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: "speedometer").font(.title3)
-                Text(label).font(.caption2)
+                if showLabel { Text(label).font(.caption2) }
             }
             .frame(maxWidth: .infinity)
             .foregroundStyle(abs(playerVM.playbackRate - 1.0) < 0.05 ? .primary : Color.accentColor)

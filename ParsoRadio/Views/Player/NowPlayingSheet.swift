@@ -202,11 +202,9 @@ struct NowPlayingSheet: View {
 
             let cols = [GridItem(.adaptive(minimum: 76), spacing: 12)]
             LazyVGrid(columns: cols, spacing: 12) {
-                if b.supportsSpeedControl { SpeedControl() }
-                if b.supportsSleepTimer, !b.allowsShuffleToggle { SleepTimerControl() }
-                if b.supportsChapters { ChapterButton() }
-                if b.supportsBookmarks { BookmarkButton() }
-                if b.supportsBookSkip { BookSkipControls() }
+                if b.supportsSpeedControl, b.allowsShuffleToggle { SpeedControl() }
+                if b.supportsChapters, b.allowsShuffleToggle { ChapterButton() }
+                if b.supportsBookmarks, b.allowsShuffleToggle { BookmarkButton() }
             }
             .padding(.horizontal)
         }
@@ -220,45 +218,45 @@ struct NowPlayingSheet: View {
         let remaining = (playerVM.trackDuration ?? 0) - playerVM.currentPosition
 
         VStack(spacing: 4) {
-            HStack(alignment: .bottom, spacing: 0) {
-                VStack(spacing: 8) {
-                    Button {
-                        Task {
-                            await favorites.toggle(track: track, channel: playerVM.currentChannel,
-                                                   positionSeconds: playerVM.currentPosition)
-                        }
-                    } label: {
-                        Image(systemName: isFav ? "heart.fill" : "heart")
-                            .font(.body)
-                            .foregroundStyle(isFav ? .red : .secondary)
+            HStack(spacing: 4) {
+                Button {
+                    Task {
+                        await favorites.toggle(track: track, channel: playerVM.currentChannel,
+                                               positionSeconds: playerVM.currentPosition)
                     }
-                    .accessibilityLabel(isFav ? "Remove from favorites" : "Add to favorites")
-                    .padding(.bottom, 8)
-
-                    Text(playerVM.currentPosition.formattedTime)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+                } label: {
+                    Image(systemName: isFav ? "heart.fill" : "heart")
+                        .font(.caption)
+                        .foregroundStyle(isFav ? .red : .secondary)
                 }
+                .accessibilityLabel(isFav ? "Remove from favorites" : "Add to favorites")
+
+                Text(playerVM.currentPosition.formattedTime)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
 
                 Spacer()
 
-                VStack(spacing: 8) {
-                    if let shareURL = ShareURLBuilder.url(for: track) {
-                        ShareLink(item: shareURL) {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.body)
-                        }
-                        .accessibilityLabel("Share")
-                        .padding(.bottom, 8)
-                    } else {
-                        Color.clear.frame(width: 17, height: 17)
-                    }
-
-                    Text("-\(remaining.formattedTime)")
+                if let timeLeft = playerVM.timeLeftInBook {
+                    Text("Time left in book: \(timeLeft.formattedTime)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
+                    Spacer()
+                }
+
+                Text("-\(remaining.formattedTime)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+
+                if let shareURL = ShareURLBuilder.url(for: track) {
+                    ShareLink(item: shareURL) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.caption)
+                    }
+                    .accessibilityLabel("Share")
                 }
             }
             .buttonStyle(.plain)
@@ -269,7 +267,24 @@ struct NowPlayingSheet: View {
 
     @ViewBuilder
     private func actionButtons(for track: Track) -> some View {
-        HStack(spacing: 24) {
+        let b = behavior
+        HStack(spacing: 0) {
+            if b.supportsSpeedControl {
+                SpeedControl(showLabel: false)
+                    .frame(maxWidth: .infinity)
+            }
+            if b.supportsSleepTimer {
+                SleepTimerControl(showLabel: false)
+                    .frame(maxWidth: .infinity)
+            }
+            if b.supportsChapters {
+                ChapterButton(showLabel: false)
+                    .frame(maxWidth: .infinity)
+            }
+            if b.supportsBookmarks {
+                BookmarkButton(showLabel: false)
+                    .frame(maxWidth: .infinity)
+            }
             if track.source == "internet_archive" {
                 let identifier = track.parentIdentifier ?? track.id
                 let cleanId = identifier.contains("/")
@@ -281,11 +296,13 @@ struct NowPlayingSheet: View {
                             .font(.title3)
                     }
                     .accessibilityLabel("View on archive.org")
+                    .frame(maxWidth: .infinity)
                 }
             }
 
             AirPlayButton()
                 .frame(width: 32, height: 32)
+                .frame(maxWidth: .infinity)
                 .accessibilityLabel("AirPlay")
 
             Button {
@@ -295,6 +312,7 @@ struct NowPlayingSheet: View {
                     .font(.title3)
             }
             .accessibilityLabel("Add to playlist")
+            .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showAddToPlaylist) {

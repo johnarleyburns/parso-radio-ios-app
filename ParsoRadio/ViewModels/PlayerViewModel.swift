@@ -31,6 +31,20 @@ final class PlayerViewModel: ObservableObject {
     @Published var currentItemTotalDuration: Double = 0
     @Published var currentItemPartIndex: Int? = nil
 
+    var timeLeftInBook: TimeInterval? {
+        guard let track = currentTrack,
+              currentItemPartIndex != nil else { return nil }
+        let identifier = track.parentIdentifier ?? track.id
+        guard let partsOpt = itemPartsCache[identifier],
+              let parts = partsOpt,
+              let idx = currentItemPartIndex,
+              idx <= parts.count else { return nil }
+        let remainingParts = parts.dropFirst(idx - 1)
+        let totalRemaining = remainingParts.reduce(0.0) { $0 + max(0, $1.duration) }
+        let remaining = totalRemaining - currentPosition
+        return max(0, remaining)
+    }
+
     @Published var sleepTimerEndsAt: Date? = nil
     @Published var sleepAtEndOfTrack: Bool = false
     @Published var bookmarksForCurrentTrack: [Bookmark] = []
