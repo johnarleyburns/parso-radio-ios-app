@@ -105,6 +105,21 @@ final class RecentlyPlayedTests: XCTestCase {
         XCTAssertTrue(afterClear.isEmpty)
     }
 
+    func testJumpBackInShowsAfterPlayingTrack() async throws {
+        let t = makeTrack(id: "jbi-1")
+        await db.saveTracks([t])
+        await db.recordPlayed(channelId: "c1", trackId: t.id)
+
+        let recents = await db.fetchRecentlyPlayedTracks(limit: 10)
+        XCTAssertFalse(recents.isEmpty, "Jump Back In should show when history exists")
+        XCTAssertEqual(recents.first?.id, "jbi-1")
+    }
+
+    func testJumpBackInEmptyForFirstTimeVisitor() async throws {
+        let recents = await db.fetchRecentlyPlayedTracks(limit: 10)
+        XCTAssertTrue(recents.isEmpty, "Jump Back In should not show for first-time visitors")
+    }
+
     private func makeTrack(id: String) -> Track {
         Track(
             id: id, source: "fma",

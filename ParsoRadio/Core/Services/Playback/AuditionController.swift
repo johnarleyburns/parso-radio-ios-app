@@ -28,6 +28,7 @@ final class AuditionController {
         vm.playHistory = []
         vm.channelDescription = vm.preAuditionState?.channel?.name ?? ""
         vm.beginTransition(pre: track)
+        await Task.yield()
         await vm.playTrack(track, seekTo: nil, recordHistory: false)
     }
 

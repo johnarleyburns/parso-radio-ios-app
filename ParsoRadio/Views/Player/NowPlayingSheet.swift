@@ -7,6 +7,7 @@ struct NowPlayingSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showAddToPlaylist = false
+    @State private var showAlbumTracks = false
 
     private var behavior: PlaybackBehavior {
         playerVM.currentChannel?.behavior ?? MediaKind.music.behavior
@@ -161,23 +162,32 @@ struct NowPlayingSheet: View {
 
                         Spacer()
 
-                        HStack(spacing: 16) {
-                            if track.source == "internet_archive" {
-                                archiveLink(for: track)
-                            }
-                            AirPlayButton()
-                                .frame(width: 28, height: 28)
-                            Button {
-                                showAddToPlaylist = true
-                            } label: {
-                                Image(systemName: "plus.circle")
-                                    .font(.body)
-                            }
-                            .accessibilityLabel("Add to playlist")
-                            if b.supportsSleepTimer {
-                                sleepTimerMenu
-                            }
-                        }
+                         HStack(spacing: 16) {
+                             if track.source == "internet_archive" {
+                                 archiveLink(for: track)
+                             }
+                             AirPlayButton()
+                                 .frame(width: 28, height: 28)
+                             Button {
+                                 showAddToPlaylist = true
+                             } label: {
+                                 Image(systemName: "plus.circle")
+                                     .font(.body)
+                             }
+                             .accessibilityLabel("Add to playlist")
+                             if playerVM.currentTrackIsMultiPart {
+                                 Button {
+                                     showAlbumTracks = true
+                                 } label: {
+                                     Image(systemName: "opticaldisc")
+                                         .font(.body)
+                                 }
+                                 .accessibilityLabel("View album tracks")
+                             }
+                             if b.supportsSleepTimer {
+                                 sleepTimerMenu
+                             }
+                         }
                         .buttonStyle(.plain)
                         .padding(.horizontal, 12)
 
@@ -185,11 +195,15 @@ struct NowPlayingSheet: View {
 
                         RepeatControl()
                     }
-                    .sheet(isPresented: $showAddToPlaylist) {
-                        AddItemToPlaylistSheet(track: track)
-                            .environmentObject(playlistVM)
-                            .environmentObject(playerVM)
-                    }
+                     .sheet(isPresented: $showAddToPlaylist) {
+                         AddItemToPlaylistSheet(track: track)
+                             .environmentObject(playlistVM)
+                             .environmentObject(playerVM)
+                     }
+                     .sheet(isPresented: $showAlbumTracks) {
+                         AlbumTracksSheet(track: track)
+                             .environmentObject(playerVM)
+                     }
                 }
 
                 if !b.allowsShuffleToggle {
@@ -216,47 +230,57 @@ struct NowPlayingSheet: View {
         let fid = track.favoriteID(for: track.favoriteKind(channel: playerVM.currentChannel))
         let isFav = favorites.favorites.contains(where: { $0.id == fid })
         let remaining = (playerVM.trackDuration ?? 0) - playerVM.currentPosition
+        let b = behavior
 
         VStack(spacing: 4) {
-            HStack(spacing: 4) {
-                Button {
-                    Task {
-                        await favorites.toggle(track: track, channel: playerVM.currentChannel,
-                                               positionSeconds: playerVM.currentPosition)
+            HStack(alignment: .bottom, spacing: 0) {
+                VStack(spacing: 8) {
+                    Button {
+                        Task {
+                            await favorites.toggle(track: track, channel: playerVM.currentChannel,
+                                                   positionSeconds: playerVM.currentPosition)
+                        }
+                    } label: {
+                        Image(systemName: isFav ? "heart.fill" : "heart")
+                            .font(.body)
+                            .foregroundStyle(isFav ? .red : .secondary)
                     }
-                } label: {
-                    Image(systemName: isFav ? "heart.fill" : "heart")
-                        .font(.caption)
-                        .foregroundStyle(isFav ? .red : .secondary)
-                }
-                .accessibilityLabel(isFav ? "Remove from favorites" : "Add to favorites")
+                    .accessibilityLabel(isFav ? "Remove from favorites" : "Add to favorites")
+                    .padding(.bottom, 8)
 
-                Text(playerVM.currentPosition.formattedTime)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                    Text(playerVM.currentPosition.formattedTime)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
 
                 Spacer()
 
-                if let timeLeft = playerVM.timeLeftInBook {
+                if b.supportsBookSkip, let timeLeft = playerVM.timeLeftInBook {
                     Text("Time left in book: \(timeLeft.formattedTime)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
+
                     Spacer()
                 }
 
-                Text("-\(remaining.formattedTime)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-
-                if let shareURL = ShareURLBuilder.url(for: track) {
-                    ShareLink(item: shareURL) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.caption)
+                VStack(spacing: 8) {
+                    if let shareURL = ShareURLBuilder.url(for: track) {
+                        ShareLink(item: shareURL) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.body)
+                        }
+                        .accessibilityLabel("Share")
+                        .padding(.bottom, 8)
+                    } else {
+                        Color.clear.frame(width: 17, height: 17)
                     }
-                    .accessibilityLabel("Share")
+
+                    Text("-\(remaining.formattedTime)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
             }
             .buttonStyle(.plain)
@@ -271,21 +295,21 @@ struct NowPlayingSheet: View {
         HStack(spacing: 0) {
             if b.supportsSpeedControl {
                 SpeedControl(showLabel: false)
-                    .frame(maxWidth: .infinity)
             }
             if b.supportsSleepTimer {
+                Spacer()
                 SleepTimerControl(showLabel: false)
-                    .frame(maxWidth: .infinity)
             }
             if b.supportsChapters {
+                Spacer()
                 ChapterButton(showLabel: false)
-                    .frame(maxWidth: .infinity)
             }
             if b.supportsBookmarks {
+                Spacer()
                 BookmarkButton(showLabel: false)
-                    .frame(maxWidth: .infinity)
             }
             if track.source == "internet_archive" {
+                Spacer()
                 let identifier = track.parentIdentifier ?? track.id
                 let cleanId = identifier.contains("/")
                     ? String(identifier.split(separator: "/").first ?? "")
@@ -293,26 +317,25 @@ struct NowPlayingSheet: View {
                 if let url = URL(string: "https://archive.org/details/\(cleanId)") {
                     Link(destination: url) {
                         Image(systemName: "safari")
-                            .font(.title3)
+                            .font(.body)
                     }
                     .accessibilityLabel("View on archive.org")
-                    .frame(maxWidth: .infinity)
                 }
             }
 
+            Spacer()
             AirPlayButton()
-                .frame(width: 32, height: 32)
-                .frame(maxWidth: .infinity)
+                .frame(width: 28, height: 28)
                 .accessibilityLabel("AirPlay")
 
+            Spacer()
             Button {
                 showAddToPlaylist = true
             } label: {
                 Image(systemName: "plus.circle")
-                    .font(.title3)
+                    .font(.body)
             }
             .accessibilityLabel("Add to playlist")
-            .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showAddToPlaylist) {
@@ -381,6 +404,66 @@ private struct RepeatControl: View {
             Image(systemName: playerVM.repeatMode == .one ? "repeat.1" : "repeat")
                 .font(.caption)
                 .foregroundStyle(playerVM.repeatMode == .one ? .blue : .secondary)
+        }
+    }
+}
+
+private struct AlbumTracksSheet: View {
+    let track: Track
+    @EnvironmentObject var playerVM: PlayerViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var parts: [Track] = []
+    @State private var isLoading = true
+
+    private var identifier: String { track.parentIdentifier ?? track.id }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Button {
+                        Task {
+                            await playerVM.playEntireCurrentItem()
+                            dismiss()
+                        }
+                    } label: {
+                        Label("Play Entire Album", systemImage: "play.fill")
+                    }
+                }
+
+                Section {
+                    if isLoading {
+                        HStack { Spacer(); ProgressView(); Spacer() }
+                    } else if parts.isEmpty {
+                        Text("No tracks found")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(Array(parts.enumerated()), id: \.1.id) { idx, part in
+                            HStack {
+                                Text("\(idx + 1). \(part.title)")
+                                    .lineLimit(2)
+                                Spacer()
+                                if part.id == playerVM.currentTrack?.id {
+                                    Image(systemName: "speaker.wave.2.fill")
+                                        .foregroundStyle(.blue)
+                                        .font(.caption)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Album Tracks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .task {
+                parts = await playerVM.resolveItemParts(identifier: identifier) ?? []
+                isLoading = false
+            }
         }
     }
 }

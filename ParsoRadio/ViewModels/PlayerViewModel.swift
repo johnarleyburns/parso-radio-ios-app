@@ -583,22 +583,23 @@ final class PlayerViewModel: ObservableObject {
 
         do {
             if channel.category == "For You" {
-                // Dynamic "for you" channels: build the query from listening
-                // history at fetch time. If there isn't enough history yet, show
-                // a friendly prompt and stop (no tracks to resume/advance into).
                 if let built = try await fetchRecommendations(for: channel) {
                     fetched = built
                 } else {
-                    currentChannel = channel
-                    channelDescription = channel.detailDescription
-                    channelTrackCount = 0
-                    currentArtwork = nil
-                    currentTrack = nil
-                    isPlaying = false
-                    isLoading = false
-                    loadingMessage = nil
-                    errorMessage = "Listen to at least \(RecommendationQueryBuilder.minPlays) tracks first — then your \(channel.name) picks will appear here."
-                    return
+                    let fallback = await recommendations.fetchFallbackTracks(for: channel)
+                    if fallback.isEmpty {
+                        currentChannel = channel
+                        channelDescription = channel.detailDescription
+                        channelTrackCount = 0
+                        currentArtwork = nil
+                        currentTrack = nil
+                        isPlaying = false
+                        isLoading = false
+                        loadingMessage = nil
+                        errorMessage = "Listen to at least \(RecommendationQueryBuilder.minPlays) tracks first — then your \(channel.name) picks will appear here."
+                        return
+                    }
+                    fetched = fallback
                 }
             } else if channel.mediaKind == .podcast {
                 // News/podcast channels: fetch from RSS feed via PodcastRSSService.
