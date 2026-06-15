@@ -5,7 +5,7 @@ _General agentic coding guidelines. Not tool-specific — works for any AI codin
 ## Project overview
 
 - **Name**: Lorewave (bundle ID: `guru.parso.ios-radio-app`)
-- **Type**: Free, ad-free audio streaming app with iPod Classic click-wheel UI
+- **Type**: Free, ad-free audio streaming app — 3-tab iOS-native player (Listen, Library, Search)
 - **Sources**: Internet Archive, Oxford Lectures, podcast RSS, FMA, bundled ambient
 - **iOS**: 17.0+, Swift 5.9, SwiftUI + MVVM
 - **Project generation**: XcodeGen (`project.yml`)
@@ -53,7 +53,7 @@ ParsoRadio/
 ├── Resources/                      # Assets, audio, curated-channels/ JSONs
 ├── Utilities/                      # Extensions, Logger, SharedViews, Protocols
 ├── ViewModels/                     # PlayerViewModel, PlaylistViewModel, etc.
-└── Views/                          # iPodView, MainMenuView, curator views, etc.
+└── Views/                          # RootTabView, NowPlayingSheet, MiniPlayer, curator views, etc.
 ```
 
 ## Architecture rules

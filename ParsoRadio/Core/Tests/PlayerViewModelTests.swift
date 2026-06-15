@@ -1497,7 +1497,7 @@ extension PlayerViewModelTests {
 
     /// When a channel is loaded and `currentTrack` is nil (e.g. track
     /// finished), the ViewModel must still report the channel so the display
-    /// knows what is selected. The idleView in iPodView reads both conditions.
+    /// knows what is selected. The idleView reads both conditions.
     func testCurrentChannelStaysSetWhenTrackBecomesNil() async {
         let channel = Channel.fmaJazzTestChannel
         let track = makeFMATrack(id: "nil-track-1", tags: ["jazz"])

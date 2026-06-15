@@ -3,7 +3,7 @@
 ## Project overview
 
 - **Name**: Lorewave (bundle ID: `guru.parso.ios-radio-app`)
-- **Type**: Free, ad-free audio streaming app with iPod Classic click-wheel UI
+- **Type**: Free, ad-free audio streaming app — 3-tab iOS-native player (Listen, Library, Search)
 - **Sources**: Internet Archive, Oxford Lectures, podcast RSS, FMA, bundled ambient
 - **iOS**: 17.0+, Swift 5.9, SwiftUI + MVVM
 - **Project generation**: XcodeGen (`project.yml`)
@@ -53,7 +53,7 @@ ParsoRadio/
 ├── Resources/                      # Assets, audio files, curated-channels/ JSONs, ia_queries.json
 ├── Utilities/                      # Extensions, Logger, SharedViews, ChannelCategoryStyle, Protocols
 ├── ViewModels/                     # PlayerViewModel, PlaylistViewModel, SearchViewModel
-└── Views/                          # iPodView (main), MainMenuView, CuratorModeView, etc.
+└── Views/                          # RootTabView, NowPlayingSheet, MiniPlayer, ListenView, curator views, etc.
 ```
 
 ## Architecture
