@@ -135,6 +135,15 @@ extension Channel {
         // (no static ia_queries.json entry). Show a "listen to N tracks first"
         // prompt until there's enough history. See RecommendationQueryBuilder.
         Channel(
+            id: "for-you", name: "For You", category: "For You",
+            icon: "sparkles",
+            tags: ["for-you"],
+            preferredSource: "internet_archive",
+            summary: "A rotating mix of music and audiobooks based on your listening history. Updates as you listen."
+        ),
+        // Legacy individual channels — kept for backward compatibility with
+        // existing playlists and references. Not shown in the Listen UI.
+        Channel(
             id: "music-for-you", name: "Music for You", category: "For You",
             icon: "sparkles",
             tags: ["music-for-you"],

@@ -58,7 +58,8 @@ final class PlayerViewModel: ObservableObject {
     private(set) lazy var recommendations = RecommendationsController(db: db, archiveService: archiveService)
     private(set) lazy var audition = AuditionController(playerVM: self)
     private(set) lazy var wholeItem = WholeItemController(db: db, archiveService: archiveService,
-                                              queueManager: queueManager, playerVM: self)
+                                               oxfordService: oxfordService,
+                                               queueManager: queueManager, playerVM: self)
     private(set) lazy var playlistPlayback = PlaylistPlaybackController(db: db, playerVM: self)
 
     let audioPlayer: any AudioEngine
@@ -583,7 +584,26 @@ final class PlayerViewModel: ObservableObject {
 
         do {
             if channel.category == "For You" {
-                if let built = try await fetchRecommendations(for: channel) {
+                if channel.id == "for-you" {
+                    if let built = try await recommendations.fetchMixedRecommendations() {
+                        fetched = built
+                    } else {
+                        let fallbackMusic = await recommendations.fetchFallbackTracks(for: channel)
+                        if fallbackMusic.isEmpty {
+                            currentChannel = channel
+                            channelDescription = channel.detailDescription
+                            channelTrackCount = 0
+                            currentArtwork = nil
+                            currentTrack = nil
+                            isPlaying = false
+                            isLoading = false
+                            loadingMessage = nil
+                            errorMessage = "Listen to at least \(RecommendationQueryBuilder.minPlays) tracks first — then your \(channel.name) picks will appear here."
+                            return
+                        }
+                        fetched = fallbackMusic
+                    }
+                } else if let built = try await fetchRecommendations(for: channel) {
                     fetched = built
                 } else {
                     let fallback = await recommendations.fetchFallbackTracks(for: channel)

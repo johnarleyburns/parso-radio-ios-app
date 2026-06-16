@@ -13,7 +13,7 @@ struct MiniPlayer: View {
                 showPlayer = true
             } label: {
                 HStack(spacing: 12) {
-                    ArtworkThumbnail(track: playerVM.currentTrack!, size: 40)
+                    ArtworkThumbnail(track: playerVM.currentTrack!, channel: playerVM.currentChannel, size: 40)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(playerVM.currentTrack?.title ?? "")

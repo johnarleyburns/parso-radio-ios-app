@@ -210,6 +210,7 @@
 		D3EA0067B9E2D66F87DAE94C /* LiveMusicOnThisDayIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD305EEF15C0A9C814197F4B /* LiveMusicOnThisDayIntegrationTests.swift */; };
 		D4F80FDD1662B71D5B2EE82E /* LicenseValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B7979B424C80BC83AF791CB /* LicenseValidator.swift */; };
 		D51065A5BBCE6076248A87C9 /* ambient-flowing-water.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = C3F8F816B70FE40285708BB3 /* ambient-flowing-water.mp4 */; };
+		D5FF4EE64922C989C5BF60A3 /* LiveMusicOnThisDayStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7372955AD716C43B3CE917 /* LiveMusicOnThisDayStore.swift */; };
 		D78A7C21605806A3C3005A6B /* ChapterButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57C2775B948C98E895E40209 /* ChapterButton.swift */; };
 		DAC706B4C5FDD3B3DFE5D69B /* ChapterListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93CBB2A39882407B90E3D1BA /* ChapterListView.swift */; };
 		DB18249FE37310D84EB94B6D /* ancient-greece.json in Resources */ = {isa = PBXBuildFile; fileRef = 55C6D051A19FDE10054604DA /* ancient-greece.json */; };
@@ -396,6 +397,7 @@
 		83EC70968003D774832E5A49 /* SourceValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceValidator.swift; sourceTree = "<group>"; };
 		857A08082196463265F9FDAC /* Bookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bookmark.swift; sourceTree = "<group>"; };
 		8A67EC6251A6FABA629041AF /* piano-hour.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "piano-hour.json"; sourceTree = "<group>"; };
+		8A7372955AD716C43B3CE917 /* LiveMusicOnThisDayStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMusicOnThisDayStore.swift; sourceTree = "<group>"; };
 		8B4A95C273F97DB7E660381E /* ProceduralVisualizerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProceduralVisualizerTests.swift; sourceTree = "<group>"; };
 		8B7979B424C80BC83AF791CB /* LicenseValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseValidator.swift; sourceTree = "<group>"; };
 		8FB775046C7A77D112C6863E /* NowPlayingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingSheet.swift; sourceTree = "<group>"; };
@@ -578,6 +580,7 @@
 				0436F09AC9A713CDCDBB8819 /* FMAService.swift */,
 				192C4EAB50F3A48467AA9707 /* InternetArchiveService.swift */,
 				633A4E3748A0A1E00396E1C8 /* LiveMusicOnThisDayService.swift */,
+				8A7372955AD716C43B3CE917 /* LiveMusicOnThisDayStore.swift */,
 				FCD420E3E901333A4D3B5173 /* OxfordLecturesService.swift */,
 				BA987C5BCA8D56B5648C3FF7 /* PodcastRSSService.swift */,
 				4F8D5477A2905580C6B9E2D5 /* PodcastSearchService.swift */,
@@ -1000,7 +1003,7 @@
 			path = ParsoRadio/UITests;
 			sourceTree = "<group>";
 		};
-		"TEMP_139747D0-7709-435B-8014-DA3DBC744D9A" /* Integration */ = {
+		"TEMP_BECAF37E-59F8-4738-8828-106891DCACED" /* Integration */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1341,6 +1344,7 @@
 				4C3DCFD3B56E7B110BEB25D9 /* ListenView.swift in Sources */,
 				BB08F1C271701AFC4649FB6A /* LiveMusicEntry.swift in Sources */,
 				5D57151810B0CBFBED72064F /* LiveMusicOnThisDayService.swift in Sources */,
+				D5FF4EE64922C989C5BF60A3 /* LiveMusicOnThisDayStore.swift in Sources */,
 				933C8E4551F384D0F96EB827 /* LocalFileImportService.swift in Sources */,
 				3B5D144748CA26CF2E1A2D4E /* Logger.swift in Sources */,
 				C68DDB99C302CDD0A7C94FBC /* LoopingVideoView.swift in Sources */,

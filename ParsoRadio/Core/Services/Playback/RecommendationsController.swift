@@ -10,6 +10,72 @@ final class RecommendationsController {
         self.archiveService = archiveService
     }
 
+    func fetchMixedRecommendations() async throws -> [Track]? {
+        let history = await db.fetchRecentlyPlayedWithChannel(limit: 200)
+        let catById = Dictionary(Channel.defaults.map { ($0.id, $0.category) },
+                                   uniquingKeysWith: { a, _ in a })
+        let musicHistory = history.filter { (catById[$0.channelId] ?? "") == "Curated" }
+        let bookHistory = history.filter { (catById[$0.channelId] ?? "") == "Audiobooks" }
+
+        let musicWeights = RecommendationQueryBuilder.channelWeights(
+            fromHistory: musicHistory, categoryFilter: ["Curated"], categoryById: catById)
+        let bookWeights = RecommendationQueryBuilder.channelWeights(
+            fromHistory: bookHistory, categoryFilter: ["Audiobooks"], categoryById: catById)
+
+        let musicAlloc = RecommendationQueryBuilder.allocateSamples(weights: musicWeights)
+        let bookAlloc = RecommendationQueryBuilder.allocateSamples(weights: bookWeights)
+        let totalAllocations = musicAlloc.count + bookAlloc.count + bookAlloc.count
+        guard totalAllocations > 0 else { return nil }
+
+        let svc = archiveService
+        let stampTags = ["for-you"]
+        var musicPool: [Track] = []
+        var bookPool: [Track] = []
+
+        await withTaskGroup(of: (isBook: Bool, tracks: [Track]).self) { group in
+            for (channelId, count) in musicAlloc {
+                guard let source = Channel.defaults.first(where: { $0.id == channelId }),
+                      let entry = source.iaQueryEntry else { continue }
+                group.addTask {
+                    let tracks = (try? await Self.withTimeout(15) {
+                        try await svc.fetchTracks(iaQuery: entry.iaQuery, matchTags: stampTags)
+                    }) ?? []
+                    return (false, Array(tracks.shuffled().prefix(count)))
+                }
+            }
+            for (channelId, count) in bookAlloc {
+                guard let source = Channel.defaults.first(where: { $0.id == channelId }),
+                      let entry = source.iaQueryEntry else { continue }
+                group.addTask {
+                    let tracks = (try? await Self.withTimeout(15) {
+                        try await svc.fetchTracks(iaQuery: entry.iaQuery, matchTags: stampTags)
+                    }) ?? []
+                    return (true, Array(tracks.shuffled().prefix(count)))
+                }
+            }
+            for await result in group {
+                if result.isBook { bookPool.append(contentsOf: result.tracks) }
+                else { musicPool.append(contentsOf: result.tracks) }
+            }
+        }
+
+        let playedIds = Set(history.map(\.track.id))
+        var seen = Set<String>()
+        var mixed: [Track] = []
+        var mi = 0, bi = 0
+        while mi < musicPool.count || bi < bookPool.count {
+            if mi < musicPool.count {
+                let t = musicPool[mi]; mi += 1
+                if !playedIds.contains(t.id), seen.insert(t.id).inserted { mixed.append(t) }
+            }
+            if bi < bookPool.count {
+                let t = bookPool[bi]; bi += 1
+                if !playedIds.contains(t.id), seen.insert(t.id).inserted { mixed.append(t) }
+            }
+        }
+        return mixed.isEmpty ? nil : mixed
+    }
+
     func fetchRecommendations(for channel: Channel) async throws -> [Track]? {
         let history = await db.fetchRecentlyPlayedWithChannel(limit: 200)
         let catById = Dictionary(Channel.defaults.map { ($0.id, $0.category) },

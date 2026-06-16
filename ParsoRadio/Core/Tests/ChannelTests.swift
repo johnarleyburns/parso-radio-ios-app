@@ -4,9 +4,9 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 2 For You + 18 Lectures + 5 Podcasts + 4 Ambient + 9 Curated
-        // + 5 Curated Books + 21 Audiobooks (LibriVox) = 64.
-        XCTAssertEqual(Channel.defaults.count, 64)
+        // 3 For You + 18 Lectures + 5 Podcasts + 4 Ambient + 9 Curated
+        // + 5 Curated Books + 21 Audiobooks (LibriVox) = 65.
+        XCTAssertEqual(Channel.defaults.count, 65)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {
@@ -14,11 +14,13 @@ final class ChannelTests: XCTestCase {
         // pure-Lucene registry channels — every internet_archive channel
         // (Curated music + LibriVox audiobooks) must have an ia_queries.json
         // entry whose stamp is its own id. No code-side filtered IA channels.
+        // For You channels are dynamic (built from history), not registry-backed.
         XCTAssertTrue(Channel.defaults.allSatisfy { $0.category != "Classical" },
             "No legacy Classical channels should remain")
-        for ch in Channel.defaults where ch.preferredSource == "internet_archive" {
-            XCTAssertTrue(["Curated", "Curated Books", "Audiobooks", "For You"].contains(ch.category),
-                "IA channel '\(ch.id)' must be Curated, Curated Books, Audiobooks or For You")
+        for ch in Channel.defaults where ch.preferredSource == "internet_archive"
+            && ch.category != "For You" {
+            XCTAssertTrue(["Curated", "Curated Books", "Audiobooks"].contains(ch.category),
+                "IA channel '\(ch.id)' must be Curated, Curated Books, or Audiobooks")
             guard let entry = ch.iaQueryEntry else {
                 XCTFail("IA channel '\(ch.id)' must be registry-backed"); continue
             }
@@ -29,8 +31,8 @@ final class ChannelTests: XCTestCase {
 
     func testForYouChannelsExistAndAreDynamic() {
         let ids = Set(Channel.defaults.filter { $0.category == "For You" }.map(\.id))
-        XCTAssertEqual(ids, ["music-for-you", "books-for-you"])
-        // Books-for-you is spoken-word so it gets ±15s lock-screen controls and
+        XCTAssertEqual(ids, ["books-for-you", "for-you", "music-for-you"])
+        // Books-for-you is spoken-word so it gets +-15s lock-screen controls and
         // position persistence; music-for-you is music.
         let books = Channel.defaults.first { $0.id == "books-for-you" }
         XCTAssertEqual(books?.contentType, .spokenWord)

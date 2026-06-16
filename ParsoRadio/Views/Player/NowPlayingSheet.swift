@@ -18,42 +18,58 @@ struct NowPlayingSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(spacing: 24) {
-                        artwork
-                            .padding(.top, 16)
-
-                        trackInfo
-                    }
-                    .padding(.horizontal)
+        ZStack {
+            if let channel = playerVM.currentChannel,
+               channel.mediaKind == .ambient {
+                if let videoURL = AmbientStaticService.bundledVideoURL(forChannelId: channel.id) {
+                    LoopingVideoView(url: videoURL, isPlaying: playerVM.isPlaying)
+                        .ignoresSafeArea()
+                } else {
+                    ProceduralVisualizerView(
+                        seed: channel.id,
+                        isPlaying: playerVM.isPlaying
+                    )
+                    .ignoresSafeArea()
                 }
+            }
 
-                Spacer(minLength: 0)
+            NavigationStack {
+                VStack(spacing: 0) {
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            artwork
+                                .padding(.top, 16)
 
-                bottomControls
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 24)
-
-                if let msg = playerVM.errorMessage {
-                    Text(msg)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .multilineTextAlignment(.center)
+                            trackInfo
+                        }
                         .padding(.horizontal)
-                        .padding(.bottom, 4)
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "chevron.down")
-                            .fontWeight(.semibold)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    bottomControls
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 24)
+
+                    if let msg = playerVM.errorMessage {
+                        Text(msg)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                            .padding(.bottom, 4)
                     }
                 }
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { dismiss() } label: {
+                            Image(systemName: "chevron.down")
+                                .fontWeight(.semibold)
+                        }
+                    }
+                }
+                .task { await favorites.loadAll() }
             }
-            .task { await favorites.loadAll() }
         }
     }
 
@@ -236,9 +252,9 @@ struct NowPlayingSheet: View {
 
             let cols = [GridItem(.adaptive(minimum: 76), spacing: 12)]
             LazyVGrid(columns: cols, spacing: 12) {
-                if b.supportsSpeedControl { SpeedControl() }
-                if b.supportsChapters { ChapterButton() }
-                if b.supportsBookmarks { BookmarkButton() }
+                if b.supportsSpeedControl { SpeedControl(showLabel: false) }
+                if b.supportsChapters { ChapterButton(showLabel: false) }
+                if b.supportsBookmarks { BookmarkButton(showLabel: false) }
             }
             .padding(.horizontal)
         }

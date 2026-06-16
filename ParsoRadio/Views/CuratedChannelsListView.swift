@@ -906,8 +906,9 @@ struct CuratorChannelEditView: View {
     @MainActor
     private func approveAll() async {
         let unverdictted = queue.filter { verdictStates[$0.id] == nil }
+        let ids = unverdictted.map(\.id)
+        await db.setCurationBatch(channelId: channelMeta.id, trackIds: ids, status: "approved")
         for track in unverdictted {
-            await db.setCuration(channelId: channelMeta.id, trackId: track.id, status: "approved")
             verdictStates[track.id] = (status: "approved", undone: false)
         }
         await LiveCurationStore.shared.reload(channelId: channelMeta.id, from: db)

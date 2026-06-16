@@ -193,7 +193,7 @@ private struct ForYouSection: View {
 
     var body: some View {
         let forYouChannels = Channel.defaults
-            .filter { $0.category == "For You" }
+            .filter { $0.category == "For You" && $0.id == "for-you" }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         if !forYouChannels.isEmpty {
             Section("Curated Based on Your Taste") {
@@ -209,17 +209,13 @@ private struct ForYouSection: View {
 }
 
 private struct LiveMusicSection: View {
+    @ObservedObject private var store = LiveMusicOnThisDayStore.shared
     let onSelect: (Channel) -> Void
     let playerVM: PlayerViewModel
     let deps: AppDependencies
-
-    @State private var entry: LiveMusicEntry?
-    @State private var isLoading = true
-    @State private var fetchDate = LiveMusicOnThisDayService.todayMMDD()
-
     var body: some View {
         Section("Live Music on This Day") {
-            if isLoading {
+            if store.isLoading {
                 HStack(spacing: 12) {
                     Color(.systemGray5)
                         .frame(width: 56, height: 56)
@@ -236,7 +232,8 @@ private struct LiveMusicSection: View {
                     }
                     Spacer()
                 }
-            } else if let entry {
+                .frame(minHeight: 56)
+            } else if let entry = store.entry {
                 Button {
                     Task { await playLiveEntry(entry) }
                 } label: {
@@ -274,17 +271,8 @@ private struct LiveMusicSection: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .refreshable {
-            let service = LiveMusicOnThisDayService()
-            service.clearCachedEntry()
-            entry = await service.fetchDailyEntry()
-        }
-        .task(id: fetchDate) {
-            isLoading = true
-            let service = LiveMusicOnThisDayService()
-            entry = await service.fetchDailyEntry()
-            isLoading = false
-        }
+        .refreshable { await store.refresh() }
+        .task { await store.loadIfNeeded() }
     }
 
     private func playLiveEntry(_ entry: LiveMusicEntry) async {

@@ -16,6 +16,7 @@ protocol DatabaseServiceProtocol: AnyObject {
 
     // Curation operations
     func setCuration(channelId: String, trackId: String, status: String, note: String?) async
+    func setCurationBatch(channelId: String, trackIds: [String], status: String) async
     func curationStatus(channelId: String, trackId: String) async -> String?
     func curationTrackIds(channelId: String, status: String) async -> [String]
     func allCuratedTrackIds(channelId: String) async -> [String]

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ArtworkThumbnail: View {
     let track: Track
+    var channel: Channel?
     var size: CGFloat = 48
     @State private var image: UIImage?
 
@@ -22,7 +23,7 @@ struct ArtworkThumbnail: View {
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: size * 0.15))
         .task(id: track.id) {
-            image = await ArtworkService.shared.artwork(for: track)
+            image = await ArtworkService.shared.bestArtwork(for: track, channel: channel)
         }
     }
 }
