@@ -36,7 +36,6 @@ struct ListenView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 64) }
             .navigationTitle("Listen")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -126,6 +125,19 @@ struct ListenView: View {
                     }
                     .buttonStyle(.plain)
                     .contextMenu { channelContextMenu(channel) }
+                    .swipeActions(edge: .trailing) {
+                        if podcastStore.subscriptions.contains(where: { $0.id == channel.id }) {
+                            Button(role: .destructive) {
+                                Task {
+                                    if let sub = podcastStore.subscriptions.first(where: { $0.id == channel.id }) {
+                                        await podcastStore.remove(sub)
+                                    }
+                                }
+                            } label: {
+                                Label("Unsubscribe", systemImage: "trash")
+                            }
+                        }
+                    }
                 }
             } header: {
                 HStack {
@@ -295,33 +307,35 @@ private struct JumpBackInSection: View {
     @State private var items: [Track] = []
 
     var body: some View {
-        if !items.isEmpty {
-            Section("Jump Back In") {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 14) {
-                        ForEach(items, id: \.id) { track in
-                            Button { onSelect(track) } label: {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    AsyncImage(url: track.resolvedArtworkURL) { phase in
-                                        if let img = phase.image { img.resizable().scaledToFill() }
-                                        else { Color(.systemGray5).overlay(Image(systemName: "music.note")) }
+        Group {
+            if !items.isEmpty {
+                Section("Jump Back In") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 14) {
+                            ForEach(items, id: \.id) { track in
+                                Button { onSelect(track) } label: {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        AsyncImage(url: track.resolvedArtworkURL) { phase in
+                                            if let img = phase.image { img.resizable().scaledToFill() }
+                                            else { Color(.systemGray5).overlay(Image(systemName: "music.note")) }
+                                        }
+                                        .frame(width: 120, height: 120)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        Text(track.title).font(.caption.weight(.medium)).lineLimit(1)
+                                        Text(track.artist).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                                     }
-                                    .frame(width: 120, height: 120)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    Text(track.title).font(.caption.weight(.medium)).lineLimit(1)
-                                    Text(track.artist).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                    .frame(width: 120)
+                                    .contentShape(Rectangle())
                                 }
-                                .frame(width: 120)
-                                .contentShape(Rectangle())
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 0))
                 }
-                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 0))
             }
-            .task { items = await playerVM.recentlyPlayedTracks(limit: 10) }
         }
+        .task { items = await playerVM.recentlyPlayedTracks(limit: 10) }
     }
 }

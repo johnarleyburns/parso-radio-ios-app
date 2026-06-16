@@ -67,6 +67,14 @@ struct NowPlayingSheet: View {
                     .frame(width: 260, height: 260)
                     .clipShape(RoundedRectangle(cornerRadius: 28))
                     .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
+            } else if let channel = playerVM.currentChannel,
+                      let channelImage = UIImage(named: channel.id) {
+                Image(uiImage: channelImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 260, height: 260)
+                    .clipShape(RoundedRectangle(cornerRadius: 28))
+                    .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
             } else {
                 let gradient = playerVM.currentChannel.map {
                     ChannelCategoryStyle.gradient(for: $0.category)

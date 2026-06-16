@@ -39,12 +39,15 @@ final class PodcastSubscriptionStore: ObservableObject {
         subscriptions = await db.fetchPodcastSubscriptions()
     }
 
-    func add(name: String, feedURL: String, artworkURL: String? = nil) async {
+    @discardableResult
+    func add(name: String, feedURL: String, artworkURL: String? = nil) async -> Bool {
         await add(id: UUID().uuidString, name: name, feedURL: feedURL, artworkURL: artworkURL)
     }
 
-    func add(id: String, name: String, feedURL: String, artworkURL: String? = nil) async {
-        guard let db else { return }
+    @discardableResult
+    func add(id: String, name: String, feedURL: String, artworkURL: String? = nil) async -> Bool {
+        guard let db else { return false }
+        guard !subscriptions.contains(where: { $0.feedURL == feedURL }) else { return false }
         let sub = PodcastSubscription(
             id: id,
             name: name,
@@ -54,6 +57,7 @@ final class PodcastSubscriptionStore: ObservableObject {
         )
         await db.savePodcastSubscription(sub)
         subscriptions.append(sub)
+        return true
     }
 
     func remove(_ sub: PodcastSubscription) async {

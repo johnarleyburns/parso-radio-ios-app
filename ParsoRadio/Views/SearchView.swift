@@ -11,6 +11,7 @@ struct SearchView: View {
     @State private var infoGroup: SearchViewModel.ResultGroup? = nil
     @State private var failedTrackIds: Set<String> = []
     @State private var flashTrackId: String?
+    @State private var showDuplicateAlert = false
     @FocusState private var searchFocused: Bool
 
     @ObservedObject private var podcastStore = PodcastSubscriptionStore.shared
@@ -123,6 +124,11 @@ struct SearchView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             }
+            .alert("Already Subscribed", isPresented: $showDuplicateAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("You're already subscribed to this podcast.")
+            }
             .onAppear { searchFocused = true }
             .sheet(item: $infoGroup) { group in
                 trackInfoSheet(group)
@@ -148,11 +154,12 @@ struct SearchView: View {
             ForEach(searchVM.podcastResults) { podcast in
                 Button {
                     Task {
-                        await podcastStore.add(
+                        let added = await podcastStore.add(
                             name: podcast.title,
                             feedURL: podcast.feedURL,
                             artworkURL: podcast.artworkURL
                         )
+                        if !added { showDuplicateAlert = true }
                     }
                 } label: {
                     HStack(spacing: 12) {

@@ -162,8 +162,13 @@ struct PodcastAddView: View {
             }
         }
 
-        await store.add(id: subId, name: subscribeName, feedURL: feedURL,
+        let added = await store.add(id: subId, name: subscribeName, feedURL: feedURL,
                         artworkURL: localArtworkURL)
+        if !added {
+            errorMessage = "You're already subscribed to this podcast."
+            showError = true
+            return
+        }
         dismiss()
     }
 
