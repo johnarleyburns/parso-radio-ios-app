@@ -46,11 +46,9 @@ final class MediaKindBaselineTests: XCTestCase {
     private func expectedShuffles(_ channel: Channel) -> Bool {
         // Curated/registry channels always shuffle
         if channel.iaQueryEntry != nil { return true }
-        // Lecture channels always shuffle
-        if channel.category == "Lectures" { return true }
-        // For You channels: music-for-you has no iaQueryEntry; books-for-you also none
         // Podcasts: sequential, no shuffle
         // Ambient: no shuffle
+        // Lectures: sequential, no shuffle (aligned with MediaKind.lecture.behavior)
         return false
     }
 

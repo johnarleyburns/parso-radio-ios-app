@@ -180,7 +180,7 @@ final class MediaKindTests: XCTestCase {
         XCTAssertTrue(b.supportsSleepTimer)
         XCTAssertFalse(b.persistsResumePosition)
         XCTAssertFalse(b.supportsBookSkip)
-        XCTAssertFalse(b.supportsBookmarks)
+        XCTAssertTrue(b.supportsBookmarks)
         XCTAssertFalse(b.startsAtZeroAlways)
     }
 

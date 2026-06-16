@@ -4,9 +4,9 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 2 For You + 18 Lectures + 12 Podcasts + 4 Ambient + 9 Curated
-        // + 5 Curated Books + 21 Audiobooks (LibriVox) = 71.
-        XCTAssertEqual(Channel.defaults.count, 71)
+        // 2 For You + 18 Lectures + 5 Podcasts + 4 Ambient + 9 Curated
+        // + 5 Curated Books + 21 Audiobooks (LibriVox) = 64.
+        XCTAssertEqual(Channel.defaults.count, 64)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {
@@ -225,13 +225,12 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    // Podcasts category: 7 channels — 4 US public radio (NPR Up First, PBS
-    // PodcastsHour, Democracy Now!, NPR 1A) + 3 international public broadcasters
-    // (BBC Global Podcasts, DW Inside Europe, CBC As It Happens). All ad-free in
+    // Podcasts category: 5 channels — Democracy Now!, No Agenda,
+    // Citations Needed, Security Now, FLOSS Weekly. All ad-free in
     // their canonical RSS feeds; curl-verified live with recent items.
     func testPodcastsCategoryHasExpectedChannels() {
         let newsChannels = Channel.defaults.filter { $0.category == "Podcasts" }
-        XCTAssertEqual(newsChannels.count, 12, "Expected 12 Podcasts channels")
+        XCTAssertEqual(newsChannels.count, 5, "Expected 5 Podcasts channels")
     }
 
     func testPodcastsChannelsHaveFeedURL() {

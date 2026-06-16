@@ -47,9 +47,8 @@ final class QueueManager {
     }
 
     // Curated radio-style channels always shuffle regardless of the global
-    // toggle: registry-backed IA channels and Lecture channels (which
-    // aggregate a whole faculty). Sequential only makes sense for
-    // podcast/news. Pure + static so it is deterministically unit-testable
+    // toggle: registry-backed IA channels. Sequential for podcasts/news.
+    // Pure + static so it is deterministically unit-testable
     // without draining a seeded-random queue.
     static func usesShuffle(channel: Channel, shuffleMode: Bool) -> Bool {
         effectiveQueueStyle(channel, shuffleMode: shuffleMode) == .shuffledPool
