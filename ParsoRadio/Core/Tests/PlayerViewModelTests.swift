@@ -24,6 +24,15 @@ final class PlayerViewModelTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "lastChannelId")
     }
 
+    override func tearDownWithError() throws {
+        vm = nil
+        db = nil
+        UserDefaults.standard.removeObject(forKey: "lastChannelId")
+        UserDefaults.standard.removeObject(forKey: "shuffleMode")
+        UserDefaults.standard.removeObject(forKey: "repeatMode")
+        try super.tearDownWithError()
+    }
+
     // UC2: last channel ID is written to UserDefaults as soon as load() begins,
     // before any network call, so a crash or force-quit still persists the choice.
     func testLastChannelIdSavedOnLoad() async throws {

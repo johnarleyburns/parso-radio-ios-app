@@ -11,13 +11,14 @@ final class AuditionTests: XCTestCase {
 
     override func setUpWithError() throws {
         try super.setUpWithError()
+        LiveCurationStore.shared.resetForTesting()
         db = try DatabaseService(path: ":memory:")
         vm = PlayerViewModel(
             db: db,
             archiveService: InternetArchiveService(),
             fmaService: FMAService(),
             queueManager: QueueManager(db: db),
-            audioPlayer: AudioPlayerService(),
+            audioPlayer: FakeAudioEngine(),
             downloadManager: DownloadManager(db: db)
         )
     }

@@ -78,7 +78,7 @@ final class AutosaveBookmarkViewModelTests: XCTestCase {
             archiveService: InternetArchiveService(),
             fmaService: FMAService(),
             queueManager: QueueManager(db: db),
-            audioPlayer: AudioPlayerService(),
+            audioPlayer: FakeAudioEngine(),
             downloadManager: DownloadManager(db: db)
         )
     }

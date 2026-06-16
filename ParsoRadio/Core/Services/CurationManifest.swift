@@ -87,6 +87,10 @@ final class LiveCurationStore: ObservableObject {
             !(approvedByChannel[channelId]?.isEmpty ?? true)
         }
     }
+
+    func resetForTesting() {
+        lock.withLock { approvedByChannel = [:] }
+    }
 }
 
 extension CurationManifest.Entry {

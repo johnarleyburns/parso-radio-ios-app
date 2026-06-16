@@ -89,6 +89,23 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         setupAudioSessionObservers()
     }
 
+    deinit {
+        let center = MPRemoteCommandCenter.shared()
+        center.playCommand.removeTarget(nil)
+        center.pauseCommand.removeTarget(nil)
+        center.togglePlayPauseCommand.removeTarget(nil)
+        center.nextTrackCommand.removeTarget(nil)
+        center.previousTrackCommand.removeTarget(nil)
+        center.skipBackwardCommand.removeTarget(nil)
+        center.skipForwardCommand.removeTarget(nil)
+        if let obs = interruptionObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
+        if let obs = routeChangeObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
+    }
+
     // `startAt` is the resume offset. A seek issued before the AVPlayerItem
     // reaches .readyToPlay is silently dropped by AVPlayer (the duration /
     // seekable ranges aren't known yet), so for a resume we DEFER both the
