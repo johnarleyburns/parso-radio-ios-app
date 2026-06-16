@@ -16,6 +16,7 @@ struct ListenView: View {
     @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
     @AppStorage("supporterBadgeHidden") private var supporterBadgeHidden = false
     @ObservedObject private var customChannelStore = CustomChannelsStore.shared
+    @ObservedObject private var podcastStore = PodcastSubscriptionStore.shared
 
     private func select(_ channel: Channel) { nowPlayingChannel = channel }
 
@@ -35,6 +36,7 @@ struct ListenView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 64) }
             .navigationTitle("Listen")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -106,9 +108,11 @@ struct ListenView: View {
     @ViewBuilder
     private func channelsSection(for section: LibrarySection) -> some View {
         let dedicated: Set<String> = ["For You"]
-        let channels = Channel.defaults
+        let subs = section.id == .podcast
+            ? podcastStore.subscriptions.map { podcastStore.channel(from: $0) } : []
+        let channels = (Channel.defaults
             .filter { $0.mediaKind == section.id && !dedicated.contains($0.category) }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) + subs
         if channels.isEmpty { EmptyView() }
         else {
             Section {
@@ -180,7 +184,7 @@ private struct ForYouSection: View {
             .filter { $0.category == "For You" }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         if !forYouChannels.isEmpty {
-            Section("For You") {
+            Section("Curated Based on Your Taste") {
                 ForEach(forYouChannels, id: \.id) { channel in
                     Button { onSelect(channel) } label: {
                         Label(channel.name, systemImage: channel.icon)
@@ -199,36 +203,35 @@ private struct LiveMusicSection: View {
 
     @State private var entry: LiveMusicEntry?
     @State private var isLoading = true
+    @State private var fetchDate = LiveMusicOnThisDayService.todayMMDD()
 
     var body: some View {
         Section("Live Music on This Day") {
             if isLoading {
-                HStack {
-                    ProgressView()
-                        .padding(.trailing, 8)
-                    Text("Searching the Live Music Archive...")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    Color(.systemGray5)
+                        .frame(width: 56, height: 56)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay {
+                            ProgressView()
+                        }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Searching…")
+                            .font(.subheadline.weight(.medium))
+                        Text("Live Music Archive")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
                 }
             } else if let entry {
                 Button {
                     Task { await playLiveEntry(entry) }
                 } label: {
                     HStack(spacing: 12) {
-                        AsyncImage(url: entry.thumbnailURL) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image.resizable().scaledToFill()
-                            default:
-                                Color(.systemGray5)
-                                    .overlay {
-                                        Image(systemName: "music.mic")
-                                            .foregroundStyle(.secondary)
-                                    }
-                            }
-                        }
-                        .frame(width: 56, height: 56)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        VerifiedThumb(url: entry.thumbnailURL, fallbackName: { "music.mic" })
+                            .frame(width: 56, height: 56)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(entry.displayName)
@@ -259,7 +262,12 @@ private struct LiveMusicSection: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .task {
+        .refreshable {
+            let service = LiveMusicOnThisDayService()
+            service.clearCachedEntry()
+            entry = await service.fetchDailyEntry()
+        }
+        .task(id: fetchDate) {
             isLoading = true
             let service = LiveMusicOnThisDayService()
             entry = await service.fetchDailyEntry()

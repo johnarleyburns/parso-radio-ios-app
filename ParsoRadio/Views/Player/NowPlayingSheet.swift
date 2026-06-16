@@ -117,6 +117,20 @@ struct NowPlayingSheet: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
+                if let collection = track.collectionTitle ?? {
+                    guard let parent = track.parentIdentifier else { return nil }
+                    // Derive a readable name from parentIdentifier (IA ID like "artist_title_123")
+                    let parts = parent.split(separator: "_")
+                    return parts.count >= 2
+                        ? parts.dropLast().map { $0.capitalized }.joined(separator: " ")
+                        : parent.replacingOccurrences(of: "_", with: " ").capitalized
+                }() {
+                    Text(collection)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+
                 if let composer = track.composer, composer != track.artist.lowercased() {
                     Text("Composed by \(composer.capitalized)")
                         .font(.caption)

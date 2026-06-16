@@ -55,7 +55,7 @@ extension MediaKind {
                          showsScrubbableProgress: false, supportsChapters: false,
                          supportsSpeedControl: false, supportsSleepTimer: true,
                          persistsResumePosition: false, supportsBookSkip: false,
-                         supportsBookmarks: false, startsAtZeroAlways: false)
+                         supportsBookmarks: true, startsAtZeroAlways: false)
         }
     }
 }

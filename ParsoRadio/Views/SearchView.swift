@@ -298,11 +298,11 @@ struct SearchView: View {
                     .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
-                .onTapGesture { infoGroup = group }
+                .onTapGesture { selectedResult = group }
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isButton)
-                .accessibilityHint("Opens track info")
-                .accessibilityAction { infoGroup = group }
+                .accessibilityHint("Shows play and add options")
+                .accessibilityAction { selectedResult = group }
                 .task { searchVM.loadItemInfo(group) }
             }
 
@@ -372,6 +372,16 @@ struct SearchView: View {
                     Section("Collection") {
                         Text(coll)
                     }
+                }
+                Section {
+                    Button {
+                        infoGroup = nil
+                        Task { await playerVM.playSearchResult(group); dismissAll?() }
+                    } label: { Label("Play", systemImage: "play.fill") }
+                    Button {
+                        infoGroup = nil
+                        showAddToPlaylist = searchTrack(group)
+                    } label: { Label("Add to Playlist", systemImage: "plus.circle") }
                 }
                 Section {
                     Text("ID: \(group.id)")

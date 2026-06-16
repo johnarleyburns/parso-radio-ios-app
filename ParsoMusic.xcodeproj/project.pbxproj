@@ -1000,7 +1000,7 @@
 			path = ParsoRadio/UITests;
 			sourceTree = "<group>";
 		};
-		"TEMP_C4935EFC-05D8-4B4C-94EF-F7D4B919211B" /* Integration */ = {
+		"TEMP_44E1E58E-77D1-4500-A0E5-38489FD63F3C" /* Integration */ = {
 			isa = PBXGroup;
 			children = (
 			);

@@ -602,7 +602,14 @@ struct CuratorChannelEditView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
+                    HStack(spacing: 16) {
+                        if filterMode == .review, queue.contains(where: { verdictStates[$0.id] == nil }) {
+                            Button("Approve All") {
+                                Task { await approveAll() }
+                            }
+                            .fontWeight(.semibold)
+                        }
+                        Menu {
                         Button {
                             editedName = channelMeta.name
                             showRename = true
@@ -623,6 +630,7 @@ struct CuratorChannelEditView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
+                    }
                     }
                 }
             }
@@ -893,6 +901,18 @@ struct CuratorChannelEditView: View {
         if let next = queue.first(where: { verdictStates[$0.id] == nil }) {
             await playerVM.auditionTrack(next)
         }
+    }
+
+    @MainActor
+    private func approveAll() async {
+        let unverdictted = queue.filter { verdictStates[$0.id] == nil }
+        for track in unverdictted {
+            await db.setCuration(channelId: channelMeta.id, trackId: track.id, status: "approved")
+            verdictStates[track.id] = (status: "approved", undone: false)
+        }
+        await LiveCurationStore.shared.reload(channelId: channelMeta.id, from: db)
+        counts = await db.curationCounts(channelId: channelMeta.id)
+        await reload()
     }
 
     @MainActor
