@@ -170,58 +170,56 @@ struct NowPlayingSheet: View {
                 TransportControls()
                     .disabled(playerVM.isLoading)
 
-                if b.allowsShuffleToggle {
-                    HStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    if b.allowsShuffleToggle {
                         ShuffleControl()
-
                         Spacer()
-
-                         HStack(spacing: 16) {
-                             if track.source == "internet_archive" {
-                                 archiveLink(for: track)
-                             }
-                             AirPlayButton()
-                                 .frame(width: 28, height: 28)
-                             Button {
-                                 showAddToPlaylist = true
-                             } label: {
-                                 Image(systemName: "plus.circle")
-                                     .font(.body)
-                             }
-                             .accessibilityLabel("Add to playlist")
-                             if playerVM.currentTrackIsMultiPart {
-                                 Button {
-                                     showAlbumTracks = true
-                                 } label: {
-                                     Image(systemName: "opticaldisc")
-                                         .font(.body)
-                                 }
-                                 .accessibilityLabel("View album tracks")
-                             }
-                             if b.supportsSleepTimer {
-                                 sleepTimerMenu
-                             }
-                         }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 12)
-
+                    } else {
                         Spacer()
+                    }
 
+                    HStack(spacing: 16) {
+                        if track.source == "internet_archive" {
+                            archiveLink(for: track)
+                        }
+                        AirPlayButton()
+                            .frame(width: 28, height: 28)
+                        Button {
+                            showAddToPlaylist = true
+                        } label: {
+                            Image(systemName: "plus.circle")
+                                .font(.body)
+                        }
+                        .accessibilityLabel("Add to playlist")
+                        if playerVM.currentTrackIsMultiPart {
+                            Button {
+                                showAlbumTracks = true
+                            } label: {
+                                Image(systemName: "opticaldisc")
+                                    .font(.body)
+                            }
+                            .accessibilityLabel("View album tracks")
+                        }
+                        if b.supportsSleepTimer {
+                            sleepTimerMenu
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 12)
+
+                    if b.allowsShuffleToggle {
+                        Spacer()
                         RepeatControl()
                     }
-                     .sheet(isPresented: $showAddToPlaylist) {
-                         AddItemToPlaylistSheet(track: track)
-                             .environmentObject(playlistVM)
-                             .environmentObject(playerVM)
-                     }
-                     .sheet(isPresented: $showAlbumTracks) {
-                         AlbumTracksSheet(track: track)
-                             .environmentObject(playerVM)
-                     }
                 }
-
-                if !b.allowsShuffleToggle {
-                    actionButtons(for: track)
+                .sheet(isPresented: $showAddToPlaylist) {
+                    AddItemToPlaylistSheet(track: track)
+                        .environmentObject(playlistVM)
+                        .environmentObject(playerVM)
+                }
+                .sheet(isPresented: $showAlbumTracks) {
+                    AlbumTracksSheet(track: track)
+                        .environmentObject(playerVM)
                 }
             } else {
                 TransportControls()
@@ -230,9 +228,9 @@ struct NowPlayingSheet: View {
 
             let cols = [GridItem(.adaptive(minimum: 76), spacing: 12)]
             LazyVGrid(columns: cols, spacing: 12) {
-                if b.supportsSpeedControl, b.allowsShuffleToggle { SpeedControl() }
-                if b.supportsChapters, b.allowsShuffleToggle { ChapterButton() }
-                if b.supportsBookmarks, b.allowsShuffleToggle { BookmarkButton() }
+                if b.supportsSpeedControl { SpeedControl() }
+                if b.supportsChapters { ChapterButton() }
+                if b.supportsBookmarks { BookmarkButton() }
             }
             .padding(.horizontal)
         }
@@ -301,62 +299,6 @@ struct NowPlayingSheet: View {
             .buttonStyle(.plain)
 
             ScrubBar(tint: tint)
-        }
-    }
-
-    @ViewBuilder
-    private func actionButtons(for track: Track) -> some View {
-        let b = behavior
-        HStack(spacing: 0) {
-            if b.supportsSpeedControl {
-                SpeedControl(showLabel: false)
-            }
-            if b.supportsSleepTimer {
-                Spacer()
-                SleepTimerControl(showLabel: false)
-            }
-            if b.supportsChapters {
-                Spacer()
-                ChapterButton(showLabel: false)
-            }
-            if b.supportsBookmarks {
-                Spacer()
-                BookmarkButton(showLabel: false)
-            }
-            if track.source == "internet_archive" {
-                Spacer()
-                let identifier = track.parentIdentifier ?? track.id
-                let cleanId = identifier.contains("/")
-                    ? String(identifier.split(separator: "/").first ?? "")
-                    : identifier
-                if let url = URL(string: "https://archive.org/details/\(cleanId)") {
-                    Link(destination: url) {
-                        Image(systemName: "safari")
-                            .font(.body)
-                    }
-                    .accessibilityLabel("View on archive.org")
-                }
-            }
-
-            Spacer()
-            AirPlayButton()
-                .frame(width: 28, height: 28)
-                .accessibilityLabel("AirPlay")
-
-            Spacer()
-            Button {
-                showAddToPlaylist = true
-            } label: {
-                Image(systemName: "plus.circle")
-                    .font(.body)
-            }
-            .accessibilityLabel("Add to playlist")
-        }
-        .buttonStyle(.plain)
-        .sheet(isPresented: $showAddToPlaylist) {
-            AddItemToPlaylistSheet(track: track)
-                .environmentObject(playlistVM)
-                .environmentObject(playerVM)
         }
     }
 

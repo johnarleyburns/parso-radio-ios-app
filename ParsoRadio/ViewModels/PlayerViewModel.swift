@@ -1392,6 +1392,11 @@ final class PlayerViewModel: ObservableObject {
         let exts = Set(parts.map {
             ($0.id as NSString).pathExtension.lowercased()
         })
+        // Non-file tracks (lectures, etc.) have no extension — clean if part numbers are sequential.
+        if exts == [""] {
+            let numbers = parts.compactMap(\.partNumber).sorted()
+            return numbers.count == parts.count && numbers == Array(1...parts.count)
+        }
         guard exts.count == 1, exts.first?.isEmpty == false else { return false }
         let numbers = parts.compactMap(\.partNumber).sorted()
         return numbers.count == parts.count && numbers == Array(1...parts.count)
