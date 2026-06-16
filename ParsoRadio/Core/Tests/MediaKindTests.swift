@@ -31,10 +31,8 @@ final class MediaKindTests: XCTestCase {
 
     func testPodcastChannelsArePodcast() {
         let podcastIDs = [
-            "news-nprup-first", "news-pbs-newshour", "news-democracy-now",
-            "news-npr-1a", "news-bbc-global", "news-dw-inside-europe",
-            "news-cbc-as-it-happens", "podcast-joe-rogan", "podcast-nyt-daily",
-            "podcast-this-american-life", "podcast-ted-radio-hour", "podcast-npr-politics"
+            "news-democracy-now", "podcast-no-agenda", "podcast-citations-needed",
+            "podcast-security-now", "podcast-floss-weekly"
         ]
         for id in podcastIDs {
             guard let channel = Channel.defaults.first(where: { $0.id == id }) else {
@@ -160,14 +158,14 @@ final class MediaKindTests: XCTestCase {
 
     func testLectureBehavior() {
         let b = MediaKind.lecture.behavior
-        XCTAssertEqual(b.queueStyle, .shuffledPool)
+        XCTAssertEqual(b.queueStyle, .sequentialInOrder)
         XCTAssertFalse(b.allowsShuffleToggle)
         XCTAssertTrue(b.showsScrubbableProgress)
-        XCTAssertFalse(b.supportsChapters)
+        XCTAssertTrue(b.supportsChapters)
         XCTAssertTrue(b.supportsSpeedControl)
         XCTAssertTrue(b.supportsSleepTimer)
         XCTAssertTrue(b.persistsResumePosition)
-        XCTAssertFalse(b.supportsBookSkip)
+        XCTAssertTrue(b.supportsBookSkip)
         XCTAssertTrue(b.supportsBookmarks)
         XCTAssertFalse(b.startsAtZeroAlways)
     }
@@ -193,12 +191,9 @@ final class MediaKindTests: XCTestCase {
             let expectedShuffle = QueueManager.usesShuffle(channel: channel, shuffleMode: false)
             let behaviorShuffles = channel.behavior.queueStyle == .shuffledPool
             let isRadio = channel.iaQueryEntry != nil
-            // Baseline says: shuffle when iaQueryEntry != nil OR lecture
-            // behavior.queueStyle == .shuffledPool when those are true AND the
-            // radio flag is respected by effectiveQueueStyle in QueueManager
-            if isRadio || channel.category == "Lectures" {
+            if isRadio {
                 XCTAssertTrue(behaviorShuffles || expectedShuffle,
-                    "\(channel.id): radio/lecture channel should shuffle")
+                    "\(channel.id): radio channel should shuffle")
             }
         }
     }

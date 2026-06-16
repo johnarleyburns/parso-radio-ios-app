@@ -26,28 +26,44 @@ struct LiveMusicOnThisDayService {
         let pool = await getOrRefreshPool()
         guard let pool, !pool.isEmpty else { return nil }
 
-        var candidates = pool
-        if forceFresh, let lastID = state.lastPickedID, candidates.count > 1 {
-            let fresh = candidates.filter { $0.id != lastID }
-            if !fresh.isEmpty { candidates = fresh }
+        var triedIDs = Set<String>()
+        if forceFresh, let lastID = state.lastPickedID, pool.count > 1 {
+            triedIDs.insert(lastID)
         }
 
-        let pick = candidates.randomElement()!
-        state.lastPickedID = pick.id
-
         let mmdd = Self.todayMMDD()
-        if let enriched = try? await enrichWithMetadata(pick) {
-            // If enrichment overrode the date with a non-matching value,
-            // fall back to the un-enriched pick (which was filtered client-side).
+
+        // Try up to 15 picks to find one with a proper title and matching date.
+        for _ in 0..<min(pool.count, 15) {
+            let candidates = pool.filter { !triedIDs.contains($0.id) }
+            guard !candidates.isEmpty else { break }
+
+            let pick = candidates.randomElement()!
+            triedIDs.insert(pick.id)
+            state.lastPickedID = pick.id
+
+            let enriched = (try? await enrichWithMetadata(pick)) ?? pick
+
+            // Date mismatch: un-enriched pick is still valid (was filtered client-side).
             if let d = enriched.date, !d.contains(mmdd) {
                 cacheSingle(pick)
                 return pick
             }
+
+            // Skip entries with no title — they show naked creator names like "Dispatch".
+            guard enriched.title != nil else { continue }
+
             cacheSingle(enriched)
             return enriched
         }
-        cacheSingle(pick)
-        return pick
+
+        // All tried entries had no title; return the first pool entry as last resort.
+        if let first = pool.first {
+            state.lastPickedID = first.id
+            cacheSingle(first)
+            return first
+        }
+        return nil
     }
 
     func clearCachedEntry() {

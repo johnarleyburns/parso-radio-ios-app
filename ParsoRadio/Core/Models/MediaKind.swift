@@ -45,10 +45,10 @@ extension MediaKind {
                          persistsResumePosition: true, supportsBookSkip: false,
                          supportsBookmarks: true, startsAtZeroAlways: true)
         case .lecture:
-            return .init(queueStyle: .shuffledPool, allowsShuffleToggle: false,
-                         showsScrubbableProgress: true, supportsChapters: false,
+            return .init(queueStyle: .sequentialInOrder, allowsShuffleToggle: false,
+                         showsScrubbableProgress: true, supportsChapters: true,
                          supportsSpeedControl: true, supportsSleepTimer: true,
-                         persistsResumePosition: true, supportsBookSkip: false,
+                         persistsResumePosition: true, supportsBookSkip: true,
                          supportsBookmarks: true, startsAtZeroAlways: false)
         case .ambient:
             return .init(queueStyle: .singleLoop, allowsShuffleToggle: false,

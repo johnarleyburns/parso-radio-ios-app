@@ -93,9 +93,9 @@ final class IntentsTests: XCTestCase {
     }
 
     func testPodcastEntityQueryDecodesCorrectly() async throws {
-        let entities = try await PodcastEntityQuery().entities(for: ["news-nprup-first"])
+        let entities = try await PodcastEntityQuery().entities(for: ["news-democracy-now"])
         XCTAssertEqual(entities.count, 1)
-        XCTAssertEqual(entities.first?.displayName, "NPR Up First")
+        XCTAssertEqual(entities.first?.displayName, "Democracy Now!")
     }
 
     func testPodcastEntityQueryExcludesNonPodcasts() async throws {
@@ -237,11 +237,11 @@ final class IntentsTests: XCTestCase {
 
     func testPlayPodcastIntentPerformWithPlayerVM() async throws {
         let intent = PlayPodcastIntent()
-        intent.podcast = PodcastEntity(id: "news-nprup-first", displayName: "NPR Up First", searchAliases: [])
+        intent.podcast = PodcastEntity(id: "news-democracy-now", displayName: "Democracy Now!", searchAliases: [])
 
         let result = try await intent.perform()
         let pendingId = UserDefaults.standard.string(forKey: "siri.pendingChannelId")
-        XCTAssertEqual(pendingId, "news-nprup-first")
+        XCTAssertEqual(pendingId, "news-democracy-now")
     }
 
     func testPlayLorewaveIntentPerformWithPlayerVM() async throws {

@@ -22,7 +22,7 @@
       "family" : "consumable",
       "localizations" : [
         {
-          "description" : "Support Lorewave's hosting and development — and unlock the supporter app icons. 10% of proceeds goes to the Internet Archive.",
+          "description" : "Support Lorewave's hosting and development. 10% of proceeds goes to the Internet Archive.",
           "displayName" : "Supporter",
           "locale" : "en_US"
         }
@@ -46,50 +46,6 @@
       "price" : 9.99,
       "referenceName" : "Patron Tip",
       "type" : "consumable"
-    },
-    {
-      "displayName" : "Parso Supporter (Monthly)",
-      "family" : "subscription",
-      "localizations" : [
-        {
-          "description" : "Keep Lorewave free and ad-free. Supporters get exclusive app icons, a supporter badge, and a direct line to shape the roadmap. 10% of proceeds goes to the Internet Archive. Renews monthly; cancel anytime in Settings.",
-          "displayName" : "Monthly Support",
-          "locale" : "en_US"
-        }
-      ],
-      "productID" : "guru.parso.support.monthly",
-      "referenceName" : "Monthly Support",
-      "subscription" : {
-        "adHocOffers" : [],
-        "codeOffers" : [],
-        "groupID" : "2E5B4A3E",
-        "introductoryOffers" : [],
-        "promotionalOffers" : [],
-        "subscriptionPeriod" : "P1M"
-      },
-      "type" : "autoRenewable"
-    },
-    {
-      "displayName" : "Parso Supporter (Yearly)",
-      "family" : "subscription",
-      "localizations" : [
-        {
-          "description" : "Keep Lorewave free and ad-free for a full year. Supporters get exclusive app icons, a supporter badge, and a direct line to shape the roadmap. 10% of proceeds goes to the Internet Archive. Renews yearly; cancel anytime in Settings.",
-          "displayName" : "Yearly Support",
-          "locale" : "en_US"
-        }
-      ],
-      "productID" : "guru.parso.support.yearly",
-      "referenceName" : "Yearly Support",
-      "subscription" : {
-        "adHocOffers" : [],
-        "codeOffers" : [],
-        "groupID" : "2E5B4A3E",
-        "introductoryOffers" : [],
-        "promotionalOffers" : [],
-        "subscriptionPeriod" : "P1Y"
-      },
-      "type" : "autoRenewable"
     }
   ],
   "settings" : {
@@ -102,22 +58,7 @@
     "_storefront" : "USA",
     "_timeRate" : "1"
   },
-  "subscriptionGroups" : [
-    {
-      "id" : "2E5B4A3E",
-      "localizations" : [
-        {
-          "displayName" : "Lorewave Support",
-          "locale" : "en_US"
-        }
-      ],
-      "name" : "Lorewave Support",
-      "subscriptions" : [
-        "guru.parso.support.monthly",
-        "guru.parso.support.yearly"
-      ]
-    }
-  ],
+  "subscriptionGroups" : [],
   "version" : {
     "major" : 2,
     "minor" : 0

@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Lists every chapter of the currently-playing multi-part item (audiobook,
-/// classical work, lecture series). The current chapter is highlighted; tap a
-/// row to jump to that chapter immediately.
+/// Lists every chapter/lecture of the currently-playing multi-part item
+/// (audiobook, classical work, lecture series). The current item is
+/// highlighted; tap a row to jump to that chapter/lecture immediately.
 struct ChapterListView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     var onDismiss: (() -> Void)? = nil
@@ -10,16 +10,29 @@ struct ChapterListView: View {
     @State private var chapters: [Track] = []
     @State private var isLoading = true
 
+    private var isLecture: Bool {
+        playerVM.currentChannel?.mediaKind == .lecture
+    }
+
+    private var itemNoun: String { isLecture ? "lecture" : "chapter" }
+    private var itemsNoun: String { isLecture ? "Lectures" : "Chapters" }
+
+    private var navigationTitle: String {
+        chapters.first?.collectionTitle ?? itemsNoun
+    }
+
     var body: some View {
         Group {
             if isLoading {
-                ProgressView("Loading chapters…")
+                ProgressView("Loading \(itemsNoun.lowercased())…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if chapters.isEmpty {
                 ContentUnavailableView(
-                    "No Chapters",
-                    systemImage: "book.closed",
-                    description: Text("This item is a single file — there are no separate chapters to navigate.")
+                    "No \(itemsNoun)",
+                    systemImage: isLecture ? "building.columns" : "book.closed",
+                    description: Text(isLecture
+                        ? "This lecture is a standalone talk — there are no other lectures in the series."
+                        : "This item is a single file — there are no separate chapters to navigate.")
                 )
             } else {
                 List {
@@ -34,7 +47,6 @@ struct ChapterListView: View {
                             .buttonStyle(.plain)
                         }
                     } header: {
-                        // Whole-work scope: how many chapters and the summed runtime.
                         Text(summaryText)
                             .textCase(nil)
                             .accessibilityLabel(summaryAccessibilityText)
@@ -42,7 +54,7 @@ struct ChapterListView: View {
                 }
             }
         }
-        .navigationTitle("Chapters")
+        .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .task {
             chapters = await playerVM.bookmarks.fetchCurrentItemChapters() ?? []
@@ -83,14 +95,12 @@ struct ChapterListView: View {
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
-        .accessibilityHint(isCurrent ? "Currently playing" : "Plays this chapter")
+        .accessibilityHint(isCurrent ? "Currently playing" : "Plays this \(itemNoun)")
     }
 
-    // "124 chapters · 38:42:10" — total parts + summed runtime (omitted if no
-    // durations are known).
     private var summaryText: String {
         let count = chapters.count
-        let noun = count == 1 ? "chapter" : "chapters"
+        let noun = count == 1 ? itemNoun : itemsNoun.lowercased()
         let total = chapters.reduce(0.0) { $0 + max(0, $1.duration) }
         return total > 0
             ? "\(count) \(noun) · \(total.formattedTime)"
@@ -101,7 +111,7 @@ struct ChapterListView: View {
         let count = chapters.count
         let total = chapters.reduce(0.0) { $0 + max(0, $1.duration) }
         return total > 0
-            ? "\(count) chapters, total time \(total.formattedTime)"
-            : "\(count) chapters"
+            ? "\(count) \(itemsNoun.lowercased()), total time \(total.formattedTime)"
+            : "\(count) \(itemsNoun.lowercased())"
     }
 }

@@ -28,11 +28,11 @@ final class RecommendationQueryBuilderTests: XCTestCase {
 
     func testChannelWeightsHistogramAndProportions() {
         let cat = ["string-quartet": "Curated", "guitar-classical": "Curated",
-                   "piano-hour": "Curated", "news-pbs-newshour": "Podcasts",
+                   "piano-hour": "Curated", "podcast-no-agenda": "Podcasts",
                    "music-for-you": "For You"]
         // 6 string-quartet, 3 guitar, 1 piano, plus excluded plays (news, for-you).
         let h = history([("string-quartet", 6), ("guitar-classical", 3), ("piano-hour", 1),
-                         ("news-pbs-newshour", 4), ("music-for-you", 2)])
+                         ("podcast-no-agenda", 4), ("music-for-you", 2)])
         let ws = RecommendationQueryBuilder.channelWeights(
             fromHistory: h, categoryFilter: ["Curated"], categoryById: cat)
         XCTAssertEqual(ws.count, 3, "only Curated channels contribute")
@@ -45,8 +45,8 @@ final class RecommendationQueryBuilderTests: XCTestCase {
     }
 
     func testChannelWeightsEmptyWhenNoRelevantPlays() {
-        let cat = ["news-pbs-newshour": "Podcasts"]
-        let h = history([("news-pbs-newshour", 5)])
+        let cat = ["podcast-no-agenda": "Podcasts"]
+        let h = history([("podcast-no-agenda", 5)])
         let ws = RecommendationQueryBuilder.channelWeights(
             fromHistory: h, categoryFilter: ["Curated"], categoryById: cat)
         XCTAssertTrue(ws.isEmpty, "no Curated plays → empty histogram")

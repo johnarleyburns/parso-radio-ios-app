@@ -54,12 +54,12 @@ final class BackgroundIntentTests: XCTestCase {
 
     func testPlayPodcastIntentPerformsInProcess() async throws {
         let intent = PlayPodcastIntent()
-        intent.podcast = PodcastEntity(id: "news-nprup-first", displayName: "NPR Up First", searchAliases: [])
+        intent.podcast = PodcastEntity(id: "news-democracy-now", displayName: "Democracy Now!", searchAliases: [])
 
         let result = try await intent.perform()
         XCTAssertEqual(
             UserDefaults.standard.string(forKey: "siri.pendingChannelId"),
-            "news-nprup-first"
+            "news-democracy-now"
         )
     }
 
@@ -94,7 +94,7 @@ final class BackgroundIntentTests: XCTestCase {
         AppIntentBridge.shared.playerVM = nil
 
         let intent = PlayPodcastIntent()
-        intent.podcast = PodcastEntity(id: "news-nprup-first", displayName: "NPR Up First", searchAliases: [])
+        intent.podcast = PodcastEntity(id: "news-democracy-now", displayName: "Democracy Now!", searchAliases: [])
 
         _ = try await intent.perform()
         // Graceful completion in extension process.
@@ -131,7 +131,7 @@ final class BackgroundIntentTests: XCTestCase {
     func testKidsModeBlocksPlayPodcastIntent() async {
         let pin = KidsModeController.shared.forceEnable()
         let intent = PlayPodcastIntent()
-        intent.podcast = PodcastEntity(id: "news-nprup-first", displayName: "NPR Up First", searchAliases: [])
+        intent.podcast = PodcastEntity(id: "news-democracy-now", displayName: "Democracy Now!", searchAliases: [])
 
         do {
             _ = try await intent.perform()

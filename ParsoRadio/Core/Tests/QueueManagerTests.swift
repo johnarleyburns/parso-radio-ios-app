@@ -75,15 +75,16 @@ final class QueueManagerTests: XCTestCase {
     // (QueueManager.usesShuffle) so it can't flake on a seeded-RNG
     // permutation that coincidentally equals sorted order; plus a
     // deterministic drain to prove the whole pool stays reachable.
-    func testLectureChannelAlwaysShuffles() async throws {
+    func testLectureChannelPlaysSequentially() async throws {
         let lecture = Channel(
             id: "oxford-philosophy", name: "Philosophy", category: "Lectures",
             icon: "quote.bubble", tags: ["faculty-philosophy"],
             contentType: .spokenWord, preferredSource: "oxford_lectures"
         )
-        XCTAssertTrue(QueueManager.usesShuffle(channel: lecture, shuffleMode: false),
-            "Lecture channel must shuffle even with the toggle OFF")
-        XCTAssertTrue(QueueManager.usesShuffle(channel: lecture, shuffleMode: true))
+        XCTAssertFalse(QueueManager.usesShuffle(channel: lecture, shuffleMode: false),
+            "Lecture channels must play sequentially with toggle OFF")
+        XCTAssertTrue(QueueManager.usesShuffle(channel: lecture, shuffleMode: true),
+            "Lecture channels respect global shuffle toggle when ON")
 
         // Control: a plain non-registry tag channel follows the toggle.
         let tagCh = Channel(id: "x", name: "x", category: "Contemporary",
@@ -91,7 +92,7 @@ final class QueueManagerTests: XCTestCase {
         XCTAssertFalse(QueueManager.usesShuffle(channel: tagCh, shuffleMode: false))
         XCTAssertTrue(QueueManager.usesShuffle(channel: tagCh, shuffleMode: true))
 
-        // Deterministic drain: regardless of order, the whole pool is reachable.
+        // Sequential drain verifies all tracks reachable in any order.
         var tracks: [Track] = []
         for i in 1...8 {
             tracks.append(Track(

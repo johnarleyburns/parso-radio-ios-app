@@ -420,6 +420,7 @@ struct InternetArchiveService {
             { ($0.name as NSString).pathExtension.lowercased() == "ogg" },
             { ($0.name as NSString).pathExtension.lowercased() == "flac" },
             { ($0.name as NSString).pathExtension.lowercased() == "wav" },
+            { $0.format == "Flac" },
         ]
         let chosen = selectors.lazy
             .map { sel in meta.files.filter(sel) }

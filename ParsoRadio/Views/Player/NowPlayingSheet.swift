@@ -257,7 +257,8 @@ struct NowPlayingSheet: View {
                 Spacer()
 
                 if b.supportsBookSkip, let timeLeft = playerVM.timeLeftInBook {
-                    Text("Time left in book: \(timeLeft.formattedTime)")
+                    let noun = playerVM.currentChannel?.mediaKind == .lecture ? "series" : "book"
+                    Text("Time left in \(noun): \(timeLeft.formattedTime)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()

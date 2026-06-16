@@ -11,6 +11,10 @@ struct TransportControls: View {
         playerVM.currentChannel == nil
     }
 
+    private var isLecture: Bool {
+        playerVM.currentChannel?.mediaKind == .lecture
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             HStack(spacing: 12) {
@@ -21,7 +25,7 @@ struct TransportControls: View {
                         Image(systemName: "backward.end.fill")
                             .font(.system(size: 30))
                     }
-                    .accessibilityLabel("Previous book")
+                    .accessibilityLabel(isLecture ? "Previous series" : "Previous book")
                     .buttonStyle(.plain)
                     .disabled(bookSkipDisabled)
                 }
@@ -86,7 +90,7 @@ struct TransportControls: View {
                         Image(systemName: "forward.end.fill")
                             .font(.system(size: 30))
                     }
-                    .accessibilityLabel("Next book")
+                    .accessibilityLabel(isLecture ? "Next series" : "Next book")
                     .buttonStyle(.plain)
                     .disabled(bookSkipDisabled)
                 }

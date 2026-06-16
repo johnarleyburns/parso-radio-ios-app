@@ -11,6 +11,7 @@ struct ListenView: View {
     @State private var showNewCuratedChannel = false
     @State private var curateMeta: ChannelMeta?
     @State private var selectedRecentTrack: Track?
+    @State private var showSupporterSheet = false
 
     @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
     @AppStorage("supporterBadgeHidden") private var supporterBadgeHidden = false
@@ -25,7 +26,7 @@ struct ListenView: View {
                     selectedRecentTrack = track
                 }
 
-                LiveMusicSection(onSelect: select, playerVM: playerVM)
+                LiveMusicSection(onSelect: select, playerVM: playerVM, deps: deps)
 
                 ForYouSection(onSelect: select)
 
@@ -39,11 +40,21 @@ struct ListenView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
                         if contributionStore.isSupporter && !supporterBadgeHidden {
-                            Image("supporter")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 26, height: 26)
-                                .accessibilityLabel("Supporter")
+                            Button {
+                                showSupporterSheet = true
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text("SUPPORTER")
+                                        .font(.caption2)
+                                        .fontDesign(.rounded)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.blue)
+                                    Image(systemName: "heart.circle.fill")
+                                        .font(.title3)
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                            .accessibilityLabel("Supporter")
                         }
                         Button { showSettings = true } label: {
                             Image(systemName: "gearshape")
@@ -53,6 +64,11 @@ struct ListenView: View {
             }
             .sheet(isPresented: $showSettings) {
                 NavigationStack { SettingsView() }
+            }
+            .sheet(isPresented: $showSupporterSheet) {
+                NavigationStack {
+                    ContributionSupportView(store: contributionStore, showsDoneButton: true)
+                }
             }
             .fullScreenCover(item: $nowPlayingChannel) { channel in
                 NowPlayingSheet()
@@ -179,6 +195,7 @@ private struct ForYouSection: View {
 private struct LiveMusicSection: View {
     let onSelect: (Channel) -> Void
     let playerVM: PlayerViewModel
+    let deps: AppDependencies
 
     @State private var entry: LiveMusicEntry?
     @State private var isLoading = true
@@ -251,25 +268,16 @@ private struct LiveMusicSection: View {
     }
 
     private func playLiveEntry(_ entry: LiveMusicEntry) async {
-        let track = Track(
-            id: entry.id,
-            source: "internet_archive",
-            title: entry.displayName,
-            artist: entry.creator,
-            duration: 0,
-            streamURL: URL(string: "https://archive.org/download/\(entry.id)")!,
-            downloadURL: nil,
-            localFilePath: nil,
-            license: .publicDomain,
-            tags: [],
-            qualityScore: 1.0,
-            rawCreator: entry.creator,
-            composer: nil,
-            instruments: [],
-            metadataConfidence: 1.0,
-            addedDate: Date()
-        )
-        await playerVM.playSingleTrack(track)
+        do {
+            let tracks = try await deps.archiveService.fetchTracksForIdentifier(entry.id)
+            guard !tracks.isEmpty else {
+                playerVM.errorMessage = "This recording doesn't have any playable audio files — it may use unsupported formats like SHN."
+                return
+            }
+            await playerVM.playAlbumTracks(tracks, title: entry.displayName)
+        } catch {
+            playerVM.errorMessage = "Couldn't load this recording. Try again later."
+        }
     }
 }
 

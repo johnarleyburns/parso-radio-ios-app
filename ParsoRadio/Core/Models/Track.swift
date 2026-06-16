@@ -33,6 +33,9 @@ struct Track: Codable, Identifiable {
     //   false = confirmed single-file IA item
     //   true  = confirmed multi-file IA item (book/album)
     var isMultiPart: Bool? = nil
+    // Human-readable name of the parent collection (series title for lectures,
+    // book title for audiobooks). Nil when not part of a named collection.
+    var collectionTitle: String? = nil
 }
 
 extension Track {

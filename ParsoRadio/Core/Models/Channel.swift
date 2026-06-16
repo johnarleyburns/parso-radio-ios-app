@@ -253,25 +253,13 @@ extension Channel {
             preferredSource: "oxford_lectures"
         ),
 
-        // MARK: Podcasts — Public radio & international broadcaster RSS feeds (all live-verified)
-        // feedURL drives PodcastRSSService; contentType = spokenWord for track-level navigation.
-        // tags: [id] must match what PodcastRSSService stores in Track.tags so channel.matches()
-        // correctly isolates each channel's episodes; preferredSource: "podcast" skips IA/FMA DB rows.
+        // MARK: Podcasts — Ad-free, CC-licensed or donation-funded podcasts
+        // Every podcast here is verified ad-free in its RSS feed.
+        // feedURL drives PodcastRSSService; contentType = spokenWord for track-level
+        // navigation. tags: [id] must match what PodcastRSSService stores in
+        // Track.tags so channel.matches() correctly isolates each channel's episodes;
+        // preferredSource: "podcast" skips IA/FMA DB rows.
         // Episodes play from 0:00 to comply with podcast RSS terms of service.
-        Channel(
-            id: "news-nprup-first", name: "NPR Up First",
-            category: "Podcasts", icon: "sunrise.fill",
-            tags: ["news-nprup-first"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.npr.org/510318/podcast.xml"
-        ),
-        Channel(
-            id: "news-pbs-newshour", name: "PBS NewsHour",
-            category: "Podcasts", icon: "tv",
-            tags: ["news-pbs-newshour"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.npr.org/510317/podcast.xml"
-        ),
         Channel(
             id: "news-democracy-now", name: "Democracy Now!",
             category: "Podcasts", icon: "megaphone.fill",
@@ -280,71 +268,36 @@ extension Channel {
             feedURL: "https://www.democracynow.org/podcast.xml"
         ),
         Channel(
-            id: "news-npr-1a", name: "NPR 1A",
-            category: "Podcasts", icon: "person.2.fill",
-            tags: ["news-npr-1a"],
+            id: "podcast-no-agenda", name: "No Agenda",
+            category: "Podcasts", icon: "waveform.circle.fill",
+            tags: ["podcast-no-agenda"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.npr.org/510316/podcast.xml"
-        ),
-        // International public broadcasters. Their canonical podcast feeds are
-        // licence-fee / public-funded and ship ad-free worldwide (the "BBC has
-        // ads outside the UK" issue is Spotify's insertion — not the BBC RSS).
-        // All curl-verified live with hundreds of recent items.
-        Channel(
-            id: "news-bbc-global", name: "BBC Global News",
-            category: "Podcasts", icon: "globe.europe.africa.fill",
-            tags: ["news-bbc-global"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://podcasts.files.bbci.co.uk/p02nq0gn.rss"
+            feedURL: "https://feed.nashownotes.com/rss.xml",
+            summary: "A twice-weekly news deconstruction by Adam Curry and John C. Dvorak. No ads, no sponsors — listener-supported since 2007."
         ),
         Channel(
-            id: "news-dw-inside-europe", name: "DW Inside Europe",
-            category: "Podcasts", icon: "building.columns.fill",
-            tags: ["news-dw-inside-europe"],
+            id: "podcast-citations-needed", name: "Citations Needed",
+            category: "Podcasts", icon: "text.book.closed.fill",
+            tags: ["podcast-citations-needed"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://partner.dw.com/xml/podcast_inside-europe"
+            feedURL: "https://feeds.libsyn.com/169725/rss",
+            summary: "A weekly podcast about media, power, and the history of bullshit. Ad-free, funded by listener donations."
         ),
         Channel(
-            id: "news-cbc-as-it-happens", name: "CBC As It Happens",
-            category: "Podcasts", icon: "globe.americas.fill",
-            tags: ["news-cbc-as-it-happens"],
+            id: "podcast-security-now", name: "Security Now",
+            category: "Podcasts", icon: "lock.shield.fill",
+            tags: ["podcast-security-now"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://www.cbc.ca/podcasting/includes/asithappens.xml"
+            feedURL: "https://feeds.twit.tv/sn.xml",
+            summary: "Steve Gibson and Leo Laporte break down the week's security news. CC BY-NC-SA, ad-free audio feed."
         ),
         Channel(
-            id: "podcast-joe-rogan", name: "The Joe Rogan Experience",
-            category: "Podcasts", icon: "mic.fill",
-            tags: ["podcast-joe-rogan"],
+            id: "podcast-floss-weekly", name: "FLOSS Weekly",
+            category: "Podcasts", icon: "apple.terminal.fill",
+            tags: ["podcast-floss-weekly"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.simplecast.com/dZbMGr98"
-        ),
-        Channel(
-            id: "podcast-nyt-daily", name: "The Daily",
-            category: "Podcasts", icon: "newspaper.fill",
-            tags: ["podcast-nyt-daily"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.simplecast.com/54nAGcIl"
-        ),
-        Channel(
-            id: "podcast-this-american-life", name: "This American Life",
-            category: "Podcasts", icon: "radio.fill",
-            tags: ["podcast-this-american-life"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://www.thisamericanlife.org/podcast/rss.xml"
-        ),
-        Channel(
-            id: "podcast-ted-radio-hour", name: "TED Radio Hour",
-            category: "Podcasts", icon: "lightbulb.fill",
-            tags: ["podcast-ted-radio-hour"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://www.npr.org/rss/podcast.php?id=510298"
-        ),
-        Channel(
-            id: "podcast-npr-politics", name: "NPR Politics Podcast",
-            category: "Podcasts", icon: "building.columns.fill",
-            tags: ["podcast-npr-politics"],
-            contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.npr.org/510310/podcast.xml"
+            feedURL: "https://feeds.twit.tv/floss.xml",
+            summary: "Interviews with notable figures in the free and open-source software community. CC BY, ad-free."
         ),
 
         // MARK: Curated — pure-Lucene IA channels

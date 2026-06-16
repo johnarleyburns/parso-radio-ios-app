@@ -43,7 +43,6 @@ final class QueueManager {
         if channel.feedURL != nil { return .sequentialNewestFirst }
         if shuffleMode { return .shuffledPool }
         if channel.iaQueryEntry != nil { return .shuffledPool }
-        if channel.category == "Lectures" { return .shuffledPool }
         return .sequentialInOrder
     }
 
@@ -80,38 +79,39 @@ final class QueueManager {
     // MARK: - Librivox sequential advance
 
     func nextPart(after track: Track, channel: Channel) async -> Track? {
-        guard let parent = track.parentIdentifier,
-              let currentPart = track.partNumber else { return nil }
+        let parent = track.parentIdentifier ?? track.id
+        let currentPart = track.partNumber ?? 1
         let allTracks = await db.fetchTracks(forChannel: channel)
         let approved = approvedFilter(allTracks, for: channel)
         let parts = approved
             .filter { $0.parentIdentifier == parent }
             .sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
         guard let nextPart = parts.first(where: { ($0.partNumber ?? 0) == currentPart + 1 }) else {
-            // Last part — advance to first part of the next book
+            if parts.isEmpty { return nil }
             return await nextBook(after: parent, channel: channel)
         }
         return nextPart
     }
 
     func previousPart(before track: Track, channel: Channel) async -> Track? {
-        guard let parent = track.parentIdentifier,
-              let currentPart = track.partNumber else { return nil }
+        let parent = track.parentIdentifier ?? track.id
+        let currentPart = track.partNumber ?? 1
         let allTracks = await db.fetchTracks(forChannel: channel)
         let approved = approvedFilter(allTracks, for: channel)
         let parts = approved
             .filter { $0.parentIdentifier == parent }
             .sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+        if parts.isEmpty { return nil }
         return parts.first(where: { ($0.partNumber ?? 0) == currentPart - 1 })
     }
 
     func firstPartOfNextBook(after track: Track, channel: Channel) async -> Track? {
-        guard let parent = track.parentIdentifier else { return nil }
+        let parent = track.parentIdentifier ?? track.id
         return await nextBook(after: parent, channel: channel)
     }
 
     func firstPartOfPreviousBook(before track: Track, channel: Channel) async -> Track? {
-        guard let parent = track.parentIdentifier else { return nil }
+        let parent = track.parentIdentifier ?? track.id
         return await previousBook(before: parent, channel: channel)
     }
 
@@ -202,13 +202,10 @@ final class QueueManager {
         }
         guard !pool.isEmpty else { return nil }
 
-        // Curated radio-style channels always play in random order regardless
-        // of the global shuffle toggle:
-        //  - registry-backed IA channels (e.g. Spanish Guitar), and
-        //  - Lecture channels, which aggregate every series in a faculty, so a
-        //    random mix is the intended experience (not one course in order;
-        //    Oxford tracks also carry no addedDate, so the non-shuffle path
-        //    would just emit an arbitrary DB order anyway).
+        // Registry-backed IA channels always play in random order regardless
+        // of the global shuffle toggle. Lecture channels play sequentially
+        // within their series (like chapters in a book), then advance to
+        // the next series when the current one finishes.
         // Sequential newest-first only makes sense for podcast/news channels.
         let effectiveShuffle = Self.effectiveQueueStyle(channel, shuffleMode: shuffleMode) == .shuffledPool
 

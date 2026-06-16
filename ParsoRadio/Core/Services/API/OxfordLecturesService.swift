@@ -66,24 +66,47 @@ struct OxfordLecturesService {
             print("OxfordLecturesService: no audio.xml feed for series '\(seriesSlug)' (video-only or changed HTML)")
             return []
         }
-        return try await fetchRSSFeed(uuid: String(html[r]), unitSlug: unitSlug)
+        let seriesTitle = extractSeriesTitle(from: html) ?? seriesSlug
+        return try await fetchRSSFeed(uuid: String(html[r]), unitSlug: unitSlug,
+                                       seriesSlug: seriesSlug, seriesTitle: seriesTitle)
     }
 
-    private func fetchRSSFeed(uuid: String, unitSlug: String) async throws -> [Track] {
+    private func extractSeriesTitle(from html: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: #"<h1[^>]*>([\s\S]*?)</h1>"#),
+              let m = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+              let r = Range(m.range(at: 1), in: html) else { return nil }
+        return String(html[r])
+            .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func fetchRSSFeed(uuid: String, unitSlug: String,
+                              seriesSlug: String, seriesTitle: String) async throws -> [Track] {
         let url = URL(string: "https://podcasts.ox.ac.uk/feeds/\(uuid)/audio.xml")!
         let data = try await safeFetch(url)
         guard let xml = String(data: data, encoding: .utf8) else { return [] }
-        return parseItems(xml: xml, unitSlug: unitSlug)
+        return parseItems(xml: xml, unitSlug: unitSlug, seriesSlug: seriesSlug, seriesTitle: seriesTitle)
     }
 
-    private func parseItems(xml: String, unitSlug: String) -> [Track] {
+    private func parseItems(xml: String, unitSlug: String,
+                            seriesSlug: String, seriesTitle: String) -> [Track] {
         guard let regex = try? NSRegularExpression(
             pattern: "<item>(.*?)</item>",
             options: .dotMatchesLineSeparators
         ) else { return [] }
-        return regex.matches(in: xml, range: NSRange(xml.startIndex..., in: xml)).compactMap { m in
+        let items = regex.matches(in: xml, range: NSRange(xml.startIndex..., in: xml)).compactMap { m -> Track? in
             guard let r = Range(m.range(at: 1), in: xml) else { return nil }
             return parseItem(String(xml[r]), unitSlug: unitSlug)
+        }
+        let total = items.count
+        return items.enumerated().map { index, track in
+            guard total > 1 else { return track }
+            var t = track
+            t.partNumber = index + 1
+            t.totalParts = total
+            t.parentIdentifier = seriesSlug
+            t.collectionTitle = seriesTitle
+            return t
         }
     }
 

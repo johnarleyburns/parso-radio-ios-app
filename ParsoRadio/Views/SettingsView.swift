@@ -49,7 +49,7 @@ struct SettingsView: View {
                           systemImage: contributionStore.isSupporter ? "heart.fill" : "heart")
                         .foregroundStyle(contributionStore.isSupporter ? Color.pink : Color.accentColor)
                 }
-                if contributionStore.hasActiveSubscription {
+                if contributionStore.isSupporter {
                     Toggle(isOn: Binding(
                         get: { !supporterBadgeHidden },
                         set: { supporterBadgeHidden = !$0 }
@@ -59,7 +59,7 @@ struct SettingsView: View {
                     .accessibilityHint("Hides or shows the supporter badge on the Now Playing screen")
                 }
             } footer: {
-                Text("Keep Lorewave free and ad-free. We give 10% of proceeds to the Internet Archive.")
+                Text("A one-time tip makes you a supporter. We give 10% of proceeds to the Internet Archive.")
             }
 
             Section {

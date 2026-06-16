@@ -1,10 +1,9 @@
 import SwiftUI
 import StoreKit
 
-/// The purchase UI — used both as the toast's "Support" sheet and the
-/// Settings → Support section. Shows the one-time tips, the monthly/yearly
-/// subscription, Restore, Manage Subscription, and the required disclosures.
-/// If no products load (ASC not configured yet) it shows a gentle placeholder.
+/// One-time contribution tips. If the user has ever contributed, the view
+/// shows a thank-you message and invites another tip. If no products load
+/// (ASC not configured yet) it shows a gentle placeholder.
 struct ContributionSupportView: View {
     @ObservedObject var store: ContributionStore
     @Environment(\.dismiss) private var dismiss
@@ -13,37 +12,29 @@ struct ContributionSupportView: View {
     var body: some View {
         List {
             Section {
-                Text("Lorewave is free and ad-free. A contribution helps cover hosting, copyright/DMCA handling, and development — and we give 10% of our proceeds (after Apple's commission) to the Internet Archive.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
                 if store.isSupporter {
-                    Label("You're a supporter — thank you!", systemImage: "heart.fill")
-                        .foregroundStyle(.pink)
-                }
-            }
-
-            if !store.oneTimeProducts.isEmpty {
-                Section("One-time") {
-                    ForEach(store.oneTimeProducts, id: \.id) { purchaseRow($0) }
-                }
-            }
-
-            if !store.subscriptionProducts.isEmpty {
-                Section {
-                    ForEach(store.subscriptionProducts, id: \.id) { purchaseRow($0) }
-                    if store.hasActiveSubscription {
-                        Button("Manage Subscription") {
-                            Task { await store.showManageSubscriptions() }
-                        }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Thank you for your support!", systemImage: "heart.fill")
+                            .foregroundStyle(.pink)
+                            .font(.headline)
+                        Text("Lorewave stays free and ad-free because of listeners like you. Want to buy us another coffee?")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
-                } header: {
-                    Text("Monthly / Yearly")
-                } footer: {
-                    Text("Supporters get exclusive app icons and help shape the roadmap. Subscriptions renew automatically until cancelled in Settings.")
+                } else {
+                    Text("Lorewave is free and ad-free. A contribution helps cover hosting, copyright/DMCA handling, and development — and we give 10% of our proceeds (after Apple's commission) to the Internet Archive.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
             }
 
-            if store.oneTimeProducts.isEmpty && store.subscriptionProducts.isEmpty {
+            if !store.products.isEmpty {
+                Section("Tips") {
+                    ForEach(store.products, id: \.id) { purchaseRow($0) }
+                }
+            }
+
+            if store.products.isEmpty {
                 Section {
                     Text("Support options aren't available yet. Please check back soon.")
                         .foregroundStyle(.secondary)
