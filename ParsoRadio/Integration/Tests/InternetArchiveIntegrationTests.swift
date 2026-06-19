@@ -115,17 +115,17 @@ final class InternetArchiveIntegrationTests: XCTestCase {
         )
     }
 
-    // Parametrized over EVERY pure-Lucene registry channel — Curated music
-    // AND the 21 LibriVox audiobook channels (auto-covers anything added to
-    // ia_queries.json). Guards the end-to-end contract:
+    // Parametrized over EVERY pure-Lucene registry channel — the 21 LibriVox
+    // audiobook channels (auto-covers anything added to ia_queries.json).
+    // Guards the end-to-end contract:
     //  (a) the query returns a healthy pool (not starved/empty)
     //  (b) every track is stamped with the channel's matchTag
     //  (c) every track passes Channel.matches — shared-DB queue not starved
     //  (d) the stamp is unique per channel (no cross-channel contamination)
     func testEveryRegistryChannelReturnsHealthyStampedPool() async throws {
         let registry = Channel.defaults.filter { $0.iaQueryEntry != nil }
-        XCTAssertGreaterThanOrEqual(registry.count, 28,
-            "expected the curated + LibriVox registry channels")
+        XCTAssertGreaterThanOrEqual(registry.count, 21,
+            "expected the LibriVox registry channels")
 
         for channel in registry {
             guard let entry = channel.iaQueryEntry else {

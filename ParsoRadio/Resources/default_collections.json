@@ -1,184 +1,740 @@
 [
   {
-    "id": "georgeblood",
-    "title": "78rpm Records Digitized by George Blood, L.P.",
-    "category": "78_broad",
-    "curator": "George Blood, L.P.",
-    "icon": "opticaldisc"
+    "id": "aadamjacobs",
+    "title": "Aadam Jacobs Collection at the Live Music Archive",
+    "category": "live_music",
+    "curator": "Aadam Jacobs (AJC project)",
+    "icon": "music.mic",
+    "tier": "curated_focused",
+    "itemCount": 2890
   },
   {
-    "id": "78rpm_leif_druedahl",
-    "title": "Leif Druedahl Collection",
-    "category": "78_broad",
-    "curator": "Leif Druedahl",
-    "icon": "opticaldisc"
+    "id": "rootofjesse",
+    "title": "Root of Jesse Collection",
+    "category": "gospel",
+    "curator": "Root of Jesse",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 2337
   },
   {
-    "id": "78rpm_bowling_green",
-    "title": "Bowling Green State University 78rpm Collection",
-    "category": "78_broad",
-    "curator": "Bowling Green State University",
-    "icon": "building.columns"
+    "id": "paladinos",
+    "title": "Live Recordings From Paladinos",
+    "category": "live",
+    "curator": "Paladinos venue",
+    "icon": "music.mic",
+    "tier": "curated_focused",
+    "itemCount": 1535
   },
   {
-    "id": "hifidelity",
-    "title": "The High Fidelity Emporium and Orchestrion",
-    "category": "audio_broad",
-    "curator": "High Fidelity Emporium",
-    "icon": "hifispeaker"
+    "id": "lomaxky",
+    "title": "Kentucky Alan Lomax Recordings, 1937-1942",
+    "category": "field_folk",
+    "curator": "Alan Lomax (Kentucky, 1937-1942)",
+    "icon": "leaf",
+    "tier": "curated_focused",
+    "itemCount": 1394
   },
   {
-    "id": "unlockedrecordings",
-    "title": "Unlocked Recordings",
-    "category": "audio_broad",
-    "curator": "Internet Archive",
-    "icon": "lock.open"
+    "id": "78rpm_aldo-mancusi",
+    "title": "Aldo Mancusi 78rpm Collection",
+    "category": "opera_78",
+    "curator": "Aldo Mancusi (Enrico Caruso Museum)",
+    "icon": "music.quarternote.3",
+    "tier": "curated_focused",
+    "itemCount": 1020
   },
   {
-    "id": "russian_classical_collection",
-    "title": "Russian Classical Collection",
-    "category": "classical",
-    "curator": "Russian Classical Collection",
-    "icon": "music.note"
+    "id": "tedjonespiano",
+    "title": "Ted Jones Piano Recordings",
+    "category": "piano",
+    "curator": "Ted Jones",
+    "icon": "pianokeys",
+    "tier": "curated_focused",
+    "itemCount": 870
   },
   {
-    "id": "satyr-lp-mono",
-    "title": "Satyr classical LPs 1950s - 1970s",
-    "category": "classical",
-    "curator": "Rolf Sinnema (Satyr-78rpm)",
-    "icon": "music.note"
+    "id": "vinyl_frank-defreytas-memoria-opera",
+    "title": "Frank Defreytas Memorial Opera Collection",
+    "category": "opera",
+    "curator": "Frank Defreytas (memorial)",
+    "icon": "music.quarternote.3",
+    "tier": "curated_focused",
+    "itemCount": 846
   },
   {
-    "id": "satyrlp25cm",
-    "title": "Satyr LP 25 cm (10 inch)",
-    "category": "classical",
-    "curator": "Rolf Sinnema (Satyr-78rpm)",
-    "icon": "music.note"
-  },
-  {
-    "id": "78rpm_charm",
-    "title": "Centre for the History and Analysis of Recorded Music",
-    "category": "classical_78",
-    "curator": "CHARM (academic)",
-    "icon": "music.quarternote.3"
-  },
-  {
-    "id": "satyr78rpm",
-    "title": "Satyr 78 rpm collection",
-    "category": "classical_78",
-    "curator": "Rolf Sinnema (Satyr-78rpm)",
-    "icon": "music.note"
-  },
-  {
-    "id": "78rpm_cornbelt-symphony",
-    "title": "Cornbelt Symphony 78rpm Collection",
-    "category": "classical_78",
-    "curator": "Cornbelt Symphony",
-    "icon": "music.note.list"
-  },
-  {
-    "id": "78rpm_cornbelt-symphony-mark-hardin",
-    "title": "Cornbelt Symphony - Mark Hardin Collection",
-    "category": "classical_78",
-    "curator": "Cornbelt Symphony / Mark Hardin",
-    "icon": "music.note.list"
-  },
-  {
-    "id": "bostonsymphonyorchestra",
-    "title": "Boston Symphony Orchestra Archives",
-    "category": "classical_live",
-    "curator": "Boston Symphony Orchestra",
-    "icon": "music.note.list"
-  },
-  {
-    "id": "vinyl_bostonpubliclibrary",
-    "title": "Boston Public Library LP Records",
+    "id": "vinyl_gerard-arthus_records",
+    "title": "Gerard Arthus LP Collection",
     "category": "classical_lp",
-    "curator": "Boston Public Library",
-    "icon": "building.columns"
+    "curator": "Gerard Arthus",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 830
   },
   {
-    "id": "fav-satyr-78rpm",
-    "title": "Satyr-78rpm Favorites",
-    "category": "favorites",
-    "curator": "Rolf Sinnema (Satyr-78rpm)",
-    "icon": "star"
+    "id": "vinyl_john-rockwell_records",
+    "title": "John Rockwell LP Collection",
+    "category": "classical_lp",
+    "curator": "John Rockwell (NYT critic)",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 820
   },
   {
-    "id": "pjppa",
-    "title": "Philadelphia Jazz Project",
-    "category": "jazz",
-    "curator": "Philadelphia Jazz Project",
-    "icon": "music.mic"
-  },
-  {
-    "id": "davidwnivenjazz",
-    "title": "The David W. Niven Collection of Early Jazz Legends",
-    "category": "jazz",
-    "curator": "David W. Niven",
-    "icon": "music.mic"
-  },
-  {
-    "id": "cujazz",
-    "title": "CUJAZZ Collection",
-    "category": "jazz",
-    "curator": "CUJAZZ",
-    "icon": "music.mic"
-  },
-  {
-    "id": "satyr-lp-jazz",
-    "title": "Satyr LP Jazz & World",
-    "category": "jazz",
-    "curator": "Rolf Sinnema (Satyr-78rpm)",
-    "icon": "music.mic"
-  },
-  {
-    "id": "vinyl_robert-haber-records",
-    "title": "Robert Haber Jazz Collection",
-    "category": "jazz",
-    "curator": "Robert Haber",
-    "icon": "music.mic"
+    "id": "vinyl_richard-dyer_records",
+    "title": "Richard Dyer LP Collection",
+    "category": "classical_lp",
+    "curator": "Richard Dyer (Boston Globe critic)",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 803
   },
   {
     "id": "sfjazz",
     "title": "SFJAZZ Historical Archive",
     "category": "jazz_live",
     "curator": "SFJAZZ",
-    "icon": "music.mic"
+    "icon": "music.mic",
+    "tier": "curated_focused",
+    "itemCount": 751
   },
   {
-    "id": "aadamjacobs",
-    "title": "Aadam Jacobs Collection at the Live Music Archive",
-    "category": "live_music",
-    "curator": "Aadam Jacobs (AJC project)",
-    "icon": "music.mic"
+    "id": "bostonsymphonyorchestra",
+    "title": "Boston Symphony Orchestra Archives",
+    "category": "classical_live",
+    "curator": "Boston Symphony Orchestra",
+    "icon": "music.note.list",
+    "tier": "curated_focused",
+    "itemCount": 719
   },
   {
-    "id": "aadamjacobsvideo",
-    "title": "Aadam Jacobs Video Collection at the Live Music Archive",
-    "category": "live_music_video",
-    "curator": "Aadam Jacobs (AJC project)",
-    "icon": "video"
+    "id": "satyr78rpm",
+    "title": "Satyr 78 rpm collection",
+    "category": "classical_78",
+    "curator": "Rolf Sinnema (Satyr-78rpm)",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 717
   },
   {
-    "id": "album_recordings",
-    "title": "Long Playing Records",
-    "category": "lp_broad",
-    "curator": "Internet Archive",
-    "icon": "opticaldisc"
+    "id": "pjppa",
+    "title": "Philadelphia Jazz Project",
+    "category": "jazz",
+    "curator": "Philadelphia Jazz Project",
+    "icon": "music.mic",
+    "tier": "curated_focused",
+    "itemCount": 680
+  },
+  {
+    "id": "78rpm_arthur-friedheim",
+    "title": "Arthur Friedheim Library 78rpm Collection",
+    "category": "classical_78",
+    "curator": "Arthur Friedheim Library (Peabody)",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 657
+  },
+  {
+    "id": "musica-campesina",
+    "title": "La Música Parrandera Campesina",
+    "category": "latin",
+    "curator": "La Música Parrandera Campesina",
+    "icon": "guitars",
+    "tier": "curated_focused",
+    "itemCount": 651
+  },
+  {
+    "id": "ende-records",
+    "title": "ENDE Records",
+    "category": "netlabel",
+    "curator": "ENDE Records",
+    "icon": "antenna.radiowaves.left.and.right",
+    "tier": "curated_focused",
+    "itemCount": 630
+  },
+  {
+    "id": "davidwnivenjazz",
+    "title": "The David W. Niven Collection of Early Jazz Legends, 1921-1991",
+    "category": "jazz",
+    "curator": "David W. Niven",
+    "icon": "music.mic",
+    "tier": "curated_focused",
+    "itemCount": 625
+  },
+  {
+    "id": "westernopera",
+    "title": "The Opera Collection of the University of Western Ontario Music Library",
+    "category": "opera",
+    "curator": "Univ. of Western Ontario Music Library",
+    "icon": "music.quarternote.3",
+    "tier": "curated_focused",
+    "itemCount": 625
+  },
+  {
+    "id": "radiocontinentaldrift",
+    "title": "Radio Continental Drift",
+    "category": "field_recordings",
+    "curator": "Radio Continental Drift",
+    "icon": "waveform",
+    "tier": "curated_focused",
+    "itemCount": 503
+  },
+  {
+    "id": "crucialriddm_music",
+    "title": "Crucialriddm Jamaica and Reggae Collection",
+    "category": "reggae",
+    "curator": "Crucialriddm",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 495
+  },
+  {
+    "id": "vinyl_folk-dancer_records",
+    "title": "The Herman-Shacklette Folk Dancer Collection",
+    "category": "folk",
+    "curator": "Herman-Shacklette",
+    "icon": "leaf",
+    "tier": "curated_focused",
+    "itemCount": 444
+  },
+  {
+    "id": "78rpm_cornbelt-symphony",
+    "title": "Cornbelt Symphony 78rpm Collection",
+    "category": "classical_78",
+    "curator": "Cornbelt Symphony",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 396
+  },
+  {
+    "id": "78rpm_cornbelt-symphony-mark-hardin",
+    "title": "Cornbelt Symphony - Mark Hardin Collection",
+    "category": "classical_78",
+    "curator": "Cornbelt Symphony / Mark Hardin",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 393
+  },
+  {
+    "id": "music-of-the-world-istanbul",
+    "title": "Music Of The World - Açik Radio in Istanbul",
+    "category": "world",
+    "curator": "Açik Radio (Istanbul)",
+    "icon": "globe",
+    "tier": "curated_focused",
+    "itemCount": 380
+  },
+  {
+    "id": "laphil",
+    "title": "Los Angeles Philharmonic Association",
+    "category": "classical_live",
+    "curator": "Los Angeles Philharmonic",
+    "icon": "music.note.list",
+    "tier": "curated_focused",
+    "itemCount": 314
+  },
+  {
+    "id": "cujazz",
+    "title": "CUJAZZ Collection",
+    "category": "jazz",
+    "curator": "CUJAZZ",
+    "icon": "music.mic",
+    "tier": "curated_focused",
+    "itemCount": 308
+  },
+  {
+    "id": "imcradio",
+    "title": "IMC - India Meets Classic",
+    "category": "indian_classical",
+    "curator": "India Meets Classic (radio)",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 287
+  },
+  {
+    "id": "satyr-lp-mono",
+    "title": "Satyr classical LPs 1950s - 1970s",
+    "category": "classical",
+    "curator": "Rolf Sinnema (Satyr-78rpm)",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 279
+  },
+  {
+    "id": "birch",
+    "title": "Joseph J. Birch Organ Music Collection",
+    "category": "organ",
+    "curator": "Joseph J. Birch",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 252
+  },
+  {
+    "id": "vinyl_stockton-folk-dance-camp-records",
+    "title": "Stockton Folk Dance Camp LP Collection",
+    "category": "folk",
+    "curator": "Stockton Folk Dance Camp",
+    "icon": "leaf",
+    "tier": "curated_focused",
+    "itemCount": 186
+  },
+  {
+    "id": "satyrlp25cm",
+    "title": "Satyr LP 25 cm (10 inch) ",
+    "category": "classical",
+    "curator": "Rolf Sinnema (Satyr-78rpm)",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 180
+  },
+  {
+    "id": "luis-antero-field-recordings",
+    "title": "Luis Antero Field Recordings",
+    "category": "field_recordings",
+    "curator": "Luis Antero",
+    "icon": "waveform",
+    "tier": "curated_focused",
+    "itemCount": 177
+  },
+  {
+    "id": "green-field-recordings",
+    "title": "Green Field Recordings",
+    "category": "field_recordings",
+    "curator": "Green Field Recordings",
+    "icon": "waveform",
+    "tier": "curated_focused",
+    "itemCount": 143
+  },
+  {
+    "id": "satyr-lp-jazz",
+    "title": "Satyr LP Jazz & World",
+    "category": "jazz",
+    "curator": "Rolf Sinnema (Satyr-78rpm)",
+    "icon": "music.mic",
+    "tier": "curated_focused",
+    "itemCount": 143
+  },
+  {
+    "id": "vinyl_robert-haber-records",
+    "title": "Robert Haber Jazz Collection",
+    "category": "jazz",
+    "curator": "Robert Haber",
+    "icon": "music.mic",
+    "tier": "curated_focused",
+    "itemCount": 141
+  },
+  {
+    "id": "argumedo-hug",
+    "title": "Tina Argumedo and Lucrecia Hug 78rpm Collection",
+    "category": "tango_78",
+    "curator": "Tina Argumedo & Lucrecia Hug",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 118
+  },
+  {
+    "id": "voa-music-time-in-africa",
+    "title": "VOA Music Time in Africa",
+    "category": "african",
+    "curator": "Voice of America",
+    "icon": "globe",
+    "tier": "curated_focused",
+    "itemCount": 98
   },
   {
     "id": "satyr-LP-78rpm",
     "title": "Satyr LP (78rpm rolls cylinders)",
     "category": "mixed_78",
     "curator": "Rolf Sinnema (Satyr-78rpm)",
-    "icon": "opticaldisc"
+    "icon": "opticaldisc",
+    "tier": "curated_focused",
+    "itemCount": 97
   },
   {
-    "id": "cratediggers",
-    "title": "Cratediggers",
-    "category": "vinyl_broad",
-    "curator": "Cratediggers",
-    "icon": "opticaldisc"
+    "id": "radio-crossover-tango",
+    "title": "Radio Crossover Tango",
+    "category": "tango",
+    "curator": "Radio Crossover Tango",
+    "icon": "music.note",
+    "tier": "curated_focused",
+    "itemCount": 51
+  },
+  {
+    "id": "phillipslibraryearlymusic",
+    "title": "Phillips Library Early Music Collection",
+    "category": "early_music",
+    "curator": "Phillips Library",
+    "icon": "music.quarternote.3",
+    "tier": "curated_focused",
+    "itemCount": 44
+  },
+  {
+    "id": "komotioninternational",
+    "title": "Komotion International Archive",
+    "category": "live",
+    "curator": "Komotion International",
+    "icon": "music.mic",
+    "tier": "curated_focused",
+    "itemCount": 38
+  },
+  {
+    "id": "fav-satyr-78rpm",
+    "title": "Satyr-78rpm Favorites",
+    "category": "favorites",
+    "curator": "Rolf Sinnema (Satyr-78rpm)",
+    "icon": "star",
+    "tier": "curated_focused",
+    "itemCount": 8
+  },
+  {
+    "id": "aadamjacobsvideo",
+    "title": "Aadam Jacobs Video Collection at the Live Music Archive",
+    "category": "live_music_video",
+    "curator": "Aadam Jacobs (AJC project)",
+    "icon": "video",
+    "tier": "curated_focused",
+    "itemCount": 5
+  },
+  {
+    "id": "derek-piotr-fieldwork-archive",
+    "title": "Derek Piotr Fieldwork Archive",
+    "category": "field_folk",
+    "curator": "Derek Piotr",
+    "icon": "leaf",
+    "tier": "genre_curators",
+    "itemCount": 1927
+  },
+  {
+    "id": "jazz-ready",
+    "title": "Jazz Ready: 15 Minutes (more or less) of Unexpected Pleasure",
+    "category": "jazz",
+    "curator": "Jazz Ready (individual curator)",
+    "icon": "music.mic",
+    "tier": "genre_curators",
+    "itemCount": 226
+  },
+  {
+    "id": "jazz-fusion",
+    "title": "Jazz Fusion Records",
+    "category": "jazz",
+    "curator": "individual curator",
+    "icon": "music.mic",
+    "tier": "genre_curators",
+    "itemCount": 96
+  },
+  {
+    "id": "the-ingfried-hoffmann-archive",
+    "title": "The Ingfried Hoffmann Archive",
+    "category": "jazz",
+    "curator": "individual curator",
+    "icon": "music.mic",
+    "tier": "genre_curators",
+    "itemCount": 42
+  },
+  {
+    "id": "vinyl_lawrence-katz-records",
+    "title": "Lawrence Katz LP Collection",
+    "category": "individual_lp",
+    "curator": "Lawrence Katz",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 1760
+  },
+  {
+    "id": "vinyl_david-reichmann_records",
+    "title": "David Reichmann LP Collection",
+    "category": "individual_lp",
+    "curator": "David Reichmann",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 902
+  },
+  {
+    "id": "vinyl_allan-ulrich-records",
+    "title": "The Allan Ulrich LP Collection",
+    "category": "individual_lp",
+    "curator": "The Allan Ulrich",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 757
+  },
+  {
+    "id": "vinyl_robert-sattler_records",
+    "title": "The Robert Sattler LP Collection",
+    "category": "individual_lp",
+    "curator": "The Robert Sattler",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 705
+  },
+  {
+    "id": "vinyl_estate-of-sam-randlett_records",
+    "title": "Sam Randlett Record Collection",
+    "category": "individual_lp",
+    "curator": "Sam Randlett",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 572
+  },
+  {
+    "id": "vinyl_charles-burn-records",
+    "title": "Charles Burn LP Records",
+    "category": "individual_lp",
+    "curator": "Charles Burn",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 559
+  },
+  {
+    "id": "vinyl_dave-burnham_records",
+    "title": "Dave Burnham LP Collection",
+    "category": "individual_lp",
+    "curator": "Dave Burnham",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 449
+  },
+  {
+    "id": "vinyl_warshauer-family_records",
+    "title": "Warshauer Family LP Collection",
+    "category": "individual_lp",
+    "curator": "Warshauer Family",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 394
+  },
+  {
+    "id": "vinyl_chris-howard_records",
+    "title": "Chris Howard LP Collection",
+    "category": "individual_lp",
+    "curator": "Chris Howard",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 380
+  },
+  {
+    "id": "vinyl_fred-schubert_records",
+    "title": "Fred Schubert LP Collection",
+    "category": "individual_lp",
+    "curator": "Fred Schubert",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 293
+  },
+  {
+    "id": "vinyl_ted-jaeckel_records",
+    "title": "The Theodore R. Jaeckel and Yolanda B. Jaeckel LP Collection",
+    "category": "individual_lp",
+    "curator": "The Theodore R. Jaeckel and Yolanda B. Jaeckel",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 293
+  },
+  {
+    "id": "vinyl_bill-hise-records",
+    "title": "William Hise LP Collection",
+    "category": "individual_lp",
+    "curator": "William Hise",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 252
+  },
+  {
+    "id": "vinyl_anthony-jaslow_records",
+    "title": "Anthony Jaslow LP Collection",
+    "category": "individual_lp",
+    "curator": "Anthony Jaslow",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 245
+  },
+  {
+    "id": "vinyl_james-and-carol-goodfriends_records",
+    "title": "James and Carol Goodfriend LP Collection",
+    "category": "individual_lp",
+    "curator": "James and Carol Goodfriend",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 243
+  },
+  {
+    "id": "vinyl_mark-carranza-records",
+    "title": "Mark Carranza LP Collection",
+    "category": "individual_lp",
+    "curator": "Mark Carranza",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 202
+  },
+  {
+    "id": "vinyl_drucilla-mills-records",
+    "title": "Drucilla Mills LP Records",
+    "category": "individual_lp",
+    "curator": "Drucilla Mills",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 195
+  },
+  {
+    "id": "vinyl_donald-r-snow-records",
+    "title": "Donald R. Snow LP Collection",
+    "category": "individual_lp",
+    "curator": "Donald R. Snow",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 182
+  },
+  {
+    "id": "vinyl_stu-brower-records",
+    "title": "Stu Brower LP Collection",
+    "category": "individual_lp",
+    "curator": "Stu Brower",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 146
+  },
+  {
+    "id": "vinyl_harry-chin_records",
+    "title": "Harry Chin LP Collection",
+    "category": "individual_lp",
+    "curator": "Harry Chin",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 144
+  },
+  {
+    "id": "vinyl_james-henry_records",
+    "title": "James Henry LP Collection",
+    "category": "individual_lp",
+    "curator": "James Henry",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 127
+  },
+  {
+    "id": "vinyl_daniel-mcneil-records",
+    "title": "Daniel McNeil LP Collection",
+    "category": "individual_lp",
+    "curator": "Daniel McNeil",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 106
+  },
+  {
+    "id": "vinyl_deirdre-springer-records",
+    "title": "David A. Kozelka LP Collection",
+    "category": "individual_lp",
+    "curator": "David A. Kozelka",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 86
+  },
+  {
+    "id": "vinyl_joseph-keeley_records",
+    "title": "Joseph Keeley LP Collection",
+    "category": "individual_lp",
+    "curator": "Joseph Keeley",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 77
+  },
+  {
+    "id": "vinyl_michael-mikel_records",
+    "title": "Michael Mikel LP Collection",
+    "category": "individual_lp",
+    "curator": "Michael Mikel",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 65
+  },
+  {
+    "id": "vinyl_douglas-h-henkle_records",
+    "title": "Doug Henkle Record Collection",
+    "category": "individual_lp",
+    "curator": "Doug Henkle",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 65
+  },
+  {
+    "id": "vinyl_howard-j-hirsch_records",
+    "title": "Howard Hirsch and Ira Hirsch LP Collection",
+    "category": "individual_lp",
+    "curator": "Howard Hirsch and Ira Hirsch",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 54
+  },
+  {
+    "id": "vinyl_randy-a-riddle-records",
+    "title": "Randy A. Riddle LPs and 45s",
+    "category": "individual_lp",
+    "curator": "Randy A. Riddle",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 38
+  },
+  {
+    "id": "vinyl_chris-sarris-greek_records",
+    "title": "Chris Sarris LP Collection",
+    "category": "greek",
+    "curator": "Chris Sarris",
+    "icon": "music.note",
+    "tier": "lp_curators",
+    "itemCount": 37
+  },
+  {
+    "id": "vinyl_gail-reese-records",
+    "title": "Gail Reese of 78 RPM 12 inch LP and 45 RPM",
+    "category": "individual_lp",
+    "curator": "Gail Reese of 78 RPM",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 33
+  },
+  {
+    "id": "vinyl_harry-tryon-records",
+    "title": "Harry Tryon LP Collection",
+    "category": "individual_lp",
+    "curator": "Harry Tryon",
+    "icon": "opticaldisc",
+    "tier": "lp_curators",
+    "itemCount": 27
+  },
+  {
+    "id": "fav-musicarchivefreak",
+    "title": "Garage, Rock, Blues, Soul & Country",
+    "category": "mixed_fav",
+    "curator": "musicarchivefreak (user list)",
+    "icon": "star",
+    "tier": "fav_lists",
+    "itemCount": 299
+  },
+  {
+    "id": "fav-dr_jazz",
+    "title": "Dr. Jazz Favorites",
+    "category": "jazz",
+    "curator": "Dr. Jazz (user list)",
+    "icon": "music.mic",
+    "tier": "fav_lists",
+    "itemCount": 173
+  },
+  {
+    "id": "fav-celtic-rose",
+    "title": "Celtic-Rose Favorites",
+    "category": "celtic",
+    "curator": "Celtic-Rose (user list)",
+    "icon": "music.note",
+    "tier": "fav_lists",
+    "itemCount": 83
+  },
+  {
+    "id": "fav-popular_jazz_music_archive",
+    "title": "Popular Jazz Music Archive Favorites",
+    "category": "jazz",
+    "curator": "Popular Jazz Music Archive (user list)",
+    "icon": "music.mic",
+    "tier": "fav_lists",
+    "itemCount": 52
   }
 ]

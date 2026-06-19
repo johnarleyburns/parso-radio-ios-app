@@ -7,11 +7,18 @@ struct IACollection: Codable, Identifiable, Hashable {
     let category: String
     let curator: String
     let icon: String
+    var tier: String?
+    var itemCount: Int?
     var isDefault: Bool = false
 
     var channelId: String { "ia-collection-\(id)" }
     var iaQuery: String { "collection:\(id)" }
     var archiveURL: URL? { URL(string: "https://archive.org/details/\(id)") }
+
+    var isCuratedFocused: Bool { tier == "curated_focused" }
+    var isGenreCurator: Bool { tier == "genre_curators" }
+    var isLPCurator: Bool { tier == "lp_curators" }
+    var isFavList: Bool { tier == "fav_lists" }
 
     func asChannel() -> Channel {
         Channel(
@@ -41,6 +48,22 @@ final class IACollectionStore: ObservableObject {
 
     var channels: [Channel] {
         collections.map { $0.asChannel() }
+    }
+
+    var featuredCollections: [IACollection] {
+        collections.filter { $0.isCuratedFocused || $0.isGenreCurator }
+    }
+
+    var lpCollections: [IACollection] {
+        collections.filter { $0.isLPCurator }
+    }
+
+    var favCollections: [IACollection] {
+        collections.filter { $0.isFavList }
+    }
+
+    var userCollections: [IACollection] {
+        collections.filter { !$0.isDefault }
     }
 
     func addCollection(_ collection: IACollection) {
