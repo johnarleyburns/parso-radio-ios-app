@@ -8,14 +8,13 @@ struct ListenView: View {
     @State private var showSettings = false
     @State private var nowPlayingChannel: Channel?
     @State private var showAddPodcast = false
-    @State private var showNewCuratedChannel = false
-    @State private var curateMeta: ChannelMeta?
+    @State private var showAddCollection = false
     @State private var selectedRecentTrack: Track?
     @State private var showSupporterSheet = false
 
     @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
     @AppStorage("supporterBadgeHidden") private var supporterBadgeHidden = false
-    @ObservedObject private var customChannelStore = CustomChannelsStore.shared
+    @ObservedObject private var iaCollectionStore = IACollectionStore.shared
     @ObservedObject private var podcastStore = PodcastSubscriptionStore.shared
 
     private func select(_ channel: Channel) { nowPlayingChannel = channel }
@@ -88,18 +87,8 @@ struct ListenView: View {
             .sheet(isPresented: $showAddPodcast) {
                 PodcastAddView(initialMode: .url)
             }
-            .sheet(isPresented: $showNewCuratedChannel) {
-                NewChannelSheet(onCreated: { meta in
-                    showNewCuratedChannel = false
-                    curateMeta = meta
-                })
-                .environmentObject(playerVM)
-            }
-            .sheet(item: $curateMeta) { meta in
-                CuratorChannelEditView(
-                    channelMeta: meta,
-                    playerVM: playerVM,
-                    onDismiss: { curateMeta = nil })
+            .sheet(isPresented: $showAddCollection) {
+                AddCollectionView()
             }
         }
     }
@@ -109,9 +98,12 @@ struct ListenView: View {
         let dedicated: Set<String> = ["For You"]
         let subs = section.id == .podcast
             ? podcastStore.subscriptions.map { podcastStore.channel(from: $0) } : []
+        let iaChannels = section.id == .music ? iaCollectionStore.channels : []
         let channels = (Channel.defaults
             .filter { $0.mediaKind == section.id && !dedicated.contains($0.category) }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) + subs
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending })
+            + iaChannels.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            + subs
         if channels.isEmpty { EmptyView() }
         else {
             Section {
@@ -137,6 +129,13 @@ struct ListenView: View {
                                 Label("Unsubscribe", systemImage: "trash")
                             }
                         }
+                        if let col = iaCollectionStore.collection(forChannelId: channel.id) {
+                            Button(role: .destructive) {
+                                iaCollectionStore.removeCollection(col)
+                            } label: {
+                                Label("Remove", systemImage: "trash")
+                            }
+                        }
                     }
                 }
             } header: {
@@ -144,20 +143,12 @@ struct ListenView: View {
                     Text(section.label)
                     Spacer()
                     if section.id == .music {
-                        Button { showNewCuratedChannel = true } label: {
+                        Button { showAddCollection = true } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.body)
                                 .foregroundStyle(Color.accentColor)
                         }
-                        .accessibilityLabel("Add curated music channel")
-                    }
-                    if section.id == .audiobook {
-                        Button { showNewCuratedChannel = true } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.body)
-                                .foregroundStyle(Color.accentColor)
-                        }
-                        .accessibilityLabel("Add curated books channel")
+                        .accessibilityLabel("Add collection")
                     }
                     if section.id == .podcast {
                         Button { showAddPodcast = true } label: {
@@ -174,14 +165,6 @@ struct ListenView: View {
 
     @ViewBuilder
     private func channelContextMenu(_ channel: Channel) -> some View {
-        if let meta = customChannelStore.customChannels.first(where: { $0.id == channel.id }) {
-            Button {
-                curateMeta = meta
-            } label: {
-                Label("Curate", systemImage: "checklist")
-            }
-        }
-
         NavigationLink(value: MenuRoute.channelInfo(channel)) {
             Label("Channel Info", systemImage: "info.circle")
         }
@@ -196,7 +179,7 @@ private struct ForYouSection: View {
             .filter { $0.category == "For You" && $0.id == "for-you" }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         if !forYouChannels.isEmpty {
-            Section("Curated Based on Your Taste") {
+            Section("Based on Your Taste") {
                 ForEach(forYouChannels, id: \.id) { channel in
                     Button { onSelect(channel) } label: {
                         Label(channel.name, systemImage: channel.icon)

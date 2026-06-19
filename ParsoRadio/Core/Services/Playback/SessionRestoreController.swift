@@ -10,10 +10,7 @@ final class SessionRestoreController {
         self.playerVM = playerVM
     }
 
-    static let channelIdMigrations: [String: String] = [
-        "classical-guitar": "guitar-classical",
-        "spanish-guitar": "guitar-classical"
-    ]
+    static let channelIdMigrations: [String: String] = [:]
 
     static func migratedChannelId(_ id: String?) -> String? {
         guard let id else { return nil }
@@ -25,7 +22,6 @@ final class SessionRestoreController {
         let d = UserDefaults.standard
         guard let track = vm.currentTrack,
               vm.currentChannel?.mediaKind != .ambient else { return }
-        guard !vm.isAuditioning else { return }
         if let pl = vm.currentPlaylist {
             d.set("playlist", forKey: "session.kind")
             d.set(pl.id, forKey: "session.contextId")
@@ -90,12 +86,7 @@ final class SessionRestoreController {
 
         if let tid = savedTrackId, let t = await db.fetchTrack(id: tid),
            NetworkMonitor.shared.isOnline || t.localFilePath != nil {
-            let isCurated = channel.category == "Curated" && channel.iaQueryEntry != nil
-            let approved = isCurated
-                ? Set(LiveCurationStore.shared.pool(for: channel.id).map(\.id))
-                : nil
-            if isCurated, let approved, !approved.isEmpty, !approved.contains(tid) {
-            } else if vm.currentTrack?.id != tid {
+            if vm.currentTrack?.id != tid {
                 await vm.playTrack(t, seekTo: savedPosition > 1 ? savedPosition : nil,
                                     autoPlay: autoPlay)
             } else if savedPosition > vm.currentPosition + 2 {

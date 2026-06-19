@@ -208,11 +208,6 @@ final class DatabaseServiceTests: XCTestCase {
         }
     }
 
-    func testCustomChannelsStoreInitDoesNotCrash() {
-        // Init itself shouldn't crash — channels may be empty in test bundles
-        _ = CustomChannelsStore.shared.orderedChannels()
-    }
-
     // MARK: - Helpers
 
     private func makeTrack(id: String, source: String, composer: String?, instruments: [String], confidence: Double = 3.0) -> Track {

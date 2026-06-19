@@ -12,12 +12,10 @@ final class AppDependencies: ObservableObject {
     let offlineService: OfflineDownloadService
     let artworkService: ArtworkService
     let kidsModeController: KidsModeController
-    let liveCurationStore: LiveCurationStore
-    let customChannelsStore: CustomChannelsStore
     let podcastStore: PodcastSubscriptionStore
     let contributionStore: ContributionStore
     let iaQueryRegistry: IAQueryRegistry
-    let curationManifestStore: CurationManifestStore
+    let iaCollectionStore: IACollectionStore
     let networkMonitor: NetworkMonitor
     let ageAssuranceService: AgeAssuranceService
     let favoritesStore: FavoritesStore
@@ -31,12 +29,10 @@ final class AppDependencies: ObservableObject {
         audioPlayer: AudioPlayerService,
         artworkService: ArtworkService,
         kidsModeController: KidsModeController,
-        liveCurationStore: LiveCurationStore,
-        customChannelsStore: CustomChannelsStore,
         podcastStore: PodcastSubscriptionStore,
         contributionStore: ContributionStore,
         iaQueryRegistry: IAQueryRegistry,
-        curationManifestStore: CurationManifestStore,
+        iaCollectionStore: IACollectionStore,
         networkMonitor: NetworkMonitor,
         ageAssuranceService: AgeAssuranceService,
         favoritesStore: FavoritesStore
@@ -49,12 +45,10 @@ final class AppDependencies: ObservableObject {
         self.audioPlayer = audioPlayer
         self.artworkService = artworkService
         self.kidsModeController = kidsModeController
-        self.liveCurationStore = liveCurationStore
-        self.customChannelsStore = customChannelsStore
         self.podcastStore = podcastStore
         self.contributionStore = contributionStore
         self.iaQueryRegistry = iaQueryRegistry
-        self.curationManifestStore = curationManifestStore
+        self.iaCollectionStore = iaCollectionStore
         self.networkMonitor = networkMonitor
         self.ageAssuranceService = ageAssuranceService
         self.favoritesStore = favoritesStore

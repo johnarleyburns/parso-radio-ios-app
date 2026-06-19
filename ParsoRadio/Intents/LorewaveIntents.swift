@@ -31,9 +31,9 @@ struct PlayLorewaveIntent: AppIntent {
 
         // In-process: the app is running (foreground or background), PlayerViewModel exists.
         if let vm = AppIntentBridge.shared.playerVM {
-            let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "guitar-classical"
+            let lastId = UserDefaults.standard.string(forKey: "lastChannelId") ?? "for-you"
             let channel = Channel.defaults.first { $0.id == lastId }
-                ?? Channel.defaults.first { $0.id == "guitar-classical" }
+                ?? Channel.defaults.first { $0.id == "for-you" }
                 ?? Channel.defaults[0]
 
             AppIntentBridge.shared.setPendingCommand(channelId: channel.id)
@@ -45,7 +45,7 @@ struct PlayLorewaveIntent: AppIntent {
 
         // Extension process: store the pending command for the main app to pick up.
         AppIntentBridge.shared.storePendingCommandInAppGroup(
-            channelId: UserDefaults.standard.string(forKey: "lastChannelId") ?? "guitar-classical")
+            channelId: UserDefaults.standard.string(forKey: "lastChannelId") ?? "for-you")
         return .result()
     }
 }

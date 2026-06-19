@@ -14,19 +14,6 @@ protocol DatabaseServiceProtocol: AnyObject {
     func evictOldTracks(olderThan days: Int) async
     func trackCount() async -> Int
 
-    // Curation operations
-    func setCuration(channelId: String, trackId: String, status: String, note: String?) async
-    func setCurationBatch(channelId: String, trackIds: [String], status: String) async
-    func curationStatus(channelId: String, trackId: String) async -> String?
-    func curationTrackIds(channelId: String, status: String) async -> [String]
-    func allCuratedTrackIds(channelId: String) async -> [String]
-    func curationCounts(channelId: String) async -> (review: Int, approved: Int, rejected: Int)
-    func fetchApprovedTracks(forChannelId channelId: String) async -> [Track]
-    func fetchRejectedTracks(forChannelId channelId: String) async -> [Track]
-    func exportApprovedByChannel() async -> [String: [Track]]
-    func ensureReviewSet(channelId: String, trackIds: [String]) async
-    func reviewSetTracks(channelId: String) async -> [Track]
-
     // Position persistence
     func savePosition(channelId: String, trackId: String, seconds: Double) async
     func loadPosition(channelId: String) async -> (trackId: String, seconds: Double)?
@@ -79,5 +66,4 @@ protocol DatabaseServiceProtocol: AnyObject {
     // Track metadata enrichment
     func saveTrackMetadata(_ meta: TrackMetadata) async
     func fetchTrackMetadata(trackID: String) async -> TrackMetadata?
-    func fetchUnenrichedApprovedTrackIDs(channelId: String) async -> [String]
 }

@@ -21,8 +21,6 @@ protocol AudioEngine: AnyObject {
     var duration: Double? { get }
     var playbackRate: Float { get }
     var repeatMode: AudioPlayerService.RepeatMode { get set }
-    var isAuditioning: Bool { get set }
-    var throttleTimer: Bool { get set }
 
     var onReady: ((Double) -> Void)? { get set }
     var onTimeUpdate: ((Double) -> Void)? { get set }

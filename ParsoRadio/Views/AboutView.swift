@@ -85,7 +85,7 @@ struct AboutView: View {
             Text("Open Source")
                 .font(.title3)
                 .fontWeight(.bold)
-            Text("Lorewave is open source, released under the MIT license. The complete source — every channel query, the playback engine, and the curation logic — is on GitHub, so anyone can verify exactly how it works, confirm it collects nothing about you, learn from it, or build their own. Issues and contributions are welcome.")
+            Text("Lorewave is open source, released under the MIT license. The complete source — every channel query and the playback engine — is on GitHub, so anyone can verify exactly how it works, confirm it collects nothing about you, learn from it, or build their own. Issues and contributions are welcome.")
                 .font(.body)
                 .foregroundStyle(.secondary)
             Link("View source on GitHub", destination: URL(string:

@@ -24,11 +24,11 @@ final class KidsModeEnterTests: XCTestCase {
     }
 
     private func nonKidsChannel() -> Channel {
-        Channel.defaults.first { $0.id == "guitar-classical" }!
+        Channel.defaults.first { $0.id == "oxford-philosophy" }!
     }
 
     private func kidsChannel() -> Channel {
-        Channel.defaults.first { $0.id == "childrens-songs" }!
+        Channel.defaults.first { $0.id == "ambient-yellowstone" }!
     }
 
     private func makePlaylist(isKidSafe: Bool) -> Playlist {

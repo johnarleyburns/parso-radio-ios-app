@@ -8,7 +8,7 @@ struct LibrarySection: Identifiable {
 
 extension LibrarySection {
     static let ordered: [LibrarySection] = [
-        .init(id: .music,    label: "Curated Music",      icon: "music.note"),
+        .init(id: .music,    label: "Internet Archive Collections", icon: "music.note"),
         .init(id: .audiobook, label: "Librivox Audiobooks", icon: "book"),
         .init(id: .podcast,   label: "Open Podcasts",      icon: "newspaper"),
         .init(id: .lecture,   label: "Oxford Lectures",   icon: "graduationcap"),

@@ -24,12 +24,10 @@ struct ParsoMusicApp: App {
             audioPlayer: audioPlayer,
             artworkService: .shared,
             kidsModeController: .shared,
-            liveCurationStore: .shared,
-            customChannelsStore: .shared,
             podcastStore: .shared,
             contributionStore: ContributionStore(),
             iaQueryRegistry: .shared,
-            curationManifestStore: .shared,
+            iaCollectionStore: .shared,
             networkMonitor: .shared,
             ageAssuranceService: .shared,
             favoritesStore: favStore
@@ -135,8 +133,6 @@ struct ParsoMusicApp: App {
                 }
             }
             .task {
-                await CustomChannelsStore.shared.importBundledCurationsIfNeeded(
-                    db: Self.deps.db)
             }
             .fullScreenCover(isPresented: $showTerms) {
                 TermsView(isPresented: $showTerms)

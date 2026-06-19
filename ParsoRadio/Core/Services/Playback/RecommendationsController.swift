@@ -14,11 +14,11 @@ final class RecommendationsController {
         let history = await db.fetchRecentlyPlayedWithChannel(limit: 200)
         let catById = Dictionary(Channel.defaults.map { ($0.id, $0.category) },
                                    uniquingKeysWith: { a, _ in a })
-        let musicHistory = history.filter { (catById[$0.channelId] ?? "") == "Curated" }
+        let musicHistory = history.filter { (catById[$0.channelId] ?? "") == "Curated Music" }
         let bookHistory = history.filter { (catById[$0.channelId] ?? "") == "Audiobooks" }
 
         let musicWeights = RecommendationQueryBuilder.channelWeights(
-            fromHistory: musicHistory, categoryFilter: ["Curated"], categoryById: catById)
+            fromHistory: musicHistory, categoryFilter: ["Curated Music"], categoryById: catById)
         let bookWeights = RecommendationQueryBuilder.channelWeights(
             fromHistory: bookHistory, categoryFilter: ["Audiobooks"], categoryById: catById)
 
@@ -81,7 +81,7 @@ final class RecommendationsController {
         let catById = Dictionary(Channel.defaults.map { ($0.id, $0.category) },
                                    uniquingKeysWith: { a, _ in a })
         let isBooks = channel.id == "books-for-you"
-        let relevantCats: Set<String> = isBooks ? ["Audiobooks"] : ["Curated"]
+        let relevantCats: Set<String> = isBooks ? ["Audiobooks"] : ["Curated Music"]
         let relevantPlays = history.filter { relevantCats.contains(catById[$0.channelId] ?? "") }
         guard relevantPlays.count >= RecommendationQueryBuilder.minPlays else { return nil }
 
@@ -115,7 +115,7 @@ final class RecommendationsController {
 
     func fetchFallbackTracks(for channel: Channel) async -> [Track] {
         let isBooks = channel.id == "books-for-you"
-        let fallbackCat: String = isBooks ? "Audiobooks" : "Curated"
+        let fallbackCat: String = isBooks ? "Audiobooks" : "Curated Music"
         let sources = Channel.defaults.filter { $0.category == fallbackCat && $0.iaQueryEntry != nil }
         guard !sources.isEmpty else { return [] }
 

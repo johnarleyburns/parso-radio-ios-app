@@ -27,16 +27,15 @@ final class RecommendationQueryBuilderTests: XCTestCase {
     // MARK: - channelWeights
 
     func testChannelWeightsHistogramAndProportions() {
-        let cat = ["string-quartet": "Curated", "guitar-classical": "Curated",
-                   "piano-hour": "Curated", "podcast-no-agenda": "Podcasts",
+        let cat = ["channel-a": "Curated Music", "channel-b": "Curated Music",
+                   "channel-c": "Curated Music", "podcast-no-agenda": "Podcasts",
                    "music-for-you": "For You"]
-        // 6 string-quartet, 3 guitar, 1 piano, plus excluded plays (news, for-you).
-        let h = history([("string-quartet", 6), ("guitar-classical", 3), ("piano-hour", 1),
+        let h = history([("channel-a", 6), ("channel-b", 3), ("channel-c", 1),
                          ("podcast-no-agenda", 4), ("music-for-you", 2)])
         let ws = RecommendationQueryBuilder.channelWeights(
-            fromHistory: h, categoryFilter: ["Curated"], categoryById: cat)
-        XCTAssertEqual(ws.count, 3, "only Curated channels contribute")
-        XCTAssertEqual(ws.map(\.channelId), ["string-quartet", "guitar-classical", "piano-hour"],
+            fromHistory: h, categoryFilter: ["Curated Music"], categoryById: cat)
+        XCTAssertEqual(ws.count, 3, "only Curated Music channels contribute")
+        XCTAssertEqual(ws.map(\.channelId), ["channel-a", "channel-b", "channel-c"],
             "sorted by play count desc")
         XCTAssertEqual(ws[0].weight, 0.6, accuracy: 1e-9, "6/10")
         XCTAssertEqual(ws[1].weight, 0.3, accuracy: 1e-9, "3/10")
@@ -48,8 +47,8 @@ final class RecommendationQueryBuilderTests: XCTestCase {
         let cat = ["podcast-no-agenda": "Podcasts"]
         let h = history([("podcast-no-agenda", 5)])
         let ws = RecommendationQueryBuilder.channelWeights(
-            fromHistory: h, categoryFilter: ["Curated"], categoryById: cat)
-        XCTAssertTrue(ws.isEmpty, "no Curated plays → empty histogram")
+            fromHistory: h, categoryFilter: ["Curated Music"], categoryById: cat)
+        XCTAssertTrue(ws.isEmpty, "no Curated Music plays → empty histogram")
     }
 
     // MARK: - allocateSamples

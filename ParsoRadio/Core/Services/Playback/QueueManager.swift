@@ -2,29 +2,14 @@ import Foundation
 
 final class QueueManager {
     private let db: DatabaseService
-    // Per-channel "shadow recently played": the last `historyLimit` item ids
-    // chosen for each channel are excluded from re-selection, so the channel
-    // works through fresh material before repeating (the "too many repeats"
-    // fix). PERSISTED across launches (UserDefaults) — an in-memory-only list
-    // reset every cold start, which is why the same tracks kept coming back.
-    // Per-channel (not shared) so one channel's history can't shrink another's.
     private var recentByChannel: [String: [String]] = [:]
     private let historyLimit = 30
     private static let persistKey = "queueManager.recentByChannel"
-    // Injectable so unit tests get an isolated store instead of sharing the
-    // process-wide standard defaults (which would couple test methods).
     private let defaults: UserDefaults
-    // Curator Mode: a curated channel with a shipped (non-empty) manifest plays
-    // its approved pool — explicit, human-approved tracks. Injectable so tests
-    // don't depend on the bundled curation.json.
-    private let manifestPool: (String) -> [Track]
 
-    init(db: DatabaseService, defaults: UserDefaults = .standard,
-         manifestPool: @escaping (String) -> [Track]
-             = { LiveCurationStore.shared.pool(for: $0) }) {
+    init(db: DatabaseService, defaults: UserDefaults = .standard) {
         self.db = db
         self.defaults = defaults
-        self.manifestPool = manifestPool
         if let stored = defaults.dictionary(forKey: Self.persistKey)
             as? [String: [String]] {
             recentByChannel = stored
@@ -35,10 +20,6 @@ final class QueueManager {
         defaults.set(recentByChannel, forKey: Self.persistKey)
     }
 
-    // Podcast/news channels are always sequential newest-first; registry-backed
-    // IA channels and Lecture channels always shuffle their pool. All other
-    // channels defer to their MediaKind-derived behavior.queueStyle, modulated
-    // by the global shuffle toggle.
     static func effectiveQueueStyle(_ channel: Channel, shuffleMode: Bool) -> PlaybackBehavior.QueueStyle {
         if channel.feedURL != nil { return .sequentialNewestFirst }
         if shuffleMode { return .shuffledPool }
@@ -46,10 +27,6 @@ final class QueueManager {
         return .sequentialInOrder
     }
 
-    // Curated radio-style channels always shuffle regardless of the global
-    // toggle: registry-backed IA channels. Sequential for podcasts/news.
-    // Pure + static so it is deterministically unit-testable
-    // without draining a seeded-random queue.
     static func usesShuffle(channel: Channel, shuffleMode: Bool) -> Bool {
         effectiveQueueStyle(channel, shuffleMode: shuffleMode) == .shuffledPool
     }
@@ -58,7 +35,7 @@ final class QueueManager {
 
     private func record(_ id: String, channelId: String) {
         var list = recentByChannel[channelId] ?? []
-        list.removeAll { $0 == id }          // de-dupe → move to most-recent
+        list.removeAll { $0 == id }
         list.append(id)
         if list.count > historyLimit { list.removeFirst(list.count - historyLimit) }
         recentByChannel[channelId] = list
@@ -81,8 +58,7 @@ final class QueueManager {
         let parent = track.parentIdentifier ?? track.id
         let currentPart = track.partNumber ?? 1
         let allTracks = await db.fetchTracks(forChannel: channel)
-        let approved = approvedFilter(allTracks, for: channel)
-        let parts = approved
+        let parts = allTracks
             .filter { $0.parentIdentifier == parent }
             .sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
         guard let nextPart = parts.first(where: { ($0.partNumber ?? 0) == currentPart + 1 }) else {
@@ -96,8 +72,7 @@ final class QueueManager {
         let parent = track.parentIdentifier ?? track.id
         let currentPart = track.partNumber ?? 1
         let allTracks = await db.fetchTracks(forChannel: channel)
-        let approved = approvedFilter(allTracks, for: channel)
-        let parts = approved
+        let parts = allTracks
             .filter { $0.parentIdentifier == parent }
             .sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
         if parts.isEmpty { return nil }
@@ -117,67 +92,15 @@ final class QueueManager {
     // MARK: - Private
 
     private func _next(channel: Channel, shuffleMode: Bool, record: Bool) async -> Track? {
-        // Podcast/news channels: always sequential newest-first, 30-day dedup via DB
         if channel.feedURL != nil {
             return await nextPodcastTrack(channel: channel, record: record)
         }
 
         let recent = recents(channel.id)
 
-        // CURATOR MODE: a channel with non-empty curation plays its approved
-        // pool ONLY — no search, no composer-expand, the explicit human-
-        // approved list. See CURATOR-MODE-PLAN.md.
-        //
-        // Manifest-only enforcement for the Curated category: regardless of
-        // whether the pool has entries yet, a "Curated" channel NEVER falls
-        // back to the search pool. While an uncurated Curated channel will be
-        // empty (return nil here → "no track" upstream), this is the user's
-        // explicit choice ("die on the hill" of curated quality) and it makes
-        // the on-device live-curation feedback loop work: as the curator
-        // approves tracks, the channel populates LIVE without an app rebuild.
-        let curated = manifestPool(channel.id)
-        // Only enforce manifest-only on SHIPPED Curated channels (those with
-        // an `iaQueryEntry` in the registry). Test fixtures like
-        // `Channel.fmaJazzTestChannel` reuse the "Curated" category for legacy
-        // reasons but have no registry entry — they keep their tag-based
-        // search-pool fallback.
-        let isCuratedCategory =
-            (channel.category == "Curated" && channel.iaQueryEntry != nil)
-        if !curated.isEmpty {
-            var approvedPool = curated.filter { !recent.contains($0.id) }
-            if approvedPool.isEmpty {            // cycled all → reset, replay
-                recentByChannel[channel.id] = []
-                persist()
-                approvedPool = curated
-            }
-            let pick: Track
-            if Self.effectiveQueueStyle(channel, shuffleMode: shuffleMode) == .shuffledPool {
-                pick = weightedRandom(from: approvedPool,
-                                      seed: dailySeed(for: channel),
-                                      variance: recent.count)
-            } else {
-                pick = approvedPool.sorted {
-                    ($0.addedDate ?? .distantPast) > ($1.addedDate ?? .distantPast)
-                }.first!
-            }
-            if record { self.record(pick.id, channelId: channel.id) }
-            return pick
-        }
-
-        // Curated category, no approvals yet → return nil (channel empty
-        // until the curator approves something). Non-Curated channels fall
-        // through to the search pool below.
-        if isCuratedCategory { return nil }
-
-        // Only a book/album's FIRST track is eligible in a channel: a
-        // multi-part item plays its opening track and the user adds the whole
-        // book to a playlist if they want it — the channel never cycles
-        // through one book's chapters.
         var pool = await db.fetchTracks(forChannel: channel)
             .filter { !recent.contains($0.id) && ($0.partNumber ?? 1) <= 1 }
 
-        // Expand pool if thin (composer channels only — never touches the
-        // isolation of curated/registry channels, which have no composers).
         if pool.count < 20, !channel.composers.isEmpty {
             let similar = channel.composers.flatMap { ComposerMap.similarity[$0] ?? [] }
             let expanded = Channel(
@@ -190,9 +113,6 @@ final class QueueManager {
                 .filter { !recent.contains($0.id) }
             pool.append(contentsOf: extra)
         }
-        // Channel exhausted: loop it. Re-fetch the SAME channel (preferredSource
-        // + stamp/tag isolation intact) — never a generic non-isolated
-        // fallback, which used to leak other channels' tracks in.
         if pool.isEmpty {
             recentByChannel[channel.id] = []
             persist()
@@ -201,11 +121,6 @@ final class QueueManager {
         }
         guard !pool.isEmpty else { return nil }
 
-        // Registry-backed IA channels always play in random order regardless
-        // of the global shuffle toggle. Lecture channels play sequentially
-        // within their series (like chapters in a book), then advance to
-        // the next series when the current one finishes.
-        // Sequential newest-first only makes sense for podcast/news channels.
         let effectiveShuffle = Self.effectiveQueueStyle(channel, shuffleMode: shuffleMode) == .shuffledPool
 
         let track: Track
@@ -214,7 +129,6 @@ final class QueueManager {
                                    seed: dailySeed(for: channel),
                                    variance: recent.count)
         } else {
-            // Recent-first: sort by addedDate DESC, fall back to qualityScore
             let sorted = pool.sorted {
                 let d0 = $0.addedDate ?? Date(timeIntervalSince1970: $0.qualityScore)
                 let d1 = $1.addedDate ?? Date(timeIntervalSince1970: $1.qualityScore)
@@ -239,33 +153,23 @@ final class QueueManager {
         return track
     }
 
-    // Returns the first track of the next distinct parentIdentifier group
     private func nextBook(after parentId: String, channel: Channel) async -> Track? {
-        let all = approvedFilter(await db.fetchTracks(forChannel: channel), for: channel)
+        let all = await db.fetchTracks(forChannel: channel)
         let parents = orderedParents(from: all)
         guard let idx = parents.firstIndex(of: parentId),
               idx + 1 < parents.count else {
-            // Wrap to first book
             return firstPart(of: parents.first ?? "", in: all)
         }
         return firstPart(of: parents[idx + 1], in: all)
     }
 
     private func previousBook(before parentId: String, channel: Channel) async -> Track? {
-        let all = approvedFilter(await db.fetchTracks(forChannel: channel), for: channel)
+        let all = await db.fetchTracks(forChannel: channel)
         let parents = orderedParents(from: all)
         guard let idx = parents.firstIndex(of: parentId), idx > 0 else {
             return firstPart(of: parents.last ?? "", in: all)
         }
         return firstPart(of: parents[idx - 1], in: all)
-    }
-
-    private func approvedFilter(_ tracks: [Track], for channel: Channel) -> [Track] {
-        let isCurated = channel.category == "Curated" && channel.iaQueryEntry != nil
-        guard isCurated else { return tracks }
-        let approvedIds = Set(manifestPool(channel.id).map(\.id))
-        guard !approvedIds.isEmpty else { return tracks } // no approvals yet — keep all (prevents deadlock: newly-created curated channel needs at least one track to show)
-        return tracks.filter { approvedIds.contains($0.id) }
     }
 
     private func orderedParents(from tracks: [Track]) -> [String] {
@@ -278,10 +182,6 @@ final class QueueManager {
               .min(by: { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) })
     }
 
-    // Items confirmed to belong to a multi-file album/book are boosted: in
-    // curated channels these are typically higher-quality full releases, so
-    // they should surface more often than one-off single tracks. nil (not yet
-    // probed) and false stay neutral, so this only ever lifts known albums.
     static let albumBoost = 2.5
 
     static func selectionWeight(_ t: Track) -> Double {
@@ -289,8 +189,6 @@ final class QueueManager {
         return base * (t.isMultiPart == true ? albumBoost : 1.0)
     }
 
-    // `variance` (the channel's recent-play count) perturbs the daily seed so
-    // successive picks within a session differ while staying reproducible.
     private func weightedRandom(from pool: [Track], seed: UInt64, variance: Int) -> Track {
         var rng = SeededRNG(seed: seed &+ UInt64(variance))
         let totalWeight = pool.reduce(0.0) { $0 + Self.selectionWeight($1) }

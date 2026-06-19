@@ -74,8 +74,8 @@ final class MediaKindBaselineTests: XCTestCase {
     }
 
     func testAllChannelsHaveMediaKindCompatibleCategory() {
-        let validCategories = Set(["For You", "Lectures", "Podcasts", "Curated",
-                                    "Curated Books", "Audiobooks", "Ambient"])
+        let validCategories = Set(["For You", "Lectures", "Podcasts",
+                                    "Curated Music", "Audiobooks", "Ambient"])
         for channel in Channel.defaults {
             XCTAssertTrue(validCategories.contains(channel.category),
                 "Channel \(channel.id) has unknown category: \(channel.category)")

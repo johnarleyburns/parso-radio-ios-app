@@ -122,8 +122,10 @@ struct Channel: Codable, Identifiable, Hashable {
             return "\(name) audiobooks read by LibriVox volunteers — public-domain literature, a new book each time."
         case "Ambient":
             return "A continuous \(name.lowercased()) soundscape for focus, relaxation, or sleep."
+        case "Curated Music":
+            return "Music from the \(name) collection on the Internet Archive."
         default:
-            return "A hand-curated Internet Archive channel of \(name) recordings."
+            return "An Internet Archive channel of \(name) recordings."
         }
     }
 }
@@ -307,147 +309,6 @@ extension Channel {
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feeds.twit.tv/floss.xml",
             summary: "Interviews with notable figures in the free and open-source software community. CC BY, ad-free."
-        ),
-
-        // MARK: Curated — pure-Lucene IA channels
-        // Each channel here resolves to ONE hand-tuned Lucene query in
-        // Resources/ia_queries.json. There is NO code-side filtering: no
-        // LicenseValidator rejection, no MetadataNormalizer/confidence gate,
-        // no collection/category post-filter. The query is the entire curation;
-        // matchTags is the per-channel isolation stamp injected at fetch time.
-        // `tags` here only feed detailDescription/UI — matching uses the stamp.
-        Channel(
-            // Rebuilt from scratch with a FRESH id (and thus a fresh isolation
-            // stamp) so it no longer inherits stale tracks the old
-            // "spanish-guitar"/"classical-guitar" stamps had accumulated in the
-            // local DB (which caused the same few items to repeat forever).
-            id: "guitar-classical", name: "Classical Guitar", category: "Curated",
-            // SF Symbols has no dedicated classical/acoustic-guitar glyph (only
-            // "guitars", which reads as electric), so use a clean music note.
-            icon: "music.note",
-            tags: ["guitar-classical"],
-            preferredSource: "internet_archive",
-            summary: "Classical guitar — a rotating mix of the great guitarists (Segovia, Yepes, Bream, the Romeros, Sabicas, Carlos Montoya, Paco de Lucía, Manuel Barrueco, David Russell, Laurindo Almeida, Li Jie) and the core repertoire (Tárrega, Sor, Rodrigo's Concierto de Aranjuez, Giuliani, Villa-Lobos). Interviews, talks and lectures are excluded."
-        ),
-        // String Quartet: the canonical quartet repertoire only — Haydn, Mozart,
-        // Beethoven, Schubert, Dvořák, Mendelssohn, Brahms, Shostakovich, Bartók,
-        // Ravel/Debussy — performed by the great ensembles (Budapest, Quartetto
-        // Italiano, Amadeus, Juilliard). Gated to a quartet title/subject, guitar
-        // & non-classical excluded. Curl-verified 2026-05-23 — 188 items.
-        Channel(
-            id: "string-quartet", name: "String Quartet", category: "Curated",
-            icon: "music.note",
-            tags: ["string-quartet"],
-            preferredSource: "internet_archive",
-            summary: "The cornerstone of chamber music — string quartets by Haydn, Mozart, Beethoven, Schubert, Mendelssohn, Brahms, Dvořák, Bartók, Ravel, Debussy and Shostakovich, played by the legendary quartets (Budapest, Quartetto Italiano, Amadeus, Juilliard)."
-        ),
-        // Symphony Orchestra: curl-verified 2026-05-15 — 889 items; orchestral
-        // symphonies/concertos/overtures (Beethoven, Mahler, Shostakovich,
-        // Szell-Cleveland); chamber/vocal/jazz/soundtrack excluded.
-        Channel(
-            id: "symphony-orchestra", name: "Symphony Orchestra", category: "Curated",
-            icon: "music.note.list",
-            tags: ["symphony", "orchestra", "concerto"],
-            preferredSource: "internet_archive",
-            summary: "Full-orchestra symphonies, concertos and overtures — Beethoven, Mahler, Shostakovich and the great conductors. Chamber, vocal, jazz and soundtrack works are excluded."
-        ),
-        // Piano Hour: curl-verified 2026-05-15 — 1192 items; solo piano
-        // (sonatas, nocturnes, études, Chopin/Liszt/Debussy/Beethoven);
-        // jazz/ragtime/orchestral/vocal and religious collections excluded.
-        Channel(
-            id: "piano-hour", name: "Piano Hour", category: "Curated",
-            icon: "pianokeys",
-            tags: ["piano", "piano sonata", "nocturne"],
-            preferredSource: "internet_archive",
-            summary: "Solo piano — sonatas, nocturnes and études from Chopin, Liszt, Debussy and Beethoven. Jazz, ragtime, orchestral and vocal works are excluded."
-        ),
-        // Tribal Works: curl-verified 2026-05-15 — 2324 items; ethnomusicology
-        // / world traditional & field recordings (gamelan, West-African,
-        // Native American, Autry collection); new-age/ambient/spoken excluded.
-        Channel(
-            id: "tribal-works", name: "Tribal Works", category: "Curated",
-            icon: "globe",
-            tags: ["ethnomusicology", "world music", "field recording"],
-            preferredSource: "internet_archive",
-            summary: "Traditional and Indigenous music from around the world — gamelan, West-African, Native American and ethnographic field recordings. New-age and ambient remixes are excluded."
-        ),
-        // Café Lento: curl-verified 2026-05-15 — 882 items; mellow bossa /
-        // cool & chamber jazz / solo guitar (Laurindo Almeida, Bill Evans,
-        // André Previn); bebop/rock/electronic/big-band excluded.
-        Channel(
-            id: "cafe-lento", name: "Café Lento", category: "Curated",
-            icon: "cup.and.saucer",
-            tags: ["bossa nova", "cool jazz", "lounge"],
-            preferredSource: "internet_archive",
-            summary: "Mellow café listening — bossa nova, cool and chamber jazz, and soft solo guitar (Laurindo Almeida, Bill Evans, André Previn). Bebop, rock and big-band are excluded."
-        ),
-        // (Removed the bulk "Netlabels" and "78 RPM" channels: they streamed
-        // entire uncurated IA collections — not curation. Gated 78rpm subsets
-        // remain inside specific channels, e.g. World Music and Children's Songs.)
-        // Religious Music: sacred/liturgical music across faiths (Christian
-        // sacred choral, Gregorian chant, hymns, spirituals; Hindu bhajan &
-        // kirtan; Sufi qawwali; Jewish cantorial; Buddhist chant). Sermons
-        // Children's Songs: two safe arms — vintage 78rpm nursery-rhyme
-        // records (phrase-title matched) + the curated subject:"kids music"
-        // tag (PBS/Nick Jr./Disney/indie kids comps). netlabels excluded
-        // (profane releases); LibriVox/audiobooks/books excluded so it stays
-        // MUSIC, not spoken-word.
-        Channel(
-            id: "childrens-songs", name: "Children's Songs", category: "Curated",
-            icon: "music.note.house.fill",
-            tags: ["childrens-songs"],
-            preferredSource: "internet_archive",
-            minTrackDuration: 60,   // drop sub-minute noise clips
-            summary: "Family-friendly children's music — vintage nursery-rhyme 78s and curated kids' compilations. Content is filtered for a young audience."
-        ),
-        // Aadam Jacobs Collection — classical guitar recordings from the
-        // Adam Jacobs Collection on IA (mainly solo guitar repertoire).
-        Channel(
-            id: "ajc-project", name: "AJC Project", category: "Curated",
-            icon: "guitars", tags: ["ajc-project"],
-            preferredSource: "internet_archive",
-            summary: "Classical guitar recordings from the Aadam Jacobs Collection — solo guitar repertoire by Sor, Giuliani, Bach, Villa-Lobos and others."
-        ),
-        // Chamber Music — string quartets, piano trios, wind quintets, etc.
-        Channel(
-            id: "chamber-music", name: "Chamber Music", category: "Curated",
-            icon: "music.quarternote.3", tags: ["chamber-music"],
-            preferredSource: "internet_archive",
-            summary: "Intimate chamber music — string quartets, piano trios, sonatas, and small ensemble works from the classical and romantic eras."
-        ),
-        // Curated book channels — explicit author/work allowlists (LibriVox,
-        Channel(
-            id: "great-books", name: "Great Books", category: "Curated Books",
-            icon: "books.vertical", tags: ["great-books"],
-            contentType: .spokenWord, preferredSource: "internet_archive",
-            summary: "The foundational works of philosophy, science and literature. Plays a book's first part; add the whole book to a playlist to continue."
-        ),
-        Channel(
-            id: "childrens-books", name: "Children's Books", category: "Curated Books",
-            icon: "books.vertical.fill", tags: ["childrens-books"],
-            contentType: .spokenWord, preferredSource: "internet_archive",
-            summary: "Classic children's literature from LibriVox — fairy tales, adventure stories, and beloved characters."
-        ),
-        // Curated Book — Ancient Greece: philosophy, history, plays, mythology
-        Channel(
-            id: "ancient-greece", name: "Ancient Greece", category: "Curated Books",
-            icon: "building.columns", tags: ["ancient-greece"],
-            contentType: .spokenWord, preferredSource: "internet_archive",
-            summary: "The works of ancient Greece — philosophy (Plato, Aristotle), history (Herodotus, Thucydides), drama (Sophocles, Euripides), and mythology (Homer, Hesiod) — read by LibriVox volunteers."
-        ),
-        // Curated Book — Popular Literature: top LibriVox by all-time downloads
-        Channel(
-            id: "popular-literature", name: "Popular Literature", category: "Curated Books",
-            icon: "chart.line.uptrend.xyaxis", tags: ["popular-literature"],
-            contentType: .spokenWord, preferredSource: "internet_archive",
-            summary: "The most-downloaded LibriVox audiobooks — top 100 by all-time downloads, refreshed on each load."
-        ),
-        // Curated Book — Greater Books: broader literary canon from greaterbooks.com
-        Channel(
-            id: "greater-books", name: "Greater Books", category: "Curated Books",
-            icon: "text.book.closed", tags: ["greater-books"],
-            contentType: .spokenWord, preferredSource: "internet_archive",
-            summary: "A broader literary canon (the greaterbooks.com list) read by LibriVox volunteers — the world's essential novels, plays and poetry. Plays each work's first part."
         ),
 
         // MARK: Audiobooks — LibriVox via pure-Lucene IA registry

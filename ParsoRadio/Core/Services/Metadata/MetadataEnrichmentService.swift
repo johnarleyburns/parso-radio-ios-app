@@ -18,38 +18,6 @@ final class MetadataEnrichmentService: ObservableObject {
     init() {}
     init(db: DatabaseService) { self.db = db }
 
-    func enrichApprovedTracks(for channelId: String, db: DatabaseService) async {
-        guard !isEnriching else { return }
-        self.db = db
-        isEnriching = true
-        defer { isEnriching = false }
-
-        guard let db = self.db else { return }
-        let trackIDs = await db.fetchUnenrichedApprovedTrackIDs(channelId: channelId)
-        guard !trackIDs.isEmpty else {
-            progress = (0, 0)
-            return
-        }
-
-        let approvedTracks = await db.fetchApprovedTracks(forChannelId: channelId)
-        let tracksToEnrich = approvedTracks.filter { trackIDs.contains($0.id) }
-
-        progress = (0, tracksToEnrich.count)
-
-        for (index, track) in tracksToEnrich.enumerated() {
-            guard isEnriching else { break }
-            currentTrackTitle = track.title
-            progress = (index + 1, tracksToEnrich.count)
-
-            if let metadata = await enrichTrack(track) {
-                await db.saveTrackMetadata(metadata)
-            }
-
-            // Respect MusicBrainz rate limit: ~1 req/sec
-            try? await Task.sleep(nanoseconds: 1_200_000_000)
-        }
-    }
-
     func stop() {
         isEnriching = false
         progress = (0, 0)

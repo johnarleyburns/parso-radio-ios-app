@@ -7,7 +7,6 @@ final class MediaKindTests: XCTestCase {
 
     func testForYouChannelsAreMusic() {
         XCTAssertEqual(Channel.defaults.first(where: { $0.id == "music-for-you" })?.mediaKind, .music)
-        // books-for-you is spokenWord but no Audiobooks/Curated Books category → audiobook (per spokeWord fallback)
         XCTAssertEqual(Channel.defaults.first(where: { $0.id == "books-for-you" })?.mediaKind, .audiobook)
     }
 
@@ -40,35 +39,6 @@ final class MediaKindTests: XCTestCase {
                 continue
             }
             XCTAssertEqual(channel.mediaKind, .podcast, "\(channel.id) should be .podcast, got \(channel.mediaKind)")
-        }
-    }
-
-    func testCuratedChannelsAreMusic() {
-        let curatedIDs = [
-            "guitar-classical", "string-quartet", "symphony-orchestra",
-            "piano-hour", "tribal-works", "cafe-lento",
-            "childrens-songs", "ajc-project", "chamber-music"
-        ]
-        for id in curatedIDs {
-            guard let channel = Channel.defaults.first(where: { $0.id == id }) else {
-                XCTFail("Channel \(id) not found in defaults")
-                continue
-            }
-            XCTAssertEqual(channel.mediaKind, .music, "\(channel.id) should be .music, got \(channel.mediaKind)")
-        }
-    }
-
-    func testCuratedBookChannelsAreAudiobook() {
-        let bookIDs = [
-            "great-books", "childrens-books", "ancient-greece",
-            "popular-literature", "greater-books"
-        ]
-        for id in bookIDs {
-            guard let channel = Channel.defaults.first(where: { $0.id == id }) else {
-                XCTFail("Channel \(id) not found in defaults")
-                continue
-            }
-            XCTAssertEqual(channel.mediaKind, .audiobook, "\(channel.id) should be .audiobook, got \(channel.mediaKind)")
         }
     }
 
@@ -202,13 +172,10 @@ final class MediaKindTests: XCTestCase {
         for channel in Channel.defaults {
             let expectedProgressBar = channel.contentType == .spokenWord
             let behaviorProgressBar = channel.behavior.showsScrubbableProgress
-            // All spokenWord channels should show progress bar in behavior
             if expectedProgressBar {
                 XCTAssertTrue(behaviorProgressBar,
                     "\(channel.id): spokenWord channel should show scrubbable progress")
             } else {
-                // Non-spokenWord: ambient should be false, music should be false
-                // Ambient channels: contentType .ambientLoop → not spokenWord → no progress
                 XCTAssertFalse(behaviorProgressBar,
                     "\(channel.id): non-spokenWord channel should not show scrubbable progress")
             }
@@ -220,9 +187,8 @@ final class MediaKindTests: XCTestCase {
             let expectedPersists = channel.contentType != .ambientLoop
             let behaviorPersists = channel.behavior.persistsResumePosition
             if expectedPersists {
-                // All non-ambientLoop channels persist position
                 if channel.category == "Podcasts" || channel.category == "Lectures"
-                    || channel.category == "Audiobooks" || channel.category == "Curated Books"
+                    || channel.category == "Audiobooks"
                     || (channel.id == "books-for-you") {
                     XCTAssertTrue(behaviorPersists,
                         "\(channel.id): should persist resume position")
@@ -252,12 +218,6 @@ final class MediaKindTests: XCTestCase {
         XCTAssertEqual(track.mediaKind(in: channel), .audiobook)
     }
 
-    func testTrackMediaKindForCuratedBooksCategory() {
-        let channel = Channel.defaults.first(where: { $0.category == "Curated Books" })!
-        let track = makeTestTrack(id: "cb-1", source: "internet_archive")
-        XCTAssertEqual(track.mediaKind(in: channel), .audiobook)
-    }
-
     func testTrackMediaKindForSpokenWordMultiPart() {
         let channel = Channel(id: "test", name: "Test", category: "Lectures", icon: "book",
                               contentType: .spokenWord, preferredSource: "internet_archive")
@@ -267,7 +227,8 @@ final class MediaKindTests: XCTestCase {
     }
 
     func testTrackMediaKindForMusicDefault() {
-        let channel = Channel.defaults.first(where: { $0.category == "Curated" && $0.contentType == .music })!
+        let channel = Channel(id: "test-music", name: "Test Music", category: "Curated",
+                              icon: "music.note", tags: ["test"], preferredSource: "internet_archive")
         let track = makeTestTrack(id: "music-1", source: "internet_archive")
         XCTAssertEqual(track.mediaKind(in: channel), .music)
     }

@@ -23,14 +23,14 @@ final class SiriLaunchTests: XCTestCase {
     // MARK: - Pending command flags
 
     func testBridgeSetsPendingChannelIdOnLoad() async {
-        let channel = Channel.defaults.first { $0.id == "guitar-classical" }!
+        let channel = Channel.defaults.first { $0.id == "oxford-philosophy" }!
         let bridge = AppIntentBridge.shared
 
         bridge.setPendingCommand(channelId: channel.id)
 
         XCTAssertEqual(
             UserDefaults.standard.string(forKey: "siri.pendingChannelId"),
-            "guitar-classical"
+            "oxford-philosophy"
         )
     }
 
@@ -134,13 +134,13 @@ final class SiriLaunchTests: XCTestCase {
     // MARK: - Channel entity lookup from pending
 
     func testPendingChannelIdResolvesToChannel() {
-        AppIntentBridge.shared.setPendingCommand(channelId: "guitar-classical")
+        AppIntentBridge.shared.setPendingCommand(channelId: "oxford-philosophy")
 
         let channelId = UserDefaults.standard.string(forKey: "siri.pendingChannelId")
         let channel = Channel.defaults.first { $0.id == channelId }
 
         XCTAssertNotNil(channel)
-        XCTAssertEqual(channel?.name, "Classical Guitar")
+        XCTAssertEqual(channel?.name, "Philosophy")
     }
 
     func testInvalidPendingChannelIdDoesNotResolve() {

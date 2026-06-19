@@ -1,0 +1,184 @@
+[
+  {
+    "id": "georgeblood",
+    "title": "78rpm Records Digitized by George Blood, L.P.",
+    "category": "78_broad",
+    "curator": "George Blood, L.P.",
+    "icon": "opticaldisc"
+  },
+  {
+    "id": "78rpm_leif_druedahl",
+    "title": "Leif Druedahl Collection",
+    "category": "78_broad",
+    "curator": "Leif Druedahl",
+    "icon": "opticaldisc"
+  },
+  {
+    "id": "78rpm_bowling_green",
+    "title": "Bowling Green State University 78rpm Collection",
+    "category": "78_broad",
+    "curator": "Bowling Green State University",
+    "icon": "building.columns"
+  },
+  {
+    "id": "hifidelity",
+    "title": "The High Fidelity Emporium and Orchestrion",
+    "category": "audio_broad",
+    "curator": "High Fidelity Emporium",
+    "icon": "hifispeaker"
+  },
+  {
+    "id": "unlockedrecordings",
+    "title": "Unlocked Recordings",
+    "category": "audio_broad",
+    "curator": "Internet Archive",
+    "icon": "lock.open"
+  },
+  {
+    "id": "russian_classical_collection",
+    "title": "Russian Classical Collection",
+    "category": "classical",
+    "curator": "Russian Classical Collection",
+    "icon": "music.note"
+  },
+  {
+    "id": "satyr-lp-mono",
+    "title": "Satyr classical LPs 1950s - 1970s",
+    "category": "classical",
+    "curator": "Rolf Sinnema (Satyr-78rpm)",
+    "icon": "music.note"
+  },
+  {
+    "id": "satyrlp25cm",
+    "title": "Satyr LP 25 cm (10 inch)",
+    "category": "classical",
+    "curator": "Rolf Sinnema (Satyr-78rpm)",
+    "icon": "music.note"
+  },
+  {
+    "id": "78rpm_charm",
+    "title": "Centre for the History and Analysis of Recorded Music",
+    "category": "classical_78",
+    "curator": "CHARM (academic)",
+    "icon": "music.quarternote.3"
+  },
+  {
+    "id": "satyr78rpm",
+    "title": "Satyr 78 rpm collection",
+    "category": "classical_78",
+    "curator": "Rolf Sinnema (Satyr-78rpm)",
+    "icon": "music.note"
+  },
+  {
+    "id": "78rpm_cornbelt-symphony",
+    "title": "Cornbelt Symphony 78rpm Collection",
+    "category": "classical_78",
+    "curator": "Cornbelt Symphony",
+    "icon": "music.note.list"
+  },
+  {
+    "id": "78rpm_cornbelt-symphony-mark-hardin",
+    "title": "Cornbelt Symphony - Mark Hardin Collection",
+    "category": "classical_78",
+    "curator": "Cornbelt Symphony / Mark Hardin",
+    "icon": "music.note.list"
+  },
+  {
+    "id": "bostonsymphonyorchestra",
+    "title": "Boston Symphony Orchestra Archives",
+    "category": "classical_live",
+    "curator": "Boston Symphony Orchestra",
+    "icon": "music.note.list"
+  },
+  {
+    "id": "vinyl_bostonpubliclibrary",
+    "title": "Boston Public Library LP Records",
+    "category": "classical_lp",
+    "curator": "Boston Public Library",
+    "icon": "building.columns"
+  },
+  {
+    "id": "fav-satyr-78rpm",
+    "title": "Satyr-78rpm Favorites",
+    "category": "favorites",
+    "curator": "Rolf Sinnema (Satyr-78rpm)",
+    "icon": "star"
+  },
+  {
+    "id": "pjppa",
+    "title": "Philadelphia Jazz Project",
+    "category": "jazz",
+    "curator": "Philadelphia Jazz Project",
+    "icon": "music.mic"
+  },
+  {
+    "id": "davidwnivenjazz",
+    "title": "The David W. Niven Collection of Early Jazz Legends",
+    "category": "jazz",
+    "curator": "David W. Niven",
+    "icon": "music.mic"
+  },
+  {
+    "id": "cujazz",
+    "title": "CUJAZZ Collection",
+    "category": "jazz",
+    "curator": "CUJAZZ",
+    "icon": "music.mic"
+  },
+  {
+    "id": "satyr-lp-jazz",
+    "title": "Satyr LP Jazz & World",
+    "category": "jazz",
+    "curator": "Rolf Sinnema (Satyr-78rpm)",
+    "icon": "music.mic"
+  },
+  {
+    "id": "vinyl_robert-haber-records",
+    "title": "Robert Haber Jazz Collection",
+    "category": "jazz",
+    "curator": "Robert Haber",
+    "icon": "music.mic"
+  },
+  {
+    "id": "sfjazz",
+    "title": "SFJAZZ Historical Archive",
+    "category": "jazz_live",
+    "curator": "SFJAZZ",
+    "icon": "music.mic"
+  },
+  {
+    "id": "aadamjacobs",
+    "title": "Aadam Jacobs Collection at the Live Music Archive",
+    "category": "live_music",
+    "curator": "Aadam Jacobs (AJC project)",
+    "icon": "music.mic"
+  },
+  {
+    "id": "aadamjacobsvideo",
+    "title": "Aadam Jacobs Video Collection at the Live Music Archive",
+    "category": "live_music_video",
+    "curator": "Aadam Jacobs (AJC project)",
+    "icon": "video"
+  },
+  {
+    "id": "album_recordings",
+    "title": "Long Playing Records",
+    "category": "lp_broad",
+    "curator": "Internet Archive",
+    "icon": "opticaldisc"
+  },
+  {
+    "id": "satyr-LP-78rpm",
+    "title": "Satyr LP (78rpm rolls cylinders)",
+    "category": "mixed_78",
+    "curator": "Rolf Sinnema (Satyr-78rpm)",
+    "icon": "opticaldisc"
+  },
+  {
+    "id": "cratediggers",
+    "title": "Cratediggers",
+    "category": "vinyl_broad",
+    "curator": "Cratediggers",
+    "icon": "opticaldisc"
+  }
+]

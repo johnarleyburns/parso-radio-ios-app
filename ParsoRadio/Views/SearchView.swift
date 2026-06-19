@@ -134,7 +134,7 @@ struct SearchView: View {
                 trackInfoSheet(group)
             }
             .onChange(of: playerVM.errorMessage) { _, msg in
-                let failedId = playerVM.currentTrack?.id ?? playerVM.failedAuditionTrackId
+                let failedId = playerVM.currentTrack?.id
                 if let id = failedId, msg != nil {
                     failedTrackIds.insert(id)
                     flashTrackId = id

@@ -19,9 +19,9 @@ final class AppIntentBridge {
         guard !KidsModeController.shared.isEnabled,
               let vm = playerVM else { return }
         let lastId = UserDefaults.standard.string(forKey: "lastChannelId")
-            ?? "guitar-classical"
+            ?? "for-you"
         let channel = Channel.defaults.first { $0.id == lastId }
-            ?? Channel.defaults.first { $0.id == "guitar-classical" }
+            ?? Channel.defaults.first { $0.id == "for-you" }
             ?? Channel.defaults[0]
 
         setPendingCommand(channelId: channel.id)

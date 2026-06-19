@@ -80,29 +80,29 @@ final class ContentTypeResolutionTests: XCTestCase {
         XCTAssertEqual(track.favoriteKind(channel: ch), .book)
     }
 
-    func testCuratedBooksChannelResolvesToBook() {
-        let ch = Channel(id: "great-books", name: "Great Books",
-                         category: "Curated Books", icon: "books.vertical",
+    func testAudiobookChannelWithParentResolvesToBook() {
+        let ch = Channel(id: "lv-general-fiction", name: "General Fiction",
+                         category: "Audiobooks", icon: "books.vertical",
                          contentType: .spokenWord, preferredSource: "internet_archive")
-        let track = makeTrack(id: "great-books/chap1.mp3", source: "internet_archive",
-                              partNum: 1, totalParts: 10, parentId: "great-books")
+        let track = makeTrack(id: "lv-general-fiction/chap1.mp3", source: "internet_archive",
+                              partNum: 1, totalParts: 10, parentId: "lv-general-fiction")
         XCTAssertEqual(track.resolveContentType(channel: ch), .audiobook)
         XCTAssertEqual(track.favoriteKind(channel: ch), .book)
     }
 
     func testMusicTrackDefaultsToMusic() {
-        let ch = Channel(id: "piano-hour", name: "Piano Hour", category: "Curated",
+        let ch = Channel(id: "test-music", name: "Test Music", category: "Curated Music",
                          icon: "pianokeys", contentType: .music,
                          preferredSource: "internet_archive")
-        let track = makeTrack(id: "piano-1", source: "internet_archive",
+        let track = makeTrack(id: "music-1", source: "internet_archive",
                               composer: "Beethoven")
         XCTAssertEqual(track.resolveContentType(channel: ch), .musicTrack)
         XCTAssertEqual(track.favoriteKind(channel: ch), .track)
     }
 
     func testMusicAlbumTrackStaysMusic() {
-        let ch = Channel(id: "symphony-orchestra", name: "Symphony Orchestra",
-                         category: "Curated", icon: "music.note.list",
+        let ch = Channel(id: "test-orchestra", name: "Test Orchestra",
+                         category: "Curated Music", icon: "music.note.list",
                          contentType: .music, preferredSource: "internet_archive")
         let track = makeTrack(id: "symph-album/track1.mp3", source: "internet_archive",
                               partNum: 1, totalParts: 4, parentId: "symph-album",
@@ -595,7 +595,7 @@ private func sampleChapter(parentId: String, partNum: Int) -> Track {
 }
 
 private func musicChannel() -> Channel {
-    Channel(id: "piano-hour", name: "Piano Hour", category: "Curated",
+    Channel(id: "test-music", name: "Test Music", category: "Curated Music",
             icon: "pianokeys", contentType: .music, preferredSource: "internet_archive")
 }
 

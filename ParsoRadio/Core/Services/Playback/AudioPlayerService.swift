@@ -26,10 +26,6 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     // progress display (smooth motion). DB position saves are throttled separately.
     var onTimeUpdate: ((Double) -> Void)?
 
-    var isAuditioning = false
-    var throttleTimer = false
-    private var lastThrottledTickTime: Double = 0
-
     private(set) var contentMode: ContentMode = .music
     // Lock-screen ±15 s for spoken-word channels.
     static let skipInterval: TimeInterval = 15
@@ -215,22 +211,12 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
             guard time.isNumeric else { return }
                 MainActor.assumeIsolated {
                 guard let self, self.playToken == token else { return }
-                // When throttleTimer is set (curator visible), reduce main-queue
-                // work to ~1 Hz so scroll rendering isn't interrupted 4×/s.
-                if self.throttleTimer {
-                    let now = CACurrentMediaTime()
-                    if now - self.lastThrottledTickTime < 1.0 { return }
-                    self.lastThrottledTickTime = now
-                }
-                // First real time tick → cancel the non-audio suspicion timer
                 self.hasReceivedAudio = true
                 self.nonAudioTimer?.cancel()
                 self.nonAudioTimer = nil
                 self.onTimeUpdate?(time.seconds)
-                if !self.isAuditioning {
-                    self.updateNowPlayingElapsed(time.seconds)
-                    self.updateCurrentChapter(at: time.seconds)
-                }
+                self.updateNowPlayingElapsed(time.seconds)
+                self.updateCurrentChapter(at: time.seconds)
             }
         }
 

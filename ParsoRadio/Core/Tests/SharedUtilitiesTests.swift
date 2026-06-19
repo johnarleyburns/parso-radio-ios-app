@@ -82,7 +82,7 @@ final class SharedUtilitiesTests: XCTestCase {
 
     func testCategoryIconForKnownCategories() {
         XCTAssertEqual(ChannelCategoryStyle.icon(for: "Playlists"), "music.note.list")
-        XCTAssertEqual(ChannelCategoryStyle.icon(for: "Curated"), "star.fill")
+        XCTAssertEqual(ChannelCategoryStyle.icon(for: "Curated Music"), "archivebox")
         XCTAssertEqual(ChannelCategoryStyle.icon(for: "Ambient"), "leaf.fill")
         XCTAssertEqual(ChannelCategoryStyle.icon(for: "Podcasts"), "newspaper.fill")
         XCTAssertEqual(ChannelCategoryStyle.icon(for: "Audiobooks"), "book.fill")

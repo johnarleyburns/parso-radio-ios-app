@@ -40,15 +40,13 @@ final class BackgroundIntentTests: XCTestCase {
 
     func testPlayChannelIntentPerformsInProcess() async throws {
         let intent = PlayChannelIntent()
-        intent.channel = ChannelEntity(id: "guitar-classical", displayName: "Classical Guitar", searchAliases: [])
+        intent.channel = ChannelEntity(id: "oxford-philosophy", displayName: "Philosophy", searchAliases: [])
 
         let result = try await intent.perform()
-        // Must have set the pending command in standard UserDefaults.
         XCTAssertEqual(
             UserDefaults.standard.string(forKey: "siri.pendingChannelId"),
-            "guitar-classical"
+            "oxford-philosophy"
         )
-        // Notification must have been posted.
         XCTAssertNotNil(UserDefaults.standard.object(forKey: "siri.pendingTimestamp"))
     }
 
@@ -64,30 +62,25 @@ final class BackgroundIntentTests: XCTestCase {
     }
 
     func testPlayLorewaveIntentPerformsInProcess() async throws {
-        UserDefaults.standard.set("string-quartet", forKey: "lastChannelId")
+        UserDefaults.standard.set("oxford-history", forKey: "lastChannelId")
         let intent = PlayLorewaveIntent()
 
         let result = try await intent.perform()
         XCTAssertEqual(
             UserDefaults.standard.string(forKey: "siri.pendingChannelId"),
-            "string-quartet"
+            "oxford-history"
         )
     }
 
     // MARK: - Intent performs in extension process (playerVM is nil)
 
     func testPlayChannelIntentPerformsWithoutPlayerVM() async throws {
-        // Simulate extension process: playerVM is nil.
         AppIntentBridge.shared.playerVM = nil
 
         let intent = PlayChannelIntent()
-        intent.channel = ChannelEntity(id: "guitar-classical", displayName: "Classical Guitar", searchAliases: [])
+        intent.channel = ChannelEntity(id: "oxford-philosophy", displayName: "Philosophy", searchAliases: [])
 
         let result = try await intent.perform()
-        // Must have stored in App Group, not standard UserDefaults (in extension,
-        // standard defaults go to the extension sandbox).
-        // Since we're testing in the app process, we verify the intent doesn't
-        // crash and completes gracefully.
     }
 
     func testPlayPodcastIntentPerformsWithoutPlayerVM() async throws {
@@ -97,7 +90,6 @@ final class BackgroundIntentTests: XCTestCase {
         intent.podcast = PodcastEntity(id: "news-democracy-now", displayName: "Democracy Now!", searchAliases: [])
 
         _ = try await intent.perform()
-        // Graceful completion in extension process.
     }
 
     func testPlayLorewaveIntentPerformsWithoutPlayerVM() async throws {
@@ -105,7 +97,6 @@ final class BackgroundIntentTests: XCTestCase {
 
         let intent = PlayLorewaveIntent()
         _ = try await intent.perform()
-        // Graceful completion in extension process.
     }
 
     // MARK: - Kids Mode blocks intents
@@ -113,7 +104,7 @@ final class BackgroundIntentTests: XCTestCase {
     func testKidsModeBlocksPlayChannelIntent() async {
         let pin = KidsModeController.shared.forceEnable()
         let intent = PlayChannelIntent()
-        intent.channel = ChannelEntity(id: "guitar-classical", displayName: "Classical Guitar", searchAliases: [])
+        intent.channel = ChannelEntity(id: "oxford-philosophy", displayName: "Philosophy", searchAliases: [])
 
         do {
             _ = try await intent.perform()
@@ -177,7 +168,6 @@ final class BackgroundIntentTests: XCTestCase {
         XCTAssertEqual(appGroupDefaults.string(forKey: "siri.pendingChannelId"), "bg-channel")
         XCTAssertNotNil(appGroupDefaults.object(forKey: "siri.pendingTimestamp"))
 
-        // Standard UserDefaults must NOT be affected.
         XCTAssertNil(UserDefaults.standard.string(forKey: "siri.pendingChannelId"))
 
         appGroupDefaults.removeObject(forKey: "siri.pendingChannelId")
@@ -185,7 +175,6 @@ final class BackgroundIntentTests: XCTestCase {
     }
 
     func testAppGroupSuiteNameMatchesExtensionEntitlement() {
-        // Must match the suite name in LorewaveIntentsExtension.entitlements.
         XCTAssertEqual(AppGroup.suiteName, "group.guru.parso.ios-radio-app")
     }
 
@@ -202,12 +191,12 @@ final class BackgroundIntentTests: XCTestCase {
     // MARK: - Channel resolves correctly from defaults
 
     func testChannelResolvesFromValidPendingId() {
-        AppIntentBridge.shared.setPendingCommand(channelId: "piano-hour")
+        AppIntentBridge.shared.setPendingCommand(channelId: "lv-general-fiction")
 
         let channelId = UserDefaults.standard.string(forKey: "siri.pendingChannelId")
         let channel = Channel.defaults.first { $0.id == channelId }
         XCTAssertNotNil(channel)
-        XCTAssertEqual(channel?.name, "Piano Hour")
+        XCTAssertEqual(channel?.name, "General Fiction")
     }
 
     func testAllPodcastChannelsResolve() {
@@ -223,10 +212,9 @@ final class BackgroundIntentTests: XCTestCase {
 
     func testPlayChannelIntentReturnsResult() async throws {
         let intent = PlayChannelIntent()
-        intent.channel = ChannelEntity(id: "guitar-classical", displayName: "Classical Guitar", searchAliases: [])
+        intent.channel = ChannelEntity(id: "oxford-philosophy", displayName: "Philosophy", searchAliases: [])
 
         let result = try await intent.perform()
-        // Result must be non-nil and conform to IntentResult.
         XCTAssertNotNil(result)
     }
 

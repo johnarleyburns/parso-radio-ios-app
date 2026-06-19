@@ -56,15 +56,13 @@ final class PlayerViewModel: ObservableObject {
     private(set) lazy var recentlyPlayed = RecentlyPlayedController(db: db, playerVM: self)
     private(set) lazy var sessionRestore = SessionRestoreController(db: db, playerVM: self)
     private(set) lazy var recommendations = RecommendationsController(db: db, archiveService: archiveService)
-    private(set) lazy var audition = AuditionController(playerVM: self)
     private(set) lazy var wholeItem = WholeItemController(db: db, archiveService: archiveService,
-                                               oxfordService: oxfordService,
-                                               queueManager: queueManager, playerVM: self)
+                                                oxfordService: oxfordService,
+                                                queueManager: queueManager, playerVM: self)
     private(set) lazy var playlistPlayback = PlaylistPlaybackController(db: db, playerVM: self)
 
     let audioPlayer: any AudioEngine
 
-    // Internal so the Curator UI can drive the DB through the same model layer.
     let db: DatabaseService
     let archiveService: InternetArchiveService
     private let fmaService: FMAService
@@ -78,12 +76,6 @@ final class PlayerViewModel: ObservableObject {
     private let fileStorage = FileStorageService()
     @Published var currentChannel: Channel?
 
-    /// When a curator audition fails (no channel, no playlist), the track ID
-    /// is captured here BEFORE `currentTrack` is cleared. Curator views use
-    /// this to show a yellow warning icon and flash on the specific failed
-    /// row even though `currentTrack` is nil by the time errorMessage fires.
-    @Published var failedAuditionTrackId: String?
-
     // Look-ahead cache: pre-resolved IA audio URLs so track transitions are gap-free.
     private var prefetchedURLs: [String: URL] = [:]
     // In-session multi-file probe cache, keyed by bare IA identifier.
@@ -96,13 +88,6 @@ final class PlayerViewModel: ObservableObject {
     private var lastPositionSaveTime: Double = -5
     // Throttle @Published currentPosition to 2×/s to reduce cascading recomputation.
     private var lastPositionPublishTime: Double = -1
-    // Throttle audition stall-model confirmations to 1 Hz so the 4×/s main-queue
-    // timer doesn't interrupt curator List scrolling with unnecessary work.
-    private var lastAuditionStallConfirm: Double = 0
-    // Timestamp of the most recent scrub movement. The scrub guard in
-    // onTimeUpdate auto-expires off this so an interrupted drag (whose .onEnded
-    // never fired) can't latch isScrubbing true and freeze the timer / strand
-    // "Buffering…".
     private var lastScrubActivity: Date = .distantPast
 
     // UC3: track history for backward navigation (most-recent last, cap historyLimit).
@@ -148,13 +133,6 @@ final class PlayerViewModel: ObservableObject {
     // mid-resolve could begin playing under the channel we just switched to,
     // showing the channel's name (the "Cafe Lento plays part 9 of my book" bug).
     var playbackContextToken = 0
-    var isAuditioning = false
-    var preAuditionState: (
-        channel: Channel?, playlist: Playlist?,
-        playlistTracks: [Track], playlistIndex: Int,
-        playHistory: [Track], shuffleMode: Bool,
-        track: Track?, position: Double, isPlaying: Bool
-    )?
 
     init(
         db: DatabaseService,
@@ -192,10 +170,6 @@ final class PlayerViewModel: ObservableObject {
             let count = await self.db.trackCount()
             if count > 5000 { await self.db.evictOldTracks() }
         }
-        // Seed the live curation snapshot from the DB on launch so curated
-        // channels show the curator's verdicts immediately (and so the
-        // Documents/curation.json file reflects the current DB).
-        Task { [db] in await LiveCurationStore.shared.reload(from: db) }
 
     // Issue 3: save isPlaying so cold-start can decide whether to auto-play.
     NotificationCenter.default.addObserver(
@@ -337,18 +311,6 @@ final class PlayerViewModel: ObservableObject {
         audioPlayer.onTimeUpdate = { [weak self] seconds in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                // AVPlayer's addPeriodicTimeObserver fires every 0.25 s on the
-                // main queue even when paused. During audition (curator reviewing)
-                // throttle to 1 Hz so scroll rendering isn't interrupted 4×/s.
-                if self.isAuditioning {
-                    let now = Date().timeIntervalSince1970
-                    if now - self.lastAuditionStallConfirm < 1.0 { return }
-                    self.lastAuditionStallConfirm = now
-                    if seconds > 0 {
-                        self.stallModel.confirmPlayback(generation: self.stallModel.loadGeneration)
-                    }
-                    return
-                }
                 if seconds > 0 {
                     self.stallModel.confirmPlayback(generation: self.stallModel.loadGeneration)
                 }
@@ -541,29 +503,16 @@ final class PlayerViewModel: ObservableObject {
         // still approved (curated), play it immediately without a loading
         // spinner. The IA query still runs in the background to refresh the
         // pool for subsequent tracks.
-        let isInstantResumeCategory = channel.category == "Curated"
-            || channel.category == "Audiobooks"
+        let isInstantResumeCategory = channel.category == "Audiobooks"
             || channel.category == "Lectures"
         if isInstantResumeCategory {
             if let saved = await db.loadPosition(channelId: channel.id),
                let track = await db.fetchTrack(id: saved.trackId) {
-                // Curated channel: verify the track is still in the approved pool.
-                // pool(for:) reads directly from the in-memory DB snapshot —
-                // no JSON file fallback, so verdicts are always current.
-                let approved = channel.category == "Curated"
-                    ? Set(LiveCurationStore.shared.pool(for: channel.id).map(\.id))
-                    : nil
-                let isInstant = approved?.contains(track.id) ?? true
-                if isInstant || approved?.isEmpty == true {
+                let isInstant = true
+                if isInstant {
                     // Play instantly — no spinner, no waiting for the network
                     isLoading = false
                     loadingMessage = nil
-                    if approved?.isEmpty == true {
-                        // Channel has no approved tracks yet; skip the background
-                        // fetch too — the user needs to curate first.
-                        channelDescription = channel.detailDescription
-                        return
-                    }
                     // Play the cached track and launch a background refresh
                     await playTrack(track,
                                     seekTo: saved.seconds > 1 ? saved.seconds : nil,
@@ -684,14 +633,7 @@ final class PlayerViewModel: ObservableObject {
             // "lose 23 approved tracks" bug where PRUNE 1 deleted approved
             // tracks not in the query, then PRUNE 2 couldn't restore them.
             if channel.iaQueryEntry != nil, !fetched.isEmpty {
-                var keepingIds = Set(fetched.map(\.id))
-                if channel.category == "Curated" {
-                    let approvedIds = LiveCurationStore.shared
-                        .pool(for: channel.id).map(\.id)
-                    keepingIds.formUnion(approvedIds)
-                    let allCuratedIds = await db.allCuratedTrackIds(channelId: channel.id)
-                    keepingIds.formUnion(allCuratedIds)
-                }
+                let keepingIds = Set(fetched.map(\.id))
                 await db.pruneChannelTracks(
                     forChannel: channel, keeping: keepingIds)
             }
@@ -884,14 +826,6 @@ final class PlayerViewModel: ObservableObject {
                let parent = await db.fetchTrack(id: pid) {
                 guard channel.matches(parent) else { return false }
             } else { return false }
-        }
-        // Approval check: for Curated channels, the track must also be in the
-        // human-approved pool. A stamped track from a prior load is not enough.
-        if channel.category == "Curated" {
-            let approvedIds = Set(LiveCurationStore.shared.pool(for: channel.id).map(\.id))
-            guard !approvedIds.isEmpty, approvedIds.contains(track.id) else {
-                return false
-            }
         }
         return true
     }
@@ -1220,7 +1154,6 @@ final class PlayerViewModel: ObservableObject {
             }
             isPlaying = autoPlay
             errorMessage = nil
-            failedAuditionTrackId = nil
             consecutiveLoadFailures = 0
             loadAttempts[track.id] = nil   // resolved/loaded OK → clear retry count
             assertKidsModeInvariant()      // DEBUG-only Kids Mode leak detector
@@ -1321,10 +1254,6 @@ final class PlayerViewModel: ObservableObject {
             // silently and isLoading stayed true — the curator-audition stuck-
             // spinner bug).
             if currentChannel == nil, currentPlaylist == nil {
-                // Capture the failed track ID BEFORE clearing currentTrack so
-                // curator views can identify which row failed (they check
-                // failedAuditionTrackId in .onChange(of: errorMessage)).
-                failedAuditionTrackId = currentTrack?.id
                 currentTrack = nil
                 trackDuration = nil
                 isLoading = false
@@ -1343,15 +1272,20 @@ final class PlayerViewModel: ObservableObject {
     }
 
     /// Stop any **audition-context** playback (no channel, no playlist active).
-    /// Used by Curator Mode when the user exits the curator screen or
-    /// backgrounds the app. No-op when current playback came from a real
-    /// channel/playlist — we never disturb genuine listening.
+    /// No-op when current playback came from a real channel/playlist.
     func stopAudition() {
-        audition.stopAudition()
-    }
-
-    func stopAuditionWithoutRestore() {
-        audition.stopAuditionWithoutRestore()
+        guard currentChannel == nil, currentPlaylist == nil else { return }
+        guard currentTrack != nil || isLoading else { return }
+        stallWatchdog?.cancel()
+        stallWatchdog = nil
+        audioPlayer.skip()
+        currentTrack = nil
+        trackDuration = nil
+        isPlaying = false
+        isLoading = false
+        loadingMessage = nil
+        errorMessage = nil
+        playbackContextToken &+= 1
     }
 
     // MARK: - Whole book/album
@@ -1587,9 +1521,6 @@ final class PlayerViewModel: ObservableObject {
         // NOTHING, stranding the user on a silent, spinner-less screen (item 9).
         // Surface a clear error instead.
         if currentChannel == nil, currentPlaylist == nil {
-            // Capture the failed track ID BEFORE clearing currentTrack so
-            // curator views can show the yellow warning icon on the correct row.
-            failedAuditionTrackId = currentTrack?.id
             currentTrack = nil
             trackDuration = nil
             isPlaying = false
@@ -1657,13 +1588,7 @@ final class PlayerViewModel: ObservableObject {
             }
             guard !fetched.isEmpty, contextToken == playbackContextToken else { return }
             await db.saveTracks(fetched)
-            // Prune stale stamped tracks, keeping approved IDs for Curated channels
             var keepingIds = Set(fetched.map(\.id))
-            if channel.category == "Curated", channel.iaQueryEntry != nil {
-                let approvedIds = LiveCurationStore.shared
-                    .pool(for: channel.id).map(\.id)
-                keepingIds.formUnion(approvedIds)
-            }
             await db.pruneChannelTracks(forChannel: channel,
                                          keeping: keepingIds)
             downloadManager.prefetchNext(fetched)
@@ -1706,7 +1631,6 @@ final class PlayerViewModel: ObservableObject {
         artworkDominantColor = .accentColor
         currentPosition = 0
         errorMessage = nil
-        failedAuditionTrackId = nil
         isPlaying = false
         currentTrack = pre
         trackDuration = (pre?.duration ?? 0) > 0 ? pre?.duration : nil
@@ -1714,11 +1638,19 @@ final class PlayerViewModel: ObservableObject {
         loadingMessage = "Loading…"
     }
 
-    /// Audition a candidate from Curator Mode: play this exact track once,
-    /// outside any channel / playlist context (the curator's verdict isn't
-    /// playback, so no history / position recording is wanted).
+    /// Audition a candidate track: play this exact track once,
+    /// outside any channel / playlist context.
     func auditionTrack(_ track: Track) async {
-        await audition.auditTrack(track)
+        currentChannel = nil
+        currentPlaylist = nil
+        playlistTracks = []
+        playlistIndex = 0
+        playbackContextToken &+= 1
+        playHistory = []
+        channelDescription = ""
+        beginTransition(pre: track)
+        await Task.yield()
+        await playTrack(track, seekTo: nil, recordHistory: false)
     }
 
     // Play a single Internet Archive search result immediately.
@@ -1901,10 +1833,7 @@ final class PlayerViewModel: ObservableObject {
 
     // MARK: - Session restore (always pick up where you were)
 
-    static let channelIdMigrations: [String: String] = [
-        "classical-guitar": "guitar-classical",
-        "spanish-guitar": "guitar-classical"
-    ]
+    static let channelIdMigrations: [String: String] = [:]
 
     static func migratedChannelId(_ id: String?) -> String? {
         SessionRestoreController.migratedChannelId(id)

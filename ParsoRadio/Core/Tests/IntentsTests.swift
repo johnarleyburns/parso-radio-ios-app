@@ -38,10 +38,10 @@ final class IntentsTests: XCTestCase {
     // MARK: - Entity query tests
 
     func testEntityQueryByIdentifier() async throws {
-        let entities = try await ChannelEntityQuery().entities(for: ["guitar-classical"])
+        let entities = try await ChannelEntityQuery().entities(for: ["oxford-philosophy"])
         XCTAssertEqual(entities.count, 1)
-        XCTAssertEqual(entities.first?.id, "guitar-classical")
-        XCTAssertEqual(entities.first?.displayName, "Classical Guitar")
+        XCTAssertEqual(entities.first?.id, "oxford-philosophy")
+        XCTAssertEqual(entities.first?.displayName, "Philosophy")
     }
 
     func testEntityQueryByIdentifierMissing() async throws {
@@ -51,12 +51,12 @@ final class IntentsTests: XCTestCase {
 
     func testEntityQueryMultipleIdentifiers() async throws {
         let entities = try await ChannelEntityQuery().entities(for: [
-            "guitar-classical", "string-quartet", "does-not-exist"
+            "oxford-philosophy", "lv-general-fiction", "does-not-exist"
         ])
         XCTAssertEqual(entities.count, 2)
         let ids = Set(entities.map(\.id))
-        XCTAssertTrue(ids.contains("guitar-classical"))
-        XCTAssertTrue(ids.contains("string-quartet"))
+        XCTAssertTrue(ids.contains("oxford-philosophy"))
+        XCTAssertTrue(ids.contains("lv-general-fiction"))
     }
 
     func testSuggestedEntitiesReturnsAllChannels() async throws {
@@ -65,10 +65,10 @@ final class IntentsTests: XCTestCase {
     }
 
     func testSuggestedEntitiesOrderVisitedFirst() async throws {
-        UserDefaults.standard.set(["string-quartet", "piano-hour"], forKey: "visitedChannelIds")
+        UserDefaults.standard.set(["oxford-history", "lv-science-fiction"], forKey: "visitedChannelIds")
         let entities = try await ChannelEntityQuery().suggestedEntities()
-        XCTAssertEqual(entities.first?.id, "string-quartet")
-        XCTAssertEqual(entities[1].id, "piano-hour")
+        XCTAssertEqual(entities.first?.id, "oxford-history")
+        XCTAssertEqual(entities[1].id, "lv-science-fiction")
     }
 
     func testSuggestedEntitiesCapped() async throws {
@@ -77,9 +77,9 @@ final class IntentsTests: XCTestCase {
     }
 
     func testSuggestedEntitiesNoDuplicates() async throws {
-        UserDefaults.standard.set(["guitar-classical"], forKey: "visitedChannelIds")
+        UserDefaults.standard.set(["oxford-philosophy"], forKey: "visitedChannelIds")
         let entities = try await ChannelEntityQuery().suggestedEntities()
-        let matches = entities.filter { $0.id == "guitar-classical" }
+        let matches = entities.filter { $0.id == "oxford-philosophy" }
         XCTAssertEqual(matches.count, 1, "Visited channel must not appear twice")
     }
 
@@ -99,7 +99,7 @@ final class IntentsTests: XCTestCase {
     }
 
     func testPodcastEntityQueryExcludesNonPodcasts() async throws {
-        let entities = try await PodcastEntityQuery().entities(for: ["guitar-classical"])
+        let entities = try await PodcastEntityQuery().entities(for: ["oxford-philosophy"])
         XCTAssertTrue(entities.isEmpty, "Non-podcast channel must not appear in podcast query")
     }
 
@@ -118,18 +118,18 @@ final class IntentsTests: XCTestCase {
     // MARK: - Intent Bridge tests
 
     func testBridgeLoadChannelSetsPending() async {
-        let channel = Channel.defaults.first { $0.id == "guitar-classical" }!
+        let channel = Channel.defaults.first { $0.id == "oxford-philosophy" }!
         await AppIntentBridge.shared.loadChannel(channel)
 
-        XCTAssertEqual(UserDefaults.standard.string(forKey: "siri.pendingChannelId"), "guitar-classical")
+        XCTAssertEqual(UserDefaults.standard.string(forKey: "siri.pendingChannelId"), "oxford-philosophy")
         XCTAssertNotNil(UserDefaults.standard.object(forKey: "siri.pendingTimestamp"))
     }
 
     func testBridgeResumePlaybackSetsPending() async {
-        UserDefaults.standard.set("string-quartet", forKey: "lastChannelId")
+        UserDefaults.standard.set("oxford-history", forKey: "lastChannelId")
         await AppIntentBridge.shared.resumePlayback()
 
-        XCTAssertEqual(UserDefaults.standard.string(forKey: "siri.pendingChannelId"), "string-quartet")
+        XCTAssertEqual(UserDefaults.standard.string(forKey: "siri.pendingChannelId"), "oxford-history")
         XCTAssertNotNil(UserDefaults.standard.object(forKey: "siri.pendingTimestamp"))
     }
 
@@ -156,24 +156,21 @@ final class IntentsTests: XCTestCase {
 
     func testBridgeWithNilPlayerVM() async {
         AppIntentBridge.shared.playerVM = nil
-        let channel = Channel.defaults.first { $0.id == "guitar-classical" }!
+        let channel = Channel.defaults.first { $0.id == "oxford-philosophy" }!
         await AppIntentBridge.shared.loadChannel(channel)
-        // Must not crash when playerVM is nil
     }
 
     func testBridgeResumeWithNilPlayerVM() async {
         AppIntentBridge.shared.playerVM = nil
         await AppIntentBridge.shared.resumePlayback()
-        // Must not crash when playerVM is nil
     }
 
     // MARK: - Kids Mode blocks
 
     func testKidsModeBlocksIntentBridge() async {
         let pin = KidsModeController.shared.forceEnable()
-        let channel = Channel.defaults.first { $0.id == "guitar-classical" }!
+        let channel = Channel.defaults.first { $0.id == "oxford-philosophy" }!
         await AppIntentBridge.shared.loadChannel(channel)
-        // Kids Mode on — bridge must refuse to load. Assert no channel change.
         XCTAssertNil(vm.currentChannel)
         _ = KidsModeController.shared.disable(pin: pin)
     }
@@ -191,7 +188,7 @@ final class IntentsTests: XCTestCase {
         let expectation = self.expectation(forNotification: .siriIntentDidPerform, object: nil)
         expectation.isInverted = false
 
-        let channel = Channel.defaults.first { $0.id == "guitar-classical" }!
+        let channel = Channel.defaults.first { $0.id == "oxford-philosophy" }!
         await AppIntentBridge.shared.loadChannel(channel)
 
         await fulfillment(of: [expectation], timeout: 1)
@@ -209,12 +206,11 @@ final class IntentsTests: XCTestCase {
 
     func testPlayChannelIntentPerformWithPlayerVM() async throws {
         let intent = PlayChannelIntent()
-        intent.channel = ChannelEntity(id: "guitar-classical", displayName: "Classical Guitar", searchAliases: [])
+        intent.channel = ChannelEntity(id: "oxford-philosophy", displayName: "Philosophy", searchAliases: [])
 
         let result = try await intent.perform()
-        // In-process loads the channel
         let pendingId = UserDefaults.standard.string(forKey: "siri.pendingChannelId")
-        XCTAssertEqual(pendingId, "guitar-classical")
+        XCTAssertEqual(pendingId, "oxford-philosophy")
     }
 
     func testPlayChannelIntentPerformChannelNotFound() async {
@@ -245,12 +241,12 @@ final class IntentsTests: XCTestCase {
     }
 
     func testPlayLorewaveIntentPerformWithPlayerVM() async throws {
-        UserDefaults.standard.set("piano-hour", forKey: "lastChannelId")
+        UserDefaults.standard.set("lv-general-fiction", forKey: "lastChannelId")
         let intent = PlayLorewaveIntent()
 
         let result = try await intent.perform()
         let pendingId = UserDefaults.standard.string(forKey: "siri.pendingChannelId")
-        XCTAssertEqual(pendingId, "piano-hour")
+        XCTAssertEqual(pendingId, "lv-general-fiction")
     }
 
     // MARK: - Intent static properties

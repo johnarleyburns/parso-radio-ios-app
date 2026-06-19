@@ -15,7 +15,9 @@ final class KidsModeController: ObservableObject {
     static let shared = KidsModeController()
 
     /// The only channels reachable while Kids Mode is on.
-    static let allowedChannelIDs: Set<String> = ["childrens-songs", "childrens-books"]
+    static let allowedChannelIDs: Set<String> = [
+        "ambient-yellowstone", "ambient-flowing-water", "ambient-rain", "ambient-ocean"
+    ]
 
     @Published private(set) var isEnabled: Bool
 

@@ -36,8 +36,8 @@ final class KidsModeControllerTests: XCTestCase {
 
     func test_allowedChannelsAreExactlyTheTwoChildrensChannels() {
         let ids = Set(KidsModeController.allowedChannels().map(\.id))
-        XCTAssertEqual(ids, ["childrens-songs", "childrens-books"],
-            "Kids Mode must expose exactly the two children's channels (and they must exist)")
+        XCTAssertEqual(ids, ["ambient-yellowstone", "ambient-flowing-water", "ambient-rain", "ambient-ocean"],
+            "Kids Mode must expose exactly the four ambient channels (and they must exist)")
     }
 
     func test_normalizeKeepsDigitsAndCapsAtFour() {
@@ -51,15 +51,15 @@ final class KidsModeControllerTests: XCTestCase {
     func test_shouldRedirect_whenNotOnAllowedChannel() {
         XCTAssertTrue(KidsModeController.shouldRedirect(fromChannelId: nil),
             "no current channel → must redirect into kids content")
-        XCTAssertTrue(KidsModeController.shouldRedirect(fromChannelId: "guitar-classical"),
+        XCTAssertTrue(KidsModeController.shouldRedirect(fromChannelId: "oxford-philosophy"),
             "non-kids channel → must redirect")
         XCTAssertTrue(KidsModeController.shouldRedirect(fromChannelId: "news-bbc"),
             "news channel → must redirect")
     }
 
     func test_shouldRedirect_whenAlreadyOnKidsChannel() {
-        XCTAssertFalse(KidsModeController.shouldRedirect(fromChannelId: "childrens-songs"))
-        XCTAssertFalse(KidsModeController.shouldRedirect(fromChannelId: "childrens-books"))
+        XCTAssertFalse(KidsModeController.shouldRedirect(fromChannelId: "ambient-yellowstone"))
+        XCTAssertFalse(KidsModeController.shouldRedirect(fromChannelId: "ambient-ocean"))
     }
 
     // needsRedirect — the unified decision that considers BOTH the channel
@@ -75,17 +75,17 @@ final class KidsModeControllerTests: XCTestCase {
 
     func test_needsRedirect_nonKidSafePlaylist_alwaysRedirects() {
         XCTAssertTrue(KidsModeController.needsRedirect(
-            currentChannelId: "childrens-songs",
+            currentChannelId: "ambient-yellowstone",
             currentPlaylistIsKidSafe: false),
             "a non-kid-safe playlist must redirect even if the channel was kid-safe")
     }
 
     func test_needsRedirect_noPlaylist_fallsBackToChannelAllowList() {
         XCTAssertFalse(KidsModeController.needsRedirect(
-            currentChannelId: "childrens-books",
+            currentChannelId: "ambient-yellowstone",
             currentPlaylistIsKidSafe: nil))
         XCTAssertTrue(KidsModeController.needsRedirect(
-            currentChannelId: "guitar-classical",
+            currentChannelId: "oxford-philosophy",
             currentPlaylistIsKidSafe: nil))
         XCTAssertTrue(KidsModeController.needsRedirect(
             currentChannelId: nil,
@@ -104,15 +104,15 @@ final class KidsModeControllerTests: XCTestCase {
 
     func test_invariantHolds_nonKidSafePlaylist_alwaysFails() {
         XCTAssertFalse(KidsModeController.invariantHolds(
-            currentChannelId: "childrens-songs", currentPlaylistIsKidSafe: false),
+            currentChannelId: "ambient-yellowstone", currentPlaylistIsKidSafe: false),
             "a non-kid-safe playlist context violates the invariant even on a kids channel")
     }
 
     func test_invariantHolds_noPlaylist_requiresAllowedChannel() {
         XCTAssertTrue(KidsModeController.invariantHolds(
-            currentChannelId: "childrens-songs", currentPlaylistIsKidSafe: nil))
+            currentChannelId: "ambient-yellowstone", currentPlaylistIsKidSafe: nil))
         XCTAssertFalse(KidsModeController.invariantHolds(
-            currentChannelId: "guitar-classical", currentPlaylistIsKidSafe: nil))
+            currentChannelId: "oxford-philosophy", currentPlaylistIsKidSafe: nil))
         XCTAssertFalse(KidsModeController.invariantHolds(
             currentChannelId: nil, currentPlaylistIsKidSafe: nil),
             "no channel and no playlist → invariant fails (must load a kids channel)")

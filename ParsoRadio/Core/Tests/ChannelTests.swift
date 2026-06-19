@@ -4,23 +4,18 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 3 For You + 18 Lectures + 5 Podcasts + 4 Ambient + 9 Curated
-        // + 5 Curated Books + 21 Audiobooks (LibriVox) = 65.
-        XCTAssertEqual(Channel.defaults.count, 65)
+        // 3 For You + 18 Lectures + 5 Podcasts + 4 Ambient
+        // + 21 Audiobooks (LibriVox) = 51.
+        XCTAssertEqual(Channel.defaults.count, 51)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {
-        // Legacy Classical is gone. Audiobooks are back, but ONLY as
-        // pure-Lucene registry channels — every internet_archive channel
-        // (Curated music + LibriVox audiobooks) must have an ia_queries.json
-        // entry whose stamp is its own id. No code-side filtered IA channels.
-        // For You channels are dynamic (built from history), not registry-backed.
         XCTAssertTrue(Channel.defaults.allSatisfy { $0.category != "Classical" },
             "No legacy Classical channels should remain")
         for ch in Channel.defaults where ch.preferredSource == "internet_archive"
             && ch.category != "For You" {
-            XCTAssertTrue(["Curated", "Curated Books", "Audiobooks"].contains(ch.category),
-                "IA channel '\(ch.id)' must be Curated, Curated Books, or Audiobooks")
+            XCTAssertEqual(ch.category, "Audiobooks",
+                "IA channel '\(ch.id)' in defaults must be Audiobooks")
             guard let entry = ch.iaQueryEntry else {
                 XCTFail("IA channel '\(ch.id)' must be registry-backed"); continue
             }
@@ -32,8 +27,6 @@ final class ChannelTests: XCTestCase {
     func testForYouChannelsExistAndAreDynamic() {
         let ids = Set(Channel.defaults.filter { $0.category == "For You" }.map(\.id))
         XCTAssertEqual(ids, ["books-for-you", "for-you", "music-for-you"])
-        // Books-for-you is spoken-word so it gets +-15s lock-screen controls and
-        // position persistence; music-for-you is music.
         let books = Channel.defaults.first { $0.id == "books-for-you" }
         XCTAssertEqual(books?.contentType, .spokenWord)
     }
@@ -52,147 +45,14 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    func testGuitarClassicalChannelInCurated() {
-        // Rebuilt under a FRESH id ("guitar-classical") so it sheds stale
-        // stamped tracks. Roster-driven: a curated list of MASTER guitarists
-        // (whose IA catalogues are professional, all-guitar recordings),
-        // INCLUDING Li Jie. The broad subject:"classical guitar" arm was dropped
-        // because it flooded the channel with amateur home recordings.
-        let ch = Channel.defaults.first { $0.id == "guitar-classical" }
-        XCTAssertNotNil(ch, "Guitar channel must exist in Curated category")
-        XCTAssertEqual(ch?.category, "Curated")
-        XCTAssertEqual(ch?.name, "Classical Guitar")
-        XCTAssertEqual(ch?.icon, "music.note", "icon must not be the electric 'guitars' glyph")
-        // The retired ids must be gone (a fresh stamp is the whole point).
-        XCTAssertNil(Channel.defaults.first { $0.id == "spanish-guitar" },
-            "the old spanish-guitar channel must be removed")
-        let q = ch?.iaQueryEntry?.iaQuery ?? ""
-        XCTAssertTrue(q.contains("creator:\"Andrés Segovia\"")
-            && q.contains("creator:\"Julian Bream\"")
-            && q.contains("creator:Sabicas")
-            && q.contains("creator:\"Laurindo Almeida\"")
-            && q.contains("creator:\"Li Jie\""),
-            "Must match the master guitarists' catalogues, including Li Jie")
-        XCTAssertTrue(q.contains("Tárrega"), "must include the Tárrega repertoire arm")
-        XCTAssertFalse(q.contains("creator:\"John Williams\""),
-            "must NOT include John Williams (the film composer pollutes results)")
-        XCTAssertTrue(q.contains("subject:vocal") && q.contains("creator:\"Salli Terri\""),
-            "must exclude vocal songs (e.g. Salli Terri collaborations)")
-        // Curator-Mode policy: queries are deliberately BROADENED so more
-        // candidates surface for human review; manual rejection in Curator
-        // Mode handles amateur noise. The broad subject arm IS in the query.
-        XCTAssertTrue(q.contains("subject:\"classical guitar\""),
-            "broadened query must include the subject arm — manual rejection handles amateur noise")
-        XCTAssertTrue(q.contains("subject:interview") && q.contains("subject:talk")
-            && q.contains("subject:lecture") && q.contains("title:interview"),
-            "Must still exclude interviews / talks / lectures")
-        XCTAssertEqual(ch?.iaQueryEntry?.matchTags, ["guitar-classical"])
-    }
-
-    func testStringQuartetChannel() {
-        let ch = Channel.defaults.first { $0.id == "string-quartet" }
-        XCTAssertNotNil(ch, "String Quartet channel must exist")
-        XCTAssertEqual(ch?.category, "Curated")
-        XCTAssertEqual(ch?.name, "String Quartet")
-        let q = ch?.iaQueryEntry?.iaQuery ?? ""
-        XCTAssertTrue(q.contains("subject:\"string quartet\""),
-            "must be gated to the string-quartet repertoire")
-        XCTAssertTrue(q.contains("creator:Beethoven") && q.contains("creator:Haydn")
-            && q.contains("creator:Shostakovich"),
-            "must include the canonical quartet composers")
-        XCTAssertTrue(q.contains("NOT") && q.contains("subject:guitar"),
-            "must exclude non-quartet noise (e.g. guitar)")
-        XCTAssertEqual(ch?.iaQueryEntry?.matchTags, ["string-quartet"])
-    }
-
-    func testChildrensChannelsAreRegistryBackedAndSafe() {
-        let books = Channel.defaults.first { $0.id == "childrens-books" }
-        XCTAssertTrue(books?.category == "Curated" || books?.category == "Curated Books",
-            "Children's Books is a Curated or Curated Books channel")
-        XCTAssertEqual(books?.contentType, .spokenWord)
-        let bq = books?.iaQueryEntry?.iaQuery ?? ""
-        XCTAssertTrue(bq.contains("collection:librivoxaudio"),
-            "Children's Books must be LibriVox-sourced")
-        XCTAssertTrue(bq.contains("audio_bookspoetry"),
-            "Children's Books is broadened beyond librivoxaudio")
-
-        let songs = Channel.defaults.first { $0.id == "childrens-songs" }
-        XCTAssertEqual(songs?.category, "Curated")
-        // Safety: curated IA 78rpm collection only — NOT the unsafe netlabels
-        // source (profane releases), and NOT LibriVox/audiobooks (keeps it
-        // MUSIC, not spoken-word).
-        let q = songs?.iaQueryEntry?.iaQuery ?? ""
-        XCTAssertTrue(q.contains("collection:78rpm"),
-            "Children's Songs must include the curated 78rpm arm")
-        XCTAssertTrue(q.contains("subject:\"kids music\""),
-            "Children's Songs must include the curated kids-music tag arm")
-        XCTAssertFalse(q.contains("netlabels"),
-            "Children's Songs must NOT use the unsafe netlabels source")
-        XCTAssertTrue(q.contains("NOT collection:librivoxaudio"),
-            "Children's Songs must exclude LibriVox so it stays music, not audiobooks")
-        XCTAssertTrue(q.contains("NOT title:book"),
-            "Children's Songs must exclude book/audiobook items")
-        XCTAssertEqual(songs?.iaQueryEntry?.matchTags, ["childrens-songs"])
-    }
-
-    // Explicit-allowlist book channels: no bulk subject:Plato/Socrates noise.
-    func testCuratedBookChannelsAreExplicitAllowlists() {
-        for id in ["great-books"] {
-            let ch = Channel.defaults.first { $0.id == id }
-            XCTAssertTrue(ch?.category == "Curated" || ch?.category == "Curated Books",
-                "\(id) must be Curated or Curated Books")
-            XCTAssertEqual(ch?.contentType, .spokenWord)
-            let q = ch?.iaQueryEntry?.iaQuery ?? ""
-            XCTAssertTrue(q.contains("collection:librivoxaudio"),
-                "\(id) must be LibriVox-sourced")
-            XCTAssertTrue(q.contains("creator:\""),
-                "\(id) must be an explicit creator allowlist")
-            XCTAssertFalse(q.lowercased().contains("subject:plato")
-                || q.lowercased().contains("subject:socrates"),
-                "\(id) must NOT bulk-search subject:Plato/Socrates (noise)")
-            XCTAssertEqual(ch?.iaQueryEntry?.matchTags, [id])
-        }
-        let g  = Channel.defaults.first { $0.id == "great-books" }?
-            .iaQueryEntry?.iaQuery ?? ""
-        XCTAssertFalse(g.isEmpty)
-        XCTAssertTrue(g.contains("creator:\"Immanuel Kant\"")
-            && g.contains("creator:\"Isaac Newton\""))
-    }
-
-    func testCuratedChannelsAreRegistryBacked() {
-        let channels = Channel.defaults.filter { $0.category == "Curated" }
-        XCTAssertEqual(channels.count, 9,
-            "Expected 9 Curated channels")
-        let ids = Set(channels.map(\.id))
-        XCTAssertEqual(ids, [
-            "guitar-classical", "string-quartet",
-            "symphony-orchestra", "piano-hour", "tribal-works", "cafe-lento",
-            "childrens-songs", "ajc-project",
-            "chamber-music"
-        ])
-        // Every Curated channel must be pure-Lucene registry-backed, and its
-        // matchTag stamp must equal its own id (the isolation contract).
-        for ch in channels {
-            guard let entry = ch.iaQueryEntry else {
-                XCTFail("Curated channel '\(ch.id)' must have an ia_queries.json entry")
-                continue
-            }
-            XCTAssertFalse(entry.iaQuery.isEmpty, "\(ch.id) iaQuery must not be empty")
-            XCTAssertEqual(entry.matchTags, [ch.id],
-                "\(ch.id) matchTags must be its isolation stamp [\(ch.id)]")
-        }
-    }
-
     func testPreferredSourceAssignedCorrectly() {
-        let spanishGuitar = Channel.defaults.first { $0.id == "guitar-classical" }!
-        let oxford        = Channel.defaults.first { $0.id == "oxford-philosophy" }!
+        let audiobook = Channel.defaults.first { $0.id == "lv-general-fiction" }!
+        let oxford    = Channel.defaults.first { $0.id == "oxford-philosophy" }!
 
-        XCTAssertEqual(spanishGuitar.preferredSource, "internet_archive")
-        XCTAssertEqual(oxford.preferredSource,          "oxford_lectures")
+        XCTAssertEqual(audiobook.preferredSource, "internet_archive")
+        XCTAssertEqual(oxford.preferredSource,    "oxford_lectures")
     }
 
-    // Wedge pivot: the Contemporary/FMA genre channels were removed. No channel
-    // should remain in that category or source from FMA.
     func testNoContemporaryOrFMAChannelsRemain() {
         XCTAssertTrue(Channel.defaults.allSatisfy { $0.category != "Contemporary" },
             "Contemporary category must be empty after the wedge pivot")
@@ -200,8 +60,6 @@ final class ChannelTests: XCTestCase {
             "No channel should source from FMA after the wedge pivot")
     }
 
-    // Lectures category: 18 channels. music/population-health/surgical were
-    // removed for returning too little podcasts.ox.ac.uk content.
     func testLecturesCategoryHas18Channels() {
         let channels = Channel.defaults.filter { $0.category == "Lectures" }
         XCTAssertEqual(channels.count, 18, "Expected 18 Lectures channels")
@@ -227,9 +85,6 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    // Podcasts category: 5 channels — Democracy Now!, No Agenda,
-    // Citations Needed, Security Now, FLOSS Weekly. All ad-free in
-    // their canonical RSS feeds; curl-verified live with recent items.
     func testPodcastsCategoryHasExpectedChannels() {
         let newsChannels = Channel.defaults.filter { $0.category == "Podcasts" }
         XCTAssertEqual(newsChannels.count, 5, "Expected 5 Podcasts channels")
@@ -240,7 +95,6 @@ final class ChannelTests: XCTestCase {
         for channel in newsChannels {
             XCTAssertNotNil(channel.feedURL, "Podcasts channel '\(channel.id)' must have a feedURL")
             XCTAssertFalse(channel.feedURL?.isEmpty == true, "Podcasts channel '\(channel.id)' feedURL must not be empty")
-            // tags:[id] + preferredSource:"podcast" ensure channel.matches() isolates each feed's episodes.
             XCTAssertEqual(channel.tags, [channel.id],
                 "Podcasts channel '\(channel.id)' must have tags:[id] so matches() filters correctly")
             XCTAssertEqual(channel.preferredSource, "podcast",
@@ -266,8 +120,6 @@ final class ChannelTests: XCTestCase {
         XCTAssertEqual(decoded.instruments, original.instruments)
     }
 
-    // Ambient category: 4 channels (Yellowstone, Flowing Water, Rainy Day, Ocean Waves).
-    // Lofi Cafe was removed.
     func testAmbientCategoryHas4Channels() {
         let channels = Channel.defaults.filter { $0.category == "Ambient" }
         XCTAssertEqual(channels.count, 4, "Expected 4 Ambient channels")
@@ -294,6 +146,13 @@ final class ChannelTests: XCTestCase {
         }
     }
 
+    func testNoCuratedOrCuratedBooksInDefaults() {
+        XCTAssertTrue(Channel.defaults.allSatisfy { $0.category != "Curated" },
+            "Curated category must not exist in defaults (removed)")
+        XCTAssertTrue(Channel.defaults.allSatisfy { $0.category != "Curated Books" },
+            "Curated Books category must not exist in defaults (removed)")
+    }
+
     // MARK: - Helpers
 
     private func makeTrack(composer: String?, instruments: [String], tags: [String] = []) -> Track {
@@ -316,20 +175,13 @@ final class ChannelTests: XCTestCase {
         )
     }
 
-    // Master-menu section order: fixed sequence, only categories that actually
-    // have channels. "For You" is INTENTIONALLY OMITTED — Music for You and
-    // Books for You are surfaced as auto-generated entries inside the Playlists
-    // screen instead, so the top-level menu stays focused on real channel
-    // categories.
     func testMainMenuCategoryOrder() {
-        let categoryOrder = ["Curated", "Ambient", "Podcasts",
-                             "Audiobooks", "Curated Books", "Lectures"]
+        let categoryOrder = ["Ambient", "Podcasts", "Audiobooks", "Lectures"]
         let present = Set(Channel.defaults.map(\.category))
         let order = categoryOrder.filter(present.contains)
         XCTAssertEqual(order, categoryOrder)
         XCTAssertFalse(order.contains("For You"),
             "For You channels live inside Playlists, not the top-level menu")
-        // Every category in `order` must actually have at least one channel.
         for cat in order {
             XCTAssertTrue(present.contains(cat),
                 "menu order lists \(cat) but no channel has that category")
