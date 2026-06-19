@@ -7,16 +7,17 @@ struct IACollection: Codable, Identifiable, Hashable {
     let category: String
     let curator: String
     let icon: String
+    var query: String?
     var tier: String?
     var itemCount: Int?
     var isDefault: Bool = false
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, category, curator, icon, tier, itemCount
+        case id, title, category, curator, icon, query, tier, itemCount
     }
 
     var channelId: String { "ia-collection-\(id)" }
-    var iaQuery: String { "collection:\(id)" }
+    var iaQuery: String { query ?? "collection:\(id)" }
     var archiveURL: URL? { URL(string: "https://archive.org/details/\(id)") }
 
     var isCuratedFocused: Bool { tier == "curated_focused" }
