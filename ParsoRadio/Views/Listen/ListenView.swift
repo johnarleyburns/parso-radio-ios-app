@@ -26,10 +26,6 @@ struct ListenView: View {
                     selectedRecentTrack = track
                 }
 
-                LiveMusicSection(onSelect: select, playerVM: playerVM, deps: deps)
-
-                ForYouSection(onSelect: select)
-
                 ForEach(LibrarySection.ordered) { section in
                     channelsSection(for: section)
                 }
@@ -95,12 +91,11 @@ struct ListenView: View {
 
     @ViewBuilder
     private func channelsSection(for section: LibrarySection) -> some View {
-        let dedicated: Set<String> = ["For You"]
         let subs = section.id == .podcast
             ? podcastStore.subscriptions.map { podcastStore.channel(from: $0) } : []
         let iaChannels = section.id == .music ? iaCollectionStore.channels : []
         let channels = (Channel.defaults
-            .filter { $0.mediaKind == section.id && !dedicated.contains($0.category) }
+            .filter { $0.mediaKind == section.id && $0.category != "For You" }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending })
             + iaChannels.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             + subs
@@ -167,107 +162,6 @@ struct ListenView: View {
     private func channelContextMenu(_ channel: Channel) -> some View {
         NavigationLink(value: MenuRoute.channelInfo(channel)) {
             Label("Channel Info", systemImage: "info.circle")
-        }
-    }
-}
-
-private struct ForYouSection: View {
-    let onSelect: (Channel) -> Void
-
-    var body: some View {
-        let forYouChannels = Channel.defaults
-            .filter { $0.category == "For You" && $0.id == "for-you" }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        if !forYouChannels.isEmpty {
-            Section("Based on Your Taste") {
-                ForEach(forYouChannels, id: \.id) { channel in
-                    Button { onSelect(channel) } label: {
-                        Label(channel.name, systemImage: channel.icon)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-}
-
-private struct LiveMusicSection: View {
-    @ObservedObject private var store = LiveMusicOnThisDayStore.shared
-    let onSelect: (Channel) -> Void
-    let playerVM: PlayerViewModel
-    let deps: AppDependencies
-    var body: some View {
-        Section("Live Music on This Day") {
-            if store.isLoading {
-                HStack(spacing: 12) {
-                    Color(.systemGray5)
-                        .frame(width: 56, height: 56)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay {
-                            ProgressView()
-                        }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Searching…")
-                            .font(.subheadline.weight(.medium))
-                        Text("Live Music Archive")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-                .frame(minHeight: 56)
-            } else if let entry = store.entry {
-                Button {
-                    Task { await playLiveEntry(entry) }
-                } label: {
-                    HStack(spacing: 12) {
-                        VerifiedThumb(url: entry.thumbnailURL, fallbackName: { "music.mic" })
-                            .frame(width: 56, height: 56)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(entry.displayName)
-                                .font(.subheadline.weight(.medium))
-                                .lineLimit(2)
-                            if let location = entry.locationSummary {
-                                Text(location)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            if let date = entry.formattedDate {
-                                Text(date)
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                            }
-                        }
-                        Spacer()
-                        Image(systemName: "play.circle")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .buttonStyle(.plain)
-            } else {
-                Text("No live recordings found for today.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .refreshable { await store.refresh() }
-        .task { await store.loadIfNeeded() }
-    }
-
-    private func playLiveEntry(_ entry: LiveMusicEntry) async {
-        do {
-            let tracks = try await deps.archiveService.fetchTracksForIdentifier(entry.id)
-            guard !tracks.isEmpty else {
-                playerVM.errorMessage = "This recording doesn't have any playable audio files — it may use unsupported formats like SHN."
-                return
-            }
-            await playerVM.playAlbumTracks(tracks, title: entry.displayName)
-        } catch {
-            playerVM.errorMessage = "Couldn't load this recording. Try again later."
         }
     }
 }

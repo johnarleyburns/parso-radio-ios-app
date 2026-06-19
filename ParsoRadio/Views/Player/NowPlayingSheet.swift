@@ -143,7 +143,6 @@ struct NowPlayingSheet: View {
 
                 if let collection = track.collectionTitle ?? {
                     guard let parent = track.parentIdentifier else { return nil }
-                    // Derive a readable name from parentIdentifier (IA ID like "artist_title_123")
                     let parts = parent.split(separator: "_")
                     return parts.count >= 2
                         ? parts.dropLast().map { $0.capitalized }.joined(separator: " ")
@@ -175,7 +174,23 @@ struct NowPlayingSheet: View {
                     .padding(.top, 4)
                 }
             }
-        } else if !playerVM.isLoading {
+        } else if playerVM.isLoading {
+            VStack(spacing: 6) {
+                if let name = playerVM.currentChannel?.name {
+                    Text(name)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .multilineTextAlignment(.center)
+                }
+                HStack(spacing: 6) {
+                    ProgressView().scaleEffect(0.7)
+                    Text(playerVM.loadingMessage ?? "Finding tracks…")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 2)
+            }
+        } else {
             Text("No tracks available")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -186,68 +201,76 @@ struct NowPlayingSheet: View {
     private var bottomControls: some View {
         let b = behavior
         let tint = ChannelCategoryStyle.color(for: channelCategory)
+        let track = playerVM.currentTrack
+        let controlsDisabled = track == nil || playerVM.isLoading
 
         VStack(spacing: 8) {
-            if let track = playerVM.currentTrack {
-                progressSection(track: track, tint: tint)
+            stableProgressSection(track: track, tint: tint, disabled: controlsDisabled)
 
-                TransportControls()
-                    .disabled(playerVM.isLoading)
+            TransportControls()
+                .disabled(controlsDisabled)
 
-                HStack(spacing: 0) {
-                    if b.allowsShuffleToggle {
-                        ShuffleControl()
-                        Spacer()
+            HStack(spacing: 0) {
+                if b.allowsShuffleToggle {
+                    ShuffleControl().disabled(controlsDisabled)
+                    Spacer()
+                } else {
+                    Spacer()
+                }
+
+                HStack(spacing: 16) {
+                    if let t = track, t.source == "internet_archive" {
+                        archiveLink(for: t)
                     } else {
-                        Spacer()
+                        Image(systemName: "safari")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .opacity(0.3)
                     }
-
-                    HStack(spacing: 16) {
-                        if track.source == "internet_archive" {
-                            archiveLink(for: track)
-                        }
-                        AirPlayButton()
-                            .frame(width: 28, height: 28)
-                        Button {
-                            showAddToPlaylist = true
-                        } label: {
-                            Image(systemName: "plus.circle")
-                                .font(.body)
-                        }
-                        .accessibilityLabel("Add to playlist")
-                        if playerVM.currentTrackIsMultiPart {
-                            Button {
-                                showAlbumTracks = true
-                            } label: {
-                                Image(systemName: "opticaldisc")
-                                    .font(.body)
-                            }
-                            .accessibilityLabel("View album tracks")
-                        }
-                        if b.supportsSleepTimer {
-                            sleepTimerMenu
-                        }
+                    AirPlayButton()
+                        .frame(width: 28, height: 28)
+                    Button {
+                        showAddToPlaylist = true
+                    } label: {
+                        Image(systemName: "plus.circle")
+                            .font(.body)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 12)
-
-                    if b.allowsShuffleToggle {
-                        Spacer()
-                        RepeatControl()
+                    .disabled(controlsDisabled)
+                    .accessibilityLabel("Add to playlist")
+                    Button {
+                        showAlbumTracks = true
+                    } label: {
+                        Image(systemName: "opticaldisc")
+                            .font(.body)
+                            .foregroundStyle(playerVM.currentTrackIsMultiPart ? .primary : .secondary)
+                            .opacity(playerVM.currentTrackIsMultiPart ? 1 : 0.3)
+                    }
+                    .disabled(!playerVM.currentTrackIsMultiPart)
+                    .accessibilityLabel("View album tracks")
+                    if b.supportsSleepTimer {
+                        sleepTimerMenu
                     }
                 }
-                .sheet(isPresented: $showAddToPlaylist) {
-                    AddItemToPlaylistSheet(track: track)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+
+                if b.allowsShuffleToggle {
+                    Spacer()
+                    RepeatControl().disabled(controlsDisabled)
+                }
+            }
+            .sheet(isPresented: $showAddToPlaylist) {
+                if let t = track {
+                    AddItemToPlaylistSheet(track: t)
                         .environmentObject(playlistVM)
                         .environmentObject(playerVM)
                 }
-                .sheet(isPresented: $showAlbumTracks) {
-                    AlbumTracksSheet(track: track)
+            }
+            .sheet(isPresented: $showAlbumTracks) {
+                if let t = track {
+                    AlbumTracksSheet(track: t)
                         .environmentObject(playerVM)
                 }
-            } else {
-                TransportControls()
-                    .disabled(playerVM.isLoading)
             }
 
             let cols = [GridItem(.adaptive(minimum: 76), spacing: 12)]
@@ -262,9 +285,9 @@ struct NowPlayingSheet: View {
     }
 
     @ViewBuilder
-    private func progressSection(track: Track, tint: Color) -> some View {
-        let fid = track.favoriteID(for: track.favoriteKind(channel: playerVM.currentChannel))
-        let isFav = favorites.favorites.contains(where: { $0.id == fid })
+    private func stableProgressSection(track: Track?, tint: Color, disabled: Bool) -> some View {
+        let fid = track.map { $0.favoriteID(for: $0.favoriteKind(channel: playerVM.currentChannel)) }
+        let isFav = fid.map { id in favorites.favorites.contains { $0.id == id } } ?? false
         let remaining = (playerVM.trackDuration ?? 0) - playerVM.currentPosition
         let b = behavior
 
@@ -272,15 +295,18 @@ struct NowPlayingSheet: View {
             HStack(alignment: .bottom, spacing: 0) {
                 VStack(spacing: 8) {
                     Button {
-                        Task {
-                            await favorites.toggle(track: track, channel: playerVM.currentChannel,
-                                                   positionSeconds: playerVM.currentPosition)
+                        if let t = track {
+                            Task {
+                                await favorites.toggle(track: t, channel: playerVM.currentChannel,
+                                                       positionSeconds: playerVM.currentPosition)
+                            }
                         }
                     } label: {
                         Image(systemName: isFav ? "heart.fill" : "heart")
                             .font(.body)
                             .foregroundStyle(isFav ? .red : .secondary)
                     }
+                    .disabled(disabled)
                     .accessibilityLabel(isFav ? "Remove from favorites" : "Add to favorites")
                     .padding(.bottom, 8)
 
@@ -303,7 +329,7 @@ struct NowPlayingSheet: View {
                 }
 
                 VStack(spacing: 8) {
-                    if let shareURL = ShareURLBuilder.url(for: track) {
+                    if let t = track, let shareURL = ShareURLBuilder.url(for: t) {
                         ShareLink(item: shareURL) {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.body)
@@ -311,7 +337,11 @@ struct NowPlayingSheet: View {
                         .accessibilityLabel("Share")
                         .padding(.bottom, 8)
                     } else {
-                        Color.clear.frame(width: 17, height: 17)
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .opacity(0.3)
+                            .padding(.bottom, 8)
                     }
 
                     Text("-\(remaining.formattedTime)")
@@ -323,6 +353,7 @@ struct NowPlayingSheet: View {
             .buttonStyle(.plain)
 
             ScrubBar(tint: tint)
+                .disabled(disabled)
         }
     }
 
