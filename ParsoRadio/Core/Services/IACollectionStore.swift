@@ -11,6 +11,10 @@ struct IACollection: Codable, Identifiable, Hashable {
     var itemCount: Int?
     var isDefault: Bool = false
 
+    private enum CodingKeys: String, CodingKey {
+        case id, title, category, curator, icon, tier, itemCount
+    }
+
     var channelId: String { "ia-collection-\(id)" }
     var iaQuery: String { "collection:\(id)" }
     var archiveURL: URL? { URL(string: "https://archive.org/details/\(id)") }

@@ -14,7 +14,7 @@ struct RootTabView: View {
             SearchTabView()
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
         }
-        .overlay(alignment: .bottom) {
+        .safeAreaInset(edge: .bottom) {
             MiniPlayer()
         }
     }
