@@ -211,12 +211,10 @@ struct NowPlayingSheet: View {
                 .disabled(controlsDisabled)
 
             HStack(spacing: 0) {
-                if b.allowsShuffleToggle {
-                    ShuffleControl().disabled(controlsDisabled)
-                    Spacer()
-                } else {
-                    Spacer()
-                }
+                ShuffleControl()
+                    .disabled(controlsDisabled || !b.allowsShuffleToggle)
+                    .opacity(b.allowsShuffleToggle ? 1 : 0.3)
+                Spacer()
 
                 HStack(spacing: 16) {
                     if let t = track, t.source == "internet_archive" {
@@ -247,17 +245,17 @@ struct NowPlayingSheet: View {
                     }
                     .disabled(!playerVM.currentTrackIsMultiPart)
                     .accessibilityLabel("View album tracks")
-                    if b.supportsSleepTimer {
-                        sleepTimerMenu
-                    }
+                    sleepTimerMenu
+                        .disabled(controlsDisabled || !b.supportsSleepTimer)
+                        .opacity(b.supportsSleepTimer ? 1 : 0.3)
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 12)
 
-                if b.allowsShuffleToggle {
-                    Spacer()
-                    RepeatControl().disabled(controlsDisabled)
-                }
+                Spacer()
+                RepeatControl()
+                    .disabled(controlsDisabled || !b.allowsShuffleToggle)
+                    .opacity(b.allowsShuffleToggle ? 1 : 0.3)
             }
             .sheet(isPresented: $showAddToPlaylist) {
                 if let t = track {
@@ -275,9 +273,15 @@ struct NowPlayingSheet: View {
 
             let cols = [GridItem(.adaptive(minimum: 76), spacing: 12)]
             LazyVGrid(columns: cols, spacing: 12) {
-                if b.supportsSpeedControl { SpeedControl(showLabel: false) }
-                if b.supportsChapters { ChapterButton(showLabel: false) }
-                if b.supportsBookmarks { BookmarkButton(showLabel: false) }
+                SpeedControl(showLabel: false)
+                    .disabled(controlsDisabled || !b.supportsSpeedControl)
+                    .opacity(b.supportsSpeedControl ? 1 : 0.3)
+                ChapterButton(showLabel: false)
+                    .disabled(controlsDisabled || !b.supportsChapters)
+                    .opacity(b.supportsChapters ? 1 : 0.3)
+                BookmarkButton(showLabel: false)
+                    .disabled(controlsDisabled || !b.supportsBookmarks)
+                    .opacity(b.supportsBookmarks ? 1 : 0.3)
             }
             .padding(.horizontal)
         }
