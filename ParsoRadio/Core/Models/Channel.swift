@@ -63,7 +63,7 @@ struct Channel: Codable, Identifiable, Hashable {
 
     var iaQueryEntry: IAQueryEntry? {
         if let entry = IAQueryRegistry.shared.entry(for: id) { return entry }
-        if let q = iaQuery { return IAQueryEntry(channelId: id, iaQuery: q, matchTags: []) }
+        if let q = iaQuery { return IAQueryEntry(channelId: id, iaQuery: q, matchTags: [id]) }
         return nil
     }
 
