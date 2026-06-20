@@ -19,20 +19,6 @@ struct NowPlayingSheet: View {
 
     var body: some View {
         ZStack {
-            if let channel = playerVM.currentChannel,
-               channel.mediaKind == .ambient {
-                if let videoURL = AmbientStaticService.bundledVideoURL(forChannelId: channel.id) {
-                    LoopingVideoView(url: videoURL, isPlaying: playerVM.isPlaying)
-                        .ignoresSafeArea()
-                } else {
-                    ProceduralVisualizerView(
-                        seed: channel.id,
-                        isPlaying: playerVM.isPlaying
-                    )
-                    .ignoresSafeArea()
-                }
-            }
-
             NavigationStack {
                 VStack(spacing: 0) {
                     ScrollView {
@@ -76,7 +62,23 @@ struct NowPlayingSheet: View {
     @ViewBuilder
     private var artwork: some View {
         ZStack {
-            if let img = playerVM.currentArtwork {
+            if let channel = playerVM.currentChannel,
+               channel.contentType == .ambientLoop {
+                if let videoURL = AmbientStaticService.bundledVideoURL(forChannelId: channel.id) {
+                    LoopingVideoView(url: videoURL, isPlaying: playerVM.isPlaying)
+                        .frame(width: 260, height: 260)
+                        .clipShape(RoundedRectangle(cornerRadius: 28))
+                        .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
+                } else {
+                    ProceduralVisualizerView(
+                        seed: channel.id,
+                        isPlaying: playerVM.isPlaying
+                    )
+                    .frame(width: 260, height: 260)
+                    .clipShape(RoundedRectangle(cornerRadius: 28))
+                    .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
+                }
+            } else if let img = playerVM.currentArtwork {
                 Image(uiImage: img)
                     .resizable()
                     .scaledToFill()
