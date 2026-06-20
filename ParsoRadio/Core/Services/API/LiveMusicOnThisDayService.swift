@@ -5,9 +5,12 @@ struct LiveMusicOnThisDayService {
     private let cacheKey: String
     private let poolKey: String
     private let poolDateKey: String
-    private let state = State()
+    private let pickedKey: String
 
-    private final class State { var lastPickedID: String? }
+    private var lastPickedID: String? {
+        get { UserDefaults.standard.string(forKey: pickedKey) }
+        nonmutating set { UserDefaults.standard.set(newValue, forKey: pickedKey) }
+    }
 
     init(session: URLSession = .app) {
         self.session = session
@@ -15,6 +18,7 @@ struct LiveMusicOnThisDayService {
         self.cacheKey = "liveMusicEntry_" + today
         self.poolKey = "liveMusicPool_" + today
         self.poolDateKey = "liveMusicPoolDate_" + today
+        self.pickedKey = "liveMusicLastPicked_" + today
     }
 
     // MARK: - Public
@@ -24,7 +28,7 @@ struct LiveMusicOnThisDayService {
         guard let pool, !pool.isEmpty else { return nil }
 
         var triedIDs = Set<String>()
-        if forceFresh, let lastID = state.lastPickedID, pool.count > 1 {
+        if forceFresh, let lastID = lastPickedID, pool.count > 1 {
             triedIDs.insert(lastID)
         }
 
@@ -36,7 +40,7 @@ struct LiveMusicOnThisDayService {
 
             let pick = candidates.randomElement()!
             triedIDs.insert(pick.id)
-            state.lastPickedID = pick.id
+            lastPickedID = pick.id
 
             let enriched = (try? await enrichWithMetadata(pick)) ?? pick
 
@@ -52,7 +56,7 @@ struct LiveMusicOnThisDayService {
         }
 
         if let first = pool.first {
-            state.lastPickedID = first.id
+            lastPickedID = first.id
             cacheSingle(first)
             return first
         }
@@ -63,7 +67,7 @@ struct LiveMusicOnThisDayService {
         UserDefaults.standard.removeObject(forKey: cacheKey)
         UserDefaults.standard.removeObject(forKey: poolKey)
         UserDefaults.standard.removeObject(forKey: poolDateKey)
-        state.lastPickedID = nil
+        UserDefaults.standard.removeObject(forKey: pickedKey)
     }
 
     // MARK: - Pool cache (24-hour TTL)

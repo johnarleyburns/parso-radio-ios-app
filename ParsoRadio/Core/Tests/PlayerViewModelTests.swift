@@ -1363,4 +1363,26 @@ extension PlayerViewModelTests {
             "After confirmPlayback, stall model must return .healthy for that generation")
     }
 
+    func testPlayHistoryVersionStartsAtZero() {
+        XCTAssertEqual(vm.playHistoryVersion, 0)
+    }
+
+    func testRecentlyPlayedTracksReflectsHistoryAfterRecordPlayed() async throws {
+        let t = Track(
+            id: "hist-test", source: "fma", title: "History Track", artist: "Test",
+            duration: 120, streamURL: URL(string: "https://example.com/hist")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .cc0, tags: [], qualityScore: 1.0,
+            rawCreator: "", composer: nil, instruments: [], metadataConfidence: 2.0
+        )
+        await db.saveTracks([t])
+        await db.recordPlayed(channelId: "test-ch", trackId: t.id)
+        vm.playHistoryVersion &+= 1
+
+        XCTAssertEqual(vm.playHistoryVersion, 1)
+        let recents = await vm.recentlyPlayedTracks(limit: 10)
+        XCTAssertFalse(recents.isEmpty, "Recently played should contain the recorded track")
+        XCTAssertEqual(recents.first?.id, t.id)
+    }
+
 }

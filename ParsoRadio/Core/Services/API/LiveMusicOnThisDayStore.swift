@@ -20,6 +20,14 @@ final class LiveMusicOnThisDayStore: ObservableObject {
         lastFetchDate = today
     }
 
+    func refreshFromPool() async {
+        let service = LiveMusicOnThisDayService()
+        isLoading = true
+        defer { isLoading = false }
+        entry = await service.fetchDailyEntry(forceFresh: true)
+        lastFetchDate = LiveMusicOnThisDayService.todayMMDD()
+    }
+
     func refresh() async {
         let service = LiveMusicOnThisDayService()
         service.clearCachedEntry()

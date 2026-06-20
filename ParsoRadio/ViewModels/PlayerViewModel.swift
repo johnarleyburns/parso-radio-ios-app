@@ -61,6 +61,8 @@ final class PlayerViewModel: ObservableObject {
                                                 queueManager: queueManager, playerVM: self)
     private(set) lazy var playlistPlayback = PlaylistPlaybackController(db: db, playerVM: self)
 
+    @Published var playHistoryVersion = 0
+
     let audioPlayer: any AudioEngine
 
     let db: DatabaseService
@@ -1176,8 +1178,11 @@ final class PlayerViewModel: ObservableObject {
                     ?? currentPlaylist.map { Self.playlistKey($0.id) }
                     ?? "direct"
                 let trackId = track.id
-                Task { [db] in await db.recordPlayed(channelId: ctx, trackId: trackId) }
-                // Engagement signal for the contribution prompt (never ambient).
+                Task { [weak self] in
+                    guard let self else { return }
+                    await db.recordPlayed(channelId: ctx, trackId: trackId)
+                    playHistoryVersion &+= 1
+                }
                 ContributionCoordinator.recordTrackPlayed()
             }
 

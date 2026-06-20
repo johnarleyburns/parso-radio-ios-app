@@ -13,6 +13,7 @@ final class LiveMusicOnThisDayTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "liveMusicPool_06-20")
         UserDefaults.standard.removeObject(forKey: "liveMusicPoolDate_06-20")
         UserDefaults.standard.removeObject(forKey: "liveMusicEntry_06-20")
+        UserDefaults.standard.removeObject(forKey: "liveMusicLastPicked_06-20")
     }
 
     override func tearDown() {
@@ -20,6 +21,7 @@ final class LiveMusicOnThisDayTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "liveMusicPool_06-20")
         UserDefaults.standard.removeObject(forKey: "liveMusicPoolDate_06-20")
         UserDefaults.standard.removeObject(forKey: "liveMusicEntry_06-20")
+        UserDefaults.standard.removeObject(forKey: "liveMusicLastPicked_06-20")
         super.tearDown()
     }
 
@@ -357,7 +359,61 @@ final class LiveMusicOnThisDayTests: XCTestCase {
         )
         XCTAssertFalse(withoutTitle.hasTitle)
     }
+
+    func testForceFreshAvoidsLastPickedAcrossInstances() async throws {
+        let searchJSON = "{\"response\":{\"numFound\":3,\"start\":0,\"docs\":[{\"identifier\":\"entry-a\",\"creator\":\"Band A\",\"date\":\"2020-06-20\",\"year\":2020,\"downloads\":100,\"description\":\"Soundboard \u{2022} City \u{2022} Venue A\"},{\"identifier\":\"entry-b\",\"creator\":\"Band B\",\"date\":\"2020-06-20\",\"year\":2020,\"downloads\":200,\"description\":\"Soundboard \u{2022} City \u{2022} Venue B\"},{\"identifier\":\"entry-c\",\"creator\":\"Band C\",\"date\":\"2020-06-20\",\"year\":2020,\"downloads\":300,\"description\":\"Soundboard \u{2022} City \u{2022} Venue C\"}]}}"
+        MockURLProtocol.requestHandler = { request in
+            if request.url?.absoluteString.contains("/metadata/") == true {
+                let id = request.url!.lastPathComponent
+                let metaJSON = self.makeMetadataJSON(
+                    id: id, title: "Full Show " + id, creator: "Test Band",
+                    venue: "Venue", coverage: "", date: "2020-06-20",
+                    description: "A great show."
+                )
+                let data = metaJSON.data(using: .utf8)!
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (response, data)
+            }
+            let data = searchJSON.data(using: .utf8)!
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, data)
+        }
+
+        // First service instance picks an entry
+        let serviceA = LiveMusicOnThisDayService(session: session)
+        let first = await serviceA.fetchDailyEntry()
+        XCTAssertNotNil(first)
+
+        // Second service instance with forceFresh should avoid first
+        let serviceB = LiveMusicOnThisDayService(session: session)
+        let second = await serviceB.fetchDailyEntry(forceFresh: true)
+        XCTAssertNotNil(second)
+        XCTAssertNotEqual(first?.id, second?.id,
+            "forceFresh across instances must avoid the last picked entry via UserDefaults")
+    }
+
+    func testRefreshFromPoolDoesNotClearCache() async throws {
+        mockEtreeResponse(entries: [
+            MockEtreeEntry(identifier: "rpool-001", creator: "Test Band", date: "2020-06-20", year: 2020, downloads: 10, description: "Soundboard \u{2022} City \u{2022} Venue"),
+        ])
+
+        let serviceA = LiveMusicOnThisDayService(session: session)
+        _ = await serviceA.fetchDailyEntry()
+
+        let poolData = UserDefaults.standard.data(forKey: "liveMusicPool_06-20")
+        XCTAssertNotNil(poolData, "Pool must be cached after first fetch")
+
+        // Simulate refreshFromPool: new instance, forceFresh, no clearCache
+        let serviceB = LiveMusicOnThisDayService(session: session)
+        let entry = await serviceB.fetchDailyEntry(forceFresh: true)
+        XCTAssertNotNil(entry, "refreshFromPool must still return an entry")
+
+        let poolAfter = UserDefaults.standard.data(forKey: "liveMusicPool_06-20")
+        XCTAssertNotNil(poolAfter, "Pool must remain after refreshFromPool (no clearCache called)")
+    }
+
 }
+
 
 // MARK: - Mock models for testing
 

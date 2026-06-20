@@ -28,6 +28,7 @@
 		182DFD0C37EE07AD9F5FCA10 /* ATTRIBUTION.md in Resources */ = {isa = PBXBuildFile; fileRef = 5C37DFD3734818ED54869677 /* ATTRIBUTION.md */; };
 		186B0E3AD8737E596D5DE170 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8D6872AF64574EF3BEDCCF0 /* RootTabView.swift */; };
 		18FE6DA418033EE59E769F4A /* SourceValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7953AA397605499350A49B0F /* SourceValidatorTests.swift */; };
+		1939C42DE6D62F5D40ACC1AA /* JumpBackInUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D43452276AE660FFBCFA4204 /* JumpBackInUITests.swift */; };
 		1AC32122C7E00E707762D90E /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9799CCBFF502819C4AF6D51A /* SmokeTests.swift */; };
 		1AE52749C2260604F24699D6 /* FakeAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19CD0647E6863AA1E0AE7F97 /* FakeAudioEngine.swift */; };
 		1D3741D24889093450A76E0D /* ambient-ocean.wav in Resources */ = {isa = PBXBuildFile; fileRef = F8217C263B4ED07284307F21 /* ambient-ocean.wav */; };
@@ -371,6 +372,7 @@
 		CD305EEF15C0A9C814197F4B /* LiveMusicOnThisDayIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMusicOnThisDayIntegrationTests.swift; sourceTree = "<group>"; };
 		D2B4F0FB209DE025D791D60A /* LiveMusicOnThisDayUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMusicOnThisDayUITests.swift; sourceTree = "<group>"; };
 		D2D2ED424597547445912CD5 /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
+		D43452276AE660FFBCFA4204 /* JumpBackInUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpBackInUITests.swift; sourceTree = "<group>"; };
 		D51A1FA12F087CC8D58F658B /* PlayerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewModel.swift; sourceTree = "<group>"; };
 		D7F6F6F8331C89C4E0865AC4 /* RecentlyPlayedController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentlyPlayedController.swift; sourceTree = "<group>"; };
 		D8D274E175EF66D77D026321 /* IntentHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentHandler.swift; sourceTree = "<group>"; };
@@ -843,6 +845,7 @@
 			isa = PBXGroup;
 			children = (
 				49009BD3557DA38A2154E000 /* ImageDisplayUITests.swift */,
+				D43452276AE660FFBCFA4204 /* JumpBackInUITests.swift */,
 				D2B4F0FB209DE025D791D60A /* LiveMusicOnThisDayUITests.swift */,
 				A0638D5F50BA788FC4D96EAA /* PodcastUITests.swift */,
 				9799CCBFF502819C4AF6D51A /* SmokeTests.swift */,
@@ -851,7 +854,7 @@
 			path = ParsoRadio/UITests;
 			sourceTree = "<group>";
 		};
-		"TEMP_B62AB7E7-C6DE-4859-829B-1AC0136E4349" /* Integration */ = {
+		"TEMP_6903EA77-17F0-4876-8145-A6FA7EE3FA10" /* Integration */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1216,6 +1219,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				51673E4595F65CF84EA222E2 /* ImageDisplayUITests.swift in Sources */,
+				1939C42DE6D62F5D40ACC1AA /* JumpBackInUITests.swift in Sources */,
 				1F5C1A40BAFB0F46903FA961 /* LiveMusicOnThisDayUITests.swift in Sources */,
 				696E2985E6A9DB6AD2DCB782 /* PodcastUITests.swift in Sources */,
 				1AC32122C7E00E707762D90E /* SmokeTests.swift in Sources */,

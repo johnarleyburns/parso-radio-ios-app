@@ -111,6 +111,7 @@ struct ListenView: View {
     private func channelsSection(for section: LibrarySection) -> some View {
         let subs = section.id == .podcast
             ? podcastStore.subscriptions.map { podcastStore.channel(from: $0) } : []
+        let subscriptionChannelIDs = Set(subs.map(\.id))
         let iaChannels = section.id == .music ? iaCollectionStore.channels : []
         let channels = (Channel.defaults
             .filter { $0.mediaKind == section.id && $0.category != "For You" && !hiddenChannelIds.contains($0.id) }
@@ -127,12 +128,12 @@ struct ListenView: View {
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { select(channel) }
-                    .contextMenu { channelContextMenu(channel) }
+                    .contextMenu { channelContextMenu(channel, subscriptionChannelIDs: subscriptionChannelIDs) }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if podcastStore.subscriptions.contains(where: { $0.id == channel.id }) {
+                        if subscriptionChannelIDs.contains(channel.id) {
                             Button(role: .destructive) {
                                 Task {
-                                    if let sub = podcastStore.subscriptions.first(where: { $0.id == channel.id }) {
+                                    if let sub = podcastStore.subscriptions.first(where: { "podcast-\($0.id)" == channel.id }) {
                                         await podcastStore.remove(sub)
                                     }
                                 }
@@ -180,9 +181,20 @@ struct ListenView: View {
     }
 
     @ViewBuilder
-    private func channelContextMenu(_ channel: Channel) -> some View {
+    private func channelContextMenu(_ channel: Channel, subscriptionChannelIDs: Set<String> = []) -> some View {
         NavigationLink(value: MenuRoute.channelInfo(channel)) {
             Label("Channel Info", systemImage: "info.circle")
+        }
+        if subscriptionChannelIDs.contains(channel.id) {
+            Button(role: .destructive) {
+                Task {
+                    if let sub = podcastStore.subscriptions.first(where: { "podcast-\($0.id)" == channel.id }) {
+                        await podcastStore.remove(sub)
+                    }
+                }
+            } label: {
+                Label("Unsubscribe", systemImage: "trash")
+            }
         }
     }
 
@@ -198,36 +210,43 @@ private struct JumpBackInSection: View {
     @State private var items: [Track] = []
 
     var body: some View {
-        Group {
-            if !items.isEmpty {
-                Section("Jump Back In") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 14) {
-                            ForEach(items, id: \.id) { track in
-                                Button { onSelect(track) } label: {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        AsyncImage(url: track.resolvedArtworkURL) { phase in
-                                            if let img = phase.image { img.resizable().scaledToFill() }
-                                            else { Color(.systemGray5).overlay(Image(systemName: "music.note")) }
-                                        }
-                                        .frame(width: 120, height: 120)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                                        Text(track.title).font(.caption.weight(.medium)).lineLimit(1)
-                                        Text(track.artist).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+        Section {
+            if items.isEmpty {
+                Color.clear
+                    .frame(height: 0)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(items, id: \.id) { track in
+                            Button { onSelect(track) } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    AsyncImage(url: track.resolvedArtworkURL) { phase in
+                                        if let img = phase.image { img.resizable().scaledToFill() }
+                                        else { Color(.systemGray5).overlay(Image(systemName: "music.note")) }
                                     }
-                                    .frame(width: 120)
-                                    .contentShape(Rectangle())
+                                    .frame(width: 120, height: 120)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    Text(track.title).font(.caption.weight(.medium)).lineLimit(1)
+                                    Text(track.artist).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                                 }
-                                .buttonStyle(.plain)
+                                .frame(width: 120)
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
                         }
-                        .padding(.vertical, 4)
                     }
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 0))
+                    .padding(.vertical, 4)
                 }
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 0))
+            }
+        } header: {
+            if !items.isEmpty {
+                Text("Jump Back In")
             }
         }
-        .task { items = await playerVM.recentlyPlayedTracks(limit: 10) }
+        .task(id: playerVM.playHistoryVersion) { items = await playerVM.recentlyPlayedTracks(limit: 10) }
     }
 }
 
@@ -301,7 +320,7 @@ private struct LiveMusicSection: View {
         } header: {
             Text("Live Music on This Day")
         }
-        .refreshable { await store.refresh() }
+        .refreshable { await store.refreshFromPool() }
         .task { await store.loadIfNeeded() }
     }
 

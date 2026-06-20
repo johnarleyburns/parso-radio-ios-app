@@ -138,4 +138,17 @@ final class PodcastSubscriptionStoreTests: XCTestCase {
         await store.add(name: "After Reconfig", feedURL: "https://example.com")
         XCTAssertEqual(store.subscriptions.count, 1)
     }
+
+    func testChannelIdUsesPodcastPrefix() async throws {
+        store.configure(db: db)
+        _ = await store.add(name: "Test Pod", feedURL: "https://pod.example.com/feed")
+
+        let sub = store.subscriptions.first!
+        let channel = store.channel(from: sub)
+
+        XCTAssertTrue(channel.id.hasPrefix("podcast-"),
+            "Channel ID from subscription must use 'podcast-' prefix")
+        XCTAssertTrue(channel.id.contains(sub.id),
+            "Channel ID must embed the subscription's raw ID")
+    }
 }
