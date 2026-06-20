@@ -98,8 +98,10 @@ final class SearchViewModelTests: XCTestCase {
 
     // Item 1: books & albums rank above tracks; stable within a kind;
     // not-yet-classified items keep their place (track rank).
+    // Uses .podcasts scope (no kind filter) to test sorting in isolation.
     func testDisplayedResultsRanksBooksAndAlbumsFirst() {
         let vm = SearchViewModel()
+        vm.scope = .podcasts  // no kind filter
         func g(_ id: String) -> SearchViewModel.ResultGroup {
             .init(id: id, title: id, creator: "c", addedDate: nil, duration: 0)
         }
@@ -112,6 +114,86 @@ final class SearchViewModelTests: XCTestCase {
                        ["bk1", "bk2", "al1", "t1", "t2", "unk"],
             "books then albums then tracks; original order preserved per kind; "
             + "unclassified stays at track rank")
+    }
+
+    // MARK: - Scope labels
+
+    func testScopeLabelsUpdated() {
+        XCTAssertEqual(SearchViewModel.SearchScope.music.label, "Music")
+        XCTAssertEqual(SearchViewModel.SearchScope.albums.label, "Albums")
+        XCTAssertEqual(SearchViewModel.SearchScope.audiobooks.label, "Audiobooks")
+        XCTAssertEqual(SearchViewModel.SearchScope.podcasts.label, "Podcasts")
+    }
+
+    // MARK: - Scope filterKind
+
+    func testScopeFilterKind() {
+        XCTAssertEqual(SearchViewModel.SearchScope.music.filterKind, .track)
+        XCTAssertEqual(SearchViewModel.SearchScope.albums.filterKind, .album)
+        XCTAssertEqual(SearchViewModel.SearchScope.audiobooks.filterKind, .book)
+        XCTAssertNil(SearchViewModel.SearchScope.podcasts.filterKind)
+    }
+
+    // MARK: - displayedResults kind filtering
+
+    private func makeGroups() -> ([SearchViewModel.ResultGroup], [String: SearchViewModel.ItemKind]) {
+        let groups: [SearchViewModel.ResultGroup] = [
+            .init(id: "t1", title: "Single Track A", creator: "c", addedDate: nil, duration: 0),
+            .init(id: "a1", title: "Album One", creator: "c", addedDate: nil, duration: 0),
+            .init(id: "b1", title: "Book One", creator: "c", addedDate: nil, duration: 0),
+            .init(id: "t2", title: "Single Track B", creator: "c", addedDate: nil, duration: 0),
+            .init(id: "u1", title: "Unknown Kind", creator: "c", addedDate: nil, duration: 0),
+        ]
+        let kinds: [String: SearchViewModel.ItemKind] = [
+            "t1": .track, "a1": .album, "b1": .book,
+            "t2": .track,
+            // "u1" intentionally unclassified
+        ]
+        return (groups, kinds)
+    }
+
+    func testScopeMusicOnlyShowsTracks() {
+        let vm = SearchViewModel()
+        vm.scope = .music
+        let (groups, kinds) = makeGroups()
+        vm.results = groups
+        vm.itemKinds = kinds
+        XCTAssertEqual(Set(vm.displayedResults.map(\.id)), ["t1", "t2", "u1"],
+            "Music scope: only tracks and unclassified items appear")
+    }
+
+    func testScopeAlbumsOnlyShowsAlbums() {
+        let vm = SearchViewModel()
+        vm.scope = .albums
+        let (groups, kinds) = makeGroups()
+        vm.results = groups
+        vm.itemKinds = kinds
+        XCTAssertEqual(Set(vm.displayedResults.map(\.id)), ["a1", "u1"],
+            "Albums scope: only albums and unclassified items appear")
+    }
+
+    func testScopeAudiobooksOnlyShowsBooks() {
+        let vm = SearchViewModel()
+        vm.scope = .audiobooks
+        let (groups, kinds) = makeGroups()
+        vm.results = groups
+        vm.itemKinds = kinds
+        XCTAssertEqual(Set(vm.displayedResults.map(\.id)), ["b1", "u1"],
+            "Audiobooks scope: only books and unclassified items appear")
+    }
+
+    func testDisplayedResultsPreservesOrderWithinFilter() {
+        let vm = SearchViewModel()
+        vm.scope = .music
+        let groups: [SearchViewModel.ResultGroup] = [
+            .init(id: "a1", title: "Album", creator: "c", addedDate: nil, duration: 0),
+            .init(id: "t1", title: "Track 1", creator: "c", addedDate: nil, duration: 0),
+            .init(id: "t2", title: "Track 2", creator: "c", addedDate: nil, duration: 0),
+        ]
+        vm.results = groups
+        vm.itemKinds = ["a1": .album, "t1": .track, "t2": .track]
+        XCTAssertEqual(vm.displayedResults.map(\.id), ["t1", "t2"],
+            "Track items preserve original relative order")
     }
 
     // Item 3: history records on successful search, de-dupes case-insensitively,

@@ -19,25 +19,35 @@ final class SearchViewModel: ObservableObject {
     // the leading icon/label and the "Add Book/Album" action.
     enum ItemKind: String { case track, album, book }
 
-    // Search scope filter (the segmented control under the search box). `all`
-    // (= "All") is the default; `music` excludes book/podcast/radio
-    // collections; `audiobooks` restricts to the book collections.
+    // Search scope filter (the segmented control under the search box).
+    // `music` fetches all IA audio, displaying only single-track items.
+    // `albums` excludes book/podcast/radio collections, displaying only
+    //   multi-track items.
+    // `audiobooks` restricts to book collections, displaying only book items.
     // `podcasts` searches via iTunes podcast API.
     enum SearchScope: String, CaseIterable, Identifiable {
-        case all, music, audiobooks, podcasts
+        case music, albums, audiobooks, podcasts
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .all:        return "All"
             case .music:      return "Music"
+            case .albums:     return "Albums"
             case .audiobooks: return "Audiobooks"
             case .podcasts:   return "Podcasts"
+            }
+        }
+        var filterKind: ItemKind? {
+            switch self {
+            case .music:      return .track
+            case .albums:     return .album
+            case .audiobooks: return .book
+            case .podcasts:   return nil
             }
         }
     }
 
     @Published var query: String = ""
-    @Published var scope: SearchScope = .all
+    @Published var scope: SearchScope = .music
     @Published var results: [ResultGroup] = []
     @Published var podcastResults: [PodcastSearchResult] = []
     @Published var isSearching: Bool = false
@@ -125,6 +135,8 @@ final class SearchViewModel: ObservableObject {
     // generally higher-quality / more relevant). Stable: original relative
     // order is preserved within each kind, and not-yet-classified items keep
     // their place (rank as track) so the list doesn't churn while probing.
+    // After sorting, results are filtered to the scope's implied ItemKind.
+    // Unclassified (nil) items pass through so they don't flicker out.
     var displayedResults: [ResultGroup] {
         func rank(_ g: ResultGroup) -> Int {
             switch itemKinds[g.id] {
@@ -133,12 +145,17 @@ final class SearchViewModel: ObservableObject {
             default:     return 2
             }
         }
-        return results.enumerated()
+        let sorted = results.enumerated()
             .sorted { a, b in
                 let ra = rank(a.element), rb = rank(b.element)
                 return ra == rb ? a.offset < b.offset : ra < rb
             }
             .map(\.element)
+        guard let allowed = scope.filterKind else { return sorted }
+        return sorted.filter { g in
+            let k = itemKinds[g.id]
+            return k == nil || k == allowed
+        }
     }
 
     // Resolve kinds for the whole page up front so the ranking settles

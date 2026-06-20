@@ -5,10 +5,7 @@ struct SearchView: View {
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @StateObject private var searchVM: SearchViewModel
-    @State private var showAddToPlaylist: Track? = nil
-    @State private var showAddItemToPlaylist: SearchViewModel.ResultGroup? = nil
-    @State private var selectedResult: SearchViewModel.ResultGroup? = nil
-    @State private var infoGroup: SearchViewModel.ResultGroup? = nil
+    @State private var detailGroup: SearchViewModel.ResultGroup? = nil
     @State private var failedTrackIds: Set<String> = []
     @State private var flashTrackId: String?
     @State private var showDuplicateAlert = false
@@ -86,43 +83,14 @@ struct SearchView: View {
                     Button("Done") { searchFocused = false }
                 }
             }
-            .sheet(item: $showAddToPlaylist) { track in
-                AddToPlaylistSheet(track: track)
-                    .environmentObject(playlistVM)
-            }
-            .sheet(item: $showAddItemToPlaylist) { group in
-                AddItemToPlaylistSheet(track: searchTrack(group))
-                    .environmentObject(playlistVM)
-                    .environmentObject(playerVM)
-            }
-            .confirmationDialog(
-                selectedResult?.title ?? "",
-                isPresented: Binding(
-                    get: { selectedResult != nil },
-                    set: { if !$0 { selectedResult = nil } }
-                ),
-                titleVisibility: .visible,
-                presenting: selectedResult
-            ) { group in
-                Button("Play") {
-                    Task { await playerVM.playSearchResult(group); dismissAll?() }
-                }
-                Button("Add to Playlist") { showAddToPlaylist = searchTrack(group) }
-                if let kind = searchVM.itemKinds[group.id], kind != .track {
-                    let label = kind == .book ? "Book" : "Album"
-                    Button("Add \(label) to Playlist") {
-                        showAddItemToPlaylist = group
-                    }
-                    Button("Add \(label) to New Playlist \u{201C}\(shortTitle(group.title))\u{201D}") {
-                        Task {
-                            await playerVM.addEntireItemToNewPlaylist(
-                                from: searchTrack(group),
-                                named: group.title,
-                                using: playlistVM)
-                        }
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
+            .sheet(item: $detailGroup) { group in
+                ItemDetailView(
+                    identifier: group.id,
+                    title: group.title,
+                    creator: group.creator,
+                    kind: searchVM.itemKinds[group.id] ?? .album
+                )
+                .environmentObject(playerVM)
             }
             .alert("Already Subscribed", isPresented: $showDuplicateAlert) {
                 Button("OK", role: .cancel) {}
@@ -130,9 +98,6 @@ struct SearchView: View {
                 Text("You're already subscribed to this podcast.")
             }
             .onAppear { searchFocused = true }
-            .sheet(item: $infoGroup) { group in
-                trackInfoSheet(group)
-            }
             .onChange(of: playerVM.errorMessage) { _, msg in
                 let failedId = playerVM.currentTrack?.id
                 if let id = failedId, msg != nil {
@@ -243,73 +208,68 @@ struct SearchView: View {
                 let dur = searchVM.durations[group.id] ?? group.duration
                 let hasFailed = failedTrackIds.contains(group.id)
                 let isFlashing = flashTrackId == group.id
-                HStack(spacing: 10) {
-                    Image(systemName: kindIcon(group))
-                        .font(.system(size: 18))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 26)
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 4) {
-                            if hasFailed {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.yellow)
-                                    .scaleEffect(isFlashing ? 1.4 : 1.0)
-                                    .animation(isFlashing ? .easeInOut(duration: 0.3).repeatCount(2, autoreverses: true) : .default, value: isFlashing)
-                            }
-                            Text(group.title)
-                                .font(.body).fontWeight(.medium).lineLimit(2)
-                        }
-                        Text(group.creator)
-                            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        HStack(spacing: 6) {
-                            if let kind = searchVM.itemKinds[group.id] {
-                                Text(kindLabel(kind))
-                                    .font(.caption2)
-                                    .padding(.horizontal, 6).padding(.vertical, 2)
-                                    .background(Color.accentColor.opacity(0.15))
-                                    .clipShape(Capsule())
-                                    .foregroundStyle(Color.accentColor)
-                            }
-                            if let coll = group.collection,
-                               !coll.trimmingCharacters(in: .whitespaces).isEmpty {
-                                Text(coll)
-                                    .font(.caption2)
-                                    .padding(.horizontal, 6).padding(.vertical, 2)
-                                    .background(Color(.tertiarySystemFill))
-                                    .clipShape(Capsule())
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        if let date = group.addedDate {
-                            Text(date.formatted(.dateTime.year().month().day()))
-                                .font(.caption2).foregroundStyle(.tertiary)
-                        }
-                    }
-                    Spacer()
-                    if dur > 0 {
-                        Text(Duration.seconds(dur)
-                            .formatted(.time(pattern: .hourMinuteSecond)))
-                            .font(.caption)
-                            .monospacedDigit()
+                let itemKind = searchVM.itemKinds[group.id]
+                Button {
+                    handleTap(group, kind: itemKind)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: kindIcon(group))
+                            .font(.system(size: 18))
                             .foregroundStyle(.secondary)
+                            .frame(width: 26)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 4) {
+                                if hasFailed {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.yellow)
+                                        .scaleEffect(isFlashing ? 1.4 : 1.0)
+                                        .animation(isFlashing ? .easeInOut(duration: 0.3).repeatCount(2, autoreverses: true) : .default, value: isFlashing)
+                                }
+                                Text(group.title)
+                                    .font(.body).fontWeight(.medium).lineLimit(2)
+                            }
+                            Text(group.creator)
+                                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            HStack(spacing: 6) {
+                                if let kind = itemKind {
+                                    Text(kindLabel(kind))
+                                        .font(.caption2)
+                                        .padding(.horizontal, 6).padding(.vertical, 2)
+                                        .background(Color.accentColor.opacity(0.15))
+                                        .clipShape(Capsule())
+                                        .foregroundStyle(Color.accentColor)
+                                }
+                                if let coll = group.collection,
+                                   !coll.trimmingCharacters(in: .whitespaces).isEmpty {
+                                    Text(coll)
+                                        .font(.caption2)
+                                        .padding(.horizontal, 6).padding(.vertical, 2)
+                                        .background(Color(.tertiarySystemFill))
+                                        .clipShape(Capsule())
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            if let date = group.addedDate {
+                                Text(date.formatted(.dateTime.year().month().day()))
+                                    .font(.caption2).foregroundStyle(.tertiary)
+                            }
+                        }
+                        Spacer()
+                        if dur > 0 {
+                            Text(Duration.seconds(dur)
+                                .formatted(.time(pattern: .hourMinuteSecond)))
+                                .font(.caption)
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                    Button {
-                        selectedResult = group
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
-                    .accessibilityHidden(true)
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { selectedResult = group }
+                .buttonStyle(.plain)
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isButton)
-                .accessibilityHint("Shows play and add options")
-                .accessibilityAction { selectedResult = group }
+                .accessibilityHint(accessibilityHint(for: itemKind))
                 .task { searchVM.loadItemInfo(group) }
             }
 
@@ -321,6 +281,27 @@ struct SearchView: View {
         .listStyle(.plain)
     }
 
+    private func handleTap(_ group: SearchViewModel.ResultGroup,
+                           kind: SearchViewModel.ItemKind?) {
+        switch kind {
+        case .track:
+            Task { await playerVM.playSearchResult(group); dismissAll?() }
+        case .album, .book:
+            detailGroup = group
+        case nil:
+            break
+        }
+    }
+
+    private func accessibilityHint(for kind: SearchViewModel.ItemKind?) -> String {
+        switch kind {
+        case .track: return "Plays this track"
+        case .album: return "Opens album details"
+        case .book:  return "Opens book details"
+        case nil:    return "Loading item details"
+        }
+    }
+
     private func kindIcon(_ group: SearchViewModel.ResultGroup) -> String {
         switch searchVM.itemKinds[group.id] {
         case .book:  return "book.closed.fill"
@@ -330,83 +311,11 @@ struct SearchView: View {
         }
     }
 
-    private func shortTitle(_ s: String, max: Int = 24) -> String {
-        s.count > max ? String(s.prefix(max - 1)) + "\u{2026}" : s
-    }
-
     private func kindLabel(_ kind: SearchViewModel.ItemKind) -> String {
         switch kind {
         case .book:  return "Book"
         case .album: return "Album"
         case .track: return "Track"
         }
-    }
-
-    private func searchTrack(_ group: SearchViewModel.ResultGroup) -> Track {
-        Track(
-            id: group.id, source: "internet_archive",
-            title: group.title, artist: group.creator,
-            duration: group.duration,
-            streamURL: URL(string: "https://archive.org/download/\(group.id)")
-                ?? URL(string: "https://archive.org")!,
-            downloadURL: nil, localFilePath: nil,
-            license: .publicDomain, tags: [],
-            qualityScore: 1.0, rawCreator: group.creator,
-            composer: nil, instruments: [],
-            metadataConfidence: 0.0, addedDate: group.addedDate
-        )
-    }
-
-    @ViewBuilder
-    private func trackInfoSheet(_ group: SearchViewModel.ResultGroup) -> some View {
-        NavigationStack {
-            List {
-                Section("Track Info") {
-                    Text(group.title).font(.headline)
-                    Text(group.creator).foregroundStyle(.secondary)
-                    if group.duration > 0 {
-                        Text(formatTime(group.duration))
-                            .font(.caption).foregroundStyle(.tertiary).monospacedDigit()
-                    }
-                }
-                if let kind = searchVM.itemKinds[group.id] {
-                    Section("Type") {
-                        Text(kindLabel(kind))
-                    }
-                }
-                if let coll = group.collection,
-                   !coll.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Section("Collection") {
-                        Text(coll)
-                    }
-                }
-                Section {
-                    Button {
-                        infoGroup = nil
-                        Task { await playerVM.playSearchResult(group); dismissAll?() }
-                    } label: { Label("Play", systemImage: "play.fill") }
-                    Button {
-                        infoGroup = nil
-                        showAddToPlaylist = searchTrack(group)
-                    } label: { Label("Add to Playlist", systemImage: "plus.circle") }
-                }
-                Section {
-                    Text("ID: \(group.id)")
-                        .font(.caption2).foregroundStyle(.tertiary)
-                }
-            }
-            .navigationTitle("Track Info")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { infoGroup = nil }
-                }
-            }
-        }
-    }
-
-    private func formatTime(_ s: Double) -> String {
-        let t = Int(s); let m = t / 60; let sec = t % 60
-        return String(format: "%d:%02d", m, sec)
     }
 }

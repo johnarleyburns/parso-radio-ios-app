@@ -268,8 +268,14 @@ struct NowPlayingSheet: View {
             }
             .sheet(isPresented: $showAlbumTracks) {
                 if let t = track {
-                    AlbumTracksSheet(track: t)
-                        .environmentObject(playerVM)
+                    let identifier = t.parentIdentifier ?? t.id
+                    ItemDetailView(
+                        identifier: identifier,
+                        title: t.collectionTitle ?? t.title,
+                        creator: t.artist,
+                        kind: .album
+                    )
+                    .environmentObject(playerVM)
                 }
             }
 
@@ -426,62 +432,3 @@ private struct RepeatControl: View {
     }
 }
 
-private struct AlbumTracksSheet: View {
-    let track: Track
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @Environment(\.dismiss) private var dismiss
-    @State private var parts: [Track] = []
-    @State private var isLoading = true
-
-    private var identifier: String { track.parentIdentifier ?? track.id }
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    Button {
-                        Task {
-                            await playerVM.playEntireCurrentItem()
-                            dismiss()
-                        }
-                    } label: {
-                        Label("Play Entire Album", systemImage: "play.fill")
-                    }
-                }
-
-                Section {
-                    if isLoading {
-                        HStack { Spacer(); ProgressView(); Spacer() }
-                    } else if parts.isEmpty {
-                        Text("No tracks found")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(Array(parts.enumerated()), id: \.1.id) { idx, part in
-                            HStack {
-                                Text("\(idx + 1). \(part.title)")
-                                    .lineLimit(2)
-                                Spacer()
-                                if part.id == playerVM.currentTrack?.id {
-                                    Image(systemName: "speaker.wave.2.fill")
-                                        .foregroundStyle(.blue)
-                                        .font(.caption)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Album Tracks")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
-            .task {
-                parts = await playerVM.resolveItemParts(identifier: identifier) ?? []
-                isLoading = false
-            }
-        }
-    }
-}

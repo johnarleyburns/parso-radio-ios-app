@@ -267,7 +267,7 @@ struct InternetArchiveService {
     // `title:(a b)` ANDs the words within ONE field and misses most hits
     // (e.g. "Tarrega Guitar" → 2 vs 36).
     func search(query: String, page: Int,
-                scope: SearchViewModel.SearchScope = .all) async throws -> [SearchViewModel.ResultGroup] {
+                scope: SearchViewModel.SearchScope = .music) async throws -> [SearchViewModel.ResultGroup] {
         let q = Self.buildSearchQuery(rawInput: query, scope: scope)
         return try await searchGroups(query: q, page: page)
     }
@@ -289,7 +289,7 @@ struct InternetArchiveService {
     /// - Boosts: title:^4 / creator:^3 / subject:^1 so "Tárrega Recuerdos"
     ///   wins over "Top 100 Songs mentioning Tárrega".
     static func buildSearchQuery(rawInput: String,
-                                 scope: SearchViewModel.SearchScope = .all) -> String {
+                                 scope: SearchViewModel.SearchScope = .music) -> String {
         let scopeClause = Self.scopeClause(scope)
         let tokens = rawInput
             .split { !$0.isLetter && !$0.isNumber }
@@ -313,17 +313,19 @@ struct InternetArchiveService {
     }
 
     // Collection filter for the search scope. Curl-verified against
-    // archive.org: audiobooks restricts to the LibriVox / audio-books
-    // collections; music EXCLUDES those plus podcast/old-time-radio collections
-    // (which otherwise dominate a music search via relevance). NB: no leading
-    // wildcards (IA disables them) — these are exact collection ids.
+    // archive.org:
+    // - `music` fetches everything; client-side filter narrows to tracks.
+    // - `albums` EXCLUDES audiobook/podcast/radio collections so they don't
+    //   dominate a music search via relevance.
+    // - `audiobooks` restricts to LibriVox / audio-books collections.
+    // NB: no leading wildcards (IA disables them) — these are exact collection ids.
     private static func scopeClause(_ scope: SearchViewModel.SearchScope) -> String {
         switch scope {
-        case .all:
+        case .music:
             return ""
         case .audiobooks:
             return " AND collection:(librivoxaudio OR audio_bookspoetry)"
-        case .music:
+        case .albums:
             return " AND NOT collection:(librivoxaudio OR audio_bookspoetry"
                  + " OR podcasts OR podcasts_mirror OR podcasts_mirror_bobarchives"
                  + " OR radioprograms OR oldtimeradio)"
