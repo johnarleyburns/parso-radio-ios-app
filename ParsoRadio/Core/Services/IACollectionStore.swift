@@ -43,6 +43,7 @@ final class IACollectionStore: ObservableObject {
     static let shared = IACollectionStore()
 
     @Published private(set) var collections: [IACollection] = []
+    @Published var newlyAddedChannelId: String?
 
     private let userCollectionsKey = "iaCollectionStore.userCollections"
     private let removedDefaultsKey = "iaCollectionStore.removedDefaults"
@@ -82,6 +83,7 @@ final class IACollectionStore: ObservableObject {
         removed.remove(c.id)
         saveRemovedDefaults(removed)
         loadCollections()
+        newlyAddedChannelId = c.channelId
     }
 
     func addCollection(id: String, title: String) {

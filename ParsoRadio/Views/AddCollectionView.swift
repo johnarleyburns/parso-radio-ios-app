@@ -8,11 +8,14 @@ struct AddCollectionView: View {
     @State private var searchQuery = ""
     @State private var searchResults: [IASearchResult] = []
     @State private var isSearching = false
-    @State private var mode: Mode = .manual
+    @State private var mode: Mode = .search
+    @State private var pendingResult: IASearchResult?
+    @State private var showConfirmAdd = false
+    @State private var showAlreadyAdded = false
 
     enum Mode: String, CaseIterable {
-        case manual = "Collection ID"
         case search = "Search"
+        case manual = "Collection ID"
     }
 
     var body: some View {
@@ -26,10 +29,10 @@ struct AddCollectionView: View {
                 .pickerStyle(.segmented)
                 .listRowBackground(Color.clear)
 
-                if mode == .manual {
-                    manualSection
-                } else {
+                if mode == .search {
                     searchSection
+                } else {
+                    manualSection
                 }
             }
             .navigationTitle("Add Collection")
@@ -37,6 +40,76 @@ struct AddCollectionView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                }
+            }
+            .alert("Already Added", isPresented: $showAlreadyAdded) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("This collection is already in your list.")
+            }
+            .alert("Add to Collections?", isPresented: $showConfirmAdd) {
+                Button("Cancel", role: .cancel) { pendingResult = nil }
+                Button("Add") {
+                    if let result = pendingResult {
+                        let c = IACollection(
+                            id: result.id, title: result.title,
+                            category: "user", curator: result.creator ?? "",
+                            icon: "music.note", isDefault: false
+                        )
+                        store.addCollection(c)
+                        pendingResult = nil
+                        dismiss()
+                    }
+                }
+            } message: {
+                if let result = pendingResult {
+                    Text("\"\(result.title)\"")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var searchSection: some View {
+        Section {
+            TextField("Search Internet Archive collections\u{2026}", text: $searchQuery)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .onSubmit { Task { await search() } }
+        }
+
+        if isSearching {
+            Section {
+                HStack { Spacer(); ProgressView(); Spacer() }
+            }
+        } else if !searchResults.isEmpty {
+            Section("Results") {
+                ForEach(searchResults) { result in
+                    Button {
+                        if store.collections.contains(where: { $0.id == result.id }) {
+                            showAlreadyAdded = true
+                        } else {
+                            pendingResult = result
+                            showConfirmAdd = true
+                        }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(result.title)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.primary)
+                            if let creator = result.creator {
+                                Text(creator)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let count = result.itemCount {
+                                Text("\(count) items")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -61,54 +134,6 @@ struct AddCollectionView: View {
                 dismiss()
             }
             .disabled(collectionId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        }
-    }
-
-    @ViewBuilder
-    private var searchSection: some View {
-        Section {
-            TextField("Search Internet Archive collections…", text: $searchQuery)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .onSubmit { Task { await search() } }
-        }
-
-        if isSearching {
-            Section {
-                HStack { Spacer(); ProgressView(); Spacer() }
-            }
-        } else if !searchResults.isEmpty {
-            Section("Results") {
-                ForEach(searchResults) { result in
-                    Button {
-                        let c = IACollection(
-                            id: result.id, title: result.title,
-                            category: "user", curator: result.creator ?? "",
-                            icon: "music.note", isDefault: false
-                        )
-                        store.addCollection(c)
-                        dismiss()
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(result.title)
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.primary)
-                            if let creator = result.creator {
-                                Text(creator)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            if let count = result.itemCount {
-                                Text("\(count) items")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(store.collections.contains { $0.id == result.id })
-                }
-            }
         }
     }
 

@@ -21,29 +21,45 @@ struct ListenView: View {
     @ObservedObject private var iaCollectionStore = IACollectionStore.shared
     @ObservedObject private var podcastStore = PodcastSubscriptionStore.shared
 
+    @State private var highlightChannelId: String?
+
     private func select(_ channel: Channel) { nowPlayingChannel = channel }
 
     var body: some View {
         NavigationStack {
-            List {
-                JumpBackInSection(playerVM: playerVM) { track in
-                    selectedRecentTrack = track
-                }
+            ScrollViewReader { proxy in
+                List {
+                    JumpBackInSection(playerVM: playerVM) { track in
+                        selectedRecentTrack = track
+                    }
 
-                LiveMusicSection(playerVM: playerVM, deps: deps) { entry in
-                    selectedLiveEntry = entry
-                }
+                    LiveMusicSection(playerVM: playerVM, deps: deps) { entry in
+                        selectedLiveEntry = entry
+                    }
 
-                ForEach(LibrarySection.ordered) { section in
-                    channelsSection(for: section)
-                }
+                    ForEach(LibrarySection.ordered) { section in
+                        channelsSection(for: section)
+                    }
 
-                Color.clear
-                    .frame(height: 60)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+                    Color.clear
+                        .frame(height: 60)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+                .listStyle(.insetGrouped)
+                .onChange(of: iaCollectionStore.newlyAddedChannelId) { _, newId in
+                    guard let id = newId else { return }
+                    highlightChannelId = id
+                    withAnimation { proxy.scrollTo(id, anchor: .center) }
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        withAnimation(.easeOut(duration: 0.5)) {
+                            highlightChannelId = nil
+                        }
+                        iaCollectionStore.newlyAddedChannelId = nil
+                    }
+                }
             }
-            .listStyle(.insetGrouped)
             .navigationTitle("Listen")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -129,6 +145,12 @@ struct ListenView: View {
                     .contentShape(Rectangle())
                     .onTapGesture { select(channel) }
                     .contextMenu { channelContextMenu(channel, subscriptionChannelIDs: subscriptionChannelIDs) }
+                    .listRowBackground(
+                        highlightChannelId == channel.id
+                            ? Color.accentColor.opacity(0.15)
+                            : Color.clear
+                    )
+                    .animation(.easeInOut(duration: 0.5), value: highlightChannelId)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if subscriptionChannelIDs.contains(channel.id) {
                             Button(role: .destructive) {
