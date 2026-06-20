@@ -121,59 +121,6 @@ struct StallModel {
     }
 }
 
-// MARK: - Source selection (L > D > S, single-flight)
-
-struct SourceInputs: Equatable {
-    var trackID: String
-    var localCompletePath: String?   // finished offline/imported file on disk
-    var downloadInFlight: Bool       // DownloadManager already fetching this id
-    var isPerFileURL: Bool           // id contains "/" → streamURL is direct (no resolve)
-}
-
-enum PlaybackSource: Equatable {
-    case localComplete(path: String)   // play the file directly
-    case joinInFlightDownload(id: String) // a download is running → join it, don't double-fetch
-    case stream(resolveNeeded: Bool)   // open a network stream (resolve IA id first unless per-file)
-}
-
-enum SourceSelector {
-    /// Priority L > D > S. Never opens a competing stream for an id already being
-    /// downloaded (the double-fetch / garbage-prefetch bug).
-    static func select(_ i: SourceInputs) -> PlaybackSource {
-        if let path = i.localCompletePath { return .localComplete(path: path) }
-        if i.downloadInFlight { return .joinInFlightDownload(id: i.trackID) }
-        return .stream(resolveNeeded: !i.isPerFileURL)
-    }
-}
-
-// MARK: - Throughput estimate (EWMA)
-
-struct ThroughputEstimator: Equatable {
-    private(set) var bytesPerSecond: Double?
-    var alpha: Double = 0.3
-
-    mutating func record(bytes: Int, over seconds: Double) {
-        guard seconds > 0, bytes > 0 else { return }
-        let sample = Double(bytes) / seconds
-        bytesPerSecond = bytesPerSecond.map { alpha * sample + (1 - alpha) * $0 } ?? sample
-    }
-
-    /// Wall-seconds to prebuffer `seconds` of audio at `bitrateBytesPerSec`.
-    func prebufferETA(seconds: Double, bitrateBytesPerSec: Double) -> Double? {
-        guard let tp = bytesPerSecond, tp > 0, bitrateBytesPerSec > 0 else { return nil }
-        return seconds * bitrateBytesPerSec / tp
-    }
-
-    /// Highest available bitrate that fits within `safety`·throughput so playback
-    /// can keep up. Unknown throughput → the best available; none fit → the smallest.
-    func bestBitrate(from available: [Double], safety: Double = 0.8) -> Double? {
-        guard !available.isEmpty else { return nil }
-        guard let tp = bytesPerSecond else { return available.max() }
-        let budget = tp * safety
-        return available.filter { $0 <= budget }.max() ?? available.min()
-    }
-}
-
 // MARK: - Single-flight registry
 
 /// Thread-safe set of "operations in progress", keyed by id. Lets streaming and
@@ -205,29 +152,3 @@ final class InFlightRegistry {
     }
 }
 
-// MARK: - Cache eviction (LRU, pinned-safe)
-
-struct CacheEntry: Equatable {
-    let id: String
-    let size: Int64
-    let lastAccess: Date
-    let pinned: Bool   // user offline download → never evicted
-}
-
-enum CacheEvictionPolicy {
-    /// Ids to evict to bring total size under `maxBytes`, least-recently-used
-    /// first. Pinned entries are never evicted; if pinned alone exceeds the cap
-    /// we evict every unpinned entry (best effort).
-    static func evictions(_ entries: [CacheEntry], maxBytes: Int64) -> [String] {
-        let total = entries.reduce(Int64(0)) { $0 + $1.size }
-        guard total > maxBytes else { return [] }
-        var over = total - maxBytes
-        var out: [String] = []
-        for e in entries.filter({ !$0.pinned }).sorted(by: { $0.lastAccess < $1.lastAccess }) {
-            if over <= 0 { break }
-            out.append(e.id)
-            over -= e.size
-        }
-        return out
-    }
-}

@@ -11,24 +11,24 @@ final class PlayerViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var loadingMessage: String?
     @Published var errorMessage: String?
-    @Published var transientMessage: String?
+    var transientMessage: String?
     @Published var currentPosition: Double = 0
     @Published var trackDuration: Double?
-    @Published var isScrubbing: Bool = false
+    var isScrubbing: Bool = false
     @Published var shuffleMode: Bool = UserDefaults.standard.bool(forKey: "shuffleMode")
     @Published var repeatMode: AudioPlayerService.RepeatMode = {
         let raw = UserDefaults.standard.string(forKey: "repeatMode") ?? ""
         return AudioPlayerService.RepeatMode(rawValue: raw) ?? .off
     }()
-    @Published var channelTrackCount: Int = 0
-    @Published var channelMostRecentDate: Date? = nil
-    @Published var channelDescription: String = ""
+    var channelTrackCount: Int = 0
+    var channelMostRecentDate: Date? = nil
+    var channelDescription: String = ""
     @Published var currentArtwork: UIImage? = nil
-    @Published var artworkDominantColor: Color = .accentColor
+    var artworkDominantColor: Color = .accentColor
     @Published var currentPlaylist: Playlist? = nil
     @Published var currentTrackIsMultiPart: Bool = false
-    @Published var currentItemChapterCount: Int = 0
-    @Published var currentItemTotalDuration: Double = 0
+    var currentItemChapterCount: Int = 0
+    var currentItemTotalDuration: Double = 0
     @Published var currentItemPartIndex: Int? = nil
 
     var timeLeftInBook: TimeInterval? {
@@ -363,19 +363,6 @@ final class PlayerViewModel: ObservableObject {
         )
     }
 
-    // Set from the scrub gestures (wheel ring drag + progress slider). Stamps
-    // the activity time so the self-healing guard in onTimeUpdate knows the
-    // drag is still live; when set false it releases immediately.
-    func setScrubbing(_ active: Bool) {
-        if active { lastScrubActivity = Date() }
-        if isScrubbing != active { isScrubbing = active }   // avoid redundant publishes
-    }
-
-    /// Persist the EXACT current spot for the active context. Call this whenever
-    /// the user leaves the player (opens the menu, backgrounds the app) or
-    /// pauses, so the resume marker is always the precise track + offset — never
-    /// the stale throttled value or 0:00. Writes the context position
-    /// (playlist/channel), the per-track autosave, and the global session.
     func saveCurrentSpot() {
         guard let track = currentTrack,
               currentChannel?.mediaKind != .ambient else { return }

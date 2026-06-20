@@ -106,77 +106,6 @@ final class PlaybackResilienceTests: XCTestCase {
             "streak reset by playback, so this is a skip not a give-up")
     }
 
-    // MARK: - Source selection
-
-    func testSourcePrefersLocalThenInFlightThenStream() {
-        XCTAssertEqual(
-            SourceSelector.select(.init(trackID: "a", localCompletePath: "/x.mp3",
-                                        downloadInFlight: true, isPerFileURL: false)),
-            .localComplete(path: "/x.mp3"))
-        XCTAssertEqual(
-            SourceSelector.select(.init(trackID: "a", localCompletePath: nil,
-                                        downloadInFlight: true, isPerFileURL: false)),
-            .joinInFlightDownload(id: "a"), "never double-fetch an in-flight download")
-        XCTAssertEqual(
-            SourceSelector.select(.init(trackID: "a", localCompletePath: nil,
-                                        downloadInFlight: false, isPerFileURL: false)),
-            .stream(resolveNeeded: true), "whole-item id needs IA resolve")
-        XCTAssertEqual(
-            SourceSelector.select(.init(trackID: "id/file.mp3", localCompletePath: nil,
-                                        downloadInFlight: false, isPerFileURL: true)),
-            .stream(resolveNeeded: false), "per-file id streams directly")
-    }
-
-    // MARK: - Throughput estimator
-
-    func testEWMAConverges() {
-        var e = ThroughputEstimator(alpha: 0.5)
-        e.record(bytes: 100, over: 1)     // 100 B/s
-        XCTAssertEqual(e.bytesPerSecond ?? 0, 100, accuracy: 1e-9)
-        e.record(bytes: 300, over: 1)     // sample 300; 0.5*300 + 0.5*100 = 200
-        XCTAssertEqual(e.bytesPerSecond ?? 0, 200, accuracy: 1e-9)
-    }
-
-    func testBestBitratePicksHighestWithinBudget() {
-        var e = ThroughputEstimator()
-        e.record(bytes: 1_000_000, over: 1)               // 1 MB/s
-        // safety 0.8 → budget 800 KB/s. Available in B/s:
-        let avail = [64_000.0, 128_000, 320_000, 1_200_000]
-        XCTAssertEqual(e.bestBitrate(from: avail, safety: 0.8), 320_000)
-        // Unknown throughput → best available.
-        let blank = ThroughputEstimator()
-        XCTAssertEqual(blank.bestBitrate(from: avail), 1_200_000)
-        // None fit → smallest.
-        var slow = ThroughputEstimator()
-        slow.record(bytes: 10_000, over: 1)
-        XCTAssertEqual(slow.bestBitrate(from: avail, safety: 0.8), 64_000)
-    }
-
-    func testPrebufferETA() {
-        var e = ThroughputEstimator()
-        e.record(bytes: 200_000, over: 1)   // 200 KB/s
-        // 2 s of audio at 100 KB/s bitrate = 200 KB needed / 200 KB/s = 1 s.
-        XCTAssertEqual(e.prebufferETA(seconds: 2, bitrateBytesPerSec: 100_000) ?? -1,
-                       1.0, accuracy: 1e-9)
-        XCTAssertNil(ThroughputEstimator().prebufferETA(seconds: 2, bitrateBytesPerSec: 100_000),
-                     "no estimate yet → nil")
-    }
-
-    // MARK: - Cache eviction
-
-    func testEvictionFreesToTargetLRUFirst() {
-        let now = Date()
-        let entries = [
-            CacheEntry(id: "old",  size: 100, lastAccess: now.addingTimeInterval(-300), pinned: false),
-            CacheEntry(id: "mid",  size: 100, lastAccess: now.addingTimeInterval(-200), pinned: false),
-            CacheEntry(id: "new",  size: 100, lastAccess: now.addingTimeInterval(-100), pinned: false),
-        ]
-        // total 300, cap 150 → must free ≥150 → evict the 2 LRU (old, mid).
-        XCTAssertEqual(CacheEvictionPolicy.evictions(entries, maxBytes: 150), ["old", "mid"])
-        // Under cap → nothing.
-        XCTAssertEqual(CacheEvictionPolicy.evictions(entries, maxBytes: 500), [])
-    }
-
     // MARK: - Single-flight registry
 
     func testInFlightRegistrySingleFlight() {
@@ -199,13 +128,4 @@ final class PlaybackResilienceTests: XCTestCase {
         XCTAssertTrue(r.contains("b"), "ending one id doesn't affect another")
     }
 
-    func testEvictionNeverTouchesPinned() {
-        let now = Date()
-        let entries = [
-            CacheEntry(id: "pinnedOld", size: 200, lastAccess: now.addingTimeInterval(-999), pinned: true),
-            CacheEntry(id: "free",      size: 100, lastAccess: now.addingTimeInterval(-100), pinned: false),
-        ]
-        // cap 100, total 300. Pinned (200) alone exceeds cap; evict all unpinned only.
-        XCTAssertEqual(CacheEvictionPolicy.evictions(entries, maxBytes: 100), ["free"])
-    }
 }

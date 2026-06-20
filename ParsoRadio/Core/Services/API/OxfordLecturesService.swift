@@ -50,7 +50,7 @@ struct OxfordLecturesService {
             if seen.insert(slug).inserted { slugs.append(slug) }
         }
         if slugs.isEmpty {
-            print("OxfordLecturesService: no series slugs found for unit '\(unitSlug)'")
+            Log.network.debug("OxfordLecturesService: no series slugs found for unit '\(unitSlug)'")
         }
         return slugs
     }
@@ -63,7 +63,7 @@ struct OxfordLecturesService {
         guard let regex = try? NSRegularExpression(pattern: #"/feeds/([a-f0-9-]{36})/audio\.xml"#),
               let m = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
               let r = Range(m.range(at: 1), in: html) else {
-            print("OxfordLecturesService: no audio.xml feed for series '\(seriesSlug)' (video-only or changed HTML)")
+            Log.network.debug("OxfordLecturesService: no audio.xml feed for series '\(seriesSlug)' (video-only or changed HTML)")
             return []
         }
         let seriesTitle = extractSeriesTitle(from: html) ?? seriesSlug

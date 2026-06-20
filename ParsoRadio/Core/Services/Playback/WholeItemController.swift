@@ -21,12 +21,12 @@ final class WholeItemController {
     func resolveItemParts(identifier: String) async -> [Track]? {
         guard let vm = playerVM else { return nil }
         if let cached = vm.itemPartsCache[identifier] {
-            print("[wholeItem] cache hit for \(identifier): \(cached?.count ?? 0) parts")
+            Log.playback.debug("[wholeItem] cache hit for \(identifier): \(cached?.count ?? 0) parts")
             return cached
         }
 
         let dbParts = await db.fetchTracks(forParentIdentifier: identifier)
-        print("[wholeItem] DB parts for \(identifier): \(dbParts.count)")
+        Log.playback.debug("[wholeItem] DB parts for \(identifier): \(dbParts.count)")
         if dbParts.count >= 2, PlayerViewModel.partsAreClean(dbParts) {
             let ordered = dbParts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
             vm.itemPartsCache[identifier] = ordered
@@ -35,14 +35,14 @@ final class WholeItemController {
 
         if let itemTrack = await db.fetchTrack(id: identifier),
            itemTrack.isMultiPart == false {
-            print("[wholeItem] DB \(identifier) isMultiPart=false, caching nil")
+            Log.playback.debug("[wholeItem] DB \(identifier) isMultiPart=false, caching nil")
             vm.itemPartsCache.updateValue(nil, forKey: identifier)
             return nil
         }
 
         if let itemTrack = await db.fetchTrack(id: identifier),
            itemTrack.source == "oxford_lectures" {
-            print("[wholeItem] Oxford fallback for \(identifier)")
+            Log.playback.debug("[wholeItem] Oxford fallback for \(identifier)")
             do {
                 let unitSlug = itemTrack.rawCreator
                 let fetched = try await oxfordService.fetchTracks(unitSlug: unitSlug.isEmpty ? identifier : unitSlug)
@@ -55,11 +55,11 @@ final class WholeItemController {
                     return ordered
                 }
             } catch {
-                print("[wholeItem] Oxford fallback failed: \(error)")
+                Log.playback.error("[wholeItem] Oxford fallback failed: \(error)")
             }
         }
 
-        print("[wholeItem] Network fetch for \(identifier)")
+        Log.playback.debug("[wholeItem] Network fetch for \(identifier)")
         do {
             let fetched = try await withThrowingTaskGroup(of: [Track].self) { group in
                 group.addTask {
@@ -81,7 +81,7 @@ final class WholeItemController {
                 return result
             }
             if fetched.count <= 1 {
-                print("[wholeItem] Network got \(fetched.count) parts, caching nil")
+                Log.playback.debug("[wholeItem] Network got \(fetched.count) parts, caching nil")
                 await db.setIsMultiPart(false, forTrackId: identifier)
                 vm.itemPartsCache.updateValue(nil, forKey: identifier)
                 return nil
@@ -93,7 +93,7 @@ final class WholeItemController {
             vm.itemPartsCache[identifier] = ordered
             return ordered
         } catch {
-            print("[wholeItem] Network fallback failed: \(error)")
+            Log.playback.error("[wholeItem] Network fallback failed: \(error)")
             vm.itemPartsCache.updateValue(nil, forKey: identifier)
             return nil
         }

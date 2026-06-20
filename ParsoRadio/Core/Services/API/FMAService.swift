@@ -110,7 +110,7 @@ struct FMAService {
         // FMA embeds track metadata as data-track-info='{"id":...}' in the genre listing.
         // Each page contains up to 20 tracks.
         guard let regex = try? NSRegularExpression(pattern: #"data-track-info='([^']+)'"#) else {
-            print("FMAService: regex compilation failed for genre \(genre)")
+            Log.network.error("FMAService: regex compilation failed for genre \(genre)")
             return []
         }
         let nsRange = NSRange(html.startIndex..., in: html)
@@ -122,7 +122,7 @@ struct FMAService {
             return mapTrack(info, genre: genre, license: license)
         }
         if tracks.isEmpty {
-            print("FMAService: no tracks parsed for genre \(genre) (HTML length: \(html.count))")
+            Log.network.debug("FMAService: no tracks parsed for genre \(genre) (HTML length: \(html.count))")
         }
         return tracks
     }

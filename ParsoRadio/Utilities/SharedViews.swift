@@ -94,16 +94,3 @@ enum BrandGradient {
     static let bottomColor = Color(red: 0.10, green: 0.22, blue: 0.65)
 }
 
-enum SectionHelper {
-    static func legalSection(title: String, body: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-            Text(body)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-}

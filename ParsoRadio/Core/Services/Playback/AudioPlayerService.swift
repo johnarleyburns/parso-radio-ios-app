@@ -14,9 +14,9 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     enum ContentMode { case music, spokenWord }
 
     @Published var isPlaying = false
-    @Published var currentTrack: Track?
-    @Published var embeddedChapters: [Chapter] = []
-    @Published var currentChapterIndex: Int = 0
+    var currentTrack: Track?
+    var embeddedChapters: [Chapter] = []
+    var currentChapterIndex: Int = 0
     // Persisted across launches (UserDefaults). Clamped to [0.5, 2.0].
     @Published var playbackRate: Float = AudioPlayerService.savedRate()
 
@@ -532,10 +532,6 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
             let ch = embeddedChapters[idx]
             MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPMediaItemPropertyTitle] = ch.title
         }
-    }
-
-    func seekToChapter(_ chapter: Chapter) {
-        seek(to: chapter.startTime)
     }
 
     private func updateNowPlayingElapsed(_ seconds: Double) {
