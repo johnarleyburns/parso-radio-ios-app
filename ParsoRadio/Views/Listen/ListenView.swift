@@ -11,6 +11,9 @@ struct ListenView: View {
     @State private var showAddCollection = false
     @State private var selectedRecentTrack: Track?
     @State private var showSupporterSheet = false
+    @State private var hiddenChannelIds: Set<String> = {
+        Set(UserDefaults.standard.stringArray(forKey: "hiddenChannelIds") ?? [])
+    }()
 
     @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
     @AppStorage("supporterBadgeHidden") private var supporterBadgeHidden = false
@@ -95,7 +98,7 @@ struct ListenView: View {
             ? podcastStore.subscriptions.map { podcastStore.channel(from: $0) } : []
         let iaChannels = section.id == .music ? iaCollectionStore.channels : []
         let channels = (Channel.defaults
-            .filter { $0.mediaKind == section.id && $0.category != "For You" }
+            .filter { $0.mediaKind == section.id && $0.category != "For You" && !hiddenChannelIds.contains($0.id) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending })
             + iaChannels.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             + subs
@@ -103,16 +106,14 @@ struct ListenView: View {
         else {
             Section {
                 ForEach(channels, id: \.id) { channel in
-                    Button { select(channel) } label: {
-                        HStack {
-                            Label(channel.name, systemImage: channel.icon)
-                            Spacer(minLength: 0)
-                        }
-                        .contentShape(Rectangle())
+                    HStack {
+                        Label(channel.name, systemImage: channel.icon)
+                        Spacer(minLength: 0)
                     }
-                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+                    .onTapGesture { select(channel) }
                     .contextMenu { channelContextMenu(channel) }
-                    .swipeActions(edge: .trailing) {
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if podcastStore.subscriptions.contains(where: { $0.id == channel.id }) {
                             Button(role: .destructive) {
                                 Task {
@@ -123,12 +124,17 @@ struct ListenView: View {
                             } label: {
                                 Label("Unsubscribe", systemImage: "trash")
                             }
-                        }
-                        if let col = iaCollectionStore.collection(forChannelId: channel.id) {
+                        } else if let col = iaCollectionStore.collection(forChannelId: channel.id) {
                             Button(role: .destructive) {
                                 iaCollectionStore.removeCollection(col)
                             } label: {
                                 Label("Remove", systemImage: "trash")
+                            }
+                        } else if Channel.defaults.contains(where: { $0.id == channel.id }) {
+                            Button(role: .destructive) {
+                                hideChannel(channel.id)
+                            } label: {
+                                Label("Hide", systemImage: "eye.slash")
                             }
                         }
                     }
@@ -163,6 +169,11 @@ struct ListenView: View {
         NavigationLink(value: MenuRoute.channelInfo(channel)) {
             Label("Channel Info", systemImage: "info.circle")
         }
+    }
+
+    private func hideChannel(_ id: String) {
+        hiddenChannelIds.insert(id)
+        UserDefaults.standard.set(Array(hiddenChannelIds), forKey: "hiddenChannelIds")
     }
 }
 
