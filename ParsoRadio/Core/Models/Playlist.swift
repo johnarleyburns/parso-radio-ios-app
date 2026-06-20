@@ -33,10 +33,4 @@ struct Playlist: Codable, Identifiable, Hashable {
     }
 }
 
-extension Playlist {
-    var isAlbumFavorites: Bool { isFavorites && type == .album }
-    var isBookFavorites: Bool { isFavorites && type == .book }
-    var isTrackFavorites: Bool { isFavorites && type == .tracks }
-    var isChapterFavorites: Bool { isFavorites && type == .chapter }
-    var isBuiltin: Bool { isFavorites }
-}
+

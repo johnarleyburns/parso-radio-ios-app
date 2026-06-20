@@ -10,17 +10,8 @@ final class PlaylistViewModel: ObservableObject {
     @Published var downloadedPlaylistIDs: Set<String> = []
 
     let db: DatabaseService
-    private var trackFavoriteCache: [String: Bool] = [:]
-    private var albumFavoriteCache: [String: Bool] = [:]
-    private var bookFavoriteCache: [String: Bool] = [:]
-    private var chapterFavoriteCache: [String: Bool] = [:]
 
     init(db: DatabaseService) { self.db = db }
-
-    var favoritesPlaylist: Playlist? { playlists.first { $0.isFavorites && $0.type == .tracks } }
-    var favoriteAlbumsPlaylist: Playlist? { playlists.first { $0.isFavorites && $0.type == .album } }
-    var favoriteBooksPlaylist: Playlist? { playlists.first { $0.isFavorites && $0.type == .book } }
-    var favoriteChaptersPlaylist: Playlist? { playlists.first { $0.isFavorites && $0.type == .chapter } }
 
     func loadPlaylists() async {
         playlists = await db.fetchPlaylists()
@@ -73,7 +64,6 @@ final class PlaylistViewModel: ObservableObject {
 
     func addTrack(_ track: Track, to playlist: Playlist) async {
         await db.addTrack(track, toPlaylist: playlist.id)
-        if playlist.isFavorites { trackFavoriteCache[track.id] = true }
         trackCounts[playlist.id] = (trackCounts[playlist.id] ?? 0) + 1
     }
 
@@ -84,16 +74,12 @@ final class PlaylistViewModel: ObservableObject {
         // Order-preserving bulk insert so a book/album reads in chapter order
         // (fetchTracks(forPlaylist:) sorts newest-first).
         await db.addTracksOrdered(tracks, toPlaylist: playlist.id)
-        if playlist.isFavorites {
-            tracks.forEach { trackFavoriteCache[$0.id] = true }
-        }
         let updated = await db.fetchTracks(forPlaylist: playlist.id)
         trackCounts[playlist.id] = updated.count
     }
 
     func removeTrack(_ track: Track, from playlist: Playlist) async {
         await db.removeTrack(trackId: track.id, fromPlaylist: playlist.id)
-        if playlist.isFavorites { trackFavoriteCache[track.id] = false }
         if let count = trackCounts[playlist.id], count > 0 {
             trackCounts[playlist.id] = count - 1
         }
@@ -109,99 +95,7 @@ final class PlaylistViewModel: ObservableObject {
         await db.setTrackOrder(ordered.map(\.id), inPlaylist: playlist.id)
     }
 
-    func isInFavorites(_ track: Track) async -> Bool {
-        if let cached = trackFavoriteCache[track.id] { return cached }
-        guard let fav = favoritesPlaylist else { return false }
-        let result = await db.isTrack(track.id, inPlaylist: fav.id)
-        trackFavoriteCache[track.id] = result
-        return result
-    }
-
     func isTrackInPlaylist(_ track: Track, playlist: Playlist) async -> Bool {
         await db.isTrack(track.id, inPlaylist: playlist.id)
-    }
-
-    func toggleFavorite(_ track: Track) async {
-        guard let fav = favoritesPlaylist else { return }
-        if await isInFavorites(track) {
-            await removeTrack(track, from: fav)
-        } else {
-            await addTrack(track, to: fav)
-        }
-    }
-
-    // MARK: - Album favorites
-
-    func isInFavoriteAlbums(_ track: Track) async -> Bool {
-        let parentId = track.parentIdentifier ?? track.id
-        if let cached = albumFavoriteCache[parentId] { return cached }
-        guard let fav = favoriteAlbumsPlaylist else { return false }
-        let tracks = await db.fetchTracks(forPlaylist: fav.id)
-        let result = tracks.contains { ($0.parentIdentifier ?? $0.id) == parentId }
-        albumFavoriteCache[parentId] = result
-        return result
-    }
-
-    func toggleFavoriteAlbum(_ track: Track) async {
-        guard let fav = favoriteAlbumsPlaylist else { return }
-        let parentId = track.parentIdentifier ?? track.id
-        if await isInFavoriteAlbums(track) {
-            let tracks = await db.fetchTracks(forPlaylist: fav.id)
-            for t in tracks where (t.parentIdentifier ?? t.id) == parentId {
-                await removeTrack(t, from: fav)
-            }
-            albumFavoriteCache[parentId] = false
-        } else {
-            await addTrack(track, to: fav)
-            albumFavoriteCache[parentId] = true
-        }
-    }
-
-    // MARK: - Book favorites
-
-    func isInFavoriteBooks(_ track: Track) async -> Bool {
-        let parentId = track.parentIdentifier ?? track.id
-        if let cached = bookFavoriteCache[parentId] { return cached }
-        guard let fav = favoriteBooksPlaylist else { return false }
-        let tracks = await db.fetchTracks(forPlaylist: fav.id)
-        let result = tracks.contains { ($0.parentIdentifier ?? $0.id) == parentId }
-        bookFavoriteCache[parentId] = result
-        return result
-    }
-
-    func toggleFavoriteBook(_ track: Track) async {
-        guard let fav = favoriteBooksPlaylist else { return }
-        let parentId = track.parentIdentifier ?? track.id
-        if await isInFavoriteBooks(track) {
-            let tracks = await db.fetchTracks(forPlaylist: fav.id)
-            for t in tracks where (t.parentIdentifier ?? t.id) == parentId {
-                await removeTrack(t, from: fav)
-            }
-            bookFavoriteCache[parentId] = false
-        } else {
-            await addTrack(track, to: fav)
-            bookFavoriteCache[parentId] = true
-        }
-    }
-
-    // MARK: - Chapter favorites
-
-    func isInFavoriteChapters(_ track: Track) async -> Bool {
-        if let cached = chapterFavoriteCache[track.id] { return cached }
-        guard let fav = favoriteChaptersPlaylist else { return false }
-        let result = await db.isTrack(track.id, inPlaylist: fav.id)
-        chapterFavoriteCache[track.id] = result
-        return result
-    }
-
-    func toggleFavoriteChapter(_ track: Track) async {
-        guard let fav = favoriteChaptersPlaylist else { return }
-        if await isInFavoriteChapters(track) {
-            await removeTrack(track, from: fav)
-            chapterFavoriteCache[track.id] = false
-        } else {
-            await addTrack(track, to: fav)
-            chapterFavoriteCache[track.id] = true
-        }
     }
 }

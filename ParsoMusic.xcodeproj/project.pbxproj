@@ -110,7 +110,6 @@
 		7D41D4577DDC2ECAA668DEE5 /* MenuRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED3C76B0FA691C2A233C206 /* MenuRoute.swift */; };
 		808815F711F45C9E3134AC76 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B87C8AB791903D38656FAEB /* AboutView.swift */; };
 		88959CBC7A71CD7C92FE438A /* TrackMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA769BAC0A3118D90765FB53 /* TrackMetadata.swift */; };
-		89134A069425B93E38F3601B /* PlaylistListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7835336CE6F2D4EB7555CB38 /* PlaylistListView.swift */; };
 		89EE158C4DE2C396852D157F /* SearchViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6117D7777E29A20EEE613E91 /* SearchViewModelTests.swift */; };
 		8FAB94B8E44189ACB608B40E /* QueueManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CBFD599EE560E8F745E218C /* QueueManager.swift */; };
 		8FCB18E2E9DB9AC3916528BD /* AppIconTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7924344B285065949CC8D31F /* AppIconTests.swift */; };
@@ -316,7 +315,6 @@
 		74AFA50F58F0D7D00F231823 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		74DB30E39BA5D529C7D77651 /* AgeAssuranceServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgeAssuranceServiceTests.swift; sourceTree = "<group>"; };
 		757A78446FCB2410EF1A1F18 /* ContiguousFileCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContiguousFileCache.swift; sourceTree = "<group>"; };
-		7835336CE6F2D4EB7555CB38 /* PlaylistListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistListView.swift; sourceTree = "<group>"; };
 		7924344B285065949CC8D31F /* AppIconTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconTests.swift; sourceTree = "<group>"; };
 		7953AA397605499350A49B0F /* SourceValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceValidatorTests.swift; sourceTree = "<group>"; };
 		7B1D4EC9BBB7507808AE1928 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
@@ -748,7 +746,6 @@
 				C00C3B2C6316BE3F266CFB42 /* LoopingVideoView.swift */,
 				FED3C76B0FA691C2A233C206 /* MenuRoute.swift */,
 				22BB92612AFBFADB59CBAC08 /* PlaylistDetailView.swift */,
-				7835336CE6F2D4EB7555CB38 /* PlaylistListView.swift */,
 				4E020610788F5AF4CCEA1E72 /* PodcastAddView.swift */,
 				35E99FCB4F8E163850FD3579 /* ProceduralVisualizerView.swift */,
 				2F910C100E117764CC0AD109 /* RecentlyPlayedScreen.swift */,
@@ -854,7 +851,7 @@
 			path = ParsoRadio/UITests;
 			sourceTree = "<group>";
 		};
-		"TEMP_9B7AF4B2-B185-4529-A309-263B59C60A49" /* Integration */ = {
+		"TEMP_1860B486-009A-4B8D-8D3A-644F7436C58F" /* Integration */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1178,7 +1175,6 @@
 				D15B6C85D5C94A6D2ABC45DE /* PlayerViewModel.swift in Sources */,
 				F586DA2AF53DDE19CD352C92 /* Playlist.swift in Sources */,
 				4811616B59BB24D290E4A76B /* PlaylistDetailView.swift in Sources */,
-				89134A069425B93E38F3601B /* PlaylistListView.swift in Sources */,
 				7484436F610BC8912A27D1BF /* PlaylistPlaybackController.swift in Sources */,
 				AD84558EBD7E761DC0D3663C /* PlaylistTrack.swift in Sources */,
 				9A872C387C7D21FAAC1FD3F1 /* PlaylistViewModel.swift in Sources */,

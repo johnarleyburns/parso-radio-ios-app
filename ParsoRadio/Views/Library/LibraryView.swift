@@ -8,22 +8,15 @@ struct LibraryView: View {
     @EnvironmentObject var offlineService: OfflineDownloadService
     @State private var downloadedTracks: [Track] = []
     @State private var downloadsLoading = true
+    @State private var showCreateAlert = false
+    @State private var newPlaylistName = ""
+    @State private var playlistToRename: Playlist? = nil
+    @State private var renameText = ""
 
     var body: some View {
         NavigationStack {
             List {
-                Section("Playlists") {
-                    NavigationLink {
-                        PlaylistListView()
-                            .environmentObject(playlistVM)
-                            .environmentObject(playerVM)
-                            .environmentObject(offlineService)
-                    } label: {
-                        Label("Playlists", systemImage: "music.note.list")
-                    }
-                }
-
-                Section {
+                Section("My Library") {
                     NavigationLink {
                         FavoritesScreen()
                             .environmentObject(favorites)
@@ -46,13 +39,92 @@ struct LibraryView: View {
                         Label("Downloads", systemImage: "arrow.down.circle")
                     }
                 }
+
+                Section("My Playlists") {
+                    if playlistVM.playlists.filter({ !$0.isFavorites }).isEmpty {
+                        Text("No playlists yet")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(playlistVM.playlists.filter { !$0.isFavorites }) { playlist in
+                            NavigationLink {
+                                PlaylistDetailView(playlist: playlist, dismissAll: nil)
+                                    .environmentObject(playlistVM)
+                                    .environmentObject(playerVM)
+                                    .environmentObject(offlineService)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(playlist.name)
+                                        .font(.body)
+                                    Text("\(playlistVM.trackCount(for: playlist)) tracks")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                if !playlist.isFavorites {
+                                    Button(role: .destructive) {
+                                        Task { await playlistVM.deletePlaylist(playlist) }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                    Button {
+                                        playlistToRename = playlist
+                                        renameText = playlist.name
+                                    } label: {
+                                        Label("Rename", systemImage: "pencil")
+                                    }
+                                    .tint(.orange)
+                                }
+                            }
+                        }
+                    }
+                }
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Library")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showCreateAlert = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("New Playlist")
+                }
+            }
+            .alert("New Playlist", isPresented: $showCreateAlert) {
+                TextField("Name", text: $newPlaylistName)
+                Button("Create") {
+                    let name = newPlaylistName.trimmingCharacters(in: .whitespaces)
+                    guard !name.isEmpty else { return }
+                    Task {
+                        await playlistVM.createPlaylist(name: name)
+                        newPlaylistName = ""
+                    }
+                }
+                Button("Cancel", role: .cancel) { newPlaylistName = "" }
+            }
+            .alert("Rename Playlist", isPresented: Binding(
+                get: { playlistToRename != nil },
+                set: { if !$0 { playlistToRename = nil } }
+            )) {
+                TextField("Name", text: $renameText)
+                Button("Rename") {
+                    if let p = playlistToRename {
+                        Task {
+                            await playlistVM.renamePlaylist(p, to: renameText)
+                            playlistToRename = nil
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) { playlistToRename = nil }
+            }
             .task {
+                await playlistVM.loadPlaylists()
                 await loadDownloads()
             }
             .refreshable {
+                await playlistVM.loadPlaylists()
                 await loadDownloads()
             }
         }

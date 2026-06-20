@@ -158,72 +158,7 @@ final class DatabaseService: @unchecked Sendable {
         _ = try? db.run("ALTER TABLE \(table) ADD COLUMN \(column) \(definition)")
     }
 
-    private func seedBuiltInPlaylists() {
-        let count = (try? db.scalar(playlists.count)) ?? 0
-        if count == 0 {
-            // Fresh DB: seed all three built-in playlists.
-            let builtins: [(name: String, type: PlaylistType)] = [
-                ("Favorite Tracks", .tracks),
-                ("Favorite Albums", .album),
-                ("Favorite Books", .book),
-            ]
-            for (name, type) in builtins {
-                let p = Playlist.new(name: name, isFavorites: true, type: type)
-                _ = try? db.run(playlists.insert(
-                    colPlaylistId    <- p.id,
-                    colPlaylistName  <- p.name,
-                    colCreatedAt     <- p.createdAt.timeIntervalSince1970,
-                    colUpdatedAt     <- p.updatedAt.timeIntervalSince1970,
-                    colIsFavorites   <- true,
-                    colPlaylistType  <- type.rawValue,
-                    colPlaylistKidSafe <- false
-                ))
-            }
-        } else {
-            // Existing DB: migrate legacy "Favorites" → "Favorite Tracks",
-            // backfill playlist_type on rows missing it, and insert any missing built-ins.
-            migrateBuiltInPlaylists()
-        }
-    }
 
-    private func migrateBuiltInPlaylists() {
-        // Backfill playlist_type: any is_favorites row with NULL/empty type → "tracks".
-        _ = try? db.run(
-            playlists
-                .filter(colIsFavorites == true)
-                .filter(colPlaylistType == "" || colPlaylistType == "tracks")
-                .update(colPlaylistType <- PlaylistType.tracks.rawValue)
-        )
-        // Rename legacy "Favorites" to "Favorite Tracks".
-        _ = try? db.run(
-            playlists
-                .filter(colPlaylistName == "Favorites" && colIsFavorites == true)
-                .update(colPlaylistName <- "Favorite Tracks", colUpdatedAt <- Date().timeIntervalSince1970)
-        )
-        // Insert missing built-in playlists.
-        let existingNames = Set(
-            (try? db.prepare(
-                playlists.filter(colIsFavorites == true).select(colPlaylistName)
-            ).compactMap { $0[colPlaylistName] }) ?? []
-        )
-        let builtins: [(name: String, type: PlaylistType)] = [
-            ("Favorite Tracks", .tracks),
-            ("Favorite Albums", .album),
-            ("Favorite Books", .book),
-        ]
-        for (name, type) in builtins where !existingNames.contains(name) {
-            let p = Playlist.new(name: name, isFavorites: true, type: type)
-            _ = try? db.run(playlists.insert(
-                colPlaylistId    <- p.id,
-                colPlaylistName  <- p.name,
-                colCreatedAt     <- p.createdAt.timeIntervalSince1970,
-                colUpdatedAt     <- p.updatedAt.timeIntervalSince1970,
-                colIsFavorites   <- true,
-                colPlaylistType  <- type.rawValue,
-                colPlaylistKidSafe <- false
-            ))
-        }
-    }
 
     private func createSchema() throws {
         try db.run(tracks.create(ifNotExists: true) { t in
@@ -378,8 +313,6 @@ final class DatabaseService: @unchecked Sendable {
         // Enable FK enforcement
         _ = try? db.run("PRAGMA foreign_keys = ON")
 
-        // Seed built-in favorites playlists.
-        seedBuiltInPlaylists()
     }
 
     // MARK: - Track write
@@ -1493,66 +1426,7 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
-    /// Migrate legacy playlist-based favorites into the new favorites table.
-    /// Call once on first launch after migration.
-    func migrateLegacyFavorites(playlistVM: Any) async {
-        // Legacy playlists are accessed through the existing playlist system.
-        // This migration reads the legacy playlist tracks, resolves their
-        // content type based on channel context heuristics, and writes them
-        // into the new favorites table. Each legacy track entry becomes one
-        // Favorite. Book chapters collapse to book favorites automatically
-        // (the favoriteID function handles this).
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            queue.async { [self] in
-                let existingCount = (try? db.scalar(favorites.count)) ?? 0
-                guard existingCount == 0 else {
-                    continuation.resume()
-                    return
-                }
 
-                // Fetch legacy favorites from the "Favorite Tracks" playlist
-                let legacyIds = (try? db.prepare(
-                    playlistTracks
-                        .join(playlists, on: playlists[colPlaylistId] == playlistTracks[colPTPlaylistId])
-                        .filter(playlists[colIsFavorites] == true)
-                        .filter(playlists[colPlaylistType] == PlaylistType.tracks.rawValue)
-                        .select(playlistTracks[colPTTrackId])
-                ).compactMap { $0[colPTTrackId] }) ?? []
-
-                guard !legacyIds.isEmpty else {
-                    continuation.resume()
-                    return
-                }
-
-                for trackId in legacyIds {
-                    guard let row = try? db.pluck(tracks.filter(colId == trackId)) else { continue }
-                    guard let track = rowToTrack(row) else { continue }
-
-                    let dateAdded = Date()
-                    let fav = Favorite(
-                        id: track.favoriteID(for: track.favoriteKind(channel: nil)),
-                        kind: track.favoriteKind(channel: nil),
-                        dateAdded: dateAdded,
-                        title: track.title,
-                        creator: cleaned(track.artist),
-                        artworkURL: track.resolvedArtworkURL,
-                        sourceIdentifier: track.parentIdentifier ?? track.id,
-                        resumePoint: nil
-                    )
-                    _ = try? db.run(favorites.insert(or: .ignore,
-                        colFavId       <- fav.id,
-                        colFavKind     <- fav.kind.rawValue,
-                        colFavDateAdded <- fav.dateAdded.timeIntervalSince1970,
-                        colFavTitle    <- fav.title,
-                        colFavCreator  <- fav.creator,
-                        colFavArtwork  <- fav.artworkURL?.absoluteString,
-                        colFavSource   <- fav.sourceIdentifier
-                    ))
-                }
-                continuation.resume()
-            }
-        }
-    }
 
     private func rowToFavorite(_ row: Row) -> Favorite? {
         guard let kind = FavoriteKind(rawValue: row[colFavKind]) else { return nil }
@@ -1580,7 +1454,4 @@ final class DatabaseService: @unchecked Sendable {
     }
 }
 
-private func cleaned(_ s: String) -> String? {
-    let t = s.trimmingCharacters(in: .whitespaces)
-    return t.isEmpty ? nil : t
-}
+

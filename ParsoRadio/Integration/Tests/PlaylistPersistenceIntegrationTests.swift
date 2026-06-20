@@ -54,37 +54,6 @@ final class PlaylistPersistenceIntegrationTests: XCTestCase {
         XCTAssertTrue(orphans.isEmpty, "Deleting a playlist must remove its playlist_tracks rows")
     }
 
-    // Verify Favorites survives a delete attempt and works for heart-toggle
-    func testFavoritesHeartToggle() async throws {
-        await vm.loadPlaylists()
-        guard let fav = vm.favoritesPlaylist else {
-            XCTFail("No Favorite Tracks playlist"); return
-        }
-        XCTAssertEqual(fav.name, "Favorite Tracks")
-
-        let track = makeTrack(id: "heart-track-1")
-        await db.saveTracks([track])
-
-        // Not in favorites initially
-        let notFav = await vm.isInFavorites(track)
-        XCTAssertFalse(notFav)
-
-        // Add to favorites via toggle
-        await vm.toggleFavorite(track)
-        let isFav = await vm.isInFavorites(track)
-        XCTAssertTrue(isFav)
-        XCTAssertEqual(vm.trackCount(for: fav), 1)
-
-        // Remove from favorites via toggle
-        await vm.toggleFavorite(track)
-        let removedFav = await vm.isInFavorites(track)
-        XCTAssertFalse(removedFav)
-        XCTAssertEqual(vm.trackCount(for: fav), 0)
-
-        // Favorites playlist itself must still exist after toggling
-        XCTAssertTrue(vm.playlists.contains { $0.isFavorites })
-    }
-
     // Verify play history integration: recordPlayed feeds recentlyHeardIds
     func testPlayHistoryPersistenceAcrossOperations() async throws {
         let channel = Channel(id: "bach", name: "Bach", category: "Classical", icon: "music.note", composers: ["bach"], preferredSource: "internet_archive")
