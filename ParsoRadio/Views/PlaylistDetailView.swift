@@ -181,6 +181,11 @@ struct PlaylistDetailView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                        if track.duration > 0 {
+                            Text(track.duration.formattedTime)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         if track.id == resume?.track.id {
                             Label("Last played · \((resume?.seconds ?? 0).formattedTime)",
                                   systemImage: "bookmark.fill")

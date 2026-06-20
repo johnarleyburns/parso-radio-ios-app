@@ -106,22 +106,9 @@ struct NowPlayingSheet: View {
                     .frame(width: 260, height: 260)
                     .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
                     .overlay {
-                        if playerVM.isLoading && playerVM.currentTrack == nil {
-                            VStack(spacing: 12) {
-                                ProgressView()
-                                    .tint(.white)
-                                    .scaleEffect(1.5)
-                                if let msg = playerVM.loadingMessage {
-                                    Text(msg)
-                                        .font(.caption)
-                                        .foregroundStyle(.white.opacity(0.8))
-                                }
-                            }
-                        } else {
-                            Image(systemName: icon)
-                                .font(.system(size: 80, weight: .light))
-                                .foregroundStyle(.white.opacity(0.9))
-                        }
+                        Image(systemName: icon)
+                            .font(.system(size: 80, weight: .light))
+                            .foregroundStyle(.white.opacity(0.9))
                     }
             }
         }
