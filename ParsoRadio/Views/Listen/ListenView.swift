@@ -7,59 +7,46 @@ struct ListenView: View {
     @EnvironmentObject var deps: AppDependencies
     @State private var showSettings = false
     @State private var nowPlayingChannel: Channel?
-    @State private var showAddPodcast = false
-    @State private var showAddCollection = false
     @State private var selectedRecentTrack: Track?
     @State private var selectedLiveEntry: LiveMusicEntry?
     @State private var showSupporterSheet = false
-    @State private var hiddenChannelIds: Set<String> = {
-        Set(UserDefaults.standard.stringArray(forKey: "hiddenChannelIds") ?? [])
-    }()
 
     @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
     @AppStorage("supporterBadgeHidden") private var supporterBadgeHidden = false
-    @ObservedObject private var iaCollectionStore = IACollectionStore.shared
-    @ObservedObject private var podcastStore = PodcastSubscriptionStore.shared
-
-    @State private var highlightChannelId: String?
-
-    private func select(_ channel: Channel) { nowPlayingChannel = channel }
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
-                List {
-                    JumpBackInSection(playerVM: playerVM) { track in
-                        selectedRecentTrack = track
-                    }
+            List {
+                HomeTopSection(playerVM: playerVM,
+                               onSelectTrack: { selectedRecentTrack = $0 },
+                               onPlayHero: { playHero() })
 
-                    LiveMusicSection(playerVM: playerVM, deps: deps) { entry in
-                        selectedLiveEntry = entry
-                    }
+                ExploreTypeRow()
 
-                    ForEach(LibrarySection.ordered) { section in
-                        channelsSection(for: section)
-                    }
+                FeaturedTodaySection(playerVM: playerVM, nowPlayingChannel: $nowPlayingChannel)
 
-                    Color.clear
-                        .frame(height: 60)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
+                LiveMusicSection(playerVM: playerVM, deps: deps) { entry in
+                    selectedLiveEntry = entry
                 }
-                .listStyle(.insetGrouped)
-                .onChange(of: iaCollectionStore.newlyAddedChannelId) { _, newId in
-                    guard let id = newId else { return }
-                    highlightChannelId = id
-                    withAnimation { proxy.scrollTo(id, anchor: .center) }
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 2_000_000_000)
-                        withAnimation(.easeOut(duration: 0.5)) {
-                            highlightChannelId = nil
-                        }
-                        iaCollectionStore.newlyAddedChannelId = nil
+
+                Section {
+                    NavigationLink {
+                        List { ForEach(LibrarySection.ordered) { s in
+                            NavigationLink { ChannelBrowseList(kind: s.id) } label: { Label(s.label, systemImage: s.icon) }
+                        } }
+                        .listStyle(.insetGrouped)
+                        .navigationTitle("Browse")
+                    } label: {
+                        Label("Browse all collections", systemImage: "square.grid.2x2")
                     }
                 }
+
+                Color.clear
+                    .frame(height: 60)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
+            .listStyle(.insetGrouped)
             .navigationTitle("Listen")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -109,12 +96,6 @@ struct ListenView: View {
                     .environmentObject(playlistVM)
                     .task { await playerVM.playRecentTrack(track) }
             }
-            .sheet(isPresented: $showAddPodcast) {
-                PodcastAddView(initialMode: .url)
-            }
-            .sheet(isPresented: $showAddCollection) {
-                AddCollectionView()
-            }
             .sheet(item: $selectedLiveEntry) { entry in
                 LiveMusicDetailView(entry: entry)
                     .environmentObject(playerVM)
@@ -123,152 +104,8 @@ struct ListenView: View {
         }
     }
 
-    @ViewBuilder
-    private func channelsSection(for section: LibrarySection) -> some View {
-        let subs = section.id == .podcast
-            ? podcastStore.subscriptions.map { podcastStore.channel(from: $0) } : []
-        let subscriptionChannelIDs = Set(subs.map(\.id))
-        let iaChannels = section.id == .music ? iaCollectionStore.channels : []
-        let channels = (Channel.defaults
-            .filter { $0.mediaKind == section.id && $0.category != "For You" && !hiddenChannelIds.contains($0.id) }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending })
-            + iaChannels.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            + subs
-        if channels.isEmpty { EmptyView() }
-        else {
-            Section {
-                ForEach(channels, id: \.id) { channel in
-                    HStack {
-                        Label(channel.name, systemImage: channel.icon)
-                        Spacer(minLength: 0)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture { select(channel) }
-                    .contextMenu { channelContextMenu(channel, subscriptionChannelIDs: subscriptionChannelIDs) }
-                    .listRowBackground(
-                        highlightChannelId == channel.id
-                            ? Color.accentColor.opacity(0.15)
-                            : Color.clear
-                    )
-                    .animation(.easeInOut(duration: 0.5), value: highlightChannelId)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if subscriptionChannelIDs.contains(channel.id) {
-                            Button(role: .destructive) {
-                                Task {
-                                    if let sub = podcastStore.subscriptions.first(where: { "podcast-\($0.id)" == channel.id }) {
-                                        await podcastStore.remove(sub)
-                                    }
-                                }
-                            } label: {
-                                Label("Unsubscribe", systemImage: "trash")
-                            }
-                        } else if let col = iaCollectionStore.collection(forChannelId: channel.id) {
-                            Button(role: .destructive) {
-                                iaCollectionStore.removeCollection(col)
-                            } label: {
-                                Label("Remove", systemImage: "trash")
-                            }
-                        } else if Channel.defaults.contains(where: { $0.id == channel.id }) {
-                            Button(role: .destructive) {
-                                hideChannel(channel.id)
-                            } label: {
-                                Label("Hide", systemImage: "eye.slash")
-                            }
-                        }
-                    }
-                }
-            } header: {
-                HStack {
-                    Text(section.label)
-                    Spacer()
-                    if section.id == .music {
-                        Button { showAddCollection = true } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.body)
-                                .foregroundStyle(Color.accentColor)
-                        }
-                        .accessibilityLabel("Add collection")
-                    }
-                    if section.id == .podcast {
-                        Button { showAddPodcast = true } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.body)
-                                .foregroundStyle(Color.accentColor)
-                        }
-                        .accessibilityLabel("Add podcast")
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func channelContextMenu(_ channel: Channel, subscriptionChannelIDs: Set<String> = []) -> some View {
-        NavigationLink(value: MenuRoute.channelInfo(channel)) {
-            Label("Channel Info", systemImage: "info.circle")
-        }
-        if subscriptionChannelIDs.contains(channel.id) {
-            Button(role: .destructive) {
-                Task {
-                    if let sub = podcastStore.subscriptions.first(where: { "podcast-\($0.id)" == channel.id }) {
-                        await podcastStore.remove(sub)
-                    }
-                }
-            } label: {
-                Label("Unsubscribe", systemImage: "trash")
-            }
-        }
-    }
-
-    private func hideChannel(_ id: String) {
-        hiddenChannelIds.insert(id)
-        UserDefaults.standard.set(Array(hiddenChannelIds), forKey: "hiddenChannelIds")
-    }
-}
-
-private struct JumpBackInSection: View {
-    let playerVM: PlayerViewModel
-    let onSelect: (Track) -> Void
-    @State private var items: [Track] = []
-
-    var body: some View {
-        Section {
-            if items.isEmpty {
-                Color.clear
-                    .frame(height: 0)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 14) {
-                        ForEach(items, id: \.id) { track in
-                            Button { onSelect(track) } label: {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    AsyncImage(url: track.resolvedArtworkURL) { phase in
-                                        if let img = phase.image { img.resizable().scaledToFill() }
-                                        else { Color(.systemGray5).overlay(Image(systemName: "music.note")) }
-                                    }
-                                    .frame(width: 120, height: 120)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    Text(track.title).font(.caption.weight(.medium)).lineLimit(1)
-                                    Text(track.artist).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                                }
-                                .frame(width: 120)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 0))
-            }
-        } header: {
-            if !items.isEmpty {
-                Text("Jump Back In")
-            }
-        }
-        .task(id: playerVM.playHistoryVersion) { items = await playerVM.recentlyPlayedTracks(limit: 10) }
+    private func playHero() {
+        if let c = FeaturedPicker.hero(on: Date()) { nowPlayingChannel = c }
     }
 }
 

@@ -16,6 +16,16 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("Browse") {
+                    ForEach(LibrarySection.ordered) { section in
+                        NavigationLink {
+                            ChannelBrowseList(kind: section.id)
+                        } label: {
+                            Label(section.label, systemImage: section.icon)
+                        }
+                    }
+                }
+
                 Section("My Library") {
                     NavigationLink {
                         FavoritesScreen()
