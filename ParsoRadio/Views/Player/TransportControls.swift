@@ -17,27 +17,30 @@ struct TransportControls: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            HStack(spacing: 12) {
-                if behavior.supportsBookSkip {
+            if behavior.supportsTransportNavigation {
+                HStack(spacing: 12) {
+                    if behavior.supportsBookSkip {
+                        Button {
+                            Task { await playerVM.skipToPreviousBook() }
+                        } label: {
+                            Image(systemName: "backward.end.fill")
+                                .font(.system(size: 30))
+                        }
+                        .accessibilityLabel(isLecture ? "Previous series" : "Previous book")
+                        .buttonStyle(.plain)
+                        .disabled(bookSkipDisabled)
+                    }
+
                     Button {
-                        Task { await playerVM.skipToPreviousBook() }
+                        Task { await playerVM.goToPreviousTrack() }
                     } label: {
-                        Image(systemName: "backward.end.fill")
+                        Image(systemName: "backward.fill")
                             .font(.system(size: 30))
                     }
-                    .accessibilityLabel(isLecture ? "Previous series" : "Previous book")
+                    .accessibilityLabel("Previous track")
                     .buttonStyle(.plain)
-                    .disabled(bookSkipDisabled)
+                    .disabled(playerVM.currentTrack == nil)
                 }
-
-                Button {
-                    Task { await playerVM.goToPreviousTrack() }
-                } label: {
-                    Image(systemName: "backward.fill")
-                        .font(.system(size: 30))
-                }
-                .accessibilityLabel("Previous track")
-                .buttonStyle(.plain)
             }
 
             Spacer()
@@ -51,6 +54,7 @@ struct TransportControls: View {
                 }
                 .accessibilityLabel("Back 10 seconds")
                 .buttonStyle(.plain)
+                .disabled(playerVM.currentTrack == nil)
 
                 Button {
                     playerVM.togglePlayPause()
@@ -60,6 +64,7 @@ struct TransportControls: View {
                 }
                 .accessibilityLabel(playerVM.isPlaying ? "Pause" : "Play")
                 .buttonStyle(.plain)
+                .disabled(playerVM.currentTrack == nil || playerVM.isLoading)
 
                 Button {
                     playerVM.seekBy(10)
@@ -69,30 +74,34 @@ struct TransportControls: View {
                 }
                 .accessibilityLabel("Forward 10 seconds")
                 .buttonStyle(.plain)
+                .disabled(playerVM.currentTrack == nil)
             }
 
             Spacer()
 
-            HStack(spacing: 12) {
-                Button {
-                    playerVM.skip()
-                } label: {
-                    Image(systemName: "forward.fill")
-                        .font(.system(size: 30))
-                }
-                .accessibilityLabel("Next track")
-                .buttonStyle(.plain)
-
-                if behavior.supportsBookSkip {
+            if behavior.supportsTransportNavigation {
+                HStack(spacing: 12) {
                     Button {
-                        Task { await playerVM.skipToNextBook() }
+                        playerVM.skip()
                     } label: {
-                        Image(systemName: "forward.end.fill")
+                        Image(systemName: "forward.fill")
                             .font(.system(size: 30))
                     }
-                    .accessibilityLabel(isLecture ? "Next series" : "Next book")
+                    .accessibilityLabel("Next track")
                     .buttonStyle(.plain)
-                    .disabled(bookSkipDisabled)
+                    .disabled(playerVM.currentTrack == nil)
+
+                    if behavior.supportsBookSkip {
+                        Button {
+                            Task { await playerVM.skipToNextBook() }
+                        } label: {
+                            Image(systemName: "forward.end.fill")
+                                .font(.system(size: 30))
+                        }
+                        .accessibilityLabel(isLecture ? "Next series" : "Next book")
+                        .buttonStyle(.plain)
+                        .disabled(bookSkipDisabled)
+                    }
                 }
             }
         }

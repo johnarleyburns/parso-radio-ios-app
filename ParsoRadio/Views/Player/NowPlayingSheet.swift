@@ -52,6 +52,7 @@ struct NowPlayingSheet: View {
                             Image(systemName: "chevron.down")
                                 .fontWeight(.semibold)
                         }
+                        .accessibilityIdentifier("player.dismiss")
                     }
                 }
                 .task { await favorites.loadAll() }
@@ -112,8 +113,6 @@ struct NowPlayingSheet: View {
                     }
             }
         }
-        .opacity(playerVM.isLoading && playerVM.currentTrack != nil ? 0.75 : 1)
-        .animation(.easeInOut(duration: 0.3), value: playerVM.isLoading)
     }
 
     @ViewBuilder
@@ -191,7 +190,7 @@ struct NowPlayingSheet: View {
         let b = behavior
         let tint = ChannelCategoryStyle.color(for: channelCategory)
         let track = playerVM.currentTrack
-        let controlsDisabled = track == nil || playerVM.isLoading
+        let controlsDisabled = track == nil
 
         VStack(spacing: 8) {
             stableProgressSection(track: track, tint: tint, disabled: controlsDisabled)
@@ -200,9 +199,10 @@ struct NowPlayingSheet: View {
                 .disabled(controlsDisabled)
 
             HStack(spacing: 0) {
-                ShuffleControl()
-                    .disabled(controlsDisabled || !b.allowsShuffleToggle)
-                    .opacity(b.allowsShuffleToggle ? 1 : 0.3)
+                if b.allowsShuffleToggle {
+                    ShuffleControl()
+                        .disabled(controlsDisabled)
+                }
                 Spacer()
 
                 HStack(spacing: 16) {
@@ -216,6 +216,7 @@ struct NowPlayingSheet: View {
                     }
                     AirPlayButton()
                         .frame(width: 28, height: 28)
+                        .accessibilityIdentifier("player.airPlay")
                     Button {
                         showAddToPlaylist = true
                     } label: {
@@ -235,16 +236,17 @@ struct NowPlayingSheet: View {
                     .disabled(!playerVM.currentTrackIsMultiPart)
                     .accessibilityLabel("View album tracks")
                     sleepTimerMenu
-                        .disabled(controlsDisabled || !b.supportsSleepTimer)
-                        .opacity(b.supportsSleepTimer ? 1 : 0.3)
+                        .disabled(controlsDisabled)
+                        .accessibilityIdentifier("player.sleepTimer")
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 12)
 
                 Spacer()
-                RepeatControl()
-                    .disabled(controlsDisabled || !b.allowsShuffleToggle)
-                    .opacity(b.allowsShuffleToggle ? 1 : 0.3)
+                if b.allowsShuffleToggle {
+                    RepeatControl()
+                        .disabled(controlsDisabled)
+                }
             }
             .sheet(isPresented: $showAddToPlaylist) {
                 if let t = track {
@@ -268,15 +270,21 @@ struct NowPlayingSheet: View {
 
             let cols = [GridItem(.adaptive(minimum: 76), spacing: 12)]
             LazyVGrid(columns: cols, spacing: 12) {
-                SpeedControl(showLabel: false)
-                    .disabled(controlsDisabled || !b.supportsSpeedControl)
-                    .opacity(b.supportsSpeedControl ? 1 : 0.3)
-                ChapterButton(showLabel: false)
-                    .disabled(controlsDisabled || !b.supportsChapters)
-                    .opacity(b.supportsChapters ? 1 : 0.3)
-                BookmarkButton(showLabel: false)
-                    .disabled(controlsDisabled || !b.supportsBookmarks)
-                    .opacity(b.supportsBookmarks ? 1 : 0.3)
+                if b.supportsSpeedControl {
+                    SpeedControl(showLabel: false)
+                        .disabled(controlsDisabled)
+                        .accessibilityIdentifier("player.speed")
+                }
+                if b.supportsChapters {
+                    ChapterButton(showLabel: false)
+                        .disabled(controlsDisabled)
+                        .accessibilityIdentifier("player.chapters")
+                }
+                if b.supportsBookmarks {
+                    BookmarkButton(showLabel: false)
+                        .disabled(controlsDisabled)
+                        .accessibilityIdentifier("player.bookmark")
+                }
             }
             .padding(.horizontal)
         }
@@ -297,7 +305,7 @@ struct NowPlayingSheet: View {
                         if let t = track {
                             Task {
                                 await favorites.toggle(track: t, channel: playerVM.currentChannel,
-                                                       positionSeconds: playerVM.currentPosition)
+                                                        positionSeconds: playerVM.currentPosition)
                             }
                         }
                     } label: {
@@ -403,6 +411,7 @@ private struct ShuffleControl: View {
                 .font(.caption)
                 .foregroundStyle(playerVM.shuffleMode ? .blue : .secondary)
         }
+        .accessibilityIdentifier("player.shuffle")
     }
 }
 
@@ -416,6 +425,6 @@ private struct RepeatControl: View {
                 .font(.caption)
                 .foregroundStyle(playerVM.repeatMode == .one ? .blue : .secondary)
         }
+        .accessibilityIdentifier("player.repeat")
     }
 }
-

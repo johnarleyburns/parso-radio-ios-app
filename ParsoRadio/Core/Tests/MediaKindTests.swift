@@ -91,11 +91,12 @@ final class MediaKindTests: XCTestCase {
         XCTAssertFalse(b.showsScrubbableProgress)
         XCTAssertFalse(b.supportsChapters)
         XCTAssertFalse(b.supportsSpeedControl)
-        XCTAssertFalse(b.supportsSleepTimer)
+        XCTAssertTrue(b.supportsSleepTimer)
         XCTAssertFalse(b.persistsResumePosition)
         XCTAssertFalse(b.supportsBookSkip)
         XCTAssertFalse(b.supportsBookmarks)
         XCTAssertFalse(b.startsAtZeroAlways)
+        XCTAssertTrue(b.supportsTransportNavigation)
     }
 
     func testAudiobookBehavior() {
@@ -110,6 +111,7 @@ final class MediaKindTests: XCTestCase {
         XCTAssertTrue(b.supportsBookSkip)
         XCTAssertTrue(b.supportsBookmarks)
         XCTAssertFalse(b.startsAtZeroAlways)
+        XCTAssertTrue(b.supportsTransportNavigation)
     }
 
     func testPodcastBehavior() {
@@ -124,6 +126,7 @@ final class MediaKindTests: XCTestCase {
         XCTAssertFalse(b.supportsBookSkip)
         XCTAssertTrue(b.supportsBookmarks)
         XCTAssertTrue(b.startsAtZeroAlways)
+        XCTAssertTrue(b.supportsTransportNavigation)
     }
 
     func testLectureBehavior() {
@@ -138,6 +141,7 @@ final class MediaKindTests: XCTestCase {
         XCTAssertTrue(b.supportsBookSkip)
         XCTAssertTrue(b.supportsBookmarks)
         XCTAssertFalse(b.startsAtZeroAlways)
+        XCTAssertTrue(b.supportsTransportNavigation)
     }
 
     func testAmbientBehavior() {
@@ -152,6 +156,20 @@ final class MediaKindTests: XCTestCase {
         XCTAssertFalse(b.supportsBookSkip)
         XCTAssertTrue(b.supportsBookmarks)
         XCTAssertFalse(b.startsAtZeroAlways)
+        XCTAssertFalse(b.supportsTransportNavigation)
+    }
+
+    func testMusicSupportsSleepTimer() {
+        XCTAssertTrue(MediaKind.music.behavior.supportsSleepTimer,
+            "Music should support sleep timer")
+    }
+
+    func testTransportNavigationDisabledForAmbientOnly() {
+        XCTAssertTrue(MediaKind.music.behavior.supportsTransportNavigation)
+        XCTAssertTrue(MediaKind.audiobook.behavior.supportsTransportNavigation)
+        XCTAssertTrue(MediaKind.podcast.behavior.supportsTransportNavigation)
+        XCTAssertTrue(MediaKind.lecture.behavior.supportsTransportNavigation)
+        XCTAssertFalse(MediaKind.ambient.behavior.supportsTransportNavigation)
     }
 
     // MARK: - Behavior aligns with Phase 0 baseline

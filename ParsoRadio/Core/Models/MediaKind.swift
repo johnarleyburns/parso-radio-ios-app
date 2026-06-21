@@ -21,6 +21,7 @@ struct PlaybackBehavior: Equatable, Sendable {
     let supportsBookSkip: Bool
     let supportsBookmarks: Bool
     let startsAtZeroAlways: Bool
+    let supportsTransportNavigation: Bool
 }
 
 extension MediaKind {
@@ -29,33 +30,38 @@ extension MediaKind {
         case .music:
             return .init(queueStyle: .shuffledPool, allowsShuffleToggle: true,
                          showsScrubbableProgress: false, supportsChapters: false,
-                         supportsSpeedControl: false, supportsSleepTimer: false,
+                         supportsSpeedControl: false, supportsSleepTimer: true,
                          persistsResumePosition: false, supportsBookSkip: false,
-                         supportsBookmarks: false, startsAtZeroAlways: false)
+                         supportsBookmarks: false, startsAtZeroAlways: false,
+                         supportsTransportNavigation: true)
         case .audiobook:
             return .init(queueStyle: .sequentialInOrder, allowsShuffleToggle: false,
                          showsScrubbableProgress: true, supportsChapters: true,
                          supportsSpeedControl: true, supportsSleepTimer: true,
                          persistsResumePosition: true, supportsBookSkip: true,
-                         supportsBookmarks: true, startsAtZeroAlways: false)
+                         supportsBookmarks: true, startsAtZeroAlways: false,
+                         supportsTransportNavigation: true)
         case .podcast:
             return .init(queueStyle: .sequentialNewestFirst, allowsShuffleToggle: false,
                          showsScrubbableProgress: true, supportsChapters: false,
                          supportsSpeedControl: true, supportsSleepTimer: true,
                          persistsResumePosition: true, supportsBookSkip: false,
-                         supportsBookmarks: true, startsAtZeroAlways: true)
+                         supportsBookmarks: true, startsAtZeroAlways: true,
+                         supportsTransportNavigation: true)
         case .lecture:
             return .init(queueStyle: .sequentialInOrder, allowsShuffleToggle: false,
                          showsScrubbableProgress: true, supportsChapters: true,
                          supportsSpeedControl: true, supportsSleepTimer: true,
                          persistsResumePosition: true, supportsBookSkip: true,
-                         supportsBookmarks: true, startsAtZeroAlways: false)
+                         supportsBookmarks: true, startsAtZeroAlways: false,
+                         supportsTransportNavigation: true)
         case .ambient:
             return .init(queueStyle: .singleLoop, allowsShuffleToggle: false,
                          showsScrubbableProgress: false, supportsChapters: false,
                          supportsSpeedControl: false, supportsSleepTimer: true,
                          persistsResumePosition: false, supportsBookSkip: false,
-                         supportsBookmarks: true, startsAtZeroAlways: false)
+                         supportsBookmarks: true, startsAtZeroAlways: false,
+                         supportsTransportNavigation: false)
         }
     }
 }
