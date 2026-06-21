@@ -69,7 +69,9 @@ struct ChannelBrowseList: View {
             Section {
                 ForEach(channels, id: \.id) { channel in
                     HStack {
-                        Label(channel.name, systemImage: channel.icon)
+                        PodcastChannelThumbnail(channel: channel, size: 44)
+                        Text(channel.name)
+                            .lineLimit(1)
                         Spacer(minLength: 0)
                     }
                     .contentShape(Rectangle())
@@ -140,5 +142,34 @@ struct ChannelBrowseList: View {
     private func hideChannel(_ id: String) {
         hiddenChannelIds.insert(id)
         UserDefaults.standard.set(Array(hiddenChannelIds), forKey: "hiddenChannelIds")
+    }
+}
+
+private struct PodcastChannelThumbnail: View {
+    let channel: Channel
+    let size: CGFloat
+
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                ZStack {
+                    Color(.tertiarySystemFill)
+                    Image(systemName: channel.icon)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .task(id: channel.imageURL) {
+            image = await ArtworkService.shared.artwork(fromURLString: channel.imageURL)
+        }
     }
 }
