@@ -105,7 +105,8 @@ struct ListenView: View {
     }
 
     private func playHero() {
-        if let c = FeaturedPicker.hero(on: Date()) { nowPlayingChannel = c }
+        let pool = Channel.defaults + IACollectionStore.shared.channels
+        if let c = FeaturedPicker.hero(on: Date(), from: pool) { nowPlayingChannel = c }
     }
 }
 

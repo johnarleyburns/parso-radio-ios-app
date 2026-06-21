@@ -41,23 +41,21 @@ struct ExploreTypeRow: View {
 struct WelcomeCard: View {
     let onPlay: () -> Void
     var body: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Free & open audio").font(.headline)
-                Text("Music, audiobooks, lectures, podcasts and ambient sound from the Internet Archive, LibriVox and Oxford — no ads, no login, no tracking, free forever.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Button(action: onPlay) {
-                    Label("Play something now", systemImage: "play.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                }
-                .buttonStyle(.borderedProminent)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Free & open audio").font(.headline)
+            Text("Music, audiobooks, lectures, podcasts and ambient sound from the Internet Archive, LibriVox and Oxford — no ads, no login, no tracking, free forever.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Button(action: onPlay) {
+                Label("Play something now", systemImage: "play.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
             }
-            .padding(.vertical, 4)
-            .listRowBackground(Color.clear)
+            .buttonStyle(.borderedProminent)
         }
+        .padding(.vertical, 4)
+        .listRowBackground(Color.clear)
     }
 }
 
@@ -92,26 +90,29 @@ struct HomeTopSection: View {
     @State private var loaded = false
 
     var body: some View {
-        Group {
+        Section {
             if !loaded {
-                EmptyView()
+                Color.clear
+                    .frame(height: 0)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             } else if items.isEmpty {
                 WelcomeCard(onPlay: onPlayHero)
             } else {
-                Section {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 14) {
-                            ForEach(items, id: \.id) { track in
-                                Button { onSelectTrack(track) } label: { JumpBackInCard(track: track) }
-                                    .buttonStyle(.plain)
-                            }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(items, id: \.id) { track in
+                            Button { onSelectTrack(track) } label: { JumpBackInCard(track: track) }
+                                .buttonStyle(.plain)
                         }
-                        .padding(.vertical, 4)
                     }
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 0))
-                    .listRowBackground(Color.clear)
-                } header: { Text("Jump back in") }
+                    .padding(.vertical, 4)
+                }
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 0))
+                .listRowBackground(Color.clear)
             }
+        } header: {
+            if loaded && !items.isEmpty { Text("Jump back in") }
         }
         .task(id: playerVM.playHistoryVersion) {
             items = await playerVM.recentlyPlayedTracks(limit: 10)
@@ -171,7 +172,7 @@ struct FeaturedTodaySection: View {
                     if hasHistory, let fy = forYouChannel {
                         FeaturedCard(channel: fy, titleOverride: "Made for you") { nowPlayingChannel = fy }
                     }
-                    ForEach(FeaturedPicker.featured(on: Date()), id: \.id) { channel in
+                    ForEach(FeaturedPicker.featured(on: Date(), from: Channel.defaults + IACollectionStore.shared.channels), id: \.id) { channel in
                         FeaturedCard(channel: channel, titleOverride: nil) { nowPlayingChannel = channel }
                     }
                 }
