@@ -21,10 +21,10 @@ struct PodcastControls: View {
             }
 
             HStack(spacing: 8) {
+                EpisodeButton(showLabel: true).frame(maxWidth: .infinity)
                 SpeedControl(showLabel: true).frame(maxWidth: .infinity)
                 BookmarkButton(showLabel: true).frame(maxWidth: .infinity)
                 SleepTimerButton(showLabel: true).frame(maxWidth: .infinity)
-                AirPlayButton().frame(maxWidth: .infinity, minHeight: 44)
             }
             .padding(10)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))

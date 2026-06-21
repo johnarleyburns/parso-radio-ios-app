@@ -223,4 +223,69 @@ final class NowPlayingSheetTests: XCTestCase {
         let showsBookSkip = kind == .audiobook || kind == .lecture
         XCTAssertFalse(showsBookSkip)
     }
+
+    // MARK: - Overflow menu: sleep timer for music and ambient
+
+    func testOverflowMenuHasSleepTimerForMusic() {
+        let channel = Channel(
+            id: "music-test", name: "Music", category: "Curated",
+            icon: "music.note", contentType: .music
+        )
+        vm.currentChannel = channel
+
+        let kind = vm.currentChannel?.mediaKind ?? .music
+        let showsSleepInOverflow = kind == .music || kind == .ambient
+        XCTAssertTrue(showsSleepInOverflow)
+    }
+
+    func testOverflowMenuHasSleepTimerForAmbient() {
+        let channel = Channel(
+            id: "ambient-test", name: "Ambient", category: "Ambient",
+            icon: "leaf.fill", contentType: .ambientLoop
+        )
+        vm.currentChannel = channel
+
+        let kind = vm.currentChannel?.mediaKind ?? .music
+        let showsSleepInOverflow = kind == .music || kind == .ambient
+        XCTAssertTrue(showsSleepInOverflow)
+    }
+
+    func testOverflowMenuNoSleepTimerForPodcast() {
+        let channel = Channel(
+            id: "podcast-test", name: "Podcast", category: "Podcasts",
+            icon: "newspaper.fill", contentType: .spokenWord,
+            feedURL: "https://example.com/feed.xml"
+        )
+        vm.currentChannel = channel
+
+        let kind = vm.currentChannel?.mediaKind ?? .music
+        let showsSleepInOverflow = kind == .music || kind == .ambient
+        XCTAssertFalse(showsSleepInOverflow)
+    }
+
+    // MARK: - Overflow menu: no Add to playlist for ambient
+
+    func testOverflowMenuNoAddToPlaylistForAmbient() {
+        let channel = Channel(
+            id: "ambient-test", name: "Ambient", category: "Ambient",
+            icon: "leaf.fill", contentType: .ambientLoop
+        )
+        vm.currentChannel = channel
+
+        let kind = vm.currentChannel?.mediaKind ?? .music
+        let showsAddToPlaylist = kind != .ambient
+        XCTAssertFalse(showsAddToPlaylist)
+    }
+
+    func testOverflowMenuHasAddToPlaylistForNonAmbient() {
+        let channel = Channel(
+            id: "music-test", name: "Music", category: "Curated",
+            icon: "music.note", contentType: .music
+        )
+        vm.currentChannel = channel
+
+        let kind = vm.currentChannel?.mediaKind ?? .music
+        let showsAddToPlaylist = kind != .ambient
+        XCTAssertTrue(showsAddToPlaylist)
+    }
 }

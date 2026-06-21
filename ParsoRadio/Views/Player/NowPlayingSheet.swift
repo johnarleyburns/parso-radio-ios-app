@@ -51,7 +51,10 @@ struct NowPlayingSheet: View {
                         .accessibilityIdentifier("player.dismiss")
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        overflowMenu
+                        HStack(spacing: 16) {
+                            AirPlayButton().frame(width: 28, height: 28)
+                            overflowMenu
+                        }
                     }
                 }
                 .task { await favorites.loadAll() }
@@ -235,7 +238,9 @@ struct NowPlayingSheet: View {
                 } label: { Label(isFav ? "Remove from favorites" : "Add to favorites",
                                  systemImage: isFav ? "heart.fill" : "heart") }
 
-                Button { showAddToPlaylist = true } label: { Label("Add to playlist", systemImage: "plus.circle") }
+                if kind != .ambient {
+                    Button { showAddToPlaylist = true } label: { Label("Add to playlist", systemImage: "plus.circle") }
+                }
 
                 if let shareURL = ShareURLBuilder.url(for: t) {
                     ShareLink(item: shareURL) { Label("Share", systemImage: "square.and.arrow.up") }
@@ -251,6 +256,24 @@ struct NowPlayingSheet: View {
 
                 if playerVM.currentTrackIsMultiPart {
                     Button { showAlbumTracks = true } label: { Label("Album tracks", systemImage: "opticaldisc") }
+                }
+
+                if kind == .music || kind == .ambient {
+                    Divider()
+                    Menu {
+                        Button("15 minutes") { playerVM.startSleepTimer(minutes: 15) }
+                        Button("30 minutes") { playerVM.startSleepTimer(minutes: 30) }
+                        Button("45 minutes") { playerVM.startSleepTimer(minutes: 45) }
+                        Button("1 hour")     { playerVM.startSleepTimer(minutes: 60) }
+                        Divider()
+                        Button("End of track") { playerVM.setSleepAtEndOfTrack(true) }
+                        if playerVM.isSleepTimerActive {
+                            Divider()
+                            Button("Cancel timer", role: .destructive) { playerVM.cancelSleepTimer() }
+                        }
+                    } label: {
+                        Label("Sleep timer", systemImage: playerVM.isSleepTimerActive ? "moon.zzz.fill" : "moon.zzz")
+                    }
                 }
 
                 if kind == .audiobook || kind == .lecture {
