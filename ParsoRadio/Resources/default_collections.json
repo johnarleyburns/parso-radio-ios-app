@@ -1,5 +1,14 @@
 [
   {
+    "id": "aadamjacobs",
+    "title": "Aadam Jacobs Collection",
+    "category": "music",
+    "curator": "Aadam Jacobs",
+    "icon": "guitars",
+    "query": "collection:aadamjacobs AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
     "id": "vinyl_bostonpubliclibrary",
     "title": "Boston Public Library LP Records",
     "category": "classical_lp",
@@ -8,5 +17,149 @@
     "query": "collection:vinyl_bostonpubliclibrary AND -subject:\"spoken word\" AND -mediatype:audiobook AND -subject:\"poetry\" AND -subject:\"speeches\" AND -subject:\"comedy\" AND -subject:\"drama\" AND -creator:\"LibriVox\"",
     "tier": "curated_focused",
     "itemCount": 757
+  },
+  {
+    "id": "crucialriddm_music",
+    "title": "Crucial Riddim Music",
+    "category": "music",
+    "curator": "Crucial Riddim",
+    "icon": "waveform",
+    "query": "collection:crucialriddm_music AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "cujazz",
+    "title": "CU Jazz Collection",
+    "category": "jazz",
+    "curator": "University of Colorado Boulder",
+    "icon": "music.mic",
+    "query": "collection:cujazz AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "vinyl_frank-defreytas-memoria-opera",
+    "title": "Frank Defreytas Memoria Opera",
+    "category": "opera",
+    "curator": "Frank Defreytas",
+    "icon": "theatermasks",
+    "query": "collection:vinyl_frank-defreytas-memoria-opera AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "musica-campesina",
+    "title": "Musica Campesina",
+    "category": "world",
+    "curator": "Musica Campesina",
+    "icon": "guitars",
+    "query": "collection:musica-campesina AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "music-of-the-world-istanbul",
+    "title": "Music of the World — Istanbul",
+    "category": "world",
+    "curator": "Music of the World",
+    "icon": "globe",
+    "query": "collection:music-of-the-world-istanbul AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "imcradio",
+    "title": "IMC Radio",
+    "category": "radio",
+    "curator": "IMC",
+    "icon": "radio",
+    "query": "collection:imcradio AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "russian_classical_collection",
+    "title": "Russian Classical Collection",
+    "category": "classical",
+    "curator": "Russian Classical Collection",
+    "icon": "music.quarternote.3",
+    "query": "collection:russian_classical_collection AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "tedjonespiano",
+    "title": "Ted Jones Piano",
+    "category": "piano",
+    "curator": "Ted Jones",
+    "icon": "pianokeys",
+    "query": "collection:tedjonespiano AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "davidwnivenjazz",
+    "title": "David W. Niven Jazz Collection",
+    "category": "jazz",
+    "curator": "David W. Niven",
+    "icon": "music.mic",
+    "query": "collection:davidwnivenjazz AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "voa-music-time-in-africa",
+    "title": "VOA Music Time in Africa",
+    "category": "world",
+    "curator": "Voice of America",
+    "icon": "globe.africa",
+    "query": "collection:voa-music-time-in-africa AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "bostonsymphonyorchestra",
+    "title": "Boston Symphony Orchestra",
+    "category": "classical",
+    "curator": "Boston Symphony Orchestra",
+    "icon": "building.columns",
+    "query": "collection:bostonsymphonyorchestra AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "laphil",
+    "title": "Los Angeles Philharmonic",
+    "category": "classical",
+    "curator": "Los Angeles Philharmonic",
+    "icon": "building.columns",
+    "query": "collection:laphil AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "phillipslibraryearlymusic",
+    "title": "Phillips Library Early Music",
+    "category": "classical",
+    "curator": "Phillips Library",
+    "icon": "music.quarternote.3",
+    "query": "collection:phillipslibraryearlymusic AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "vinyl_robert-haber-records",
+    "title": "Robert Haber Records (Vinyl)",
+    "category": "vinyl",
+    "curator": "Robert Haber",
+    "icon": "record.circle",
+    "query": "collection:vinyl_robert-haber-records AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "sfjazz",
+    "title": "SFJAZZ Collection",
+    "category": "jazz",
+    "curator": "SFJAZZ",
+    "icon": "music.mic",
+    "query": "collection:sfjazz AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
+  },
+  {
+    "id": "paladinos",
+    "title": "Paladino's Live Music",
+    "category": "music",
+    "curator": "Paladino's",
+    "icon": "music.note.house",
+    "query": "collection:paladinos AND -subject:\"spoken word\"",
+    "tier": "curated_focused"
   }
 ]
