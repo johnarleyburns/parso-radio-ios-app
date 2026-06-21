@@ -276,8 +276,7 @@ extension Channel {
             category: "Podcasts", icon: "megaphone.fill",
             tags: ["news-democracy-now"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://www.democracynow.org/podcast.xml",
-            imageURL: "https://assets.democracynow.org/assets/DN-Podcast-AUDIO-1d5df65d8936dcfd1387274443b3e0713c5f15dd3fa400331229f4ab39b5c19e.jpg"
+            feedURL: "https://www.democracynow.org/podcast.xml"
         ),
         Channel(
             id: "podcast-no-agenda", name: "No Agenda",
@@ -285,8 +284,7 @@ extension Channel {
             tags: ["podcast-no-agenda"],
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feed.nashownotes.com/rss.xml",
-            summary: "A twice-weekly news deconstruction by Adam Curry and John C. Dvorak. No ads, no sponsors — listener-supported since 2007.",
-            imageURL: "https://noagendaassets.com/enc/1781818063.056_na-1878-art-feed.jpg"
+            summary: "A twice-weekly news deconstruction by Adam Curry and John C. Dvorak. No ads, no sponsors — listener-supported since 2007."
         ),
         Channel(
             id: "podcast-citations-needed", name: "Citations Needed",
@@ -294,8 +292,7 @@ extension Channel {
             tags: ["podcast-citations-needed"],
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feeds.libsyn.com/169725/rss",
-            summary: "A weekly podcast about media, power, and the history of bullshit. Ad-free, funded by listener donations.",
-            imageURL: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts113/v4/f5/fe/97/f5fe9719-79ee-a535-aaca-7971838da991/mza_1363425183235475554.png/600x600bb.jpg"
+            summary: "A weekly podcast about media, power, and the history of bullshit. Ad-free, funded by listener donations."
         ),
         Channel(
             id: "podcast-security-now", name: "Security Now",
@@ -303,8 +300,7 @@ extension Channel {
             tags: ["podcast-security-now"],
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feeds.twit.tv/sn.xml",
-            summary: "Steve Gibson and Leo Laporte break down the week's security news. CC BY-NC-SA, ad-free audio feed.",
-            imageURL: "https://elroy.twit.tv/sites/default/files/styles/twit_album_art_2048x2048/public/images/shows/security_now/album_art/audio/sn2022_albumart_standard_2400.jpg"
+            summary: "Steve Gibson and Leo Laporte break down the week's security news. CC BY-NC-SA, ad-free audio feed."
         ),
         Channel(
             id: "podcast-floss-weekly", name: "FLOSS Weekly",
@@ -312,8 +308,7 @@ extension Channel {
             tags: ["podcast-floss-weekly"],
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feeds.twit.tv/floss.xml",
-            summary: "Interviews with notable figures in the free and open-source software community. CC BY, ad-free.",
-            imageURL: "https://elroy.twit.tv/sites/default/files/styles/twit_album_art_2048x2048/public/images/shows/floss_weekly/album_art/audio/floss2022_albumart_standard_2400.jpg"
+            summary: "Interviews with notable figures in the free and open-source software community. CC BY, ad-free."
         ),
 
         // MARK: Audiobooks — LibriVox via pure-Lucene IA registry

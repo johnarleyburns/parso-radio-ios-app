@@ -102,16 +102,6 @@ final class ChannelTests: XCTestCase {
         }
     }
 
-    func testPodcastsChannelsHaveImageURL() {
-        let podcastChannels = Channel.defaults.filter { $0.category == "Podcasts" }
-        for channel in podcastChannels {
-            XCTAssertNotNil(channel.imageURL,
-                "Podcasts channel '\(channel.id)' must have an imageURL for browse-list thumbnails")
-            XCTAssertFalse(channel.imageURL?.isEmpty == true,
-                "Podcasts channel '\(channel.id)' imageURL must not be empty")
-        }
-    }
-
     func testPodcastsChannelsAreSpokenWord() {
         let newsChannels = Channel.defaults.filter { $0.category == "Podcasts" }
         for channel in newsChannels {
