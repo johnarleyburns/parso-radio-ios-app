@@ -154,7 +154,7 @@ final class MediaKindTests: XCTestCase {
         XCTAssertTrue(b.supportsSleepTimer)
         XCTAssertFalse(b.persistsResumePosition)
         XCTAssertFalse(b.supportsBookSkip)
-        XCTAssertTrue(b.supportsBookmarks)
+        XCTAssertFalse(b.supportsBookmarks)
         XCTAssertFalse(b.startsAtZeroAlways)
         XCTAssertFalse(b.supportsTransportNavigation)
     }
