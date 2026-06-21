@@ -109,33 +109,6 @@
     "tier": "curated_focused"
   },
   {
-    "id": "bostonsymphonyorchestra",
-    "title": "Boston Symphony Orchestra",
-    "category": "classical",
-    "curator": "Boston Symphony Orchestra",
-    "icon": "building.columns",
-    "query": "collection:bostonsymphonyorchestra AND -subject:\"spoken word\"",
-    "tier": "curated_focused"
-  },
-  {
-    "id": "laphil",
-    "title": "Los Angeles Philharmonic",
-    "category": "classical",
-    "curator": "Los Angeles Philharmonic",
-    "icon": "building.columns",
-    "query": "collection:laphil AND -subject:\"spoken word\"",
-    "tier": "curated_focused"
-  },
-  {
-    "id": "phillipslibraryearlymusic",
-    "title": "Phillips Library Early Music",
-    "category": "classical",
-    "curator": "Phillips Library",
-    "icon": "music.quarternote.3",
-    "query": "collection:phillipslibraryearlymusic AND -subject:\"spoken word\"",
-    "tier": "curated_focused"
-  },
-  {
     "id": "vinyl_robert-haber-records",
     "title": "Robert Haber Records (Vinyl)",
     "category": "vinyl",
@@ -151,15 +124,6 @@
     "curator": "SFJAZZ",
     "icon": "music.mic",
     "query": "collection:sfjazz AND -subject:\"spoken word\"",
-    "tier": "curated_focused"
-  },
-  {
-    "id": "paladinos",
-    "title": "Paladino's Live Music",
-    "category": "music",
-    "curator": "Paladino's",
-    "icon": "music.note.house",
-    "query": "collection:paladinos AND -subject:\"spoken word\"",
     "tier": "curated_focused"
   }
 ]
