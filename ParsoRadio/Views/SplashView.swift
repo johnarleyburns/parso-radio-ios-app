@@ -45,7 +45,7 @@ struct SplashView: View {
                 scale = 1
                 iconScale = 1
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 withAnimation(.easeInOut(duration: 0.35)) {
                     isPresented = false
                 }

@@ -250,6 +250,19 @@ final class MediaKindTests: XCTestCase {
         let track = makeTestTrack(id: "music-1", source: "internet_archive")
         XCTAssertEqual(track.mediaKind(in: channel), .music)
     }
+
+    // MARK: - LibrarySection ordering
+
+    func testLibrarySectionOrderLecturesBeforePodcasts() {
+        let ordered = LibrarySection.ordered.map(\.id)
+        guard let lecturesIdx = ordered.firstIndex(of: .lecture),
+              let podcastsIdx = ordered.firstIndex(of: .podcast) else {
+            XCTFail("Expected both .lecture and .podcast in ordered sections")
+            return
+        }
+        XCTAssertLessThan(lecturesIdx, podcastsIdx,
+            "Lectures should appear before Podcasts in Explore")
+    }
 }
 
 private func makeTestTrack(id: String, source: String,

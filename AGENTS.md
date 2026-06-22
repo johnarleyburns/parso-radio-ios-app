@@ -77,8 +77,6 @@ ParsoRadio/
 │   │   ├── API/                    # InternetArchive, FMA, PodcastRSS services
 │   │   ├── Playback/               # AudioPlayer, QueueManager, caching
 │   │   ├── Storage/                # DatabaseService (SQLite), FileStorage
-│   │   ├── CurationManifest.swift  # LiveCurationStore (in-memory DB snapshot)
-│   │   ├── CustomChannelsStore.swift # Per-channel JSON I/O (import/export only)
 │   │   └── ...
 │   └── Tests/                      # Unit tests (ParsoMusicTests target)
 ├── Integration/Tests/              # Network-dependent tests
@@ -96,26 +94,24 @@ ParsoRadio/
 
 ```
   INSTALL/UPDATE (one-time)
-    per-channel JSON → import to SQLite curation table
-    (only if DB has zero verdicts for that channel)
+    per-channel JSON → import to SQLite tracks table
+    (tagged with channel-stamp isolation tokens)
 
   RUNTIME (ongoing)
-    Approve/Reject → setCuration() → SQLite curation table
-                    → reload() → in-memory LiveCurationStore
-                    → QueueManager reads from in-memory pool
+    Channel.matches() → filters SQLite tracks table by stamp
+                      → QueueManager reads from filtered pool
 
   SHARE (one-time)
-    Export: DB verdicts → JSON/CSV
-    Import: JSON file → parse → setCuration() → reload()
+    Export: DB track data → JSON/CSV
+    Import: JSON file → parse → insert/update tracks → reload()
 ```
 
 ### NEVER:
-- Write to per-channel JSON files from verdict methods.
-- Add a JSON fallback mechanism inside `LiveCurationStore.pool(for:)`.
-- Delete curation rows without a channel filter during `pruneChannelTracks()`.
-- Delete curation rows in `evictOldTracks()` — verdicts must survive physical track eviction.
+- Write to per-channel JSON files from track fetch or verdict methods.
+- Delete tracks without a channel filter during `pruneChannelTracks()`.
+- Delete tracks in `evictOldTracks()` that are in active channels.
 
-**The SQLite database is the sole source of truth for curation states. JSON files are reserved exclusively for static assets and import/export flows.**
+**The SQLite database is the sole source of truth for track data. JSON files are reserved exclusively for static assets and import/export flows.**
 
 ---
 

@@ -11,7 +11,11 @@ struct AmbientControls: View {
                             prominent: true, tint: tint) { playerVM.togglePlayPause() }
 
             HStack(spacing: 8) {
-                AirPlayButton().frame(maxWidth: .infinity)
+                VStack(spacing: 4) {
+                    AirPlayButton().frame(width: 28, height: 28)
+                    Text("AirPlay").font(.caption2)
+                }
+                .frame(maxWidth: .infinity)
                 AmbientWebsiteButton().frame(maxWidth: .infinity)
                 FavoriteButton(showLabel: true).frame(maxWidth: .infinity)
                 SleepTimerButton(showLabel: true).frame(maxWidth: .infinity)

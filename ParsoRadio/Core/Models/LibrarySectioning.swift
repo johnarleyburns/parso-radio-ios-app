@@ -11,8 +11,8 @@ extension LibrarySection {
     static let ordered: [LibrarySection] = [
         .init(id: .music,     label: "Internet Archive Collections", short: "Music",    icon: "music.note"),
         .init(id: .audiobook, label: "Librivox Audiobooks",          short: "Books",    icon: "book"),
-        .init(id: .podcast,   label: "Open Podcasts",                short: "Podcasts", icon: "newspaper"),
         .init(id: .lecture,   label: "Oxford Lectures",              short: "Lectures", icon: "graduationcap"),
+        .init(id: .podcast,   label: "Open Podcasts",                short: "Podcasts", icon: "newspaper"),
         .init(id: .ambient,   label: "Ambient",                      short: "Ambient",  icon: "leaf"),
     ]
 

@@ -14,48 +14,6 @@
     ]
   },
   {
-    "channelId": "guitar-classical",
-    "iaQuery": "mediatype:audio AND ((subject:\"classical guitar\" OR subject:\"guitar music\" OR subject:\"spanish guitar\" OR subject:\"flamenco guitar\" OR subject:\"lute\" OR subject:\"renaissance guitar\") OR ((creator:\"Andr\u00e9s Segovia\" OR creator:\"Andres Segovia\" OR creator:\"Narciso Yepes\" OR creator:\"Julian Bream\" OR creator:\"Pepe Romero\" OR creator:\"Angel Romero\" OR creator:\"Los Romeros\" OR creator:\"Celedonio Romero\" OR creator:\"Regino Sainz de la Maza\" OR creator:\"Paco de Luc\u00eda\" OR creator:\"Paco de Lucia\" OR creator:Sabicas OR creator:\"Mario Escudero\" OR creator:\"Carlos Montoya\" OR creator:\"Manuel Barrueco\" OR creator:\"David Russell\" OR creator:\"Christopher Parkening\" OR creator:\"Ana Vidovi\u0107\" OR creator:\"Sharon Isbin\" OR creator:\"Kazuhito Yamashita\" OR creator:\"Alirio D\u00edaz\" OR creator:\"Alirio Diaz\" OR creator:\"Laurindo Almeida\" OR creator:\"Liona Boyd\" OR creator:\"Eliot Fisk\" OR creator:\"G\u00f6ran S\u00f6llscher\" OR creator:\"Oscar Ghiglia\" OR creator:\"Konrad Ragossnig\" OR creator:\"Turibio Santos\" OR creator:\"Carlos Bonell\" OR creator:\"Jorge Morel\" OR creator:\"Manuel L\u00f3pez Ramos\" OR creator:\"Li Jie\" OR creator:\"Jie Li\" OR creator:\"Rey de la Torre\") OR ((creator:\"Fernando Sor\" OR creator:\"Isaac Alb\u00e9niz\" OR creator:\"Francisco T\u00e1rrega\" OR creator:\"Francisco Tarrega\" OR creator:\"Enrique Granados\" OR creator:\"Joaqu\u00edn Rodrigo\" OR creator:\"Agust\u00edn Barrios\" OR creator:\"Manuel Ponce\" OR creator:\"Heitor Villa-Lobos\" OR creator:\"Mauro Giuliani\" OR creator:\"Leo Brouwer\" OR creator:\"Gaspar Sanz\"))) AND NOT (subject:interview OR subject:talk OR subject:lecture OR title:interview OR subject:vocal OR subject:vocals OR subject:\"vocal music\" OR subject:song OR subject:songs OR subject:soprano OR subject:choral OR creator:\"Laura DeNardis\" OR creator:\"Salli Terri\"))",
-    "matchTags": [
-      "guitar-classical"
-    ]
-  },
-  {
-    "channelId": "string-quartet",
-    "iaQuery": "mediatype:audio AND (subject:\"string quartet\" OR title:\"string quartet\") AND (creator:Beethoven OR creator:Mozart OR creator:Haydn OR creator:Schubert OR creator:Brahms OR creator:Dvo\u0159\u00e1k OR creator:Dvorak OR creator:Mendelssohn OR creator:Ravel OR creator:Debussy OR creator:Bart\u00f3k OR creator:Bartok OR creator:Shostakovich OR creator:Borodin OR creator:Schumann OR creator:Tchaikovsky OR creator:\"Budapest String Quartet\" OR creator:\"Quartetto Italiano\" OR creator:\"Amadeus Quartet\" OR creator:\"Juilliard String Quartet\") AND NOT (subject:jazz OR subject:rock OR subject:pop OR subject:electronic OR subject:soundtrack OR subject:guitar OR collection:podcasts OR collection:radio) AND downloads:[20 TO *]",
-    "matchTags": [
-      "string-quartet"
-    ]
-  },
-  {
-    "channelId": "symphony-orchestra",
-    "iaQuery": "mediatype:audio AND ( subject:\"Symphony orchestra\"^5 OR subject:Philharmonic^5 OR ( subject:Orchestra AND ( subject:Symphony^4 OR subject:Concerto^4 OR subject:\"Tone Poem\"^3 OR subject:Overture^3 ) ) ) AND NOT ( subject:jazz OR subject:\"dance band\" OR subject:quartet OR subject:trio OR subject:sonata OR subject:quintet OR subject:pop OR subject:rock OR subject:opera OR subject:choral OR subject:vocal OR subject:operetta OR subject:Bootleg OR subject:soundtrack OR subject:\"film score\" OR subject:\"steel drum\" OR subject:calypso OR subject:\"video game\" OR creator:\"Dance Orchestra\" ) AND NOT ( collection:radio OR collection:radioprograms OR collection:stream_only OR collection:jamendo-albums OR collection:podcasts OR collection:podcasts_miscellaneous ) AND downloads:[25 TO *]",
-    "matchTags": [
-      "symphony-orchestra"
-    ]
-  },
-  {
-    "channelId": "piano-hour",
-    "iaQuery": "mediatype:audio AND ( subject:\"Piano sonata\"^6 OR subject:Nocturne^6 OR subject:Ballade^5 OR subject:Impromptu^5 OR subject:\"piano solo\"^4 OR ( subject:Piano AND ( subject:Chopin^6 OR subject:Liszt^5 OR subject:Schubert^5 OR subject:Beethoven^5 OR subject:Brahms^5 OR subject:Debussy^5 OR subject:Schumann^5 OR subject:Scriabin^4 OR subject:Ravel^4 OR subject:Scarlatti^4 ) ) OR ( subject:Piano AND (subject:Etude^5 OR subject:Prelude^5) ) ) AND NOT ( subject:jazz OR subject:ragtime OR subject:blues OR subject:orchestra OR subject:concerto OR subject:vocal OR subject:pop OR subject:rock OR subject:organ OR subject:harpsichord OR subject:newage OR subject:\"neo-classical\" OR subject:ambient OR subject:cinematic OR subject:\"film score\" OR subject:soundtrack OR subject:saloon OR subject:trio OR subject:quartet OR subject:Bootleg OR subject:violin OR subject:cello OR subject:\"four hands\" OR subject:standard OR subject:islam OR subject:religion ) AND NOT ( collection:jamendo-albums OR collection:radio OR collection:radioprograms OR collection:podcasts OR collection:podcasts_miscellaneous OR collection:audio_islamic OR collection:audio_religion ) AND downloads:[25 TO *]",
-    "matchTags": [
-      "piano-hour"
-    ]
-  },
-  {
-    "channelId": "tribal-works",
-    "iaQuery": "mediatype:audio AND (subject:\"ethnomusicology\"^8 OR subject:gamelan^7 OR subject:\"Native American music\"^7 OR subject:\"African music\"^7 OR subject:\"Aboriginal music\"^6 OR (subject:\"world music\" AND subject:traditional)^5 OR (subject:\"folk music\" AND subject:\"field recording\")^6 OR subject:\"indigenous music\"^6 OR collection:autrynationalcenter^8 OR collection:indonesian-cassette-archive^6 OR (collection:78rpm AND (subject:gamelan OR subject:\"Native American music\" OR subject:\"Indigenous Music of North America\" OR subject:ethnomusicology))^6 OR subject:kroncong^5 OR subject:wayang^5 OR subject:\"cylinder recording\"^5 OR subject:\"field recording\"^5) AND NOT (subject:shamanism OR subject:meditation OR subject:healing OR subject:\"new age\" OR subject:spiritual OR subject:relaxation OR subject:electronic OR subject:ambient OR subject:remix OR subject:trance OR subject:psychedelic OR subject:lecture OR subject:interview OR subject:speech OR subject:podcast OR subject:worship OR subject:sermon OR subject:noise OR subject:\"sound art\" OR subject:experimental OR subject:soundtrack OR subject:\"video game\" OR subject:\"spoken word\" OR subject:\"open mic\" OR subject:\"radio show\" OR subject:\"radio program\" OR subject:\"world music radio show\" OR subject:broadcast OR subject:sfx OR subject:\"sound effects\" OR subject:vaporwave OR subject:dangdut OR subject:\"oral history\" OR subject:\"oral histories\") AND NOT (collection:audio_religion OR collection:audio_sermons OR collection:netlabels OR collection:podcasts OR collection:podcasts_miscellaneous OR collection:jamendo-albums OR collection:librivoxaudio OR collection:radiostationarchives OR collection:kqbmarchive OR collection:voa-music-time-in-africa OR collection:airchecks OR collection:shortwave-airchecks OR collection:uw-ethnomusicology-archives) AND NOT creator:\"Voice of America\" AND downloads:[25 TO *]",
-    "matchTags": [
-      "tribal-works"
-    ]
-  },
-  {
-    "channelId": "cafe-lento",
-    "iaQuery": "mediatype:audio AND ( subject:\"bossa nova\"^8 OR subject:\"cool jazz\"^7 OR subject:\"chamber jazz\"^7 OR subject:\"piano jazz\"^6 OR subject:\"jazz piano\"^6 OR subject:\"lounge jazz\"^5 OR subject:\"solo guitar\"^6 OR subject:\"classical guitar\"^6 OR subject:\"fingerstyle\"^5 OR (subject:jazz AND subject:acoustic)^5 OR (subject:jazz AND subject:quartet)^4 ) AND NOT ( subject:bebop OR subject:\"free jazz\" OR subject:\"hard bop\" OR subject:rock OR subject:pop OR subject:electronic OR subject:orchestra OR subject:symphony OR subject:metal OR subject:punk OR subject:ambient OR subject:drone OR subject:experimental OR subject:noise OR subject:remix OR subject:trance OR subject:psychedelic OR subject:rap OR subject:\"hip hop\" OR subject:swing OR subject:\"big band\" OR subject:soundtrack OR subject:reggae OR subject:salsa OR subject:tango OR subject:\"new age\" OR subject:\"jazz hop\" OR subject:rnb OR subject:\"r&b\" OR subject:funk ) AND NOT ( collection:jamendo-albums OR collection:podcasts OR collection:podcasts_miscellaneous OR collection:stream_only OR collection:radio OR collection:radioprograms OR collection:audio_religion OR collection:audio_sermons OR collection:librivoxaudio OR collection:netlabels ) AND downloads:[75 TO *]",
-    "matchTags": [
-      "cafe-lento"
-    ]
-  },
-  {
     "channelId": "lv-general-fiction",
     "iaQuery": "collection:librivoxaudio AND (subject:\"General Fiction\" OR subject:\"Culture & Heritage Fiction\" OR subject:\"Family Life\")",
     "matchTags": [
@@ -200,62 +158,6 @@
     "iaQuery": "collection:librivoxaudio AND (subject:\"Essays & Short Works\" OR subject:\"Literary Criticism\" OR subject:\"Political Science\")",
     "matchTags": [
       "lv-essays-ideas"
-    ]
-  },
-  {
-    "channelId": "childrens-books",
-    "iaQuery": "(collection:librivoxaudio OR collection:audio_bookspoetry) AND (subject:\"Juvenile fiction\" OR subject:\"Children's Fiction\" OR subject:\"Juvenile literature\" OR subject:\"Fairy tales\" OR subject:\"Children's literature\" OR subject:\"Children's stories\" OR subject:\"Juvenile\" OR subject:\"Children\" OR subject:\"Picture books\")",
-    "matchTags": [
-      "childrens-books"
-    ]
-  },
-  {
-    "channelId": "childrens-songs",
-    "iaQuery": "mediatype:audio AND NOT collection:librivoxaudio AND NOT subject:audiobooks AND NOT subject:audiobook AND NOT title:audiobook AND NOT title:book AND NOT title:books AND NOT title:interview AND NOT identifier:TheKerplunksInterviewwithDaveORama AND NOT creator:\"They Might Be Giants\" AND ((collection:78rpm AND (title:\"nursery rhyme\" OR title:\"nursery rhymes\" OR title:\"Mother Goose\" OR title:\"Baa Baa Black Sheep\" OR title:\"Little Bo Peep\" OR title:\"Little Miss Muffet\" OR title:\"Hickory Dickory Dock\" OR title:\"Farmer in the Dell\" OR title:\"Mary Had a Little Lamb\" OR title:\"Twinkle Twinkle\" OR title:\"Sing a Song of Sixpence\" OR title:\"Three Little Kittens\" OR title:\"Old MacDonald\" OR title:\"This Old Man\" OR title:\"Pop Goes the Weasel\" OR title:\"Hey Diddle Diddle\" OR title:\"Jack and Jill\" OR title:\"Humpty Dumpty\" OR title:\"Itsy Bitsy Spider\" OR title:\"Rock-a-bye Baby\" OR title:\"Ride a Cock Horse\" OR title:\"Pat-a-Cake\" OR title:\"Old King Cole\" OR title:\"Wee Willie Winkie\" OR title:\"Georgie Porgie\" OR title:\"Ring Around the Rosie\" OR title:\"Row Row Row Your Boat\" OR title:\"London Bridge\")) OR subject:\"kids music\" OR subject:\"children's music\" OR subject:\"children's songs\" OR subject:\"lullaby\" OR subject:\"lullabies\" OR subject:\"nursery rhyme\" OR subject:\"nursery rhymes\")",
-    "matchTags": [
-      "childrens-songs"
-    ]
-  },
-  {
-    "channelId": "great-books",
-    "iaQuery": "collection:librivoxaudio AND language:eng AND (creator:\"Homer\" OR creator:\"Aeschylus\" OR creator:\"Sophocles\" OR creator:\"Euripides\" OR creator:\"Aristophanes\" OR creator:\"Herodotus\" OR creator:\"Thucydides\" OR creator:\"Plato\" OR creator:\"Aristotle\" OR creator:\"Lucretius\" OR creator:\"Epictetus\" OR creator:\"Marcus Aurelius\" OR creator:\"Virgil\" OR creator:\"Plutarch\" OR creator:\"Tacitus\" OR creator:\"Augustine\" OR creator:\"Thomas Aquinas\" OR creator:\"Dante Alighieri\" OR creator:\"Geoffrey Chaucer\" OR creator:\"Niccol\u00f2 Machiavelli\" OR creator:\"Thomas Hobbes\" OR creator:\"William Shakespeare\" OR creator:\"Francis Bacon\" OR creator:\"Ren\u00e9 Descartes\" OR creator:\"John Milton\" OR creator:\"Blaise Pascal\" OR creator:\"Isaac Newton\" OR creator:\"John Locke\" OR creator:\"George Berkeley\" OR creator:\"David Hume\" OR creator:\"Adam Smith\" OR creator:\"Edward Gibbon\" OR creator:\"Immanuel Kant\" OR creator:\"James Boswell\" OR creator:\"Michael Faraday\" OR creator:\"Karl Marx\" OR creator:\"Johann Wolfgang von Goethe\" OR creator:\"Herman Melville\" OR creator:\"Charles Darwin\" OR creator:\"Fyodor Dostoevsky\" OR creator:\"Leo Tolstoy\" OR creator:\"William James\" OR creator:\"Sigmund Freud\" OR creator:\"Voltaire\" OR creator:\"Jean-Jacques Rousseau\" OR creator:\"Montesquieu\" OR creator:\"Jonathan Swift\" OR creator:\"Henry Fielding\") AND NOT creator:\"William John Locke\" AND NOT creator:\"Homer Greene\" AND NOT creator:\"Homer Eon Flint\"",
-    "matchTags": [
-      "great-books"
-    ]
-  },
-  {
-    "channelId": "greater-books",
-    "iaQuery": "collection:librivoxaudio AND language:eng AND (creator:\"Homer\" OR creator:\"Sophocles\" OR creator:\"Euripides\" OR creator:\"Aristophanes\" OR creator:\"Virgil\" OR creator:\"Ovid\" OR creator:\"Dante Alighieri\" OR creator:\"Geoffrey Chaucer\" OR creator:\"Miguel de Cervantes\" OR creator:\"William Shakespeare\" OR creator:\"Christopher Marlowe\" OR creator:\"Molière\" OR creator:\"John Milton\" OR creator:\"Daniel Defoe\" OR creator:\"Jonathan Swift\" OR creator:\"Henry Fielding\" OR creator:\"Voltaire\" OR creator:\"Jane Austen\" OR creator:\"Mary Shelley\" OR creator:\"Walter Scott\" OR creator:\"Lord Byron\" OR creator:\"John Keats\" OR creator:\"William Blake\" OR creator:\"William Wordsworth\" OR creator:\"Edgar Allan Poe\" OR creator:\"Nathaniel Hawthorne\" OR creator:\"Herman Melville\" OR creator:\"Walt Whitman\" OR creator:\"Henry David Thoreau\" OR creator:\"Emily Brontë\" OR creator:\"Charlotte Brontë\" OR creator:\"Charles Dickens\" OR creator:\"George Eliot\" OR creator:\"Thomas Hardy\" OR creator:\"Lewis Carroll\" OR creator:\"Robert Louis Stevenson\" OR creator:\"Bram Stoker\" OR creator:\"Oscar Wilde\" OR creator:\"Rudyard Kipling\" OR creator:\"Arthur Conan Doyle\" OR creator:\"Jules Verne\" OR creator:\"H. G. Wells\" OR creator:\"Mark Twain\" OR creator:\"Frederick Douglass\" OR creator:\"Victor Hugo\" OR creator:\"Alexandre Dumas\" OR creator:\"Gustave Flaubert\" OR creator:\"Émile Zola\" OR creator:\"Fyodor Dostoevsky\" OR creator:\"Leo Tolstoy\" OR creator:\"Anton Chekhov\" OR creator:\"Alexander Pushkin\" OR creator:\"Nikolai Gogol\" OR creator:\"Henrik Ibsen\" OR creator:\"Joseph Conrad\" OR creator:\"Henry James\") AND NOT creator:\"William John Locke\" AND NOT creator:\"Homer Greene\" AND NOT creator:\"Homer Eon Flint\"",
-    "matchTags": [
-      "greater-books"
-    ]
-  },
-  {
-    "channelId": "ancient-greece",
-    "iaQuery": "collection:librivoxaudio AND language:(eng OR english) AND (subject:\"ancient greece\" OR subject:\"greek philosophy\" OR subject:\"greek history\" OR subject:\"greek mythology\" OR subject:\"greek drama\" OR creator:\"Plato\" OR creator:\"Aristotle\" OR creator:\"Homer\" OR creator:\"Sophocles\" OR creator:\"Euripides\" OR creator:\"Herodotus\" OR creator:\"Thucydides\" OR creator:\"Hesiod\" OR creator:\"Aeschylus\" OR creator:\"Aristophanes\" OR creator:\"Xenophon\" OR creator:\"Pindar\" OR creator:\"Sappho\")",
-    "matchTags": [
-      "ancient-greece"
-    ]
-  },
-  {
-    "channelId": "popular-literature",
-    "iaQuery": "collection:librivoxaudio AND language:(eng OR english)",
-    "matchTags": [
-      "popular-literature"
-    ]
-  },
-  {
-    "channelId": "ajc-project",
-    "iaQuery": "collection:aadamjacobs AND mediatype:audio",
-    "matchTags": [
-      "ajc-project"
-    ]
-  },
-  {
-    "channelId": "chamber-music",
-    "iaQuery": "mediatype:audio AND (subject:\"chamber music\" OR subject:\"string quartet\" OR subject:\"piano trio\" OR subject:\"wind quintet\" OR subject:\"violin sonata\" OR subject:\"cello sonata\" OR subject:\"piano quartet\") AND NOT (subject:interview OR subject:lecture OR subject:vocal OR subject:jazz)",
-    "matchTags": [
-      "chamber-music"
     ]
   }
 ]

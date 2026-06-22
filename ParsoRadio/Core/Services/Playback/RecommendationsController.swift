@@ -10,10 +10,18 @@ final class RecommendationsController {
         self.archiveService = archiveService
     }
 
+    private static func allChannels() -> [Channel] {
+        Channel.defaults + IACollectionStore.shared.channels
+    }
+
+    private static func categoryById() -> [String: String] {
+        Dictionary(allChannels().map { ($0.id, $0.category) },
+                   uniquingKeysWith: { a, _ in a })
+    }
+
     func fetchMixedRecommendations() async throws -> [Track]? {
         let history = await db.fetchRecentlyPlayedWithChannel(limit: 200)
-        let catById = Dictionary(Channel.defaults.map { ($0.id, $0.category) },
-                                   uniquingKeysWith: { a, _ in a })
+        let catById = Self.categoryById()
         let musicHistory = history.filter { (catById[$0.channelId] ?? "") == "Curated Music" }
         let bookHistory = history.filter { (catById[$0.channelId] ?? "") == "Audiobooks" }
 
@@ -24,9 +32,10 @@ final class RecommendationsController {
 
         let musicAlloc = RecommendationQueryBuilder.allocateSamples(weights: musicWeights)
         let bookAlloc = RecommendationQueryBuilder.allocateSamples(weights: bookWeights)
-        let totalAllocations = musicAlloc.count + bookAlloc.count + bookAlloc.count
+        let totalAllocations = musicAlloc.count + bookAlloc.count
         guard totalAllocations > 0 else { return nil }
 
+        let all = Self.allChannels()
         let svc = archiveService
         let stampTags = ["for-you"]
         var musicPool: [Track] = []
@@ -34,7 +43,7 @@ final class RecommendationsController {
 
         await withTaskGroup(of: (isBook: Bool, tracks: [Track]).self) { group in
             for (channelId, count) in musicAlloc {
-                guard let source = Channel.defaults.first(where: { $0.id == channelId }),
+                guard let source = all.first(where: { $0.id == channelId }),
                       let entry = source.iaQueryEntry else { continue }
                 group.addTask {
                     let tracks = (try? await Self.withTimeout(15) {
@@ -44,7 +53,7 @@ final class RecommendationsController {
                 }
             }
             for (channelId, count) in bookAlloc {
-                guard let source = Channel.defaults.first(where: { $0.id == channelId }),
+                guard let source = all.first(where: { $0.id == channelId }),
                       let entry = source.iaQueryEntry else { continue }
                 group.addTask {
                     let tracks = (try? await Self.withTimeout(15) {
@@ -78,8 +87,7 @@ final class RecommendationsController {
 
     func fetchRecommendations(for channel: Channel) async throws -> [Track]? {
         let history = await db.fetchRecentlyPlayedWithChannel(limit: 200)
-        let catById = Dictionary(Channel.defaults.map { ($0.id, $0.category) },
-                                   uniquingKeysWith: { a, _ in a })
+        let catById = Self.categoryById()
         let isBooks = channel.id == "books-for-you"
         let relevantCats: Set<String> = isBooks ? ["Audiobooks"] : ["Curated Music"]
         let relevantPlays = history.filter { relevantCats.contains(catById[$0.channelId] ?? "") }
@@ -90,12 +98,13 @@ final class RecommendationsController {
         let allocations = RecommendationQueryBuilder.allocateSamples(weights: weights)
         guard !allocations.isEmpty else { return nil }
 
+        let all = Self.allChannels()
         let svc = archiveService
         let stampTags = [channel.id]
         var pool: [Track] = []
         await withTaskGroup(of: [Track].self) { group in
             for (channelId, count) in allocations {
-                guard let source = Channel.defaults.first(where: { $0.id == channelId }),
+                guard let source = all.first(where: { $0.id == channelId }),
                       let entry = source.iaQueryEntry else { continue }
                 group.addTask {
                     let tracks = (try? await Self.withTimeout(15) {
@@ -116,7 +125,7 @@ final class RecommendationsController {
     func fetchFallbackTracks(for channel: Channel) async -> [Track] {
         let isBooks = channel.id == "books-for-you"
         let fallbackCat: String = isBooks ? "Audiobooks" : "Curated Music"
-        let sources = Channel.defaults.filter { $0.category == fallbackCat && $0.iaQueryEntry != nil }
+        let sources = Self.allChannels().filter { $0.category == fallbackCat && $0.iaQueryEntry != nil }
         guard !sources.isEmpty else { return [] }
 
         let svc = archiveService

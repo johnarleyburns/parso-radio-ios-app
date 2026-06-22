@@ -50,8 +50,11 @@ struct NowPlayingSheet: View {
                         .accessibilityIdentifier("player.dismiss")
                     }
                     ToolbarItem(placement: .topBarTrailing) {
+                        let kind = playerVM.currentChannel?.mediaKind ?? .music
                         HStack(spacing: 16) {
-                            AirPlayButton().frame(width: 28, height: 28)
+                            if kind == .audiobook || kind == .lecture || kind == .podcast {
+                                AirPlayButton().frame(width: 28, height: 28)
+                            }
                             overflowMenu
                         }
                     }
@@ -216,13 +219,6 @@ struct NowPlayingSheet: View {
         let kind = playerVM.currentChannel?.mediaKind ?? .music
         Menu {
             if let t = playerVM.currentTrack {
-                let fid = t.favoriteID(for: t.favoriteKind(channel: playerVM.currentChannel))
-                let isFav = favorites.favorites.contains { $0.id == fid }
-                Button {
-                    Task { await favorites.toggle(track: t, channel: playerVM.currentChannel,
-                                                  positionSeconds: playerVM.currentPosition) }
-                } label: { Label(isFav ? "Remove from favorites" : "Add to favorites",
-                                 systemImage: isFav ? "heart.fill" : "heart") }
 
                 if kind == .music {
                     Button { showAddToPlaylist = true } label: { Label("Add to playlist", systemImage: "plus.circle") }
@@ -237,24 +233,6 @@ struct NowPlayingSheet: View {
                     let cleanId = identifier.contains("/") ? String(identifier.split(separator: "/").first ?? "") : identifier
                     if let url = URL(string: "https://archive.org/details/\(cleanId)") {
                         Link(destination: url) { Label("View on archive.org", systemImage: "safari") }
-                    }
-                }
-
-                if kind == .music || kind == .ambient {
-                    Divider()
-                    Menu {
-                        Button("15 minutes") { playerVM.startSleepTimer(minutes: 15) }
-                        Button("30 minutes") { playerVM.startSleepTimer(minutes: 30) }
-                        Button("45 minutes") { playerVM.startSleepTimer(minutes: 45) }
-                        Button("1 hour")     { playerVM.startSleepTimer(minutes: 60) }
-                        Divider()
-                        Button("End of track") { playerVM.setSleepAtEndOfTrack(true) }
-                        if playerVM.isSleepTimerActive {
-                            Divider()
-                            Button("Cancel timer", role: .destructive) { playerVM.cancelSleepTimer() }
-                        }
-                    } label: {
-                        Label("Sleep timer", systemImage: playerVM.isSleepTimerActive ? "moon.zzz.fill" : "moon.zzz")
                     }
                 }
 
