@@ -160,4 +160,40 @@ final class PlaybackReliabilityTests: XCTestCase {
         XCTAssertFalse(vm.isLoading, "spinner clears once a real time tick arrives")
         XCTAssertNotNil(vm.currentTrack)
     }
+
+    // Tapping a track in a playlist must start playback from that track.
+    // Regression: PlaylistPlaybackController.loadPlaylist was calling
+    // beginTransition (which calls audioPlayer.skip()) before playTrack,
+    // causing a double-teardown that prevented audio from starting.
+    func test_tappingPlaylistTrack_playsFromTappedTrack() async throws {
+        let vm = makeVM()
+        let pl = try await seedPlaylist(["ta", "tb", "tc"])
+        let tracks = await db.fetchTracks(forPlaylist: pl.id)
+        // Tap the second track
+        await vm.loadPlaylist(pl, startingAt: tracks[1])
+        await settle()
+
+        XCTAssertEqual(vm.currentTrack?.id, tracks[1].id,
+            "startingAt: the tapped track must become currentTrack")
+        XCTAssertEqual(vm.playlistIndex, 1,
+            "playlistIndex must point to the tapped track")
+        XCTAssertEqual(engine.playCount, 1,
+            "exactly one play() invocation — no double-load from beginTransition + playTrack")
+        XCTAssertEqual(engine.skipCount, 0,
+            "no skip() should fire when loading a playlist")
+    }
+
+    // Start from the first track (no explicit startingAt) — same invariants.
+    func test_loadingPlaylistWithoutStartingAt_playsFirstTrack() async throws {
+        let vm = makeVM()
+        let pl = try await seedPlaylist(["ta", "tb"])
+        let tracks = await db.fetchTracks(forPlaylist: pl.id)
+        await vm.loadPlaylist(pl)
+        await settle()
+
+        XCTAssertEqual(vm.currentTrack?.id, tracks[0].id)
+        XCTAssertEqual(vm.playlistIndex, 0)
+        XCTAssertEqual(engine.playCount, 1)
+        XCTAssertEqual(engine.skipCount, 0)
+    }
 }

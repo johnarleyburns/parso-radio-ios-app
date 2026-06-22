@@ -20,7 +20,15 @@ final class PlaylistPlaybackController {
         guard let vm = playerVM else { return }
         vm.sessionRestore.saveAutosaveForCurrentTrack()
         vm.shuffleMode = shuffle
-        vm.beginTransition(pre: track)
+        vm.currentPosition = 0
+        vm.errorMessage = nil
+        vm.isPlaying = false
+        vm.currentArtwork = nil
+        vm.artworkDominantColor = .accentColor
+        vm.currentTrack = track
+        vm.trackDuration = (track?.duration ?? 0) > 0 ? track?.duration : nil
+        vm.isLoading = true
+        vm.loadingMessage = "Loading…"
         vm.currentPlaylist = playlist
         vm.currentChannel = nil
         vm.playbackContextToken &+= 1

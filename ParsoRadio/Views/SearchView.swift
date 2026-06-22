@@ -33,6 +33,7 @@ struct SearchView: View {
                         .textInputAutocapitalization(.never)
                         .submitLabel(.search)
                         .onChange(of: searchVM.query) { searchVM.searchChanged() }
+                        .onSubmit { searchVM.submitSearch() }
                     if !searchVM.query.isEmpty {
                         Button { searchVM.query = "" } label: {
                             Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
@@ -274,8 +275,19 @@ struct SearchView: View {
             }
 
             if searchVM.hasMorePages {
-                ProgressView()
-                    .task { await searchVM.loadNextPage() }
+                Button {
+                    Task { await searchVM.loadNextPage() }
+                } label: {
+                    HStack(spacing: 8) {
+                        if searchVM.isSearching {
+                            ProgressView()
+                        }
+                        Text("Load More Results")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                }
+                .disabled(searchVM.isSearching)
             }
         }
         .listStyle(.plain)
