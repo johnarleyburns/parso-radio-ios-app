@@ -263,29 +263,62 @@ final class NowPlayingSheetTests: XCTestCase {
         XCTAssertFalse(showsSleepInOverflow)
     }
 
-    // MARK: - Overflow menu: no Add to playlist for ambient
+    // MARK: - Overflow menu: Add to playlist gated to Music only
 
-    func testOverflowMenuNoAddToPlaylistForAmbient() {
-        let channel = Channel(
-            id: "ambient-test", name: "Ambient", category: "Ambient",
-            icon: "leaf.fill", contentType: .ambientLoop
-        )
-        vm.currentChannel = channel
-
-        let kind = vm.currentChannel?.mediaKind ?? .music
-        let showsAddToPlaylist = kind != .ambient
-        XCTAssertFalse(showsAddToPlaylist)
-    }
-
-    func testOverflowMenuHasAddToPlaylistForNonAmbient() {
+    func testAddToPlaylistOnlyForMusic() {
         let channel = Channel(
             id: "music-test", name: "Music", category: "Curated",
             icon: "music.note", contentType: .music
         )
         vm.currentChannel = channel
-
         let kind = vm.currentChannel?.mediaKind ?? .music
-        let showsAddToPlaylist = kind != .ambient
+        let showsAddToPlaylist = kind == .music
         XCTAssertTrue(showsAddToPlaylist)
+    }
+
+    func testAddToPlaylistAbsentForAudiobook() {
+        let channel = Channel(
+            id: "audiobook-test", name: "Audiobook", category: "Audiobooks",
+            icon: "book.fill", contentType: .spokenWord
+        )
+        vm.currentChannel = channel
+        let kind = vm.currentChannel?.mediaKind ?? .music
+        let showsAddToPlaylist = kind == .music
+        XCTAssertFalse(showsAddToPlaylist)
+    }
+
+    func testAddToPlaylistAbsentForAmbient() {
+        let channel = Channel(
+            id: "ambient-test", name: "Ambient", category: "Ambient",
+            icon: "leaf.fill", contentType: .ambientLoop
+        )
+        vm.currentChannel = channel
+        let kind = vm.currentChannel?.mediaKind ?? .music
+        let showsAddToPlaylist = kind == .music
+        XCTAssertFalse(showsAddToPlaylist)
+    }
+
+    func testAddToPlaylistAbsentForPodcast() {
+        let channel = Channel(
+            id: "podcast-test", name: "Podcast", category: "Podcasts",
+            icon: "newspaper.fill", contentType: .spokenWord,
+            feedURL: "https://example.com/feed.xml"
+        )
+        vm.currentChannel = channel
+        let kind = vm.currentChannel?.mediaKind ?? .music
+        let showsAddToPlaylist = kind == .music
+        XCTAssertFalse(showsAddToPlaylist)
+    }
+
+    func testAddToPlaylistAbsentForLecture() {
+        let channel = Channel(
+            id: "lecture-test", name: "Lecture", category: "Lectures",
+            icon: "building.columns.fill", contentType: .spokenWord,
+            preferredSource: "oxford_lectures"
+        )
+        vm.currentChannel = channel
+        let kind = vm.currentChannel?.mediaKind ?? .music
+        let showsAddToPlaylist = kind == .music
+        XCTAssertFalse(showsAddToPlaylist)
     }
 }

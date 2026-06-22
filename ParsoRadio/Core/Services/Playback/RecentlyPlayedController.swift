@@ -15,6 +15,7 @@ final class RecentlyPlayedController {
     }
 
     func playRecentTrack(_ track: Track) async {
+        playerVM?.currentChannel = nil
         await playerVM?.playTrack(track, seekTo: nil)
     }
 

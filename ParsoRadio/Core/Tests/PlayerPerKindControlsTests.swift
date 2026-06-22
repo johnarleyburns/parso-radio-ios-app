@@ -24,8 +24,15 @@ final class PlayerPerKindControlsTests: XCTestCase {
         let behavior = MediaKind.music.behavior
         XCTAssertFalse(behavior.showsScrubbableProgress)
         XCTAssertTrue(behavior.supportsTransportNavigation)
-        // Music has no scrub → jog buttons are not applicable
-        // Track navigation is via backward.fill/forward.fill
+    }
+
+    // Music: bottom pill bar capabilities still hold
+    func testMusicBehaviorHasBottomBarButtons() {
+        let behavior = MediaKind.music.behavior
+        XCTAssertTrue(behavior.supportsSleepTimer)
+        XCTAssertTrue(behavior.supportsTransportNavigation)
+        XCTAssertFalse(behavior.supportsBookmarks)
+        XCTAssertTrue(behavior.allowsShuffleToggle)
     }
 
     // MARK: - Audiobook behavior
@@ -98,6 +105,16 @@ final class PlayerPerKindControlsTests: XCTestCase {
         let behavior = MediaKind.podcast.behavior
         XCTAssertTrue(behavior.showsScrubbableProgress)
         XCTAssertFalse(behavior.supportsChapters)
+    }
+
+    // Podcast: bottom bar order is Speed → Episodes → Bookmark → Sleep (swapped from earlier)
+    func testPodcastBottomBarOrder() {
+        let behavior = MediaKind.podcast.behavior
+        XCTAssertTrue(behavior.supportsSpeedControl)
+        XCTAssertFalse(behavior.supportsChapters)
+        XCTAssertTrue(behavior.supportsBookmarks)
+        XCTAssertTrue(behavior.supportsSleepTimer)
+        XCTAssertTrue(behavior.showsScrubbableProgress)
     }
 
     // MARK: - Ambient behavior

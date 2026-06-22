@@ -1365,9 +1365,7 @@ final class PlayerViewModel: ObservableObject {
 
     func playSingleTrack(_ track: Track, seekTo: Double? = nil) async {
         saveAutosaveForCurrentTrack()
-        if currentChannel?.mediaKind == .podcast {
-            currentChannel = nil
-        }
+        currentChannel = nil
         currentPlaylist = nil
         playlistTracks = []
         playlistIndex = 0

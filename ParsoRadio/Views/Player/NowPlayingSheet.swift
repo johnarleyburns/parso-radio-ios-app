@@ -7,7 +7,6 @@ struct NowPlayingSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showAddToPlaylist = false
-    @State private var showAlbumTracks = false
 
     private var channelCategory: String {
         playerVM.currentChannel?.category ?? ""
@@ -63,18 +62,6 @@ struct NowPlayingSheet: View {
                         AddItemToPlaylistSheet(track: t)
                             .environmentObject(playlistVM)
                             .environmentObject(playerVM)
-                    }
-                }
-                .sheet(isPresented: $showAlbumTracks) {
-                    if let t = playerVM.currentTrack {
-                        let identifier = t.parentIdentifier ?? t.id
-                        ItemDetailView(
-                            identifier: identifier,
-                            title: t.collectionTitle ?? t.title,
-                            creator: t.artist,
-                            kind: .album
-                        )
-                        .environmentObject(playerVM)
                     }
                 }
             }
@@ -222,7 +209,6 @@ struct NowPlayingSheet: View {
             case .ambient:   AmbientControls(tint: tint)
             }
         }
-        .disabled((playerVM.currentTrack == nil || playerVM.isLoading) && kind != .ambient)
     }
 
     @ViewBuilder
@@ -238,7 +224,7 @@ struct NowPlayingSheet: View {
                 } label: { Label(isFav ? "Remove from favorites" : "Add to favorites",
                                  systemImage: isFav ? "heart.fill" : "heart") }
 
-                if kind != .ambient {
+                if kind == .music {
                     Button { showAddToPlaylist = true } label: { Label("Add to playlist", systemImage: "plus.circle") }
                 }
 
@@ -252,10 +238,6 @@ struct NowPlayingSheet: View {
                     if let url = URL(string: "https://archive.org/details/\(cleanId)") {
                         Link(destination: url) { Label("View on archive.org", systemImage: "safari") }
                     }
-                }
-
-                if playerVM.currentTrackIsMultiPart {
-                    Button { showAlbumTracks = true } label: { Label("Album tracks", systemImage: "opticaldisc") }
                 }
 
                 if kind == .music || kind == .ambient {

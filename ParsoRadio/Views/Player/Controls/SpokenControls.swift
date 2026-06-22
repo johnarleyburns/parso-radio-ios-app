@@ -13,12 +13,15 @@ struct SpokenControls: View {
                 TransportButton(system: "gobackward.15", size: 24, label: "Back 15 seconds") {
                     playerVM.seekBy(-15)
                 }
+                .disabled(playerVM.currentTrack == nil || playerVM.isLoading)
                 TransportButton(system: playerVM.isPlaying ? "pause.fill" : "play.fill",
                                 size: 32, label: playerVM.isPlaying ? "Pause" : "Play",
                                 prominent: true, tint: tint) { playerVM.togglePlayPause() }
+                .disabled(playerVM.currentTrack == nil || playerVM.isLoading)
                 TransportButton(system: "goforward.30", size: 24, label: "Forward 30 seconds") {
                     playerVM.seekBy(30)
                 }
+                .disabled(playerVM.currentTrack == nil || playerVM.isLoading)
             }
 
             HStack(spacing: 8) {
