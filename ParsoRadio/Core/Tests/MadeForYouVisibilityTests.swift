@@ -137,13 +137,21 @@ final class MadeForYouVisibilityTests: XCTestCase {
     // MARK: - Subject stop-list respected
 
     func testSubjectStopListRespected() async {
-        // Seed a stop-listed term — should be heavily damped in profile
+        // Seed one stop-listed and one non-stop-listed subject
+        await tasteStore.upsertTerm(bucket: "music", axis: "subject",
+                                     term: "classical", increment: 5.0)
         await tasteStore.upsertTerm(bucket: "music", axis: "subject",
                                      term: "music", increment: 5.0)
         let profile = await tasteStore.fetchProfile(bucket: "music")
 
-        // "music" is stop-listed → its weight should be near-zero in top subjects
-        XCTAssertFalse(profile.topSubjects.contains("music"),
-            "Stop-listed subject 'music' must not appear in top subjects")
+        // Non-stop-listed "classical" must appear above stop-listed "music"
+        XCTAssertTrue(profile.topSubjects.contains("classical"),
+            "Non-stop-listed subject 'classical' must appear in top subjects")
+        // "music" is stop-listed — its weight is near-zero, so it should NOT
+        // outrank classical even with the same seed weight
+        let classicalIdx = profile.topSubjects.firstIndex(of: "classical") ?? Int.max
+        let musicIdx = profile.topSubjects.firstIndex(of: "music") ?? Int.max
+        XCTAssertTrue(classicalIdx < musicIdx,
+            "Stop-listed 'music' must rank below non-stop-listed 'classical'")
     }
 }

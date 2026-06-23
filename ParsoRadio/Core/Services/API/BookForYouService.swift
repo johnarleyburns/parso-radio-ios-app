@@ -31,8 +31,8 @@ struct BookForYouService {
 
     static func workKey(author: String, title: String) -> String {
         let normalizedAuthor = author.lowercased()
-            .trimmingCharacters(in: .whitespaces)
-            .replacingOccurrences(of: "  ", with: " ")
+            .split(separator: " ", omittingEmptySubsequences: true)
+            .joined(separator: " ")
         let cleaned = cleanTitle(title)
         return "\(normalizedAuthor)·\(cleaned)"
     }
@@ -59,8 +59,8 @@ struct BookForYouService {
             }
         }
         t = t.lowercased()
-            .trimmingCharacters(in: .whitespaces)
-            .replacingOccurrences(of: "  ", with: " ")
+            .split(separator: " ", omittingEmptySubsequences: true)
+            .joined(separator: " ")
         return t
     }
 
