@@ -156,7 +156,18 @@ struct BookForYouService {
             return fallback
         }
 
-        return nil
+        // 6. Absolute last resort: a hardcoded popular LibriVox book when the
+        //    network is unreachable and the ledger is empty (brand-new install).
+        let fallbackEntry = BookForYouEntry(
+            identifier: "prideandprejudice_2410_librivox",
+            title: "Pride and Prejudice",
+            author: "Jane Austen",
+            subjects: ["fiction", "romance", "classic"],
+            reason: "Popular on LibriVox",
+            workKey: "jane austen·pride and prejudice"
+        )
+        await persist(fallbackEntry, day: day)
+        return fallbackEntry
     }
 
     // MARK: - Candidate Pools
