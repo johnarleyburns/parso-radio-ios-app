@@ -9,6 +9,7 @@ struct SettingsView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
+    @EnvironmentObject var deps: AppDependencies
 
     // "system" | "light" | "dark" — applied at the app root via preferredColorScheme.
     @AppStorage("appearance") private var appearance: String = "system"
@@ -28,8 +29,18 @@ struct SettingsView: View {
     @State private var confirmClearStreamingCache = false
     @State private var cacheSizeTrigger = 0
 
+    @State private var showOnboarding = false
+
     var body: some View {
         List {
+            Section("Taste") {
+                Button {
+                    showOnboarding = true
+                } label: {
+                    Label("What you like", systemImage: "sparkles")
+                }
+            }
+
             Section("Appearance") {
                 Picker("Theme", selection: $appearance) {
                     Text("System").tag("system")
@@ -171,6 +182,10 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .disabled(working)
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingTasteView(isEditing: true)
+                .environmentObject(deps)
+        }
         .alert("Set a 4-digit PIN", isPresented: $showSetKidsPin) {
             TextField("PIN", text: $kidsPinEntry)
                 .keyboardType(.numberPad)

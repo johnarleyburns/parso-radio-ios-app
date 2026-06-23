@@ -15,6 +15,7 @@ struct ParsoMusicApp: App {
         let dm = DownloadManager(db: db)
         let audioPlayer = AudioPlayerService()
         let favStore = FavoritesStore(db: db)
+        let tasteStore = TasteProfileStore(db: db)
         let deps = AppDependencies(
             db: db,
             downloadManager: dm,
@@ -30,7 +31,8 @@ struct ParsoMusicApp: App {
             iaCollectionStore: .shared,
             networkMonitor: .shared,
             ageAssuranceService: .shared,
-            favoritesStore: favStore
+            favoritesStore: favStore,
+            tasteProfileStore: tasteStore
         )
         AppIntentBridge.shared.playerVM = nil
         deps.podcastStore.configure(db: db)
@@ -52,7 +54,11 @@ struct ParsoMusicApp: App {
         PlaylistViewModel(db: ParsoMusicApp.deps.db)
     }()
 
-    @StateObject private var favorites = FavoritesStore(db: ParsoMusicApp.deps.db)
+    @StateObject private var favorites: FavoritesStore = {
+        let store = FavoritesStore(db: ParsoMusicApp.deps.db,
+                                    tasteStore: ParsoMusicApp.deps.tasteProfileStore)
+        return store
+    }()
 
     @StateObject private var contributions =
         ContributionCoordinator(store: ParsoMusicApp.deps.contributionStore)
@@ -102,6 +108,7 @@ struct ParsoMusicApp: App {
                             .environmentObject(Self.deps.offlineService)
                             .environmentObject(Self.deps)
                             .environmentObject(favorites)
+                            .modifier(OnboardingGateModifier())
                     }
                 } else {
                     Color(.systemGroupedBackground).ignoresSafeArea()

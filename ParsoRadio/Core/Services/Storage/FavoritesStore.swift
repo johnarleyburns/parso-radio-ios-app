@@ -5,8 +5,12 @@ final class FavoritesStore: ObservableObject {
     @Published var favorites: [Favorite] = []
 
     let db: DatabaseService
+    let tasteStore: TasteProfileStore
 
-    init(db: DatabaseService) { self.db = db }
+    init(db: DatabaseService, tasteStore: TasteProfileStore? = nil) {
+        self.db = db
+        self.tasteStore = tasteStore ?? TasteProfileStore(db: db)
+    }
 
     func loadAll() async {
         favorites = await db.fetchAllFavorites()
@@ -53,6 +57,8 @@ final class FavoritesStore: ObservableObject {
                 resumePoint: resumePoint
             )
             await db.saveFavorite(fav)
+            await tasteStore.seedFavoriteBoostFromTrack(track, channel: channel)
+            await tasteStore.addSeenIdentifiers(from: track, reason: "favorited")
         }
         await loadAll()
     }

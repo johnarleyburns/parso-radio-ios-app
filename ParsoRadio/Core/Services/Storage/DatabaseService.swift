@@ -137,6 +137,24 @@ final class DatabaseService: @unchecked Sendable {
     private let colTMEnrichedAt = Expression<Double>("enriched_at")
     private let colTMEnrichmentSource = Expression<String?>("enrichment_source")
 
+    // MARK: - Taste profile tables
+
+    private let tasteProfileTerms = Table("taste_profile_terms")
+    private let colTPTBucket = Column<String>("bucket").expr
+    private let colTPTAxis   = Column<String>("axis").expr
+    private let colTPTTerm   = Column<String>("term").expr
+    private let colTPTWeight = Column<Double>("weight").expr
+    private let colTPTLastTS = Column<Double>("last_ts").expr
+
+    private let tasteSeen = Table("taste_seen_identifiers")
+    private let colSeenIdentifier = Expression<String>("identifier")
+    private let colSeenReason     = Expression<String>("reason")
+    private let colSeenTS         = Expression<Double>("ts")
+
+    private let recoSurfaced = Table("reco_surfaced")
+    private let colRecoIdentifier = Expression<String>("identifier")
+    private let colRecoTS         = Expression<Double>("ts")
+
     init(path: String? = nil) throws {
         if let path {
             db = try Connection(path)
@@ -309,6 +327,32 @@ final class DatabaseService: @unchecked Sendable {
             t.column(colFavResumeAt)
         })
         try db.run("CREATE INDEX IF NOT EXISTS idx_fav_kind ON favorites(kind, date_added DESC)")
+
+        // Taste profile: decayed term weights per bucket/axis
+        try db.run(tasteProfileTerms.create(ifNotExists: true) { t in
+            t.column(colTPTBucket)
+            t.column(colTPTAxis)
+            t.column(colTPTTerm)
+            t.column(colTPTWeight)
+            t.column(colTPTLastTS)
+            t.primaryKey(colTPTBucket, colTPTAxis, colTPTTerm)
+        })
+        try db.run("CREATE INDEX IF NOT EXISTS idx_tpt_bucket ON taste_profile_terms(bucket, weight DESC)")
+
+        // Durable exclusion set — survives track eviction
+        try db.run(tasteSeen.create(ifNotExists: true) { t in
+            t.column(colSeenIdentifier, primaryKey: true)
+            t.column(colSeenReason)
+            t.column(colSeenTS)
+        })
+        try db.run("CREATE INDEX IF NOT EXISTS idx_seen_ts ON taste_seen_identifiers(ts DESC)")
+
+        // Surfaced recommendation ring — cross-session freshness
+        try db.run(recoSurfaced.create(ifNotExists: true) { t in
+            t.column(colRecoIdentifier, primaryKey: true)
+            t.column(colRecoTS)
+        })
+        try db.run("CREATE INDEX IF NOT EXISTS idx_reco_ts ON reco_surfaced(ts DESC)")
 
         // Enable FK enforcement
         _ = try? db.run("PRAGMA foreign_keys = ON")
@@ -879,7 +923,8 @@ final class DatabaseService: @unchecked Sendable {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
                 for table in [self.bookmarks, self.playHistory, self.playlistTracks,
-                              self.playlists, self.positions, self.tracks] {
+                              self.playlists, self.positions, self.tracks,
+                              self.tasteProfileTerms, self.tasteSeen, self.recoSurfaced] {
                     _ = try? self.db.run(table.delete())
                 }
                 continuation.resume()
@@ -972,6 +1017,109 @@ final class DatabaseService: @unchecked Sendable {
                     }
                 }
                 continuation.resume(returning: out)
+            }
+        }
+    }
+
+    // MARK: - Taste profile terms (decay-updated weights)
+
+    func upsertTasteProfileTerm(bucket: String, axis: String, term: String,
+                                 increment: Double, now: Double, tau: Double) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                if let row = try? db.pluck(
+                    tasteProfileTerms.filter(colTPTBucket == bucket && colTPTAxis == axis && colTPTTerm == term)
+                ) {
+                    let prevWeight = row[colTPTWeight]
+                    let prevTS = row[colTPTLastTS]
+                    let dt = now - prevTS
+                    let decayed = prevWeight * exp(-dt / tau)
+                    let newWeight = decayed + increment
+                    _ = try? db.run(tasteProfileTerms
+                        .filter(colTPTBucket == bucket && colTPTAxis == axis && colTPTTerm == term)
+                        .update(colTPTWeight <- newWeight, colTPTLastTS <- now))
+                } else {
+                    _ = try? db.run(tasteProfileTerms.insert(
+                        colTPTBucket <- bucket,
+                        colTPTAxis   <- axis,
+                        colTPTTerm   <- term,
+                        colTPTWeight <- increment,
+                        colTPTLastTS <- now
+                    ))
+                }
+                continuation.resume()
+            }
+        }
+    }
+
+    func fetchTasteProfileTerms(bucket: String?) async -> [(bucket: String, axis: String, term: String, weight: Double, lastTS: Double)] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                var query = tasteProfileTerms
+                if let b = bucket { query = query.filter(colTPTBucket == b) }
+                let result = (try? db.prepare(query))?
+                    .map { ($0[colTPTBucket], $0[colTPTAxis], $0[colTPTTerm], $0[colTPTWeight], $0[colTPTLastTS]) } ?? []
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    // MARK: - Taste seen identifiers (durable exclusion)
+
+    func upsertTasteSeenIdentifier(_ identifier: String, reason: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? db.run(tasteSeen.insert(or: .replace,
+                    colSeenIdentifier <- identifier,
+                    colSeenReason     <- reason,
+                    colSeenTS         <- Date().timeIntervalSince1970
+                ))
+                continuation.resume()
+            }
+        }
+    }
+
+    func fetchTasteSeenIdentifiers() async -> Set<String> {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let ids = Set((try? db.prepare(tasteSeen.select(colSeenIdentifier)))?
+                    .map { $0[colSeenIdentifier] } ?? [])
+                continuation.resume(returning: ids)
+            }
+        }
+    }
+
+    // MARK: - Reco surfaced ring
+
+    func pushRecoSurfaced(_ identifiers: [String], cap: Int) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let now = Date().timeIntervalSince1970
+                for id in identifiers {
+                    _ = try? db.run(recoSurfaced.insert(or: .replace,
+                        colRecoIdentifier <- id,
+                        colRecoTS         <- now
+                    ))
+                }
+                let rowCount = (try? db.scalar(recoSurfaced.count)) ?? 0
+                if rowCount > cap {
+                    let excess = rowCount - cap
+                    _ = try? db.run(recoSurfaced
+                        .order(colRecoTS.asc)
+                        .limit(excess)
+                        .delete())
+                }
+                continuation.resume()
+            }
+        }
+    }
+
+    func fetchRecoSurfacedIdentifiers() async -> Set<String> {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let ids = Set((try? db.prepare(recoSurfaced.select(colRecoIdentifier)))?
+                    .map { $0[colRecoIdentifier] } ?? [])
+                continuation.resume(returning: ids)
             }
         }
     }

@@ -159,19 +159,12 @@ struct FeaturedCard: View {
 // MARK: - Featured Today Section
 
 struct FeaturedTodaySection: View {
-    let playerVM: PlayerViewModel
     @Binding var nowPlayingChannel: Channel?
-
-    @State private var hasHistory = false
-    private var forYouChannel: Channel? { Channel.defaults.first { $0.id == "for-you" } }
 
     var body: some View {
         Section {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
-                    if hasHistory, let fy = forYouChannel {
-                        FeaturedCard(channel: fy, titleOverride: "Made for you") { nowPlayingChannel = fy }
-                    }
                     ForEach(FeaturedPicker.featured(on: Date(), from: Channel.defaults + IACollectionStore.shared.channels), id: \.id) { channel in
                         FeaturedCard(channel: channel, titleOverride: nil) { nowPlayingChannel = channel }
                     }
@@ -182,9 +175,6 @@ struct FeaturedTodaySection: View {
             .listRowBackground(Color.clear)
         } header: {
             Text("Featured today")
-        }
-        .task(id: playerVM.playHistoryVersion) {
-            hasHistory = !(await playerVM.recentlyPlayedTracks(limit: 1)).isEmpty
         }
     }
 }

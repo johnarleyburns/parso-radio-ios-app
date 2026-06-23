@@ -21,9 +21,11 @@ struct ListenView: View {
                                onSelectTrack: { selectedRecentTrack = $0 },
                                onPlayHero: { playHero() })
 
+                MadeForYouSection()
+
                 ExploreTypeRow()
 
-                FeaturedTodaySection(playerVM: playerVM, nowPlayingChannel: $nowPlayingChannel)
+                FeaturedTodaySection(nowPlayingChannel: $nowPlayingChannel)
 
                 LiveMusicSection(playerVM: playerVM, deps: deps) { entry in
                     selectedLiveEntry = entry

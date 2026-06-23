@@ -55,7 +55,8 @@ final class PlayerViewModel: ObservableObject {
     private(set) lazy var bookmarks = BookmarkController(db: db, playerVM: self)
     private(set) lazy var recentlyPlayed = RecentlyPlayedController(db: db, playerVM: self)
     private(set) lazy var sessionRestore = SessionRestoreController(db: db, playerVM: self)
-    private(set) lazy var recommendations = RecommendationsController(db: db, archiveService: archiveService)
+    private(set) lazy var recommendations = RecommendationsController(db: db, archiveService: archiveService,
+                                                                         tasteStore: tasteStore)
     private(set) lazy var wholeItem = WholeItemController(db: db, archiveService: archiveService,
                                                 oxfordService: oxfordService,
                                                 queueManager: queueManager, playerVM: self)
@@ -73,6 +74,7 @@ final class PlayerViewModel: ObservableObject {
     private let ambientService: AmbientStaticService
     private let queueManager: QueueManager
     private let downloadManager: DownloadManager
+    private let tasteStore: TasteProfileStore
     // Resolves the deterministic on-disk path for a downloaded track so
     // playback prefers a local file over re-streaming from the Internet Archive.
     private let fileStorage = FileStorageService()
@@ -146,8 +148,7 @@ final class PlayerViewModel: ObservableObject {
         oxfordService: OxfordLecturesService = OxfordLecturesService(),
         podcastService: PodcastRSSService = PodcastRSSService(),
         ambientService: AmbientStaticService = AmbientStaticService(),
-        // Injectable so tests can shrink the watchdog/retry to milliseconds and
-        // stay within the single fast CI job (see PLAYBACK-TESTING-PLAN.md).
+        tasteStore: TasteProfileStore? = nil,
         loadTimeout: Double = 10,
         stallTimeout: Double = 20,
         retryPolicy: RetryPolicy = RetryPolicy()
@@ -161,6 +162,7 @@ final class PlayerViewModel: ObservableObject {
         self.queueManager = queueManager
         self.audioPlayer = audioPlayer
         self.downloadManager = downloadManager
+        self.tasteStore = tasteStore ?? TasteProfileStore(db: db)
         self.loadTimeout = loadTimeout
         self.stallTimeout = stallTimeout
         self.retryPolicy = retryPolicy
@@ -361,7 +363,8 @@ final class PlayerViewModel: ObservableObject {
             fmaService: deps.fmaService,
             queueManager: deps.queueManager,
             audioPlayer: deps.audioPlayer,
-            downloadManager: deps.downloadManager
+            downloadManager: deps.downloadManager,
+            tasteStore: deps.tasteProfileStore
         )
     }
 
@@ -522,42 +525,22 @@ final class PlayerViewModel: ObservableObject {
 
         do {
             if channel.category == "For You" {
-                if channel.id == "for-you" {
-                    if let built = try await recommendations.fetchMixedRecommendations() {
-                        fetched = built
-                    } else {
-                        let fallbackMusic = await recommendations.fetchFallbackTracks(for: channel)
-                        if fallbackMusic.isEmpty {
-                            currentChannel = channel
-                            channelDescription = channel.detailDescription
-                            channelTrackCount = 0
-                            currentArtwork = nil
-                            currentTrack = nil
-                            isPlaying = false
-                            isLoading = false
-                            loadingMessage = nil
-                            errorMessage = "Listen to at least \(RecommendationQueryBuilder.minPlays) tracks first — then your \(channel.name) picks will appear here."
-                            return
-                        }
-                        fetched = fallbackMusic
-                    }
-                } else if let built = try await fetchRecommendations(for: channel) {
+                if let built = try await recommendations.fetchMixedRecommendations() {
                     fetched = built
                 } else {
-                    let fallback = await recommendations.fetchFallbackTracks(for: channel)
-                    if fallback.isEmpty {
-                        currentChannel = channel
-                        channelDescription = channel.detailDescription
-                        channelTrackCount = 0
-                        currentArtwork = nil
-                        currentTrack = nil
-                        isPlaying = false
-                        isLoading = false
-                        loadingMessage = nil
-                        errorMessage = "Listen to at least \(RecommendationQueryBuilder.minPlays) tracks first — then your \(channel.name) picks will appear here."
-                        return
-                    }
-                    fetched = fallback
+                    currentChannel = channel
+                    channelDescription = channel.detailDescription
+                    channelTrackCount = 0
+                    currentArtwork = nil
+                    currentTrack = nil
+                    isPlaying = false
+                    isLoading = false
+                    loadingMessage = nil
+                    let hasProfile = await tasteStore.hasAnyProfile()
+                    errorMessage = hasProfile
+                        ? "We couldn't find fresh picks right now. Try again later."
+                        : "Listen to some tracks or pick your tastes in Settings to build your Made for You shelf."
+                    return
                 }
             } else if channel.mediaKind == .podcast {
                 // News/podcast channels: fetch from RSS feed via PodcastRSSService.
@@ -1178,9 +1161,13 @@ final class PlayerViewModel: ObservableObject {
                     ?? currentPlaylist.map { Self.playlistKey($0.id) }
                     ?? "direct"
                 let trackId = track.id
+                let capturedChannel = currentChannel
+                let capturedTrack = track
                 Task { [weak self] in
                     guard let self else { return }
                     await db.recordPlayed(channelId: ctx, trackId: trackId)
+                    await tasteStore.seedFromTrack(capturedTrack, channel: capturedChannel)
+                    await tasteStore.addSeenIdentifiers(from: capturedTrack, reason: "played")
                     playHistoryVersion &+= 1
                 }
                 ContributionCoordinator.recordTrackPlayed()
@@ -1772,16 +1759,6 @@ final class PlayerViewModel: ObservableObject {
 
     func clearListeningHistory() async {
         await recentlyPlayed.clearListeningHistory()
-    }
-
-    /// Build the track list for a "for you" channel from listening history.
-    /// "Curated for you": sample tracks from the curated channels the user
-    /// actually plays, weighted by how much they play each. No metadata
-    /// fishing across all of IA (which used to leak 78rpm / amateur into the
-    /// pool). Returns nil when there isn't enough qualifying history yet —
-    /// caller shows the "listen to N tracks first" prompt.
-    private func fetchRecommendations(for channel: Channel) async throws -> [Track]? {
-        try await recommendations.fetchRecommendations(for: channel)
     }
 
     /// Settings → "Clear All Data": stop playback and erase EVERYTHING — tracks,

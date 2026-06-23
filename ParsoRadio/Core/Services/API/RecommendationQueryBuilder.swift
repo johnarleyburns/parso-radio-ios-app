@@ -1,73 +1,145 @@
 import Foundation
 
-/// "For You" recommendation policy. Pure & deterministic (given the same history
-/// → same output) so it's fully unit-testable. See RECOMMENDATIONS-DESIGN.md.
-///
-/// PHILOSOPHY (this round): "Curated for you", not "more like the metadata of
-/// what you played." Earlier two-arm (creator OR subject across all of IA) let
-/// 78rpm / amateur / mis-tagged items leak in — the actual played CHANNELS
-/// already encode a quality decision the user trusts. So instead: count plays
-/// per channel, weight the recommendation pool by that proportion, and draw
-/// tracks from each channel's OWN native registry query. Music for You ends up
-/// being a mix of the curated channels you actually use, weighted by how much
-/// you use them. Books for You is the same idea over the LibriVox genres.
+struct CandidateQuery: Equatable {
+    let iaQuery: String
+    let anchorTerm: String
+    let noveltyClass: NoveltyClass
+    let requestedCount: Int
+
+    enum NoveltyClass: String, Equatable {
+        case exploit
+        case explore
+        case serendipity
+    }
+}
+
 enum RecommendationQueryBuilder {
-    /// Minimum total qualifying plays before a recommendation channel turns on.
-    static let minPlays = 5
-    /// Target size of the recommendation pool the caller fetches.
-    static let poolSize = 120
-    /// Minimum slots per contributing channel, so a long-tail channel still gets
-    /// represented and a single dominant channel can't crowd everything out.
-    static let minPerChannel = 5
 
-    /// One channel's share of the pool.
-    struct ChannelWeight: Equatable {
-        let channelId: String
-        let plays: Int
-        let weight: Double         // proportion of relevant plays (Σ = 1.0)
-    }
+    static func generateQueries(
+        profile: ProfileBucket,
+        dateSeed: String,
+        allCollectionIDs: [String],
+        kTarget: Int = RecommendationConstants.kTarget
+    ) -> [CandidateQuery] {
+        guard !profile.isEmpty else { return [] }
 
-    /// Histogram of plays per channel, filtered to the relevant categories
-    /// (Curated for Music, Audiobooks for Books), normalised so weights sum to
-    /// 1.0. Sorted by plays desc, with channelId as a deterministic tie-break.
-    ///
-    /// Tuple order MUST match `DatabaseService.fetchRecentlyPlayedWithChannel`
-    /// — `(track, channelId)`, not `(channelId, track)`. Swift accepts the
-    /// reordered shape at compile time and inserts a runtime array force-cast
-    /// that CRASHES on the first call ("failed cast" / _arrayForceCast). The
-    /// body only reads `.channelId`, so the field order is purely a typing
-    /// contract; keep it aligned with the DB call.
-    static func channelWeights(
-        fromHistory history: [(track: Track, channelId: String)],
-        categoryFilter: Set<String>,
-        categoryById: [String: String]
-    ) -> [ChannelWeight] {
-        var counts: [String: Int] = [:]
-        for pair in history where categoryFilter.contains(categoryById[pair.channelId] ?? "") {
-            counts[pair.channelId, default: 0] += 1
-        }
-        let total = counts.values.reduce(0, +)
-        guard total > 0 else { return [] }
-        return counts
-            .map { ChannelWeight(channelId: $0.key, plays: $0.value,
-                                 weight: Double($0.value) / Double(total)) }
-            .sorted { lhs, rhs in
-                if lhs.plays != rhs.plays { return lhs.plays > rhs.plays }
-                return lhs.channelId < rhs.channelId
+        let totalAlloc = kTarget
+        let exploitAlloc = Int(Double(totalAlloc) * RecommendationConstants.classMix.exploit)
+        let exploreAlloc = Int(Double(totalAlloc) * RecommendationConstants.classMix.explore)
+        let serendipityAlloc = totalAlloc - exploitAlloc - exploreAlloc
+
+        var queries: [CandidateQuery] = []
+
+        let musicCollections = allCollectionIDs.map { "collection:\($0)" }.joined(separator: " OR ")
+
+        // EXPLOIT: same creator/composer you already love
+        let exploitCreators = profile.topCreators + profile.topComposers
+        if !exploitCreators.isEmpty, exploitAlloc > 0 {
+            let perCreator = max(1, exploitAlloc / exploitCreators.count)
+            for creator in exploitCreators {
+                let escaped = escapeSolr(creator)
+                let query = "(creator:\"\(escaped)\") AND (\(musicCollections))"
+                queries.append(CandidateQuery(iaQuery: query, anchorTerm: creator,
+                                               noveltyClass: .exploit, requestedCount: perCreator))
             }
+        }
+
+        // EXPLORE: subject co-occurrence — pair loved subjects with adjacent
+        let exploreSubjects = profile.topSubjects
+        if !exploreSubjects.isEmpty, exploreAlloc > 0 {
+            let topPlayedSet = Set(profile.topSubjects.map { $0.lowercased() })
+            let adjacentCandidates = buildAdjacentSubjects(from: profile, topPlayedSet: topPlayedSet)
+            var explorePairs: [(loved: String, adjacent: String)] = []
+            for loved in exploreSubjects.prefix(4) {
+                if let adj = adjacentCandidates.first(where: { $0 != loved.lowercased() }) {
+                    explorePairs.append((loved, adj))
+                }
+            }
+            if explorePairs.isEmpty {
+                for loved in exploreSubjects.prefix(2) {
+                    let escaped = escapeSolr(loved)
+                    let query = "subject:\"\(escaped)\" AND (\(musicCollections))"
+                    queries.append(CandidateQuery(iaQuery: query, anchorTerm: loved,
+                                                   noveltyClass: .explore, requestedCount: max(1, exploreAlloc / 2)))
+                }
+            } else {
+                let perPair = max(1, exploreAlloc / explorePairs.count)
+                for (loved, adjacent) in explorePairs {
+                    let escapedLoved = escapeSolr(loved)
+                    let escapedAdj = escapeSolr(adjacent)
+                    let query = "subject:\"\(escapedLoved)\" AND subject:\"\(escapedAdj)\" AND (\(musicCollections))"
+                    queries.append(CandidateQuery(iaQuery: query, anchorTerm: "\(loved)+\(adjacent)",
+                                                   noveltyClass: .explore, requestedCount: perPair))
+                }
+            }
+        }
+
+        // SERENDIPITY: top subject crossed with date-seeded sibling subject
+        if let topSubject = profile.topSubjects.first, serendipityAlloc > 0 {
+            let seed = hashForDate(dateSeed, salt: "serendipity")
+            let siblingPool = profile.subjectTerms.dropFirst().map(\.term)
+            if !siblingPool.isEmpty {
+                let idx = seed % siblingPool.count
+                let sibling = siblingPool[idx]
+                let escapedTop = escapeSolr(topSubject)
+                let escapedSib = escapeSolr(sibling)
+                let query = "subject:\"\(escapedTop)\" AND subject:\"\(escapedSib)\" AND mediatype:audio AND downloads:[\(RecommendationConstants.downloadFloor) TO *]"
+                queries.append(CandidateQuery(iaQuery: query, anchorTerm: "\(topSubject)+\(sibling)",
+                                               noveltyClass: .serendipity, requestedCount: serendipityAlloc))
+            }
+        }
+
+        // If EXPLOIT came up empty, steal from EXPLORE
+        if !exploitCreators.isEmpty && queries.filter({ $0.noveltyClass == .exploit }).isEmpty {
+            let pc = max(1, exploitAlloc / min(3, exploitCreators.count))
+            for creator in exploitCreators.prefix(3) {
+                let escaped = escapeSolr(creator)
+                let query = "creator:\"\(escaped)\" AND (\(musicCollections))"
+                queries.append(CandidateQuery(iaQuery: query, anchorTerm: creator,
+                                               noveltyClass: .exploit, requestedCount: pc))
+            }
+        }
+
+        return queries
     }
 
-    /// Allocate `total` slots across weighted channels. Each channel gets at
-    /// least `minPerChannel` so the long tail isn't starved. Slight overshoot of
-    /// the target is OK — the caller treats `total` as a target, not a cap.
-    static func allocateSamples(
-        weights: [ChannelWeight],
-        total: Int = poolSize,
-        minPerChannel: Int = minPerChannel
-    ) -> [(channelId: String, count: Int)] {
-        weights.map { w in
-            let raw = Int((Double(total) * w.weight).rounded())
-            return (w.channelId, max(minPerChannel, raw))
+    // MARK: - Helpers
+
+    static func buildAdjacentSubjects(from profile: ProfileBucket, topPlayedSet: Set<String>) -> [String] {
+        let allTerms = profile.allTerms()
+        let topWeighted = Set(profile.topSubjects.map { $0.lowercased() })
+        var adjacencyCounts: [String: Int] = [:]
+        let subjectSet = Set(profile.subjectTerms.map { $0.term.lowercased() })
+
+        for term in allTerms where subjectSet.contains(term.term) {
+            if !topWeighted.contains(term.term) {
+                adjacencyCounts[term.term, default: 0] += 1
+            }
         }
+
+        return adjacencyCounts
+            .filter { !topPlayedSet.contains($0.key) }
+            .sorted { $0.value > $1.value }
+            .prefix(10)
+            .map { $0.key }
+    }
+
+    static func extractCollections(from collections: [IACollection]) -> [String] {
+        collections.map { $0.id }
+    }
+
+    static func hashForDate(_ dateSeed: String, salt: String) -> Int {
+        let input = "\(dateSeed):\(salt)"
+        return abs(input.hashValue)
+    }
+
+    private static func escapeSolr(_ term: String) -> String {
+        let specials: Set<Character> = ["+", "-", "!", "(", ")", "{", "}", "[", "]", "^", "\"", "~", "*", "?", ":", "\\", "/"]
+        var escaped = ""
+        for ch in term {
+            if specials.contains(ch) { escaped.append("\\") }
+            escaped.append(ch)
+        }
+        return escaped
     }
 }

@@ -19,6 +19,7 @@ final class AppDependencies: ObservableObject {
     let networkMonitor: NetworkMonitor
     let ageAssuranceService: AgeAssuranceService
     let favoritesStore: FavoritesStore
+    let tasteProfileStore: TasteProfileStore
 
     @MainActor init(
         db: DatabaseService,
@@ -35,7 +36,8 @@ final class AppDependencies: ObservableObject {
         iaCollectionStore: IACollectionStore,
         networkMonitor: NetworkMonitor,
         ageAssuranceService: AgeAssuranceService,
-        favoritesStore: FavoritesStore
+        favoritesStore: FavoritesStore,
+        tasteProfileStore: TasteProfileStore
     ) {
         self.db = db
         self.downloadManager = downloadManager
@@ -52,6 +54,7 @@ final class AppDependencies: ObservableObject {
         self.networkMonitor = networkMonitor
         self.ageAssuranceService = ageAssuranceService
         self.favoritesStore = favoritesStore
+        self.tasteProfileStore = tasteProfileStore
         self.offlineService = OfflineDownloadService(db: db, downloadManager: downloadManager)
     }
 }
