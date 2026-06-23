@@ -1168,6 +1168,7 @@ final class PlayerViewModel: ObservableObject {
                     await db.recordPlayed(channelId: ctx, trackId: trackId)
                     await tasteStore.seedFromTrack(capturedTrack, channel: capturedChannel)
                     await tasteStore.addSeenIdentifiers(from: capturedTrack, reason: "played")
+                    await recordBookListenedIfAudiobook(track: capturedTrack, channel: capturedChannel)
                     playHistoryVersion &+= 1
                 }
                 ContributionCoordinator.recordTrackPlayed()
@@ -1658,6 +1659,21 @@ final class PlayerViewModel: ObservableObject {
         // the instant playTrack returns dropped the spinner during AVPlayer's
         // pre-buffer window, so a tapped search result showed its name with no
         // spinner and no audio yet (item 9).
+    }
+
+    private func recordBookListenedIfAudiobook(track: Track, channel: Channel?) async {
+        let kind = track.mediaKind(in: channel)
+        guard kind == .audiobook else { return }
+        let workKey = BookForYouService.workKey(
+            author: track.rawCreator, title: track.title)
+        let idForPlayback = track.parentIdentifier ?? track.id
+        await db.recordBookListened(
+            workKey: workKey,
+            identifier: idForPlayback,
+            title: track.title,
+            author: track.rawCreator,
+            subjects: track.tags.joined(separator: ",")
+        )
     }
 
     static func playlistKey(_ playlistId: String) -> String {
