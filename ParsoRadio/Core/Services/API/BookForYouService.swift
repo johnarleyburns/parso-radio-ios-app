@@ -77,87 +77,47 @@ struct BookForYouService {
     func generatePick(for day: String) async -> BookForYouEntry? {
         let exclusionKeys = await allExclusionKeys()
 
-        // 1. Personalized pool
-        if let profile = await tasteStore?.fetchProfile(bucket: "spoken") {
-            if !profile.isEmpty {
-                if let candidates = await personalizedCandidates(profile: profile),
-                   let filtered = await filterAndPick(from: candidates,
-                                                      excluding: exclusionKeys,
-                                                      seed: day) {
-                    // Reason: match on creator overlap
-                    let reason = reasonForPersonalizedPick(filtered, profile: profile)
-                    let entry = BookForYouEntry(
-                        identifier: filtered.identifier,
-                        title: filtered.title,
-                        author: filtered.creator,
-                        subjects: filtered.subjects,
-                        reason: reason,
-                        workKey: filtered.workKey
-                    )
-                    await persist(entry, day: day)
-                    return entry
-                }
-            }
-        }
-
-        // 2. Top-100 General Fiction (§5.3)
-        if let candidates = await coldStartCandidates(),
+        // 1. Personalized pool via Solr (EXPLOIT + EXPLORE on spoken profile).
+        //    If Solr is reachable, this gives on-taste picks. If not, skip.
+        if let profile = await tasteStore?.fetchProfile(bucket: "spoken"),
+           !profile.isEmpty,
+           let candidates = await personalizedCandidates(profile: profile),
            let filtered = await filterAndPick(from: candidates,
-                                              excluding: exclusionKeys,
-                                              seed: day) {
+                                               excluding: exclusionKeys,
+                                               seed: day) {
+            let reason = reasonForPersonalizedPick(filtered, profile: profile)
             let entry = BookForYouEntry(
-                identifier: filtered.identifier,
-                title: filtered.title,
-                author: filtered.creator,
-                subjects: filtered.subjects,
-                reason: "Popular on LibriVox",
-                workKey: filtered.workKey
+                identifier: filtered.identifier, title: filtered.title,
+                author: filtered.creator, subjects: filtered.subjects,
+                reason: reason, workKey: filtered.workKey
             )
             await persist(entry, day: day)
             return entry
         }
 
-        // 3. Broader LibriVox fiction
-        if let candidates = await broadLibrivoxCandidates(),
-           let filtered = await filterAndPick(from: candidates,
-                                              excluding: exclusionKeys,
-                                              seed: day) {
+        // 2. Bundled popular LibriVox books (offline, always available).
+        //    Equivalent to top-100 General Fiction but doesn't need Solr.
+        let bundledCandidates = LibrivoxBundledBooks.candidates
+        if !bundledCandidates.isEmpty,
+           let filtered = await filterAndPick(from: bundledCandidates,
+                                               excluding: exclusionKeys,
+                                               seed: day) {
+            // Try Solr enrichment in background to add subjects for future days
             let entry = BookForYouEntry(
-                identifier: filtered.identifier,
-                title: filtered.title,
-                author: filtered.creator,
-                subjects: filtered.subjects,
-                reason: "Popular on LibriVox",
-                workKey: filtered.workKey
+                identifier: filtered.identifier, title: filtered.title,
+                author: filtered.creator, subjects: filtered.subjects,
+                reason: "Popular on LibriVox", workKey: filtered.workKey
             )
             await persist(entry, day: day)
             return entry
         }
 
-        // 4. Any LibriVox by downloads
-        if let candidates = await anyLibrivoxCandidates(),
-           let filtered = await filterAndPick(from: candidates,
-                                              excluding: exclusionKeys,
-                                              seed: day) {
-            let entry = BookForYouEntry(
-                identifier: filtered.identifier,
-                title: filtered.title,
-                author: filtered.creator,
-                subjects: filtered.subjects,
-                reason: "Popular on LibriVox",
-                workKey: filtered.workKey
-            )
-            await persist(entry, day: day)
-            return entry
-        }
-
-        // 5. Least-recently-curated fallback (§5.5 — never nil)
+        // 3. Least-recently-curated fallback (never nil once the ledger has data).
         if let fallback = await db.fetchLeastRecentlyCurated() {
             return fallback
         }
 
-        // 6. Absolute last resort: a hardcoded popular LibriVox book when the
-        //    network is unreachable and the ledger is empty (brand-new install).
+        // 4. Absolute last resort for empty bundle + empty DB.
         let fallbackEntry = BookForYouEntry(
             identifier: "prideandprejudice_2410_librivox",
             title: "Pride and Prejudice",
@@ -199,28 +159,6 @@ struct BookForYouService {
         all = all.filter { seen.insert($0.workKey).inserted }
 
         return all.isEmpty ? nil : all
-    }
-
-    /// Cold start: top 100 General Fiction by downloads (§5.3)
-    private func coldStartCandidates() async -> [BookCandidate]? {
-        let query = "\(Self.librivoxCollection) AND subject:\"General Fiction\""
-        return try? await searchLibrivox(query: query, rows: 100)
-    }
-
-    /// Broader LibriVox fiction
-    private func broadLibrivoxCandidates() async -> [BookCandidate]? {
-        let orSet = [
-            "librivoxaudio",
-            "audio_bookspoetry"
-        ].map { "collection:\"\($0)\"" }.joined(separator: " OR ")
-        let query = "mediatype:audio AND (\(orSet))"
-        return try? await searchLibrivox(query: query, rows: 300)
-    }
-
-    /// Any LibriVox item by downloads
-    private func anyLibrivoxCandidates() async -> [BookCandidate]? {
-        let query = Self.librivoxCollection
-        return try? await searchLibrivox(query: query, rows: 500)
     }
 
     // MARK: - Exclusion + Pick

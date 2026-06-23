@@ -1,0 +1,804 @@
+[
+  {
+    "identifier": "art_of_war_librivox",
+    "title": "The Art of War",
+    "author": "Sun Tzu",
+    "subjects": [
+      "literature",
+      "war",
+      "Sun Tzu",
+      "Sunzi",
+      "Lionel Giles"
+    ],
+    "downloads": 24397240,
+    "work_key": "sun tzu\u00b7the art of war"
+  },
+  {
+    "identifier": "alice_in_wonderland_librivox",
+    "title": "Alice's Adventures in Wonderland, by Lewis Carroll",
+    "author": "Lewis Carroll",
+    "subjects": [
+      "literature",
+      "children"
+    ],
+    "downloads": 24037227,
+    "work_key": "lewis carroll\u00b7alice's adventures in wonderland, by lewis carroll"
+  },
+  {
+    "identifier": "tom_sawyer_librivox",
+    "title": "The Adventures of Tom Sawyer",
+    "author": "Mark Twain",
+    "subjects": [
+      "literature"
+    ],
+    "downloads": 18300387,
+    "work_key": "mark twain\u00b7the adventures of tom sawyer"
+  },
+  {
+    "identifier": "adventures_holmes",
+    "title": "The Adventures of Sherlock Holmes",
+    "author": "Sir Arthur Conan Doyle",
+    "subjects": [
+      "literature",
+      "Holmes",
+      "adventure",
+      "Doyle"
+    ],
+    "downloads": 17623702,
+    "work_key": "sir arthur conan doyle\u00b7the adventures of sherlock holmes"
+  },
+  {
+    "identifier": "moby_dick_librivox",
+    "title": "Moby Dick, or the Whale",
+    "author": "Herman Melville",
+    "subjects": [
+      "literature"
+    ],
+    "downloads": 12441233,
+    "work_key": "herman melville\u00b7moby dick, or the whale"
+  },
+  {
+    "identifier": "huck_finn_librivox",
+    "title": "Adventures of Huckleberry Finn",
+    "author": "Mark Twain",
+    "subjects": [
+      "literature",
+      "twain",
+      "huckleberry",
+      "finn"
+    ],
+    "downloads": 11568988,
+    "work_key": "mark twain\u00b7adventures of huckleberry finn"
+  },
+  {
+    "identifier": "pride_and_prejudice_librivox",
+    "title": "Pride and Prejudice",
+    "author": "Jane Austen",
+    "subjects": [
+      "literature"
+    ],
+    "downloads": 10242250,
+    "work_key": "jane austen\u00b7pride and prejudice"
+  },
+  {
+    "identifier": "dracula_librivox",
+    "title": "Dracula",
+    "author": "Bram Stoker",
+    "subjects": [
+      "literature"
+    ],
+    "downloads": 9533342,
+    "work_key": "bram stoker\u00b7dracula"
+  },
+  {
+    "identifier": "count_monte_cristo_0711_librivox",
+    "title": "The Count of Monte Cristo",
+    "author": "Alexandre Dumas",
+    "subjects": [
+      "monte cristo",
+      "dumas",
+      "adventure",
+      "romance"
+    ],
+    "downloads": 7889619,
+    "work_key": "alexandre dumas\u00b7the count of monte cristo"
+  },
+  {
+    "identifier": "peter_pan_0707_librivox",
+    "title": "Peter Pan",
+    "author": "J. M. Barrie",
+    "subjects": [
+      "Peter Pan",
+      "James Matthew Barrie",
+      "children",
+      "fantasy",
+      "Neverland"
+    ],
+    "downloads": 6837816,
+    "work_key": "j. m. barrie\u00b7peter pan"
+  },
+  {
+    "identifier": "secret_garden_librivox",
+    "title": "The Secret Garden",
+    "author": "Frances Hodgson Burnett",
+    "subjects": [
+      "literature",
+      "children"
+    ],
+    "downloads": 6705292,
+    "work_key": "frances hodgson burnett\u00b7the secret garden"
+  },
+  {
+    "identifier": "odyssey_butler_librivox",
+    "title": "The Odyssey",
+    "author": "Homer",
+    "subjects": [
+      "literature",
+      "homer",
+      "classics",
+      "adventure",
+      "poetry"
+    ],
+    "downloads": 6090198,
+    "work_key": "homer\u00b7the odyssey"
+  },
+  {
+    "identifier": "grimms_english_librivox",
+    "title": "Grimms' Fairy Tales",
+    "author": "Jacob and Wilhelm Grimm",
+    "subjects": [
+      "literature",
+      "children"
+    ],
+    "downloads": 5603346,
+    "work_key": "jacob and wilhelm grimm\u00b7grimms' fairy tales"
+  },
+  {
+    "identifier": "alices_adventures_1003",
+    "title": "Alice's Adventures in Wonderland",
+    "author": "Lewis Carroll",
+    "subjects": [
+      "children",
+      "fantasy",
+      "adventure",
+      "carroll",
+      "fiction"
+    ],
+    "downloads": 5356774,
+    "work_key": "lewis carroll\u00b7alice's adventures in wonderland"
+  },
+  {
+    "identifier": "uncle_toms_cabin_librivox",
+    "title": "Uncle Tom's Cabin",
+    "author": "Harriet Beecher Stowe",
+    "subjects": [
+      "literature",
+      "stowe",
+      "uncle tom"
+    ],
+    "downloads": 5082584,
+    "work_key": "harriet beecher stowe\u00b7uncle tom's cabin"
+  },
+  {
+    "identifier": "tale_two_cities_librivox",
+    "title": "A Tale of Two Cities",
+    "author": "Charles Dickens",
+    "subjects": [
+      "literature",
+      "dickens"
+    ],
+    "downloads": 5061814,
+    "work_key": "charles dickens\u00b7a tale of two cities"
+  },
+  {
+    "identifier": "adventures_pinocchio_librivox",
+    "title": "The Adventures of Pinocchio",
+    "author": "C. Collodi",
+    "subjects": [
+      "literature"
+    ],
+    "downloads": 4934711,
+    "work_key": "c. collodi\u00b7the adventures of pinocchio"
+  },
+  {
+    "identifier": "treasure_island_ap_librivox",
+    "title": "Treasure Island",
+    "author": "Robert Louis Stevenson",
+    "subjects": [
+      "pirates",
+      "Stevenson",
+      "treasure",
+      "children's literature"
+    ],
+    "downloads": 4922715,
+    "work_key": "robert louis stevenson\u00b7treasure island"
+  },
+  {
+    "identifier": "emma_solo_librivox",
+    "title": "Emma",
+    "author": "Jane Austen",
+    "subjects": [
+      "literature",
+      "austen",
+      "emma",
+      "comedy",
+      "regency"
+    ],
+    "downloads": 4864572,
+    "work_key": "jane austen\u00b7emma"
+  },
+  {
+    "identifier": "memoirs_holmes_0709_librivox",
+    "title": "The Memoirs of Sherlock Holmes",
+    "author": "Sir Arthur Conan Doyle",
+    "subjects": [
+      "literature",
+      "adventure",
+      "mystery",
+      "doyle",
+      "sherlock holmes"
+    ],
+    "downloads": 4805045,
+    "work_key": "sir arthur conan doyle\u00b7the memoirs of sherlock holmes"
+  },
+  {
+    "identifier": "aesop_fables_volume_one_librivox",
+    "title": "Aesop's Fables, Volume 1 (Fables 1-25)",
+    "author": "Aesop",
+    "subjects": [
+      "literature"
+    ],
+    "downloads": 4723251,
+    "work_key": "aesop\u00b7aesop's fables, volume 1"
+  },
+  {
+    "identifier": "andersensfairy_1307_librivox",
+    "title": "Andersen's Fairy Tales (Version 2)",
+    "author": "Hans Christian Andersen",
+    "subjects": [
+      "children",
+      "fiction",
+      "fairy tales",
+      "myths"
+    ],
+    "downloads": 4699989,
+    "work_key": "hans christian andersen\u00b7andersen's fairy tales"
+  },
+  {
+    "identifier": "jane_eyre_ver03_0809_librivox",
+    "title": "Jane Eyre (version 3)",
+    "author": "Charlotte Bront\u00eb",
+    "subjects": [
+      "classic",
+      "romance"
+    ],
+    "downloads": 4614378,
+    "work_key": "charlotte bront\u00eb\u00b7jane eyre"
+  },
+  {
+    "identifier": "swiss_family_robinson_librivox",
+    "title": "The Swiss Family Robinson",
+    "author": "Johann David Wyss",
+    "subjects": [
+      "swiss family robinson",
+      "wyss",
+      "literature"
+    ],
+    "downloads": 4307352,
+    "work_key": "johann david wyss\u00b7the swiss family robinson"
+  },
+  {
+    "identifier": "return_holmes_0708_librivox",
+    "title": "The Return of Sherlock Holmes",
+    "author": "Sir Arthur Conan Doyle",
+    "subjects": [
+      "literature",
+      "mystery",
+      "detective",
+      "holmes",
+      "doyle"
+    ],
+    "downloads": 4204738,
+    "work_key": "sir arthur conan doyle\u00b7the return of sherlock holmes"
+  },
+  {
+    "identifier": "great_expectations_mfs_0812_librivox",
+    "title": "Great Expectations",
+    "author": "Charles Dickens",
+    "subjects": [
+      "Fiction",
+      "England"
+    ],
+    "downloads": 3957011,
+    "work_key": "charles dickens\u00b7great expectations"
+  },
+  {
+    "identifier": "robinson_crusoe_librivox",
+    "title": "The Life and Strange Surprising Adventures of Robinson Crusoe of York, Mariner",
+    "author": "Daniel Defoe",
+    "subjects": [
+      "literature",
+      "adventure"
+    ],
+    "downloads": 3956475,
+    "work_key": "daniel defoe\u00b7the life and strange surprising adventures of robinson crusoe of york, mariner"
+  },
+  {
+    "identifier": "game_of_life_0911_librivox",
+    "title": "The Game of Life and How to Play It",
+    "author": "Florence Scovel Shinn",
+    "subjects": [
+      "self help",
+      "new thought",
+      "prosperity",
+      "karma",
+      "love"
+    ],
+    "downloads": 3859457,
+    "work_key": "florence scovel shinn\u00b7the game of life and how to play it"
+  },
+  {
+    "identifier": "bleak_house_cl_librivox",
+    "title": "Bleak House",
+    "author": "Charles Dickens",
+    "subjects": [
+      "literature",
+      "Bleak House",
+      "Charles Dickens",
+      "Esther Summerson",
+      "Tulkinghorn"
+    ],
+    "downloads": 3794887,
+    "work_key": "charles dickens\u00b7bleak house"
+  },
+  {
+    "identifier": "anthem_librivox",
+    "title": "Anthem",
+    "author": "Ayn Rand",
+    "subjects": [
+      "literature",
+      "philosophy",
+      "science fiction"
+    ],
+    "downloads": 3781539,
+    "work_key": "ayn rand\u00b7anthem"
+  },
+  {
+    "identifier": "romeo_and_juliet_librivox",
+    "title": "Romeo and Juliet",
+    "author": "William Shakespeare",
+    "subjects": [
+      "drama"
+    ],
+    "downloads": 3658216,
+    "work_key": "william shakespeare\u00b7romeo and juliet"
+  },
+  {
+    "identifier": "anne_greengables_librivox",
+    "title": "Anne of Green Gables (version 3)",
+    "author": "Lucy Maud Montgomery",
+    "subjects": [
+      "anne",
+      "green gables",
+      "fiction"
+    ],
+    "downloads": 3650191,
+    "work_key": "lucy maud montgomery\u00b7anne of green gables"
+  },
+  {
+    "identifier": "invisible_man_librivox",
+    "title": "The Invisible Man",
+    "author": "H.G. Wells",
+    "subjects": [
+      "literature",
+      "science fiction"
+    ],
+    "downloads": 3623575,
+    "work_key": "h.g. wells\u00b7the invisible man"
+  },
+  {
+    "identifier": "grimm_fairy_tales_1202_librivox",
+    "title": "Grimm's Fairy Tales (version 2)",
+    "author": "Jacob & Wilhelm Grimm",
+    "subjects": [
+      "children",
+      "fairy tales",
+      "fiction",
+      "short stories",
+      "Grimm"
+    ],
+    "downloads": 3601245,
+    "work_key": "jacob & wilhelm grimm\u00b7grimm's fairy tales"
+  },
+  {
+    "identifier": "walden_librivox",
+    "title": "Walden",
+    "author": "Henry David Thoreau",
+    "subjects": [
+      "literature"
+    ],
+    "downloads": 3571770,
+    "work_key": "henry david thoreau\u00b7walden"
+  },
+  {
+    "identifier": "timemachine_sjm_librivox",
+    "title": "The Time Machine (version 3)",
+    "author": "H. G. Wells",
+    "subjects": [
+      "literature",
+      "adventure",
+      "fantasy",
+      "fiction",
+      "science fiction"
+    ],
+    "downloads": 3545756,
+    "work_key": "h. g. wells\u00b7the time machine"
+  },
+  {
+    "identifier": "wizard_of_oz",
+    "title": "The Wonderful Wizard of Oz",
+    "author": "L. Frank Baum",
+    "subjects": [
+      "literature",
+      "children",
+      "Oz",
+      "Dorothy"
+    ],
+    "downloads": 3514959,
+    "work_key": "l. frank baum\u00b7the wonderful wizard of oz"
+  },
+  {
+    "identifier": "fabulas_esopo_01_librivox",
+    "title": "Las F\u00e1bulas de Esopo, vol. 01",
+    "author": "Townsend, George Fyler; tr. Jorge R. Rodr\u00edguez",
+    "subjects": [
+      "literature",
+      "children",
+      "Aesop",
+      "Spanish",
+      "animals"
+    ],
+    "downloads": 3446469,
+    "work_key": "townsend, george fyler; tr. jorge r. rodr\u00edguez\u00b7las f\u00e1bulas de esopo, vol. 01"
+  },
+  {
+    "identifier": "english_fairy_tales_joy_librivox",
+    "title": "English Fairy Tales",
+    "author": "Joseph Jacobs",
+    "subjects": [
+      "literature",
+      "jacobs",
+      "children",
+      "fairy tales",
+      "england"
+    ],
+    "downloads": 3443596,
+    "work_key": "joseph jacobs\u00b7english fairy tales"
+  },
+  {
+    "identifier": "don_quijote_vol1_0706_librivox",
+    "title": "Don Quijote, Volume 1",
+    "author": "Miguel de Cervantes Saavedra",
+    "subjects": [
+      "literature",
+      "adventure",
+      "spanish"
+    ],
+    "downloads": 3425169,
+    "work_key": "miguel de cervantes saavedra\u00b7don quijote, volume 1"
+  },
+  {
+    "identifier": "penguin_island_ms_librivox",
+    "title": "Penguin Island",
+    "author": "Anatole France",
+    "subjects": [
+      "literature",
+      "satire"
+    ],
+    "downloads": 3357453,
+    "work_key": "anatole france\u00b7penguin island"
+  },
+  {
+    "identifier": "beyond_good_and_evil_librivox",
+    "title": "Beyond Good and Evil",
+    "author": "Friedrich Nietzsche (transl. Helen Zimmern)",
+    "subjects": [
+      "philosophy",
+      "Nietzsche"
+    ],
+    "downloads": 3271876,
+    "work_key": "friedrich nietzsche (transl. helen zimmern)\u00b7beyond good and evil"
+  },
+  {
+    "identifier": "1601_0903_librivox",
+    "title": "1601: Conversation, as it was by the Social Fireside, in the Time of the Tudors",
+    "author": "Mark Twain",
+    "subjects": [
+      "literature",
+      "satire",
+      "Great Britain",
+      "Elizabeth I",
+      "fiction"
+    ],
+    "downloads": 3211236,
+    "work_key": "mark twain\u00b71601: conversation, as it was by the social fireside, in the time of the tudors"
+  },
+  {
+    "identifier": "railway_children_librivox",
+    "title": "Railway Children",
+    "author": "E. Nesbit",
+    "subjects": [
+      "literature",
+      "children",
+      "trains"
+    ],
+    "downloads": 3190769,
+    "work_key": "e. nesbit\u00b7railway children"
+  },
+  {
+    "identifier": "divine_comedy_librivox",
+    "title": "The Divine Comedy",
+    "author": "Dante Alighieri",
+    "subjects": [
+      "poetry",
+      "religion",
+      "afterlife",
+      "christianity"
+    ],
+    "downloads": 3116857,
+    "work_key": "dante alighieri\u00b7the divine comedy"
+  },
+  {
+    "identifier": "letters_brides_0709_librivox",
+    "title": "Letters of Two Brides",
+    "author": "Honore de Balzac",
+    "subjects": [
+      "literature",
+      "epistolary",
+      "letters",
+      "balzac"
+    ],
+    "downloads": 3114494,
+    "work_key": "honore de balzac\u00b7letters of two brides"
+  },
+  {
+    "identifier": "heart_of_darkness",
+    "title": "Heart of Darkness",
+    "author": "Joseph Conrad",
+    "subjects": [
+      "literature",
+      "classic"
+    ],
+    "downloads": 3103465,
+    "work_key": "joseph conrad\u00b7heart of darkness"
+  },
+  {
+    "identifier": "frankenstein_shelley",
+    "title": "Frankenstein",
+    "author": "Mary W. Shelley",
+    "subjects": [
+      "literature",
+      "horror"
+    ],
+    "downloads": 3096964,
+    "work_key": "mary w. shelley\u00b7frankenstein"
+  },
+  {
+    "identifier": "alexander_great_ld_librivox",
+    "title": "Alexander the Great",
+    "author": "Jacob Abbott",
+    "subjects": [
+      "literature",
+      "History",
+      "biography",
+      "alexander"
+    ],
+    "downloads": 2877693,
+    "work_key": "jacob abbott\u00b7alexander the great"
+  },
+  {
+    "identifier": "city_worlds_end_1203_librivox",
+    "title": "The City at World's End",
+    "author": "Edmond Hamilton",
+    "subjects": [
+      "literature",
+      "adventure",
+      "fantasy",
+      "fiction",
+      "science fiction"
+    ],
+    "downloads": 2719851,
+    "work_key": "edmond hamilton\u00b7the city at world's end"
+  },
+  {
+    "identifier": "king_solomon_librivox",
+    "title": "King Solomon's Mines",
+    "author": "H. Rider Haggard",
+    "subjects": [
+      "adventure",
+      "Africa",
+      "mines",
+      "diamonds"
+    ],
+    "downloads": 2666473,
+    "work_key": "h. rider haggard\u00b7king solomon's mines"
+  },
+  {
+    "identifier": "12_creepytales_1206_librivox",
+    "title": "12 Creepy Tales by Edgar Allan Poe",
+    "author": "Edgar Allan Poe",
+    "subjects": [
+      "horror",
+      "poe",
+      "creepy"
+    ],
+    "downloads": 2548348,
+    "work_key": "edgar allan poe\u00b712 creepy tales by edgar allan poe"
+  },
+  {
+    "identifier": "terror_mystery_0707_librivox",
+    "title": "Tales of Terror and Mystery",
+    "author": "Sir Arthur Conan Doyle",
+    "subjects": [
+      "literature",
+      "mystery",
+      "horror",
+      "doyle",
+      "stories"
+    ],
+    "downloads": 2524886,
+    "work_key": "sir arthur conan doyle\u00b7tales of terror and mystery"
+  },
+  {
+    "identifier": "bequest_jg_librivox",
+    "title": "The $30,000 Bequest and Other Stories",
+    "author": "Mark Twain",
+    "subjects": [
+      "twain",
+      "stories",
+      "humor"
+    ],
+    "downloads": 2483882,
+    "work_key": "mark twain\u00b7the $30,000 bequest and other stories"
+  },
+  {
+    "identifier": "love_freindship_cs_librivox",
+    "title": "Love and Freindship",
+    "author": "Jane Austen",
+    "subjects": [
+      "literature",
+      "austen",
+      "satire",
+      "romance",
+      "parody"
+    ],
+    "downloads": 2471468,
+    "work_key": "jane austen\u00b7love and freindship"
+  },
+  {
+    "identifier": "call_of_the_wild",
+    "title": "The Call of the Wild",
+    "author": "Jack London",
+    "subjects": [
+      "literature"
+    ],
+    "downloads": 2460185,
+    "work_key": "jack london\u00b7the call of the wild"
+  },
+  {
+    "identifier": "little_princess_krs",
+    "title": "A Little Princess",
+    "author": "Frances Hodgson Burnett",
+    "subjects": [
+      "literature",
+      "children",
+      "boarding school"
+    ],
+    "downloads": 2423627,
+    "work_key": "frances hodgson burnett\u00b7a little princess"
+  },
+  {
+    "identifier": "les_mis_vol01_0810_librivox",
+    "title": "Les Mis\u00e9rables, Vol. 1",
+    "author": "Victor Hugo",
+    "subjects": [
+      "steal",
+      "romance",
+      "ex-convict",
+      "French Revolution"
+    ],
+    "downloads": 2354599,
+    "work_key": "victor hugo\u00b7les mis\u00e9rables, vol. 1"
+  },
+  {
+    "identifier": "as_a_man_thinketh_mc_librivox",
+    "title": "As a Man Thinketh",
+    "author": "James Allen",
+    "subjects": [
+      "non-fiction",
+      "philosophy",
+      "thought"
+    ],
+    "downloads": 2323088,
+    "work_key": "james allen\u00b7as a man thinketh"
+  },
+  {
+    "identifier": "prince_librivox",
+    "title": "The Prince",
+    "author": "Nicolo Machiavelli; translated by W. K. Marriott",
+    "subjects": [
+      "literature",
+      "machiavelli",
+      "prince"
+    ],
+    "downloads": 2290766,
+    "work_key": "nicolo machiavelli; translated by w. k. marriott\u00b7the prince"
+  },
+  {
+    "identifier": "reluctant_dragon_librivox",
+    "title": "The Reluctant Dragon",
+    "author": "Kenneth Grahame",
+    "subjects": [
+      "literature",
+      "children",
+      "dragons",
+      "fantasy",
+      "grahame"
+    ],
+    "downloads": 2236164,
+    "work_key": "kenneth grahame\u00b7the reluctant dragon"
+  },
+  {
+    "identifier": "2br02b_0801_librivox",
+    "title": "2 B R 0 2 B",
+    "author": "Kurt Vonnegut",
+    "subjects": [
+      "Vonnegut",
+      "science fiction",
+      "short stories",
+      "dramatic reading"
+    ],
+    "downloads": 2222144,
+    "work_key": "kurt vonnegut\u00b72 b r 0 2 b"
+  },
+  {
+    "identifier": "amateur_cracksman_librivox",
+    "title": "The Amateur Cracksman",
+    "author": "E.W. Hornung",
+    "subjects": [
+      "literature",
+      "raffles",
+      "hornung",
+      "adventure",
+      "mystery"
+    ],
+    "downloads": 2216254,
+    "work_key": "e.w. hornung\u00b7the amateur cracksman"
+  },
+  {
+    "identifier": "fanny_hill_librivox",
+    "title": "Fanny Hill: Memoirs of a Woman of Pleasure",
+    "author": "John Cleland",
+    "subjects": [
+      "literature",
+      "erotica",
+      "banned books"
+    ],
+    "downloads": 2212726,
+    "work_key": "john cleland\u00b7fanny hill: memoirs of a woman of pleasure"
+  },
+  {
+    "identifier": "sense_sensibility_ver3_ek",
+    "title": "Sense and Sensibility (Version 3)",
+    "author": "Jane Austen",
+    "subjects": [
+      "literature",
+      "love",
+      "romance",
+      "Jane Austen",
+      "Elinor Dashwood"
+    ],
+    "downloads": 2170739,
+    "work_key": "jane austen\u00b7sense and sensibility"
+  }
+]
