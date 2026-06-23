@@ -57,4 +57,14 @@ final class OnboardingTasteTests: XCTestCase {
         XCTAssertLessThan(RecommendationConstants.onboardingSeedWeight, 3.0,
                            "onboarding seed weight should be < 3x to allow natural overtaking")
     }
+
+    func testAllChipsProduceTasteSignals() {
+        for chip in OnboardingChip.all {
+            let hasCollections = !chip.collectionIDs.isEmpty
+            let hasSubject = chip.subjectSeed != nil && !chip.subjectSeed!.isEmpty
+            let hasCreator = chip.creatorSeed != nil
+            XCTAssertTrue(hasCollections || hasSubject || hasCreator,
+                           "chip \(chip.id) produces no taste signal for MadeForYou")
+        }
+    }
 }

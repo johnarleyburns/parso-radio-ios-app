@@ -108,7 +108,7 @@ struct ParsoMusicApp: App {
                             .environmentObject(Self.deps.offlineService)
                             .environmentObject(Self.deps)
                             .environmentObject(favorites)
-                            .modifier(OnboardingGateModifier())
+                            .modifier(OnboardingGateModifier(deps: Self.deps))
                     }
                 } else {
                     Color(.systemGroupedBackground).ignoresSafeArea()

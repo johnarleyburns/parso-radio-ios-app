@@ -251,6 +251,7 @@ struct OnboardingTasteView: View {
 }
 
 struct OnboardingGateModifier: ViewModifier {
+    let deps: AppDependencies
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var showOnboarding = false
 
@@ -263,6 +264,7 @@ struct OnboardingGateModifier: ViewModifier {
             }
             .fullScreenCover(isPresented: $showOnboarding) {
                 OnboardingTasteView(isEditing: false)
+                    .environmentObject(deps)
             }
     }
 }

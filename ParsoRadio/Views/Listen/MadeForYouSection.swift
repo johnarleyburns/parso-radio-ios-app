@@ -11,36 +11,41 @@ struct MadeForYouSection: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     var body: some View {
-        if showSection {
-            Section {
-                if isLoading {
-                    HStack {
-                        ProgressView()
-                            .padding(.trailing, 8)
-                        Text("Finding fresh picks...")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(height: 120)
-                    .listRowBackground(Color.clear)
-                } else if !tracks.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 14) {
-                            ForEach(tracks, id: \.id) { track in
-                                Button {
-                                    Task { await playerVM.playRecentTrack(track) }
-                                } label: {
-                                    JumpBackInCard(track: track)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 0))
-                    .listRowBackground(Color.clear)
+        Section {
+            if isLoading {
+                HStack {
+                    ProgressView()
+                        .padding(.trailing, 8)
+                    Text("Finding fresh picks...")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-            } header: {
+                .frame(height: 120)
+                .listRowBackground(Color.clear)
+            } else if showSection, !tracks.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(tracks, id: \.id) { track in
+                            Button {
+                                Task { await playerVM.playRecentTrack(track) }
+                            } label: {
+                                JumpBackInCard(track: track)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 0))
+                .listRowBackground(Color.clear)
+            } else {
+                Color.clear
+                    .frame(height: 0)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+        } header: {
+            if showSection, loaded, !tracks.isEmpty {
                 HStack(spacing: 5) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 13))
@@ -53,16 +58,16 @@ struct MadeForYouSection: View {
                     Text("Made for You")
                         .font(.headline.weight(.semibold))
                 }
-            } footer: {
-                if !isLoading, loaded, !tracks.isEmpty {
-                    Text("Fresh picks from your taste \u{00B7} refreshes daily")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
             }
-            .task(id: playerVM.playHistoryVersion) {
-                await loadIfNeeded()
+        } footer: {
+            if !isLoading, loaded, !tracks.isEmpty {
+                Text("Fresh picks from your taste \u{00B7} refreshes daily")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
+        }
+        .task(id: playerVM.playHistoryVersion) {
+            await loadIfNeeded()
         }
     }
 
