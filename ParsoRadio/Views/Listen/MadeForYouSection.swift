@@ -73,7 +73,6 @@ struct MadeForYouSection: View {
 
     private func loadIfNeeded() async {
         let hasProfile = await deps.tasteProfileStore.hasAnyProfile()
-        guard hasProfile else { return }
         showSection = true
         guard !loaded else { return }
 
@@ -86,6 +85,29 @@ struct MadeForYouSection: View {
         if let recs = try? await controller.fetchMixedRecommendations() {
             tracks = recs
         }
+
+        // Cold-start fallback: if no profile yet (skipped onboarding, fresh install),
+        // show popular picks from curated collections so the rail is never empty.
+        if tracks.isEmpty, !hasProfile {
+            tracks = await fetchColdStartPicks()
+        }
+
         loaded = true
+    }
+
+    private func fetchColdStartPicks() async -> [Track] {
+        let queries = [
+            "mediatype:audio AND collection:(etree OR musopen OR 78rpm)",
+            "mediatype:audio AND collection:librivoxaudio"
+        ]
+        var results: [Track] = []
+        for query in queries {
+            if let batch = try? await deps.archiveService.fetchTracks(
+                iaQuery: query, matchTags: ["for-you"], limit: 15
+            ), !batch.isEmpty {
+                results.append(contentsOf: batch)
+            }
+        }
+        return Array(results.shuffled().prefix(RecommendationConstants.kTarget))
     }
 }
