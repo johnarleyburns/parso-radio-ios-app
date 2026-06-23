@@ -27,6 +27,8 @@ struct ListenView: View {
 
                 FeaturedTodaySection(nowPlayingChannel: $nowPlayingChannel)
 
+                BookForYouSection(playerVM: playerVM, deps: deps)
+
                 LiveMusicSection(playerVM: playerVM, deps: deps) { entry in
                     selectedLiveEntry = entry
                 }
@@ -234,6 +236,119 @@ private struct LiveMusicSection: View {
             await playerVM.playAlbumTracks(tracks, title: entry.displayName)
         } catch {
             playerVM.errorMessage = "Couldn't load this recording. Try again later."
+        }
+    }
+}
+
+private struct BookForYouSection: View {
+    @ObservedObject private var store = BookForYouStore.shared
+    let playerVM: PlayerViewModel
+    let deps: AppDependencies
+
+    @State private var useFallbackImage = false
+
+    var body: some View {
+        Section {
+            HStack(spacing: 0) {
+                Button {
+                    Task { await playBook() }
+                } label: {
+                    HStack(spacing: 12) {
+                        bookThumbnail
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            if store.isLoading {
+                                Text("Finding your book\u{2026}")
+                                    .font(.subheadline.weight(.medium))
+                                Text("LibriVox")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else if let entry = store.entry {
+                                Text(entry.title)
+                                    .font(.subheadline.weight(.medium))
+                                    .lineLimit(2)
+                                Text(entry.author)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                Text(entry.reason)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .lineLimit(1)
+                            } else {
+                                Text("No book available today. Check back tomorrow.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(store.entry == nil)
+
+                if store.entry != nil {
+                    Button {
+                        Task { await playBook() }
+                    } label: {
+                        Image(systemName: "play.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.blue)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Play book")
+                    .padding(.leading, 4)
+                }
+            }
+            .frame(height: 72)
+        } header: {
+            Text("A Book Curated For You")
+        }
+        .refreshable { await store.refresh() }
+        .task { await store.loadIfNeeded() }
+    }
+
+    @ViewBuilder
+    private var bookThumbnail: some View {
+        Group {
+            if store.isLoading {
+                Color(.systemGray5)
+                    .overlay { ProgressView() }
+            } else if store.entry != nil && !useFallbackImage {
+                AsyncImage(url: store.entry!.coverURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    case .failure, .empty:
+                        Image("book-curated-default").resizable().scaledToFill()
+                            .onAppear { useFallbackImage = true }
+                    @unknown default:
+                        Image("book-curated-default").resizable().scaledToFill()
+                    }
+                }
+            } else if store.entry != nil {
+                Image("book-curated-default").resizable().scaledToFill()
+            } else {
+                Color(.systemGray5)
+            }
+        }
+        .frame(width: 56, height: 56)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func playBook() async {
+        guard let entry = store.entry else { return }
+        do {
+            let tracks = try await deps.archiveService.fetchTracksForIdentifier(entry.identifier)
+            guard !tracks.isEmpty else {
+                playerVM.errorMessage = "This book doesn't have any playable audio files."
+                return
+            }
+            await playerVM.playAlbumTracks(tracks, title: entry.title)
+        } catch {
+            playerVM.errorMessage = "Couldn't load this book. Try again later."
         }
     }
 }
