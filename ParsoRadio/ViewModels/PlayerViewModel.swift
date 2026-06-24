@@ -1825,7 +1825,7 @@ final class PlayerViewModel: ObservableObject {
         await db.wipeAllData()
         let d = UserDefaults.standard
         for k in ["session.kind", "session.contextId", "session.trackId",
-                  "session.position", "lastChannelId", "visitedChannelIds",
+                  "session.position", "session.mediaKind", "lastChannelId", "visitedChannelIds",
                   "searchHistory", "shuffleMode", "wasPlayingOnQuit"] {
             d.removeObject(forKey: k)
         }

@@ -34,6 +34,7 @@ final class SessionRestoreController {
         }
         d.set(track.id, forKey: "session.trackId")
         d.set(position, forKey: "session.position")
+        d.set(vm.activeMediaKind.rawValue, forKey: "session.mediaKind")
     }
 
     func saveAutosaveForCurrentTrack() {

@@ -14,12 +14,14 @@ struct Playlist: Codable, Identifiable, Hashable {
     var updatedAt: Date
     var isFavorites: Bool
     var type: PlaylistType = .tracks
+    var mediaKindHint: MediaKind?
     // Parental flag: when true, this playlist is visible (and read-only) inside
     // Kids Mode. Unchecked by default — parents opt-in per playlist.
     var isKidSafe: Bool = false
 
     static func new(name: String, isFavorites: Bool = false,
                     type: PlaylistType = .tracks,
+                    mediaKindHint: MediaKind? = nil,
                     isKidSafe: Bool = false) -> Playlist {
         Playlist(
             id: UUID().uuidString,
@@ -28,6 +30,7 @@ struct Playlist: Codable, Identifiable, Hashable {
             updatedAt: Date(),
             isFavorites: isFavorites,
             type: type,
+            mediaKindHint: mediaKindHint,
             isKidSafe: isKidSafe
         )
     }

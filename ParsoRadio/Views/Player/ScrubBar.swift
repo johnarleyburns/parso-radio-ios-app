@@ -24,6 +24,8 @@ struct ScrubBar: View {
                 }
             }
             .tint(tint)
+            .accessibilityLabel("Seek")
+            .accessibilityIdentifier("player.scrub.slider")
         } else {
             ProgressView().progressViewStyle(.linear)
         }

@@ -40,15 +40,21 @@ struct ScrubRow: View {
             HStack {
                 Text(playerVM.currentPosition.formattedTime)
                     .font(.caption2).monospacedDigit().foregroundStyle(.secondary)
+                    .accessibilityLabel("Elapsed time")
+                    .accessibilityIdentifier("player.elapsed")
                 Spacer()
                 if showTimeLeftInWork, let left = playerVM.timeLeftInBook {
                     Text("\(isLecture ? "Series" : "Book") \(left.formattedTime) left")
                         .font(.caption2).monospacedDigit().foregroundStyle(.secondary)
+                        .accessibilityLabel("\(isLecture ? "Series" : "Book") time left")
+                        .accessibilityIdentifier("player.work-time-left")
                     Spacer()
                 }
                 let remaining = (playerVM.trackDuration ?? 0) - playerVM.currentPosition
                 Text("-\(remaining.formattedTime)")
                     .font(.caption2).monospacedDigit().foregroundStyle(.secondary)
+                    .accessibilityLabel("Remaining time")
+                    .accessibilityIdentifier("player.remaining")
             }
         }
     }

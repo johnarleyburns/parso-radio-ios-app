@@ -12,6 +12,14 @@ struct NowPlayingSheet: View {
         playerVM.currentChannel?.category ?? ""
     }
 
+    private var surfaceAccessibilityID: String {
+        switch playerVM.activeMediaKind {
+        case .audiobook, .lecture, .podcast: return "player.surface.audiobook"
+        case .ambient: return "player.surface.ambient"
+        default: return "player.surface.music"
+        }
+    }
+
     var body: some View {
         ZStack {
             NavigationStack {
@@ -67,6 +75,7 @@ struct NowPlayingSheet: View {
                             .environmentObject(playerVM)
                     }
                 }
+                .accessibilityIdentifier(surfaceAccessibilityID)
             }
         }
     }
