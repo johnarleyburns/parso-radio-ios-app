@@ -45,6 +45,7 @@ final class PlaylistPlaybackController {
         let startTrack = track ?? tracks.first!
         vm.playlistIndex = track
             .flatMap { t in tracks.firstIndex(where: { $0.id == t.id }) } ?? 0
+        if shuffle { vm.buildShuffledPlaylistIndices() }
         await vm.playTrack(startTrack, seekTo: seekTo, recordHistory: false, autoPlay: autoPlay)
     }
 
@@ -73,9 +74,7 @@ final class PlaylistPlaybackController {
     func advancePlaylist() async {
         guard let vm = playerVM, !vm.playlistTracks.isEmpty else { return }
         if vm.shuffleMode, vm.playlistTracks.count > 1 {
-            var i = Int.random(in: 0..<vm.playlistTracks.count)
-            if i == vm.playlistIndex { i = (i + 1) % vm.playlistTracks.count }
-            vm.playlistIndex = i
+            vm.playlistIndex = vm.getNextShuffledPlaylistIndex()
         } else {
             vm.playlistIndex = (vm.playlistIndex + 1) % vm.playlistTracks.count
         }

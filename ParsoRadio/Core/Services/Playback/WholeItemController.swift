@@ -129,6 +129,8 @@ final class WholeItemController {
         vm.playbackContextToken &+= 1
         vm.playHistory = []
         vm.channelDescription = title
+        vm.shuffleMode = false
+        vm.resetShuffledPlaylistState()
         await vm.playTrack(ordered[0], seekTo: nil, recordHistory: false)
     }
 
@@ -156,6 +158,7 @@ final class WholeItemController {
         let ordered: [Track]
         if vm.shuffleMode, parts.count > 1 {
             ordered = parts.shuffled()
+            vm.shuffleMode = false
         } else {
             ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
         }
@@ -178,6 +181,8 @@ final class WholeItemController {
         vm.playlistIndex = 0
         vm.playbackContextToken &+= 1
         vm.playHistory = []
+        vm.shuffleMode = false
+        vm.resetShuffledPlaylistState()
         await vm.playTrack(ordered[0], seekTo: nil, recordHistory: false)
     }
 }

@@ -116,6 +116,11 @@ final class PlayerViewModel: ObservableObject {
     // playlist next/back robust regardless of currentTrack mutations.
     var playlistTracks: [Track] = []
     var playlistIndex: Int = 0
+    // Shuffled playlist: Fisher-Yates permutation of playlist indices.
+    // Built once when shuffle is enabled; index is consumed linearly.
+    // Reshuffles on exhaustion.
+    private(set) var shuffledPlaylistIndices: [Int] = []
+    var shuffledPlaylistPointer: Int = 0
     // Guards against double-advance when skip() fires onTrackFinished before the Task runs.
     var isSkipping = false
     // We auto-skip ONLY on a true failure: the stream URL can't be resolved
@@ -490,6 +495,7 @@ final class PlayerViewModel: ObservableObject {
         // shuffling, so an audiobook/lecture channel never inherits a shuffle
         // left on from a music channel or playlist.
         shuffleMode = false
+        resetShuffledPlaylistState()
         // Lock-screen controls follow the content: spoken-word channels get
         // ±15 s skip buttons; music channels get next/prev track.
         audioPlayer.setContentMode(channel.behavior.showsScrubbableProgress ? .spokenWord : .music)
@@ -1402,6 +1408,8 @@ final class PlayerViewModel: ObservableObject {
         playbackContextToken &+= 1
         playHistory = []
         channelDescription = "Favorites"
+        shuffleMode = false
+        resetShuffledPlaylistState()
         await playTrack(tracks[0], seekTo: nil, recordHistory: false)
     }
 
@@ -1611,9 +1619,48 @@ final class PlayerViewModel: ObservableObject {
 
     // MARK: - Shuffle and Repeat
 
+    func resetShuffledPlaylistState() {
+        shuffledPlaylistIndices = []
+        shuffledPlaylistPointer = 0
+    }
+
     func toggleShuffle() {
         shuffleMode.toggle()
         UserDefaults.standard.set(shuffleMode, forKey: "shuffleMode")
+        if shuffleMode, currentPlaylist != nil {
+            buildShuffledPlaylistIndices()
+        } else {
+            resetShuffledPlaylistState()
+        }
+    }
+
+    func buildShuffledPlaylistIndices() {
+        guard !playlistTracks.isEmpty else {
+            shuffledPlaylistIndices = []
+            shuffledPlaylistPointer = 0
+            return
+        }
+        var indices = Array(0..<playlistTracks.count)
+        indices.shuffle()
+        // Move current playing index to position 0 so it plays the next track
+        // from the shuffled order, not the current one again
+        if let currentIdx = indices.firstIndex(of: playlistIndex) {
+            indices.swapAt(0, currentIdx)
+        }
+        shuffledPlaylistIndices = indices
+        shuffledPlaylistPointer = 0
+    }
+
+    func getNextShuffledPlaylistIndex() -> Int {
+        if shuffledPlaylistIndices.isEmpty {
+            buildShuffledPlaylistIndices()
+        }
+        if shuffledPlaylistPointer >= shuffledPlaylistIndices.count {
+            buildShuffledPlaylistIndices()
+        }
+        let idx = shuffledPlaylistIndices[shuffledPlaylistPointer]
+        shuffledPlaylistPointer += 1
+        return idx
     }
 
     func toggleRepeat() {
