@@ -106,7 +106,8 @@ final class WholeItemController {
         await db.addTracksOrdered(parts, toPlaylist: playlist.id)
     }
 
-    func playAlbumTracks(_ ordered: [Track], title: String) async {
+    func playAlbumTracks(_ ordered: [Track], title: String,
+                         mediaKind: MediaKind? = nil, origin: PlaybackContext.Origin = .directItem) async {
         guard let vm = playerVM, !ordered.isEmpty else { return }
         vm.sessionRestore.saveAutosaveForCurrentTrack()
         let albumPlaylist = Playlist(
@@ -117,7 +118,11 @@ final class WholeItemController {
             isFavorites: false,
             isKidSafe: false
         )
+        let kind = mediaKind ?? ordered[0].mediaKind(in: nil)
         vm.currentChannel = nil
+        vm.currentPlaybackContext = PlaybackContext(
+            origin: origin, mediaKind: kind,
+            title: title)
         vm.currentPlaylist = albumPlaylist
         vm.playlistTracks = ordered
         vm.playlistIndex = 0
@@ -163,7 +168,11 @@ final class WholeItemController {
             isFavorites: false,
             isKidSafe: false
         )
+        let kind = vm.activeMediaKind
         vm.currentChannel = nil
+        vm.currentPlaybackContext = PlaybackContext(
+            origin: .directItem, mediaKind: kind,
+            title: vm.itemDisplayName(for: track))
         vm.currentPlaylist = albumPlaylist
         vm.playlistTracks = ordered
         vm.playlistIndex = 0

@@ -50,7 +50,7 @@ struct NowPlayingSheet: View {
                         .accessibilityIdentifier("player.dismiss")
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        let kind = playerVM.currentChannel?.mediaKind ?? .music
+                        let kind = playerVM.activeMediaKind
                         HStack(spacing: 16) {
                             if kind == .audiobook || kind == .lecture || kind == .podcast {
                                 AirPlayButton().frame(width: 28, height: 28)
@@ -201,7 +201,7 @@ struct NowPlayingSheet: View {
 
     @ViewBuilder
     private var controls: some View {
-        let kind = playerVM.currentChannel?.mediaKind ?? .music
+        let kind = playerVM.activeMediaKind
         let tint = ChannelCategoryStyle.color(for: channelCategory)
         Group {
             switch kind {
@@ -216,7 +216,7 @@ struct NowPlayingSheet: View {
 
     @ViewBuilder
     private var overflowMenu: some View {
-        let kind = playerVM.currentChannel?.mediaKind ?? .music
+        let kind = playerVM.activeMediaKind
         Menu {
             if let t = playerVM.currentTrack {
 

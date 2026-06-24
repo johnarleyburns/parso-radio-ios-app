@@ -15,8 +15,12 @@ final class RecentlyPlayedController {
     }
 
     func playRecentTrack(_ track: Track) async {
-        playerVM?.currentChannel = nil
-        await playerVM?.playTrack(track, seekTo: nil)
+        guard let vm = playerVM else { return }
+        vm.currentChannel = nil
+        vm.currentPlaybackContext = PlaybackContext(
+            origin: .recentlyPlayed, mediaKind: track.mediaKind(in: nil),
+            title: track.title)
+        await vm.playTrack(track, seekTo: nil)
     }
 
     func removeFromRecentlyPlayed(_ track: Track) async {

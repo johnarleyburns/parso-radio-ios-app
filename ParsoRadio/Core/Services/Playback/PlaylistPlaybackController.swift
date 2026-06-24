@@ -31,6 +31,9 @@ final class PlaylistPlaybackController {
         vm.loadingMessage = "Loading…"
         vm.currentPlaylist = playlist
         vm.currentChannel = nil
+        vm.currentPlaybackContext = PlaybackContext(
+            origin: .playlist, mediaKind: track?.mediaKind(in: nil) ?? .music,
+            title: playlist.name, playlistId: playlist.id)
         vm.playbackContextToken &+= 1
         vm.playHistory = []
         let tracks = await db.fetchTracks(forPlaylist: playlist.id)

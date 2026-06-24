@@ -79,6 +79,19 @@ final class PlayerViewModel: ObservableObject {
     // playback prefers a local file over re-streaming from the Internet Archive.
     private let fileStorage = FileStorageService()
     @Published var currentChannel: Channel?
+    @Published var currentPlaybackContext: PlaybackContext?
+
+    var activeMediaKind: MediaKind {
+        if let ctx = currentPlaybackContext { return ctx.mediaKind }
+        if let ch = currentChannel { return ch.mediaKind }
+        if let track = currentTrack {
+            let kind = track.mediaKind(in: currentChannel)
+            if kind != .music || track.source == "internet_archive" {
+                return kind
+            }
+        }
+        return .music
+    }
 
     // Look-ahead cache: pre-resolved IA audio URLs so track transitions are gap-free.
     private var prefetchedURLs: [String: URL] = [:]
@@ -456,6 +469,9 @@ final class PlayerViewModel: ObservableObject {
         }
 
         currentChannel = channel
+        currentPlaybackContext = PlaybackContext(
+            origin: .channel, mediaKind: channel.mediaKind,
+            title: channel.name, channelId: channel.id)
         // New playback context → invalidate any track still resolving from the
         // previous context (see playbackContextToken).
         playbackContextToken &+= 1
@@ -1354,6 +1370,9 @@ final class PlayerViewModel: ObservableObject {
     func playSingleTrack(_ track: Track, seekTo: Double? = nil) async {
         saveAutosaveForCurrentTrack()
         currentChannel = nil
+        currentPlaybackContext = PlaybackContext(
+            origin: .directItem, mediaKind: track.mediaKind(in: nil),
+            title: track.title)
         currentPlaylist = nil
         playlistTracks = []
         playlistIndex = 0
@@ -1374,6 +1393,9 @@ final class PlayerViewModel: ObservableObject {
             isKidSafe: false
         )
         currentChannel = nil
+        currentPlaybackContext = PlaybackContext(
+            origin: .playlist, mediaKind: tracks[0].mediaKind(in: nil),
+            title: "Favorites", playlistId: tempPlaylist.id)
         currentPlaylist = tempPlaylist
         playlistTracks = tracks
         playlistIndex = 0
@@ -1401,6 +1423,9 @@ final class PlayerViewModel: ObservableObject {
             isKidSafe: false
         )
         currentChannel = nil
+        currentPlaybackContext = PlaybackContext(
+            origin: .directItem, mediaKind: startingAt.mediaKind(in: nil),
+            title: startingAt.title)
         currentPlaylist = tempPlaylist
         playlistTracks = parts
         playlistIndex = parts.firstIndex(where: { $0.id == startingAt.id }) ?? 0
@@ -1620,6 +1645,9 @@ final class PlayerViewModel: ObservableObject {
     /// outside any channel / playlist context.
     func auditionTrack(_ track: Track) async {
         currentChannel = nil
+        currentPlaybackContext = PlaybackContext(
+            origin: .audition, mediaKind: track.mediaKind(in: nil),
+            title: track.title)
         currentPlaylist = nil
         playlistTracks = []
         playlistIndex = 0
@@ -1646,6 +1674,9 @@ final class PlayerViewModel: ObservableObject {
             addedDate: group.addedDate
         )
         currentChannel = nil
+        currentPlaybackContext = PlaybackContext(
+            origin: .search, mediaKind: .music,
+            title: group.title)
         currentPlaylist = nil
         playlistTracks = []
         playlistIndex = 0
