@@ -37,12 +37,18 @@ final class MadeForYouShelfStore: ObservableObject {
 
     private let db: DatabaseService
     private let tasteProfileStore: TasteProfileStore
+    private var archiveService: InternetArchiveService?
     private let backfillVersionKey = "tasteProfileBackfillVersion"
     private let currentBackfillVersion = 1
+    private var storeTask: Task<Void, Never>?
 
     init(db: DatabaseService, tasteProfileStore: TasteProfileStore) {
         self.db = db
         self.tasteProfileStore = tasteProfileStore
+    }
+
+    func setArchiveService(_ service: InternetArchiveService) {
+        self.archiveService = service
     }
 
     private var isLoadable: Bool {
@@ -71,7 +77,48 @@ final class MadeForYouShelfStore: ObservableObject {
             }
         }
 
-        state = .loaded(.coldStart, [])
+        let hasProfile = await tasteProfileStore.hasAnyProfile()
+        var personalizedSuccess = false
+
+        if hasProfile, let svc = archiveService {
+            let controller = RecommendationsController(
+                db: db, archiveService: svc, tasteStore: tasteProfileStore)
+            if let recs = try? await controller.fetchMixedRecommendations(),
+               recs.count >= RecommendationConstants.minShelf {
+                let trackIds = recs.map(\.id)
+                await saveDailyCache(trackIds: trackIds, source: "personalized")
+                state = .loaded(.personalized, recs)
+                personalizedSuccess = true
+            }
+        }
+
+        if !personalizedSuccess {
+            let coldTracks = await fetchColdStartPicks()
+            if !coldTracks.isEmpty {
+                let trackIds = coldTracks.map(\.id)
+                await saveDailyCache(trackIds: trackIds, source: "cold_start")
+                state = .loaded(.coldStart, coldTracks)
+            } else {
+                state = .empty(message: "Could not build your shelf right now.")
+            }
+        }
+    }
+
+    private func fetchColdStartPicks() async -> [Track] {
+        guard let svc = archiveService else { return [] }
+        let queries = [
+            "mediatype:audio AND collection:(etree OR musopen OR 78rpm)",
+            "mediatype:audio AND collection:librivoxaudio"
+        ]
+        var results: [Track] = []
+        for query in queries {
+            if let batch = try? await svc.fetchTracks(
+                iaQuery: query, matchTags: ["for-you"], limit: 15
+            ), !batch.isEmpty {
+                results.append(contentsOf: batch)
+            }
+        }
+        return Array(results.shuffled().prefix(RecommendationConstants.kTarget))
     }
 
     func ensureTasteBackfillIfNeeded() async {
