@@ -4,6 +4,7 @@ struct FavoritesScreen: View {
     @EnvironmentObject var favorites: FavoritesStore
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var playlistVM: PlaylistViewModel
+    @EnvironmentObject var offlineService: OfflineDownloadService
     @State private var selectedKind: FavoriteKind? = nil
     @State private var showPlayer = false
 
@@ -25,6 +26,8 @@ struct FavoritesScreen: View {
             NowPlayingSheet()
                 .environmentObject(playerVM)
                 .environmentObject(favorites)
+                .environmentObject(playlistVM)
+                .environmentObject(offlineService)
         }
     }
 

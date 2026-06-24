@@ -14,16 +14,11 @@ struct MadeForYouSection: View {
     var body: some View {
         Section {
             switch shelfStore.state {
-            case .idle:
-                Color.clear
-                    .frame(height: 0)
-                    .listRowBackground(Color.clear)
-
-            case .loading:
+            case .idle, .loading:
                 HStack {
                     ProgressView()
                         .padding(.trailing, 8)
-                    Text("Finding fresh picks...")
+                    Text("Finding music for you\u{2026}")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -48,7 +43,7 @@ struct MadeForYouSection: View {
                 .listRowBackground(Color.clear)
 
             case .loaded(_, let tracks):
-                Text("No picks available right now.")
+                Text("No music picks right now.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(height: 80)
@@ -83,29 +78,16 @@ struct MadeForYouSection: View {
                 .listRowBackground(Color.clear)
             }
         } header: {
-            if case .loaded(let kind, let tracks) = shelfStore.state, !tracks.isEmpty {
-                HStack(spacing: 5) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 13))
-                        .foregroundStyle(
-                            LinearGradient(
-                                gradient: Gradient(colors: [Color(red: 0.42, green: 0.20, blue: 0.80),
-                                                             Color(red: 0.10, green: 0.22, blue: 0.65)]),
-                                startPoint: .topLeading, endPoint: .bottomTrailing)
-                        )
-                    Text("Made for You")
-                        .font(.headline.weight(.semibold))
-                }
-            }
+            Text("Music For You")
         } footer: {
             if case .loaded(let kind, let tracks) = shelfStore.state, !tracks.isEmpty {
                 switch kind {
                 case .personalized:
-                    Text("Fresh picks from your taste \u{00B7} refreshes daily")
+                    Text("Fresh music from your taste \u{00B7} refreshes daily")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 case .coldStart:
-                    Text("Starter picks while Lorewave learns \u{00B7} refreshes daily")
+                    Text("Starter music while Lorewave learns \u{00B7} refreshes daily")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

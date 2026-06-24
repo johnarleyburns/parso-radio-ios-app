@@ -53,6 +53,7 @@ struct MiniPlayer: View {
                     .environmentObject(playerVM)
                     .environmentObject(favorites)
                     .environmentObject(playlistVM)
+                    .environmentObject(offlineService)
             }
         }
     }

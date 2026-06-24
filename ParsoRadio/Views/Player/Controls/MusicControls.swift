@@ -6,6 +6,8 @@ struct MusicControls: View {
 
     var body: some View {
         VStack(spacing: 22) {
+            ScrubRow(tint: tint)
+
             HStack(spacing: 22) {
                 ShuffleButton()
                     .disabled(playerVM.currentTrack == nil || playerVM.isLoading)

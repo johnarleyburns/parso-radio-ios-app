@@ -187,11 +187,14 @@ ParsoRadio/
 
 Before claiming any feature/fix is implemented, verify these invariants hold:
 
-### Made For You
+### Music For You
 - Section always mounts (no `if showSection` gate in `MadeForYouSection`)
-- Section visible even in loading/empty/failed states
+- Header always renders as a plain `Text("Music For You")` (no icon, default section-header font), matching peer Home sections
+- Section visible even in loading/empty/failed states; shows a spinner while fetching
+- "A Book Curated For You" renders directly below "Music For You"
+- Returns MUSIC ONLY — never LibriVox audiobooks, podcasts, or lectures (enforced query-side: music-only recs + no `librivoxaudio` cold-start query)
 - Existing-user play history backfills taste profile once (check `tasteProfileBackfillVersion`)
-- Cold-start fallback returns both music and audiobook picks, never hides section
+- Cold-start fallback returns music picks, never hides section
 - Daily cache persists shelf content; stale cache rebuilds from network
 
 ### Live Music on This Day

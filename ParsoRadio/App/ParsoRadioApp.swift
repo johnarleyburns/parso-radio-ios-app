@@ -276,6 +276,9 @@ struct KidsHomeView: View {
         .fullScreenCover(isPresented: $showPlayer) {
             NowPlayingSheet()
                 .environmentObject(playerVM)
+                .environmentObject(favorites)
+                .environmentObject(playlistVM)
+                .environmentObject(offlineService)
         }
         .task {
             let lastId = UserDefaults.standard.string(forKey: "lastChannelId")
