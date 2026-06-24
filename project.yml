@@ -39,6 +39,7 @@ targets:
           - "**/*Mock*.swift"
           - "**/LinuxStubs/**"
           - "**/IntentsExtension/**"
+          - "**/Integration/**"
     info:
       path: ParsoRadio/Info.plist
       properties:
@@ -155,6 +156,7 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: ParsoRadio/Integration/Tests
+      - path: ParsoRadio/Integration/Harness
     dependencies:
       - target: ParsoMusic
     settings:

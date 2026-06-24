@@ -9,7 +9,7 @@ final class BookForYouIntegrationTests: XCTestCase {
     override func setUpWithError() throws {
         try super.setUpWithError()
         db = try DatabaseService(path: ":memory:")
-        service = BookForYouService(db: db)
+        service = BookForYouService(db: db, session: IntegrationHarness.shared.session)
     }
 
     override func tearDown() {
@@ -50,7 +50,7 @@ final class BookForYouIntegrationTests: XCTestCase {
         // Spot-check: the first 3 bundled books should have valid IA cover images
         for book in LibrivoxBundledBooks.all.prefix(3) {
             let coverURL = URL(string: "https://archive.org/services/img/\(book.identifier)")!
-            let (data, response) = try await URLSession.shared.data(from: coverURL)
+            let (data, response) = try await IntegrationHarness.shared.session.data(from: coverURL)
             guard let httpResponse = response as? HTTPURLResponse else {
                 XCTFail("Invalid response for \(book.identifier)")
                 return
@@ -84,7 +84,7 @@ final class BookForYouIntegrationTests: XCTestCase {
             return
         }
 
-        let (data, response) = try await URLSession.shared.data(from: entry.coverURL)
+        let (data, response) = try await IntegrationHarness.shared.session.data(from: entry.coverURL)
         guard let httpResponse = response as? HTTPURLResponse else {
             XCTFail("Invalid response type for cover image")
             return
@@ -104,7 +104,7 @@ final class BookForYouIntegrationTests: XCTestCase {
         let encoded = entry.identifier
             .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? entry.identifier
         let metaURL = URL(string: "https://archive.org/metadata/\(encoded)")!
-        let (data, response) = try await URLSession.shared.data(from: metaURL)
+        let (data, response) = try await IntegrationHarness.shared.session.data(from: metaURL)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             XCTFail("Invalid response")

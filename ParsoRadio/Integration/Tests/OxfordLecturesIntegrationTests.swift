@@ -6,7 +6,7 @@ import XCTest
 // URLErrors are skipped so CI isn't blocked by transient network issues.
 final class OxfordLecturesIntegrationTests: XCTestCase {
 
-    private let service = OxfordLecturesService()
+    private let service = OxfordLecturesService(session: IntegrationHarness.shared.session)
 
     override func setUp() {
         super.setUp()

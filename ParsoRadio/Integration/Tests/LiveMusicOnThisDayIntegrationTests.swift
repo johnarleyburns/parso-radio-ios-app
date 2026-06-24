@@ -9,7 +9,7 @@ final class LiveMusicOnThisDayIntegrationTests: XCTestCase {
     }
 
     func testEtreeQueryReturnsResults() async throws {
-        let service = LiveMusicOnThisDayService()
+        let service = LiveMusicOnThisDayService(session: IntegrationHarness.shared.session)
         let entries: [LiveMusicEntry]
         do {
             entries = try await service.fetchEntries(for: "05-08")
@@ -26,7 +26,7 @@ final class LiveMusicOnThisDayIntegrationTests: XCTestCase {
     }
 
     func testThumbnailLoads() async throws {
-        let service = LiveMusicOnThisDayService()
+        let service = LiveMusicOnThisDayService(session: IntegrationHarness.shared.session)
         let entries: [LiveMusicEntry]
         do {
             entries = try await service.fetchEntries(for: "05-08")
@@ -40,7 +40,7 @@ final class LiveMusicOnThisDayIntegrationTests: XCTestCase {
         let url = first.thumbnailURL
         let (data, response): (Data, URLResponse)
         do {
-            (data, response) = try await URLSession.shared.data(from: url)
+            (data, response) = try await IntegrationHarness.shared.session.data(from: url)
         } catch let e as URLError {
             throw XCTSkip("Network unavailable: \(e.localizedDescription)")
         }
@@ -53,7 +53,7 @@ final class LiveMusicOnThisDayIntegrationTests: XCTestCase {
     }
 
     func testJuly4QueryReturnsResults() async throws {
-        let service = LiveMusicOnThisDayService()
+        let service = LiveMusicOnThisDayService(session: IntegrationHarness.shared.session)
         let entries: [LiveMusicEntry]
         do {
             entries = try await service.fetchEntries(for: "07-04")
@@ -68,7 +68,7 @@ final class LiveMusicOnThisDayIntegrationTests: XCTestCase {
     }
 
     func testMetadataEnrichment() async throws {
-        let service = LiveMusicOnThisDayService()
+        let service = LiveMusicOnThisDayService(session: IntegrationHarness.shared.session)
         let entries: [LiveMusicEntry]
         do {
             entries = try await service.fetchEntries(for: "05-08")
@@ -86,7 +86,7 @@ final class LiveMusicOnThisDayIntegrationTests: XCTestCase {
         }
         let (data, response): (Data, URLResponse)
         do {
-            (data, response) = try await URLSession.shared.data(from: url)
+            (data, response) = try await IntegrationHarness.shared.session.data(from: url)
         } catch let e as URLError {
             throw XCTSkip("Network unavailable: \(e.localizedDescription)")
         }
@@ -111,7 +111,7 @@ final class LiveMusicOnThisDayIntegrationTests: XCTestCase {
     }
 
     func testFetchTracksForKnownItem() async throws {
-        let lmService = LiveMusicOnThisDayService()
+        let lmService = LiveMusicOnThisDayService(session: IntegrationHarness.shared.session)
         let entries: [LiveMusicEntry]
         do {
             entries = try await lmService.fetchEntries(for: "05-08")
@@ -122,7 +122,7 @@ final class LiveMusicOnThisDayIntegrationTests: XCTestCase {
             throw XCTSkip("No entries found for 05-08")
         }
 
-        let iaService = InternetArchiveService()
+        let iaService = InternetArchiveService(session: IntegrationHarness.shared.session)
         let tracks: [Track]
         do {
             tracks = try await iaService.fetchTracksForIdentifier(candidate.id)

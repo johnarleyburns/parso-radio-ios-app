@@ -24,15 +24,25 @@ xcodebuild -project ParsoMusic.xcodeproj -scheme ParsoMusic \
   -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
   test -only-testing:ParsoMusicTests
 
-# Run integration tests (hits real IA APIs, slow)
+# Run integration tests (offline by default — replays recorded fixtures, fast & deterministic)
 xcodebuild -project ParsoMusic.xcodeproj -scheme ParsoMusic \
   -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
   test -only-testing:ParsoMusicIntegrationTests
+
+# Re-record fixtures from the live APIs (only when upstream response shapes change):
+#   1. Set record mode on the target simulator
+#        xcrun simctl spawn booted launchctl setenv IA_HARNESS_MODE record
+#   2. Run the integration suite (hits real archive.org / podcasts.ox.ac.uk)
+#   3. Clear it again
+#        xcrun simctl spawn booted launchctl unsetenv IA_HARNESS_MODE
+#   Captured fixtures land in ParsoRadio/Integration/Fixtures/ — commit them.
 ```
 
 **Always regenerate the Xcode project** after adding new `.swift` files — they aren't auto-discovered.
 
-A git pre-push hook at `.git/hooks/pre-push` runs unit tests before every push.
+A git pre-push hook at `.git/hooks/pre-push` runs unit **and** integration tests before every push.
+The integration suite no longer touches the network: a loopback HTTP harness server
+(`Integration/Harness/`) replays recorded fixtures, so pushes are no longer flaky on network blips.
 
 ## Source tree
 
@@ -49,7 +59,9 @@ ParsoRadio/
 │   │   ├── CustomChannelsStore.swift # Per-channel JSON I/O (import/export/share only)
 │   │   └── ...
 │   └── Tests/                      # Unit tests (ParsoMusicTests target)
-├── Integration/Tests/              # Network-dependent tests
+├── Integration/Tests/              # Integration tests (offline via the harness)
+├── Integration/Harness/            # Loopback HTTP record/replay server + URLProtocol reroute
+├── Integration/Fixtures/           # Recorded API responses (manifest.json + body files)
 ├── Resources/                      # Assets, audio files, curated-channels/ JSONs, ia_queries.json
 ├── Utilities/                      # Extensions, Logger, SharedViews, ChannelCategoryStyle, Protocols
 ├── ViewModels/                     # PlayerViewModel, PlaylistViewModel, SearchViewModel

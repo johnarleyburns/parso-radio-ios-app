@@ -1,0 +1,506 @@
+[
+  {
+    "bodyFile" : "062b8a6141cc1c17.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND ( subject:epistemology OR subject:metaphysics OR subject:ontology OR subject:\"political philosophy\" OR subject:\"philosophy of mind\" OR subject:stoicism OR subject:stoic OR subject:utilitarianism OR subject:empiricism OR subject:rationalism OR subject:\"german idealism\" OR subject:\"history of philosophy\" OR subject:\"ancient philosophy\" OR subject:\"ancient Greek philosophy\" OR subject:\"moral philosophy\" OR subject:phenomenology OR subject:existentialism OR subject:\"natural law\" OR subject:pragmatism OR subject:\"Indian philosophy\" OR subject:\"eastern philosophy\" OR subject:\"Chinese philosophy\" OR subject:\"Islamic philosophy\" OR subject:Confucianism OR subject:Taoism OR subject:neoplatonism OR subject:\"medieval philosophy\" OR subject:\"jewish philosophy\" OR subject:psychoanalysis OR ( creator:(Plato OR Aristotle OR Kant OR Descartes OR Hume OR Locke OR Spinoza OR Hegel OR Nietzsche OR Schopenhauer OR Leibniz OR \"John Stuart Mill\" OR Rousseau OR Epicurus OR Epictetus OR \"Marcus Aurelius\" OR Seneca OR Cicero OR Fichte OR Bergson OR Bentham OR \"Francis Bacon\" OR \"Thomas Hobbes\" OR Voltaire OR \"John Dewey\" OR Russell OR Plotinus OR Boethius OR \"Thomas Aquinas\" OR Confucius OR \"Lao Tzu\" OR Maimonides OR Avicenna OR Freud) AND (subject:philosophy OR subject:ethics OR subject:logic OR subject:nonfiction OR subject:\"non-fiction\" OR subject:metaphysics OR subject:epistemology) ) ) AND NOT ( subject:poetry OR subject:fiction OR subject:\"science fiction\" OR subject:\"fairy tales\" OR subject:children OR subject:Christmas OR subject:novel OR subject:biography OR subject:autobiography OR subject:\"self-help\" OR subject:\"New Thought\" OR subject:\"true crime\" OR subject:thriller OR subject:mystery OR subject:romance OR subject:adventure OR subject:supernatural OR subject:occult OR subject:mysticism OR subject:hermeticism OR subject:thelema OR subject:yoga OR subject:hypnosis )&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(%20subject:epistemology%20OR%20subject:metaphysics%20OR%20subject:ontology%20OR%20subject:%22political%20philosophy%22%20OR%20subject:%22philosophy%20of%20mind%22%20OR%20subject:stoicism%20OR%20subject:stoic%20OR%20subject:utilitarianism%20OR%20subject:empiricism%20OR%20subject:rationalism%20OR%20subject:%22german%20idealism%22%20OR%20subject:%22history%20of%20philosophy%22%20OR%20subject:%22ancient%20philosophy%22%20OR%20subject:%22ancient%20Greek%20philosophy%22%20OR%20subject:%22moral%20philosophy%22%20OR%20subject:phenomenology%20OR%20subject:existentialism%20OR%20subject:%22natural%20law%22%20OR%20subject:pragmatism%20OR%20subject:%22Indian%20philosophy%22%20OR%20subject:%22eastern%20philosophy%22%20OR%20subject:%22Chinese%20philosophy%22%20OR%20subject:%22Islamic%20philosophy%22%20OR%20subject:Confucianism%20OR%20subject:Taoism%20OR%20subject:neoplatonism%20OR%20subject:%22medieval%20philosophy%22%20OR%20subject:%22jewish%20philosophy%22%20OR%20subject:psychoanalysis%20OR%20(%20creator:(Plato%20OR%20Aristotle%20OR%20Kant%20OR%20Descartes%20OR%20Hume%20OR%20Locke%20OR%20Spinoza%20OR%20Hegel%20OR%20Nietzsche%20OR%20Schopenhauer%20OR%20Leibniz%20OR%20%22John%20Stuart%20Mill%22%20OR%20Rousseau%20OR%20Epicurus%20OR%20Epictetus%20OR%20%22Marcus%20Aurelius%22%20OR%20Seneca%20OR%20Cicero%20OR%20Fichte%20OR%20Bergson%20OR%20Bentham%20OR%20%22Francis%20Bacon%22%20OR%20%22Thomas%20Hobbes%22%20OR%20Voltaire%20OR%20%22John%20Dewey%22%20OR%20Russell%20OR%20Plotinus%20OR%20Boethius%20OR%20%22Thomas%20Aquinas%22%20OR%20Confucius%20OR%20%22Lao%20Tzu%22%20OR%20Maimonides%20OR%20Avicenna%20OR%20Freud)%20AND%20(subject:philosophy%20OR%20subject:ethics%20OR%20subject:logic%20OR%20subject:nonfiction%20OR%20subject:%22non-fiction%22%20OR%20subject:metaphysics%20OR%20subject:epistemology)%20)%20)%20AND%20NOT%20(%20subject:poetry%20OR%20subject:fiction%20OR%20subject:%22science%20fiction%22%20OR%20subject:%22fairy%20tales%22%20OR%20subject:children%20OR%20subject:Christmas%20OR%20subject:novel%20OR%20subject:biography%20OR%20subject:autobiography%20OR%20subject:%22self-help%22%20OR%20subject:%22New%20Thought%22%20OR%20subject:%22true%20crime%22%20OR%20subject:thriller%20OR%20subject:mystery%20OR%20subject:romance%20OR%20subject:adventure%20OR%20subject:supernatural%20OR%20subject:occult%20OR%20subject:mysticism%20OR%20subject:hermeticism%20OR%20subject:thelema%20OR%20subject:yoga%20OR%20subject:hypnosis%20)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "f4fa360e2ef9b3fe.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Action & Adventure Fiction\" OR subject:\"Historical Fiction\" OR subject:\"Nautical & Marine Fiction\" OR subject:\"Sagas\" OR subject:\"Westerns\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Action%20%26%20Adventure%20Fiction%22%20OR%20subject:%22Historical%20Fiction%22%20OR%20subject:%22Nautical%20%26%20Marine%20Fiction%22%20OR%20subject:%22Sagas%22%20OR%20subject:%22Westerns%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "8b54e4804c4e4af9.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Biography & Autobiography\" OR subject:Biography OR subject:Autobiography OR subject:Memoirs OR subject:Biographical)&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Biography%20%26%20Autobiography%22%20OR%20subject:Biography%20OR%20subject:Autobiography%20OR%20subject:Memoirs%20OR%20subject:Biographical)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "01c772c1950b47f9.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Classics (Greek & Latin Antiquity)\" OR subject:\"Antiquity\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Classics%20(Greek%20%26%20Latin%20Antiquity)%22%20OR%20subject:%22Antiquity%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "da047919a792e647.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Crime & Mystery Fiction\" OR subject:\"Detective Fiction\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Crime%20%26%20Mystery%20Fiction%22%20OR%20subject:%22Detective%20Fiction%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "c9762c07bb394ad9.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Essays & Short Works\" OR subject:\"Literary Criticism\" OR subject:\"Political Science\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Essays%20%26%20Short%20Works%22%20OR%20subject:%22Literary%20Criticism%22%20OR%20subject:%22Political%20Science%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "3d8a2ef33b45c523.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Fantasy Fiction\" OR subject:Fantasy OR subject:\"Fairy tales\" OR subject:Mythology OR subject:Myths OR subject:Legends OR subject:Folklore OR subject:\"Fantastic Fiction\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Fantasy%20Fiction%22%20OR%20subject:Fantasy%20OR%20subject:%22Fairy%20tales%22%20OR%20subject:Mythology%20OR%20subject:Myths%20OR%20subject:Legends%20OR%20subject:Folklore%20OR%20subject:%22Fantastic%20Fiction%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "9bee9b7e561d018d.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"General Fiction\" OR subject:\"Culture & Heritage Fiction\" OR subject:\"Family Life\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22General%20Fiction%22%20OR%20subject:%22Culture%20%26%20Heritage%20Fiction%22%20OR%20subject:%22Family%20Life%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "c9a55aca03c569d7.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"History\" OR subject:\"Middle Ages\/Middle History\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22History%22%20OR%20subject:%22Middle%20Ages\/Middle%20History%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "7981d14e0f84ca61.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Horror & Supernatural Fiction\" OR subject:Horror OR subject:Gothic OR subject:\"Ghost stories\" OR subject:Supernatural OR subject:\"Gothic Fiction\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Horror%20%26%20Supernatural%20Fiction%22%20OR%20subject:Horror%20OR%20subject:Gothic%20OR%20subject:%22Ghost%20stories%22%20OR%20subject:Supernatural%20OR%20subject:%22Gothic%20Fiction%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "76e7413688953d03.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Humorous Fiction\" OR subject:\"Satire\" OR subject:\"Humor\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Humorous%20Fiction%22%20OR%20subject:%22Satire%22%20OR%20subject:%22Humor%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "201b1d469b9e25a4.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Literary Fiction\" OR subject:\"Epistolary Fiction\" OR subject:Literature OR subject:\"Literary Collections\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Literary%20Fiction%22%20OR%20subject:%22Epistolary%20Fiction%22%20OR%20subject:Literature%20OR%20subject:%22Literary%20Collections%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "b0ddfed34cf7ea6f.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Plays\" OR subject:\"Dramatic Readings\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Plays%22%20OR%20subject:%22Dramatic%20Readings%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "6175de51874bf93d.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Poetry\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Poetry%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "e60231c09722057f.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Religion\" OR subject:\"Bibles\" OR subject:\"Religious Fiction\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Religion%22%20OR%20subject:%22Bibles%22%20OR%20subject:%22Religious%20Fiction%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "67193da7521aba10.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Romance\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Romance%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "74f35b16dad68a06.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Science Fiction\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Science%20Fiction%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "cf748fbfabbdd6ec.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Science\" OR subject:\"Nature\" OR subject:\"Life Sciences\" OR subject:\"Astronomy, Physics & Mechanics\" OR subject:\"Nature & Animal Fiction\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Science%22%20OR%20subject:%22Nature%22%20OR%20subject:%22Life%20Sciences%22%20OR%20subject:%22Astronomy,%20Physics%20%26%20Mechanics%22%20OR%20subject:%22Nature%20%26%20Animal%20Fiction%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "a740ab6b1c881aad.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Short Stories\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Short%20Stories%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "7ba0b8e195226af5.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"Travel & Geography\" OR subject:Travel OR subject:\"Voyages and travels\" OR subject:Geography OR subject:Exploration OR subject:\"Travel Fiction\")&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22Travel%20%26%20Geography%22%20OR%20subject:Travel%20OR%20subject:%22Voyages%20and%20travels%22%20OR%20subject:Geography%20OR%20subject:Exploration%20OR%20subject:%22Travel%20Fiction%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "3f273d3edc8ec2dc.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:librivoxaudio AND (subject:\"War & Military Fiction\" OR subject:War OR subject:\"World War\" OR subject:Military OR subject:\"World War I\" OR subject:\"World War, 1914-1918\" OR subject:Espionage OR subject:Thrillers)&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:librivoxaudio%20AND%20(subject:%22War%20%26%20Military%20Fiction%22%20OR%20subject:War%20OR%20subject:%22World%20War%22%20OR%20subject:Military%20OR%20subject:%22World%20War%20I%22%20OR%20subject:%22World%20War,%201914-1918%22%20OR%20subject:Espionage%20OR%20subject:Thrillers)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "c9db7249388c9f37.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=mediatype:audio AND collection:librivoxaudio AND downloads:[50 TO *]&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=mediatype:audio%20AND%20collection:librivoxaudio%20AND%20downloads:%5B50%20TO%20*%5D&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "2fe085fdb7101092.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=date&fl[]=downloads&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=mediatype:audio AND subject:classical AND downloads:[50 TO *]&rows=200&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=mediatype:audio%20AND%20subject:classical%20AND%20downloads:%5B50%20TO%20*%5D&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&fl%5B%5D=date&fl%5B%5D=downloads&output=json&rows=200&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "da3575798705ad5d.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=description&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=collection:musopen AND (creator:\"chopin\" OR title:\"chopin\" OR subject:\"chopin\" OR creator:\"chopin, frederic\" OR title:\"chopin, frederic\" OR subject:\"chopin, frederic\" OR creator:\"f. chopin\" OR title:\"f. chopin\" OR subject:\"f. chopin\" OR creator:\"frederic chopin\" OR title:\"frederic chopin\" OR subject:\"frederic chopin\" OR creator:\"frédéric chopin\" OR title:\"frédéric chopin\" OR subject:\"frédéric chopin\")&rows=100&sort[]=addeddate desc",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:musopen%20AND%20(creator:%22chopin%22%20OR%20title:%22chopin%22%20OR%20subject:%22chopin%22%20OR%20creator:%22chopin,%20frederic%22%20OR%20title:%22chopin,%20frederic%22%20OR%20subject:%22chopin,%20frederic%22%20OR%20creator:%22f.%20chopin%22%20OR%20title:%22f.%20chopin%22%20OR%20subject:%22f.%20chopin%22%20OR%20creator:%22frederic%20chopin%22%20OR%20title:%22frederic%20chopin%22%20OR%20subject:%22frederic%20chopin%22%20OR%20creator:%22fr%C3%A9d%C3%A9ric%20chopin%22%20OR%20title:%22fr%C3%A9d%C3%A9ric%20chopin%22%20OR%20subject:%22fr%C3%A9d%C3%A9ric%20chopin%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=description&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&output=json&rows=100&sort%5B%5D=addeddate%20desc"
+  },
+  {
+    "bodyFile" : "bcc5f6dd311f8654.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=description&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=mediatype:audio AND (creator:\"bach\" OR creator:\"bach, johann sebastian\" OR creator:\"j. s. bach\" OR creator:\"j.s. bach\" OR creator:\"johann sebastian bach\") NOT creator:PBS NOT creator:BBC NOT creator:CBC NOT creator:NPR&rows=100&sort[]=addeddate desc",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=mediatype:audio%20AND%20(creator:%22bach%22%20OR%20creator:%22bach,%20johann%20sebastian%22%20OR%20creator:%22j.%20s.%20bach%22%20OR%20creator:%22j.s.%20bach%22%20OR%20creator:%22johann%20sebastian%20bach%22)%20NOT%20creator:PBS%20NOT%20creator:BBC%20NOT%20creator:CBC%20NOT%20creator:NPR&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=description&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&output=json&rows=100&sort%5B%5D=addeddate%20desc"
+  },
+  {
+    "bodyFile" : "e907675f34cf7c06.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=description&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=mediatype:audio AND (subject:\"baroque\")&rows=100&sort[]=addeddate desc",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=mediatype:audio%20AND%20(subject:%22baroque%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=description&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&output=json&rows=100&sort%5B%5D=addeddate%20desc"
+  },
+  {
+    "bodyFile" : "f6182045e7230bb5.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=mediatype:audio AND (collection:\"librivoxaudio\") AND (subject:\"plato\")&rows=100&sort[]=addeddate desc",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=mediatype:audio%20AND%20(collection:%22librivoxaudio%22)%20AND%20(subject:%22plato%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&output=json&rows=100&sort%5B%5D=addeddate%20desc"
+  },
+  {
+    "bodyFile" : "78e19319992a2208.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=mediatype:audio AND (collection:\"librivoxaudio\") AND (subject:\"poetry\")&rows=100&sort[]=addeddate desc",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=mediatype:audio%20AND%20(collection:%22librivoxaudio%22)%20AND%20(subject:%22poetry%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&output=json&rows=100&sort%5B%5D=addeddate%20desc"
+  },
+  {
+    "bodyFile" : "3109204be93d49d0.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=identifier&fl[]=licenseurl&fl[]=subject&fl[]=title&fl[]=year&output=json&q=mediatype:audio AND (collection:\"librivoxaudio\") AND (subject:\"science fiction\")&rows=100&sort[]=addeddate desc",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=mediatype:audio%20AND%20(collection:%22librivoxaudio%22)%20AND%20(subject:%22science%20fiction%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=subject&fl%5B%5D=licenseurl&fl%5B%5D=year&fl%5B%5D=collection&fl%5B%5D=addeddate&output=json&rows=100&sort%5B%5D=addeddate%20desc"
+  },
+  {
+    "bodyFile" : "ee21ed55eb195d3d.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=identifier&fl[]=runtime&fl[]=title&output=json&q=mediatype:audio AND (title:\"beethoven\"^4 OR creator:\"beethoven\"^3 OR subject:\"beethoven\"^1) AND (title:\"beethoven\" OR creator:\"beethoven\")&rows=20&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=mediatype:audio%20AND%20(title:%22beethoven%22%5E4%20OR%20creator:%22beethoven%22%5E3%20OR%20subject:%22beethoven%22%5E1)%20AND%20(title:%22beethoven%22%20OR%20creator:%22beethoven%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=addeddate&fl%5B%5D=runtime&fl%5B%5D=collection&output=json&rows=20&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "3f308cea4ae15023.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=identifier&fl[]=runtime&fl[]=title&output=json&q=mediatype:audio AND (title:\"beethoven\"^4 OR creator:\"beethoven\"^3 OR subject:\"beethoven\"^1) AND (title:\"symphony\"^4 OR creator:\"symphony\"^3 OR subject:\"symphony\"^1) AND (title:\"beethoven\" OR creator:\"beethoven\" OR title:\"symphony\" OR creator:\"symphony\")&rows=20&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=mediatype:audio%20AND%20(title:%22beethoven%22%5E4%20OR%20creator:%22beethoven%22%5E3%20OR%20subject:%22beethoven%22%5E1)%20AND%20(title:%22symphony%22%5E4%20OR%20creator:%22symphony%22%5E3%20OR%20subject:%22symphony%22%5E1)%20AND%20(title:%22beethoven%22%20OR%20creator:%22beethoven%22%20OR%20title:%22symphony%22%20OR%20creator:%22symphony%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=addeddate&fl%5B%5D=runtime&fl%5B%5D=collection&output=json&rows=20&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "2f3a27cfa6bc5eb0.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=addeddate&fl[]=collection&fl[]=creator&fl[]=identifier&fl[]=runtime&fl[]=title&output=json&q=mediatype:audio AND (title:\"tarrega\"^4 OR creator:\"tarrega\"^3 OR subject:\"tarrega\"^1) AND (title:\"guitar\"^4 OR creator:\"guitar\"^3 OR subject:\"guitar\"^1) AND (title:\"tarrega\" OR creator:\"tarrega\" OR title:\"guitar\" OR creator:\"guitar\")&rows=20&sort[]=downloads desc&start=0",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=mediatype:audio%20AND%20(title:%22tarrega%22%5E4%20OR%20creator:%22tarrega%22%5E3%20OR%20subject:%22tarrega%22%5E1)%20AND%20(title:%22guitar%22%5E4%20OR%20creator:%22guitar%22%5E3%20OR%20subject:%22guitar%22%5E1)%20AND%20(title:%22tarrega%22%20OR%20creator:%22tarrega%22%20OR%20title:%22guitar%22%20OR%20creator:%22guitar%22)&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=addeddate&fl%5B%5D=runtime&fl%5B%5D=collection&output=json&rows=20&start=0&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "0c5b5c2098776198.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=creator&fl[]=date&fl[]=description&fl[]=downloads&fl[]=identifier&fl[]=year&output=json&q=collection:(etree) AND \"05-08\"&rows=50&sort[]=downloads desc",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:(etree)%20AND%20%2205-08%22&fl%5B%5D=identifier&fl%5B%5D=creator&fl%5B%5D=date&fl%5B%5D=year&fl%5B%5D=downloads&fl%5B%5D=description&output=json&rows=50&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "f18ce1088f8ef744.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/advancedsearch.php?fl[]=creator&fl[]=date&fl[]=description&fl[]=downloads&fl[]=identifier&fl[]=year&output=json&q=collection:(etree) AND \"07-04\"&rows=50&sort[]=downloads desc",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/advancedsearch.php?q=collection:(etree)%20AND%20%2207-04%22&fl%5B%5D=identifier&fl%5B%5D=creator&fl%5B%5D=date&fl%5B%5D=year&fl%5B%5D=downloads&fl%5B%5D=description&output=json&rows=50&sort%5B%5D=downloads%20desc"
+  },
+  {
+    "bodyFile" : "933b6227775a8acf.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/metadata\/Laws_Plato",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/metadata\/Laws_Plato"
+  },
+  {
+    "bodyFile" : "1871e57a5dd24caf.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/metadata\/LudwigVanBeethovenSymphonyNo.5Op.67I.AllegroConBrioFromAustinPowersGoldmember",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/metadata\/LudwigVanBeethovenSymphonyNo.5Op.67I.AllegroConBrioFromAustinPowersGoldmember"
+  },
+  {
+    "bodyFile" : "fcfd0d3f97374c0a.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/metadata\/gd77-05-08.sbd.hicks.4982.sbeok.shnf",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/metadata\/gd77-05-08.sbd.hicks.4982.sbeok.shnf"
+  },
+  {
+    "bodyFile" : "f8dc68976e02b45f.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/metadata\/jamendo-579247",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/metadata\/jamendo-579247"
+  },
+  {
+    "bodyFile" : "bb4c40717b2fa2d6.json",
+    "contentType" : "application\/json",
+    "signature" : "archive.org\/metadata\/penguin_island_ms_librivox",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/metadata\/penguin_island_ms_librivox"
+  },
+  {
+    "bodyFile" : "360479afc7f8105e.bin",
+    "contentType" : "image\/jpeg; charset=UTF-8",
+    "signature" : "archive.org\/services\/img\/alice_in_wonderland_librivox",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/services\/img\/alice_in_wonderland_librivox"
+  },
+  {
+    "bodyFile" : "ac45afeaa84b1640.bin",
+    "contentType" : "image\/jpeg; charset=UTF-8",
+    "signature" : "archive.org\/services\/img\/art_of_war_librivox",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/services\/img\/art_of_war_librivox"
+  },
+  {
+    "bodyFile" : "4d8206f0ce5f5605.bin",
+    "contentType" : "image\/jpeg; charset=UTF-8",
+    "signature" : "archive.org\/services\/img\/gd77-05-08.sbd.hicks.4982.sbeok.shnf",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/services\/img\/gd77-05-08.sbd.hicks.4982.sbeok.shnf"
+  },
+  {
+    "bodyFile" : "a2352ee1473974b8.bin",
+    "contentType" : "image\/jpeg; charset=UTF-8",
+    "signature" : "archive.org\/services\/img\/penguin_island_ms_librivox",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/services\/img\/penguin_island_ms_librivox"
+  },
+  {
+    "bodyFile" : "9d3c89fbbb1e7d26.bin",
+    "contentType" : "image\/jpeg; charset=UTF-8",
+    "signature" : "archive.org\/services\/img\/tom_sawyer_librivox",
+    "status" : 200,
+    "url" : "https:\/\/archive.org\/services\/img\/tom_sawyer_librivox"
+  },
+  {
+    "bodyFile" : "605e284287acd654.xml",
+    "contentType" : "application\/rss+xml",
+    "signature" : "podcasts.ox.ac.uk\/feeds\/022ce921-9aaf-453f-a9b5-278048734494\/audio.xml",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/feeds\/022ce921-9aaf-453f-a9b5-278048734494\/audio.xml"
+  },
+  {
+    "bodyFile" : "52c87451ddc9b89f.xml",
+    "contentType" : "application\/rss+xml",
+    "signature" : "podcasts.ox.ac.uk\/feeds\/2aae2a4c-e6b2-457c-9025-453ff3ef3e1c\/audio.xml",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/feeds\/2aae2a4c-e6b2-457c-9025-453ff3ef3e1c\/audio.xml"
+  },
+  {
+    "bodyFile" : "4e34951d1d959d2f.xml",
+    "contentType" : "application\/rss+xml",
+    "signature" : "podcasts.ox.ac.uk\/feeds\/2df2052c-7a13-4fbe-928e-fe9ffcad0536\/audio.xml",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/feeds\/2df2052c-7a13-4fbe-928e-fe9ffcad0536\/audio.xml"
+  },
+  {
+    "bodyFile" : "7080189770bb6e32.xml",
+    "contentType" : "application\/rss+xml",
+    "signature" : "podcasts.ox.ac.uk\/feeds\/3ed454a7-5ca6-41dd-a1d7-3d01e59b95d0\/audio.xml",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/feeds\/3ed454a7-5ca6-41dd-a1d7-3d01e59b95d0\/audio.xml"
+  },
+  {
+    "bodyFile" : "2c7f752b7ef62de9.xml",
+    "contentType" : "application\/rss+xml",
+    "signature" : "podcasts.ox.ac.uk\/feeds\/5c7a8759-fe76-4260-a8c2-8780a21f169e\/audio.xml",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/feeds\/5c7a8759-fe76-4260-a8c2-8780a21f169e\/audio.xml"
+  },
+  {
+    "bodyFile" : "b8f2c321bf663dcf.xml",
+    "contentType" : "application\/rss+xml",
+    "signature" : "podcasts.ox.ac.uk\/feeds\/942e4c90-e86f-4bea-893f-1180e1e5192a\/audio.xml",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/feeds\/942e4c90-e86f-4bea-893f-1180e1e5192a\/audio.xml"
+  },
+  {
+    "bodyFile" : "00b04097b276aca3.xml",
+    "contentType" : "application\/rss+xml",
+    "signature" : "podcasts.ox.ac.uk\/feeds\/a2f7d6eb-02ba-405e-94b8-d19dd0184c78\/audio.xml",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/feeds\/a2f7d6eb-02ba-405e-94b8-d19dd0184c78\/audio.xml"
+  },
+  {
+    "bodyFile" : "05942e8767b1cc0f.xml",
+    "contentType" : "application\/rss+xml",
+    "signature" : "podcasts.ox.ac.uk\/feeds\/b7d38289-6954-44e7-b314-54410bc2c011\/audio.xml",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/feeds\/b7d38289-6954-44e7-b314-54410bc2c011\/audio.xml"
+  },
+  {
+    "bodyFile" : "3ba55299523ce635.xml",
+    "contentType" : "application\/rss+xml",
+    "signature" : "podcasts.ox.ac.uk\/feeds\/e448e310-da0f-4f14-97e4-0054c58dd3db\/audio.xml",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/feeds\/e448e310-da0f-4f14-97e4-0054c58dd3db\/audio.xml"
+  },
+  {
+    "bodyFile" : "4704609312dce17e.xml",
+    "contentType" : "application\/rss+xml",
+    "signature" : "podcasts.ox.ac.uk\/feeds\/e713ccff-384b-477e-8908-2777184d34e1\/audio.xml",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/feeds\/e713ccff-384b-477e-8908-2777184d34e1\/audio.xml"
+  },
+  {
+    "bodyFile" : "4bf90edc55af2511.xml",
+    "contentType" : "application\/rss+xml",
+    "signature" : "podcasts.ox.ac.uk\/feeds\/f2450367-dd29-482c-9d4a-31f39406a22c\/audio.xml",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/feeds\/f2450367-dd29-482c-9d4a-31f39406a22c\/audio.xml"
+  },
+  {
+    "bodyFile" : "8fe4adc47c2ac5d2.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/2013-carnegie-uehiro-oxford-ethics-conference-happiness-and-well-being",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/2013-carnegie-uehiro-oxford-ethics-conference-happiness-and-well-being"
+  },
+  {
+    "bodyFile" : "458ccd2827f39008.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/accelerating-ai-ethics",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/accelerating-ai-ethics"
+  },
+  {
+    "bodyFile" : "a044313a95c923de.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/oxford-physics-academic-lectures",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/oxford-physics-academic-lectures"
+  },
+  {
+    "bodyFile" : "3119562d22421517.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/oxford-physics-public-lectures",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/oxford-physics-public-lectures"
+  },
+  {
+    "bodyFile" : "8cc7596b544fce26.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/oxford-physics-research",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/oxford-physics-research"
+  },
+  {
+    "bodyFile" : "a550ba10f615b8b7.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/oxford-physics-short-talks-and-introductions",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/oxford-physics-short-talks-and-introductions"
+  },
+  {
+    "bodyFile" : "ce8b08478990bc29.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/oxford-solid-state-basics",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/oxford-solid-state-basics"
+  },
+  {
+    "bodyFile" : "34ca7b81a3c3095a.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/philosophical-perspectives-causes-mental-illness",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/philosophical-perspectives-causes-mental-illness"
+  },
+  {
+    "bodyFile" : "57f8826f94d4a8ec.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/physics-fine-tuning",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/physics-fine-tuning"
+  },
+  {
+    "bodyFile" : "15e6a5306a5ac70c.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/practical-ethics-bites",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/practical-ethics-bites"
+  },
+  {
+    "bodyFile" : "a9cfec50d05467f8.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/quantum-mechanics",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/quantum-mechanics"
+  },
+  {
+    "bodyFile" : "1db333a8ec8396f3.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/reids-critique-hume",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/reids-critique-hume"
+  },
+  {
+    "bodyFile" : "a7b133cd45d8de50.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/stargazing",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/stargazing"
+  },
+  {
+    "bodyFile" : "61a585235310435b.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/theoretical-physics-outer-space-plasma",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/theoretical-physics-outer-space-plasma"
+  },
+  {
+    "bodyFile" : "78a0cdb85f7a3e86.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/series\/view-above-structure-emergence-and-causation",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/series\/view-above-structure-emergence-and-causation"
+  },
+  {
+    "bodyFile" : "419c87bba7ed4e6e.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/units\/department-physics",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/units\/department-physics"
+  },
+  {
+    "bodyFile" : "38c1c7a85c29370e.html",
+    "contentType" : "text\/html; charset=UTF-8",
+    "signature" : "podcasts.ox.ac.uk\/units\/faculty-philosophy",
+    "status" : 200,
+    "url" : "https:\/\/podcasts.ox.ac.uk\/units\/faculty-philosophy"
+  }
+]

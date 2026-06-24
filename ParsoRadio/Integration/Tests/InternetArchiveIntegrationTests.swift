@@ -7,7 +7,7 @@ import XCTest
 // failures — that's the bug class we want to catch.
 final class InternetArchiveIntegrationTests: XCTestCase {
 
-    private let service = InternetArchiveService()
+    private let service = InternetArchiveService(session: IntegrationHarness.shared.session)
 
     override func setUp() {
         super.setUp()
@@ -165,7 +165,7 @@ final class InternetArchiveIntegrationTests: XCTestCase {
 
 final class SpokenWordIntegrationTests: XCTestCase {
 
-    private let service = InternetArchiveService()
+    private let service = InternetArchiveService(session: IntegrationHarness.shared.session)
 
     override func setUp() {
         super.setUp()
@@ -232,7 +232,7 @@ final class SpokenWordIntegrationTests: XCTestCase {
 
 final class SearchIntegrationTests: XCTestCase {
 
-    private let service = InternetArchiveService()
+    private let service = InternetArchiveService(session: IntegrationHarness.shared.session)
 
     override func setUp() {
         super.setUp()
@@ -340,7 +340,7 @@ final class WholeBookIntegrationTests: XCTestCase {
     // chapters in 4 formats. We must extract exactly the single-format set,
     // in chapter order, NOT 80 mixed-format duplicates.
     func testLawsPlatoExtractsSingleFormatOrderedChapters() async throws {
-        let service = InternetArchiveService()
+        let service = InternetArchiveService(session: IntegrationHarness.shared.session)
         let tracks: [Track]
         do {
             tracks = try await service.fetchTracksForIdentifier("Laws_Plato")
@@ -375,7 +375,7 @@ final class WholeBookIntegrationTests: XCTestCase {
 
         let vm = PlayerViewModel(
             db: db,
-            archiveService: InternetArchiveService(),
+            archiveService: InternetArchiveService(session: IntegrationHarness.shared.session),
             fmaService: FMAService(),
             queueManager: QueueManager(db: db),
             audioPlayer: AudioPlayerService(),
