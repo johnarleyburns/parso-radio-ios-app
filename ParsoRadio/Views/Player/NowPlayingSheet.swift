@@ -4,9 +4,12 @@ struct NowPlayingSheet: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var favorites: FavoritesStore
     @EnvironmentObject var playlistVM: PlaylistViewModel
+    @EnvironmentObject var offlineService: OfflineDownloadService
     @Environment(\.dismiss) private var dismiss
 
     @State private var showAddToPlaylist = false
+
+    private let fileStorage = FileStorageService()
 
     private var channelCategory: String {
         playerVM.currentChannel?.category ?? ""
@@ -223,6 +226,12 @@ struct NowPlayingSheet: View {
         }
     }
 
+    private func isDownloaded(_ track: Track) -> Bool {
+        if track.localFilePath != nil { return true }
+        let url = fileStorage.localURL(for: track.id)
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
     @ViewBuilder
     private var overflowMenu: some View {
         let kind = playerVM.activeMediaKind
@@ -242,6 +251,22 @@ struct NowPlayingSheet: View {
                     let cleanId = identifier.contains("/") ? String(identifier.split(separator: "/").first ?? "") : identifier
                     if let url = URL(string: "https://archive.org/details/\(cleanId)") {
                         Link(destination: url) { Label("View on archive.org", systemImage: "safari") }
+                    }
+                }
+
+                if kind != .ambient, t.downloadURL != nil {
+                    Divider()
+                    if offlineService.trackProgress[t.id] != nil {
+                        Button {} label: { Label("Downloading\u{2026}", systemImage: "arrow.down.circle") }
+                            .disabled(true)
+                    } else if isDownloaded(t) {
+                        Button(role: .destructive) {
+                            Task { await offlineService.removeOffline(track: t) }
+                        } label: { Label("Remove Download", systemImage: "trash") }
+                    } else {
+                        Button {
+                            Task { await offlineService.makeOffline(track: t) }
+                        } label: { Label("Download", systemImage: "arrow.down.circle") }
                     }
                 }
 

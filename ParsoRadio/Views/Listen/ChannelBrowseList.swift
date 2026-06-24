@@ -6,6 +6,7 @@ struct ChannelBrowseList: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var favorites: FavoritesStore
     @EnvironmentObject var playlistVM: PlaylistViewModel
+    @EnvironmentObject var offlineService: OfflineDownloadService
 
     @ObservedObject private var iaCollectionStore = IACollectionStore.shared
     @ObservedObject private var podcastStore = PodcastSubscriptionStore.shared
@@ -48,6 +49,7 @@ struct ChannelBrowseList: View {
                 .environmentObject(playerVM)
                 .environmentObject(favorites)
                 .environmentObject(playlistVM)
+                .environmentObject(offlineService)
                 .task { await playerVM.load(channel: channel, autoPlay: true) }
         }
         .sheet(isPresented: $showAddPodcast) { PodcastAddView(initialMode: .url) }

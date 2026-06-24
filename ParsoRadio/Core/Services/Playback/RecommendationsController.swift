@@ -12,16 +12,18 @@ final class RecommendationsController {
         self.tasteStore = tasteStore
     }
 
-    func fetchMixedRecommendations() async throws -> [Track]? {
+    func fetchMixedRecommendations(musicOnly: Bool = false) async throws -> [Track]? {
         let musicProfile = await tasteStore.fetchProfile(bucket: "music")
-        let spokenProfile = await tasteStore.fetchProfile(bucket: "spoken")
+        let spokenProfile = musicOnly
+            ? ProfileBucket(bucket: "spoken", creatorTerms: [], subjectTerms: [], composerTerms: [])
+            : await tasteStore.fetchProfile(bucket: "spoken")
         let allCollectionIDs = RecommendationQueryBuilder.extractCollections(
             from: IACollectionStore.shared.collections)
 
         let dateSeed = dateSeedString()
         let musicQueries = RecommendationQueryBuilder.generateQueries(
             profile: musicProfile, dateSeed: dateSeed, allCollectionIDs: allCollectionIDs)
-        let spokenQueries = RecommendationQueryBuilder.generateQueries(
+        let spokenQueries = musicOnly ? [] : RecommendationQueryBuilder.generateQueries(
             profile: spokenProfile, dateSeed: dateSeed, allCollectionIDs: allCollectionIDs)
         let allQueries = musicQueries + spokenQueries
         guard !allQueries.isEmpty else { return nil }

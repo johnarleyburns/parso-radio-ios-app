@@ -23,11 +23,11 @@ struct ListenView: View {
 
                 MadeForYouSection()
 
+                BookForYouSection(playerVM: playerVM, deps: deps)
+
                 ExploreTypeRow()
 
                 FeaturedTodaySection(nowPlayingChannel: $nowPlayingChannel)
-
-                BookForYouSection(playerVM: playerVM, deps: deps)
 
                 LiveMusicSection(playerVM: playerVM, deps: deps) { entry in
                     selectedLiveEntry = entry
@@ -91,6 +91,7 @@ struct ListenView: View {
                     .environmentObject(playerVM)
                     .environmentObject(favorites)
                     .environmentObject(playlistVM)
+                    .environmentObject(deps.offlineService)
                     .task { await playerVM.load(channel: channel, autoPlay: true) }
             }
             .fullScreenCover(item: $selectedRecentTrack) { track in
@@ -98,6 +99,7 @@ struct ListenView: View {
                     .environmentObject(playerVM)
                     .environmentObject(favorites)
                     .environmentObject(playlistVM)
+                    .environmentObject(deps.offlineService)
                     .task { await playerVM.playRecentTrack(track) }
             }
             .sheet(item: $selectedLiveEntry) { entry in

@@ -39,6 +39,13 @@ final class RegressionContractSourceTests: XCTestCase {
         }
     }
 
+    func testMusicControlsRendersScrubRow() throws {
+        let path = projectRoot.appendingPathComponent("Views/Player/Controls/MusicControls.swift").path
+        let content = try String(contentsOfFile: path, encoding: .utf8)
+        XCTAssertTrue(content.contains("ScrubRow"),
+            "MusicControls.swift must render ScrubRow — the music surface needs the scrub slider, elapsed and remaining time.")
+    }
+
     func testInternetArchiveAudioSelectionIsMP3Only() throws {
         let path = projectRoot.appendingPathComponent("Core/Services/API/InternetArchiveService.swift").path
         let content = try String(contentsOfFile: path, encoding: .utf8)

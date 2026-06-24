@@ -71,6 +71,7 @@ final class MadeForYouShelfStore: ObservableObject {
                     tracks.append(track)
                 }
             }
+            tracks = Self.musicOnly(tracks)
             if !tracks.isEmpty {
                 state = .loaded(.personalized, tracks)
                 return
@@ -83,12 +84,14 @@ final class MadeForYouShelfStore: ObservableObject {
         if hasProfile, let svc = archiveService {
             let controller = RecommendationsController(
                 db: db, archiveService: svc, tasteStore: tasteProfileStore)
-            if let recs = try? await controller.fetchMixedRecommendations(),
-               recs.count >= RecommendationConstants.minShelf {
-                let trackIds = recs.map(\.id)
-                await saveDailyCache(trackIds: trackIds, source: "personalized")
-                state = .loaded(.personalized, recs)
-                personalizedSuccess = true
+            if let recs = try? await controller.fetchMixedRecommendations(musicOnly: true) {
+                let musicRecs = Self.musicOnly(recs)
+                if musicRecs.count >= RecommendationConstants.minShelf {
+                    let trackIds = musicRecs.map(\.id)
+                    await saveDailyCache(trackIds: trackIds, source: "personalized")
+                    state = .loaded(.personalized, musicRecs)
+                    personalizedSuccess = true
+                }
             }
         }
 
@@ -99,16 +102,21 @@ final class MadeForYouShelfStore: ObservableObject {
                 await saveDailyCache(trackIds: trackIds, source: "cold_start")
                 state = .loaded(.coldStart, coldTracks)
             } else {
-                state = .empty(message: "Could not build your shelf right now.")
+                state = .empty(message: "Couldn't load music right now.")
             }
         }
+    }
+
+    /// Music For You returns music only — defensively drop any spoken-word
+    /// source (podcast / lecture) that slips through query-side filtering.
+    private static func musicOnly(_ tracks: [Track]) -> [Track] {
+        tracks.filter { $0.source != "podcast" && $0.source != "oxford_lectures" }
     }
 
     private func fetchColdStartPicks() async -> [Track] {
         guard let svc = archiveService else { return [] }
         let queries = [
-            "mediatype:audio AND collection:(etree OR musopen OR 78rpm)",
-            "mediatype:audio AND collection:librivoxaudio"
+            "mediatype:audio AND collection:(etree OR musopen OR 78rpm)"
         ]
         var results: [Track] = []
         for query in queries {
@@ -118,7 +126,7 @@ final class MadeForYouShelfStore: ObservableObject {
                 results.append(contentsOf: batch)
             }
         }
-        return Array(results.shuffled().prefix(RecommendationConstants.kTarget))
+        return Array(Self.musicOnly(results).shuffled().prefix(RecommendationConstants.kTarget))
     }
 
     func ensureTasteBackfillIfNeeded() async {
