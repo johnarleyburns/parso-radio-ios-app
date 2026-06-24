@@ -11,6 +11,8 @@ struct LiveMusicEntry: Codable, Identifiable, Equatable, Sendable {
     let downloads: Int
     let dateString: String
     let description: String?
+    let playableTrackCount: Int?
+    let validatedAt: Date?
 
     var displayName: String {
         title ?? creator
@@ -48,7 +50,9 @@ struct LiveMusicEntry: Codable, Identifiable, Equatable, Sendable {
         year: Int? = nil,
         downloads: Int = 0,
         dateString: String,
-        description: String? = nil
+        description: String? = nil,
+        playableTrackCount: Int? = nil,
+        validatedAt: Date? = nil
     ) {
         self.id = id
         self.creator = creator
@@ -60,5 +64,7 @@ struct LiveMusicEntry: Codable, Identifiable, Equatable, Sendable {
         self.downloads = downloads
         self.dateString = dateString
         self.description = description
+        self.playableTrackCount = playableTrackCount
+        self.validatedAt = validatedAt
     }
 }

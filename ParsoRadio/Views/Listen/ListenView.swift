@@ -122,23 +122,34 @@ private struct LiveMusicSection: View {
 
     @State private var useFallbackImage = false
 
+    private var isLoaded: Bool {
+        if case .loaded = store.state { return true }
+        return false
+    }
+
+    private var currentEntry: LiveMusicEntry? {
+        if case .loaded(let entry) = store.state { return entry }
+        return nil
+    }
+
     var body: some View {
         Section {
             HStack(spacing: 0) {
                 Button {
-                    if let entry = store.entry { onDetail(entry) }
+                    if let entry = currentEntry { onDetail(entry) }
                 } label: {
                     HStack(spacing: 12) {
                         liveMusicThumbnail
 
                         VStack(alignment: .leading, spacing: 3) {
-                            if store.isLoading {
+                            switch store.state {
+                            case .loading:
                                 Text("Searching\u{2026}")
                                     .font(.subheadline.weight(.medium))
                                 Text("Live Music Archive")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                            } else if let entry = store.entry {
+                            case .loaded(let entry):
                                 Text(entry.displayName)
                                     .font(.subheadline.weight(.medium))
                                     .lineLimit(2)
@@ -153,8 +164,12 @@ private struct LiveMusicSection: View {
                                         .font(.caption2)
                                         .foregroundStyle(.tertiary)
                                 }
-                            } else {
-                                Text("No live recordings found for today.")
+                            case .empty(let msg), .failed(let msg, _):
+                                Text(msg)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            case .idle:
+                                Text("Live Music Archive")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
@@ -165,9 +180,9 @@ private struct LiveMusicSection: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .disabled(store.entry == nil)
+                .disabled(!isLoaded)
 
-                if store.entry != nil {
+                if isLoaded {
                     Button {
                         Task { await playAll() }
                     } label: {
@@ -191,25 +206,28 @@ private struct LiveMusicSection: View {
     @ViewBuilder
     private var liveMusicThumbnail: some View {
         Group {
-            if store.isLoading {
+            switch store.state {
+            case .loading:
                 Color(.systemGray5)
                     .overlay { ProgressView() }
-            } else if store.entry != nil && !useFallbackImage {
-                AsyncImage(url: store.entry!.thumbnailURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                            .task { await verifyImageSize() }
-                    case .failure, .empty:
-                        Image("live-music-default").resizable().scaledToFill()
-                            .onAppear { useFallbackImage = true }
-                    @unknown default:
-                        Image("live-music-default").resizable().scaledToFill()
+            case .loaded(let entry):
+                if useFallbackImage {
+                    Image("live-music-default").resizable().scaledToFill()
+                } else {
+                    AsyncImage(url: entry.thumbnailURL) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                                .task { await verifyImageSize() }
+                        case .failure, .empty:
+                            Image("live-music-default").resizable().scaledToFill()
+                                .onAppear { useFallbackImage = true }
+                        @unknown default:
+                            Image("live-music-default").resizable().scaledToFill()
+                        }
                     }
                 }
-            } else if store.entry != nil {
-                Image("live-music-default").resizable().scaledToFill()
-            } else {
+            case .idle, .empty, .failed:
                 Color(.systemGray5)
             }
         }
@@ -218,7 +236,7 @@ private struct LiveMusicSection: View {
     }
 
     private func verifyImageSize() async {
-        guard let entry = store.entry else { return }
+        guard let entry = currentEntry else { return }
         guard let (data, _) = try? await URLSession.shared.data(from: entry.thumbnailURL),
               data.count < 2048
         else { return }
@@ -226,7 +244,7 @@ private struct LiveMusicSection: View {
     }
 
     private func playAll() async {
-        guard let entry = store.entry else { return }
+        guard let entry = currentEntry else { return }
         do {
             let tracks = try await deps.archiveService.fetchTracksForIdentifier(entry.id)
             guard !tracks.isEmpty else {

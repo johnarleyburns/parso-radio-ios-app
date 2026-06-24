@@ -8,6 +8,7 @@ struct LiveMusicDetailView: View {
 
     @State private var tracks: [Track] = []
     @State private var isLoading = true
+    @State private var errorMessage: String?
     @State private var showPlaylistPicker = false
     @State private var showNewPlaylist = false
     @State private var newPlaylistName = ""
@@ -67,7 +68,37 @@ struct LiveMusicDetailView: View {
                     Section {
                         HStack { Spacer(); ProgressView("Loading tracks\u{2026}"); Spacer() }
                     }
-                } else if !tracks.isEmpty {
+                } else if let errorMessage {
+                    Section {
+                        VStack(spacing: 12) {
+                            Text(errorMessage)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button("Retry") {
+                                Task { await loadTracks() }
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                    }
+                } else if tracks.isEmpty {
+                    Section {
+                        VStack(spacing: 12) {
+                            Text("No playable tracks found for this recording.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button("Retry") {
+                                Task { await loadTracks() }
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                    }
+                } else {
                     Section("Tracks (\(tracks.count))") {
                         ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
                             HStack(spacing: 8) {
@@ -178,11 +209,14 @@ struct LiveMusicDetailView: View {
     }
 
     private func loadTracks() async {
-        guard let parts = await playerVM.resolveItemParts(identifier: entry.id) else {
-            isLoading = false
-            return
+        isLoading = true
+        errorMessage = nil
+        do {
+            let fetched = try await InternetArchiveService().fetchTracksForIdentifier(entry.id)
+            tracks = fetched.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+        } catch {
+            errorMessage = "Couldn't load tracks. Try again later."
         }
-        tracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
         isLoading = false
     }
 
