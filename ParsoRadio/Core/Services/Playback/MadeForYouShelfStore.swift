@@ -33,18 +33,28 @@ extension MadeForYouShelfState.Kind: Equatable {}
 
 @MainActor
 final class MadeForYouShelfStore: ObservableObject {
+    /// Which recommendation shelf this store powers. Drives the recommendation
+    /// bucket, cold-start collections, the source filter, the daily-cache
+    /// namespace, and the empty-state copy.
+    enum Shelf {
+        case music
+        case books
+    }
+
     @Published var state: MadeForYouShelfState = .idle
 
     private let db: DatabaseService
     private let tasteProfileStore: TasteProfileStore
+    private let shelf: Shelf
     private var archiveService: InternetArchiveService?
     private let backfillVersionKey = "tasteProfileBackfillVersion"
     private let currentBackfillVersion = 1
     private var storeTask: Task<Void, Never>?
 
-    init(db: DatabaseService, tasteProfileStore: TasteProfileStore) {
+    init(db: DatabaseService, tasteProfileStore: TasteProfileStore, shelf: Shelf = .music) {
         self.db = db
         self.tasteProfileStore = tasteProfileStore
+        self.shelf = shelf
     }
 
     func setArchiveService(_ service: InternetArchiveService) {
@@ -71,7 +81,7 @@ final class MadeForYouShelfStore: ObservableObject {
                     tracks.append(track)
                 }
             }
-            tracks = Self.musicOnly(tracks)
+            tracks = filtered(tracks)
             if !tracks.isEmpty {
                 state = .loaded(.personalized, tracks)
                 return
@@ -84,12 +94,13 @@ final class MadeForYouShelfStore: ObservableObject {
         if hasProfile, let svc = archiveService {
             let controller = RecommendationsController(
                 db: db, archiveService: svc, tasteStore: tasteProfileStore)
-            if let recs = try? await controller.fetchMixedRecommendations(musicOnly: true) {
-                let musicRecs = Self.musicOnly(recs)
-                if musicRecs.count >= RecommendationConstants.minShelf {
-                    let trackIds = musicRecs.map(\.id)
+            if let recs = try? await controller.fetchMixedRecommendations(
+                musicOnly: shelf == .music, booksOnly: shelf == .books) {
+                let picks = filtered(recs)
+                if picks.count >= RecommendationConstants.minShelf {
+                    let trackIds = picks.map(\.id)
                     await saveDailyCache(trackIds: trackIds, source: "personalized")
-                    state = .loaded(.personalized, musicRecs)
+                    state = .loaded(.personalized, picks)
                     personalizedSuccess = true
                 }
             }
@@ -102,31 +113,40 @@ final class MadeForYouShelfStore: ObservableObject {
                 await saveDailyCache(trackIds: trackIds, source: "cold_start")
                 state = .loaded(.coldStart, coldTracks)
             } else {
-                state = .empty(message: "Couldn't load music right now.")
+                state = .empty(message: shelf == .books
+                    ? "Couldn't load books right now."
+                    : "Couldn't load music right now.")
             }
         }
     }
 
-    /// Music For You returns music only — defensively drop any spoken-word
-    /// source (podcast / lecture) that slips through query-side filtering.
-    private static func musicOnly(_ tracks: [Track]) -> [Track] {
-        tracks.filter { $0.source != "podcast" && $0.source != "oxford_lectures" }
+    /// Defensive source filter. Music drops spoken-word sources (podcast /
+    /// lecture); Books drops podcasts (LibriVox audiobooks are kept).
+    private func filtered(_ tracks: [Track]) -> [Track] {
+        switch shelf {
+        case .music:
+            return tracks.filter { $0.source != "podcast" && $0.source != "oxford_lectures" }
+        case .books:
+            return tracks.filter { $0.source != "podcast" }
+        }
     }
 
     private func fetchColdStartPicks() async -> [Track] {
         guard let svc = archiveService else { return [] }
-        let queries = [
-            "mediatype:audio AND collection:(etree OR musopen OR 78rpm)"
-        ]
-        var results: [Track] = []
-        for query in queries {
-            if let batch = try? await svc.fetchTracks(
-                iaQuery: query, matchTags: ["for-you"], limit: 15
-            ), !batch.isEmpty {
-                results.append(contentsOf: batch)
-            }
+        let query: String
+        switch shelf {
+        case .music:
+            query = "mediatype:audio AND collection:(etree OR musopen OR 78rpm)"
+        case .books:
+            query = "mediatype:audio AND collection:librivoxaudio"
         }
-        return Array(Self.musicOnly(results).shuffled().prefix(RecommendationConstants.kTarget))
+        var results: [Track] = []
+        if let batch = try? await svc.fetchTracks(
+            iaQuery: query, matchTags: ["for-you"], limit: 15
+        ), !batch.isEmpty {
+            results.append(contentsOf: batch)
+        }
+        return Array(filtered(results).shuffled().prefix(RecommendationConstants.kTarget))
     }
 
     func ensureTasteBackfillIfNeeded() async {
@@ -157,15 +177,23 @@ final class MadeForYouShelfStore: ObservableObject {
     }
 
     func saveDailyCache(trackIds: [String], source: String) async {
-        let day = Self.todayYYYYMMDD()
-        await db.saveMadeForYouDailyCache(day: day, trackIds: trackIds, source: source)
+        await db.saveMadeForYouDailyCache(day: cacheDayKey(), trackIds: trackIds, source: source)
     }
 
     func loadDailyCache() async -> [String]? {
-        let day = Self.todayYYYYMMDD()
-        let entries = await db.fetchMadeForYouDailyCache(day: day)
+        let entries = await db.fetchMadeForYouDailyCache(day: cacheDayKey())
         guard !entries.isEmpty else { return nil }
         return entries.map { $0.trackId }
+    }
+
+    /// Namespaced per shelf so the music and books shelves never overwrite each
+    /// other's daily cache. Music keeps the bare date key (backward compatible).
+    private func cacheDayKey() -> String {
+        let day = Self.todayYYYYMMDD()
+        switch shelf {
+        case .music: return day
+        case .books: return "books:\(day)"
+        }
     }
 
     private static func todayYYYYMMDD() -> String {

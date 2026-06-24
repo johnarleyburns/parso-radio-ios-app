@@ -164,15 +164,6 @@ final class DatabaseService: @unchecked Sendable {
     private let colBLHSubjects   = Expression<String?>("subjects")
     private let colBLHLastTS     = Expression<Double>("last_ts")
 
-    private let bookCuratedHistory = Table("book_curated_history")
-    private let colBCHWorkKey   = Expression<String>("work_key")
-    private let colBCHIdentifier = Expression<String>("identifier")
-    private let colBCHDay        = Expression<String>("day")
-    private let colBCHTitle      = Expression<String?>("title")
-    private let colBCHAuthor     = Expression<String?>("author")
-    private let colBCHReason     = Expression<String?>("reason")
-    private let colBCHTS         = Expression<Double>("ts")
-
     // MARK: - Made For You daily cache
     private let madeForYouDailyCache = Table("made_for_you_daily_cache")
     private let colMFYCDay      = Expression<String>("day")
@@ -389,18 +380,6 @@ final class DatabaseService: @unchecked Sendable {
             t.column(colBLHSubjects)
             t.column(colBLHLastTS)
         })
-
-        // Book curated history — permanent never-repeat ledger + per-day cache
-        try db.run(bookCuratedHistory.create(ifNotExists: true) { t in
-            t.column(colBCHWorkKey, primaryKey: true)
-            t.column(colBCHIdentifier)
-            t.column(colBCHDay)
-            t.column(colBCHTitle)
-            t.column(colBCHAuthor)
-            t.column(colBCHReason)
-            t.column(colBCHTS)
-        })
-        try db.run("CREATE INDEX IF NOT EXISTS idx_book_curated_day ON book_curated_history(day)")
 
         // Made For You daily shelf cache
         try db.run(madeForYouDailyCache.create(ifNotExists: true) { t in
@@ -1662,82 +1641,6 @@ final class DatabaseService: @unchecked Sendable {
                 continuation.resume(returning: keys)
             }
         }
-    }
-
-    func fetchBookCuratedWorkKeys() async -> Set<String> {
-        await withCheckedContinuation { continuation in
-            queue.async { [self] in
-                let keys = Set((try? db.prepare(bookCuratedHistory.select(colBCHWorkKey)))?
-                    .map { $0[colBCHWorkKey] } ?? [])
-                continuation.resume(returning: keys)
-            }
-        }
-    }
-
-    func fetchBookCuratedForDay(_ day: String) async -> BookForYouEntry? {
-        await withCheckedContinuation { continuation in
-            queue.async { [self] in
-                guard let row = try? db.pluck(
-                    bookCuratedHistory.filter(colBCHDay == day)
-                ) else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-                continuation.resume(returning: rowToBookForYouEntry(row))
-            }
-        }
-    }
-
-    func insertBookCurated(_ entry: BookForYouEntry, day: String) async {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            queue.async { [self] in
-                _ = try? db.run(bookCuratedHistory.insert(or: .replace,
-                    colBCHWorkKey   <- entry.workKey,
-                    colBCHIdentifier <- entry.identifier,
-                    colBCHDay        <- day,
-                    colBCHTitle      <- entry.title,
-                    colBCHAuthor     <- entry.author,
-                    colBCHReason     <- entry.reason,
-                    colBCHTS         <- Date().timeIntervalSince1970
-                ))
-                continuation.resume()
-            }
-        }
-    }
-
-    func deleteBookCuratedForDay(_ day: String) async {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            queue.async { [self] in
-                _ = try? db.run(bookCuratedHistory.filter(colBCHDay == day).delete())
-                continuation.resume()
-            }
-        }
-    }
-
-    func fetchLeastRecentlyCurated() async -> BookForYouEntry? {
-        await withCheckedContinuation { continuation in
-            queue.async { [self] in
-                guard let row = try? db.pluck(
-                    bookCuratedHistory.order(colBCHTS.asc)
-                ) else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-                continuation.resume(returning: rowToBookForYouEntry(row))
-            }
-        }
-    }
-
-
-    private func rowToBookForYouEntry(_ row: Row) -> BookForYouEntry {
-        BookForYouEntry(
-            identifier: row[colBCHIdentifier],
-            title: row[colBCHTitle] ?? "",
-            author: row[colBCHAuthor] ?? "",
-            subjects: [],
-            reason: row[colBCHReason] ?? "",
-            workKey: row[colBCHWorkKey]
-        )
     }
 
     // MARK: - Taste backfill from play history

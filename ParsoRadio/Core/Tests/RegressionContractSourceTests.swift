@@ -68,12 +68,25 @@ final class RegressionContractSourceTests: XCTestCase {
         }
     }
 
-    func testLiveMusicServiceDoesNotFallbackToPoolFirst() throws {
-        let path = projectRoot.appendingPathComponent("Core/Services/API/LiveMusicOnThisDayService.swift").path
+    func testListenViewRemovesCuratedBookAndLiveMusic() throws {
+        let path = projectRoot.appendingPathComponent("Views/Listen/ListenView.swift").path
         let content = try String(contentsOfFile: path, encoding: .utf8)
-        if content.contains("pool.first") {
-            XCTFail("LiveMusicOnThisDayService.swift must not fall back to 'pool.first' after validation failures. Show empty/error state instead.")
+        XCTAssertFalse(content.contains("LiveMusicSection"),
+            "ListenView must not reference the removed LiveMusicSection.")
+        XCTAssertFalse(content.contains("BookForYouSection"),
+            "ListenView must not reference the removed curated BookForYouSection.")
+    }
+
+    func testListenViewRendersBooksForYouBelowMusicForYou() throws {
+        let path = projectRoot.appendingPathComponent("Views/Listen/ListenView.swift").path
+        let content = try String(contentsOfFile: path, encoding: .utf8)
+        guard let music = content.range(of: "MadeForYouSection()"),
+              let books = content.range(of: "BooksForYouSection()") else {
+            XCTFail("ListenView must render MadeForYouSection() then BooksForYouSection().")
+            return
         }
+        XCTAssertTrue(music.lowerBound < books.lowerBound,
+            "Books for You must render directly below Music For You.")
     }
 
     func testAGENTSContainsRegressionContract() throws {

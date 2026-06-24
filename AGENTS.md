@@ -191,22 +191,22 @@ Before claiming any feature/fix is implemented, verify these invariants hold:
 - Section always mounts (no `if showSection` gate in `MadeForYouSection`)
 - Header always renders as a plain `Text("Music For You")` (no icon, default section-header font), matching peer Home sections
 - Section visible even in loading/empty/failed states; shows a spinner while fetching
-- "A Book Curated For You" renders directly below "Music For You"
+- "Books for You" renders directly below "Music For You"
 - Returns MUSIC ONLY — never LibriVox audiobooks, podcasts, or lectures (enforced query-side: music-only recs + no `librivoxaudio` cold-start query)
 - Existing-user play history backfills taste profile once (check `tasteProfileBackfillVersion`)
 - Cold-start fallback returns music picks, never hides section
 - Daily cache persists shelf content; stale cache rebuilds from network
 
-### Live Music on This Day
-- Candidates validated before display (MP3-only, date match, display name)
-- No `pool.first` fallback after validation failures
-- Empty/error state shown with retry affordance, section never hidden
-- Daily cache keys use full `yyyy-MM-dd`
+### Books for You
+- Same store/format as Music For You (`MadeForYouShelfStore(shelf: .books)`, horizontal card shelf, plain header, always mounts with spinner)
+- Returns AUDIOBOOKS ONLY (spoken-only recs + `librivoxaudio` cold-start query)
+- Tapping a card plays the whole book (`fetchTracksForIdentifier` → `playAlbumTracks`)
+- Daily cache namespaced separately from Music For You (`books:<day>` key) so the two shelves never collide
 
 ### Player Surface
 - `NowPlayingSheet` uses `playerVM.activeMediaKind`, never `currentChannel?.mediaKind ?? .music`
 - `PlaybackContext` set in every entry point (channel, playlist, direct, search, audition)
-- Book For You / audiobook paths set mediaKind explicitly
+- Books for You / audiobook paths set mediaKind explicitly
 - Every finite non-ambient surface renders scrub slider, elapsed time, remaining time
 - Audiobook/lecture surfaces render work-level time left
 

@@ -1742,7 +1742,7 @@ final class PlayerViewModel: ObservableObject {
     private func recordBookListenedIfAudiobook(track: Track, channel: Channel?) async {
         let kind = track.mediaKind(in: channel)
         guard kind == .audiobook else { return }
-        let workKey = BookForYouService.workKey(
+        let workKey = WorkKey.normalized(
             author: track.rawCreator, title: track.title)
         let idForPlayback = track.parentIdentifier ?? track.id
         await db.recordBookListened(
