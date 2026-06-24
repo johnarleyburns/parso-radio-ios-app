@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lorewave · A Book Curated For You — handoff mockup</title>
+<style>
+  :root{
+    --brand-top:#6B33CC;--brand-bot:#1A38A6;
+    --brand:linear-gradient(135deg,var(--brand-top),var(--brand-bot));
+    --grouped:#F2F2F7;--card:#FFFFFF;--label:#1C1C1E;--secondary:#8E8E93;
+    --tertiary:#B0B0B7;--separator:#E5E5EA;--tint:#6B33CC;--ios-blue:#0A84FF;
+    --ios-font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+  body{
+    font-family:var(--ios-font);color:#23252E;padding:40px 24px 64px;min-height:100vh;
+    background:#E7E8EE;background-image:radial-gradient(1200px 600px at 50% -10%,#EEF0F6 0%,#E1E3EB 60%,#D9DBE4 100%);
+  }
+  .wrap{max-width:1120px;margin:0 auto}
+  header.page{margin-bottom:26px}
+  header.page h1{font-size:22px;font-weight:680;letter-spacing:-.02em;color:#1b1d27}
+  header.page h1 .accent{background:var(--brand);-webkit-background-clip:text;background-clip:text;color:transparent}
+  header.page p{margin-top:6px;color:#5a5d6b;font-size:14px;max-width:720px;line-height:1.5}
+
+  .layout{display:flex;gap:44px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
+
+  /* iPhone */
+  .iphone{width:340px;height:730px;border-radius:46px;position:relative;background:#0b0b0f;padding:11px;flex:0 0 auto;
+    box-shadow:0 30px 60px -20px rgba(20,22,40,.45),0 8px 22px -12px rgba(20,22,40,.4),inset 0 0 0 2px #2a2a33}
+  .screen{width:100%;height:100%;border-radius:36px;overflow:hidden;position:relative;background:var(--grouped);display:flex;flex-direction:column}
+  .island{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:104px;height:30px;background:#000;border-radius:18px;z-index:40}
+  .statusbar{height:50px;flex:0 0 auto;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 8px;font-size:14px;font-weight:600;color:var(--label);z-index:30}
+  .statusbar .icons{display:flex;align-items:center;gap:6px}
+  .home-ind{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:128px;height:5px;border-radius:3px;background:#000;opacity:.85;z-index:50}
+  .body{flex:1 1 auto;overflow:hidden;position:relative}
+  .nav-large{padding:2px 20px 4px}
+  .nav-large h2{font-size:30px;font-weight:760;letter-spacing:-.03em;color:var(--label)}
+  .stage-cap{margin-top:14px;font-size:13px;font-weight:600;color:#3c3f4c;text-align:center}
+  .stage-cap b{display:block;font-size:11px;font-weight:500;color:#7c7f8c;margin-top:2px}
+
+  /* compact Made-for-You rail (context) */
+  .sec{margin-top:14px}
+  .sec-head{padding:0 20px;display:flex;align-items:center;justify-content:space-between}
+  .sec-head .t{font-size:18px;font-weight:680;letter-spacing:-.02em;color:var(--label);display:flex;align-items:center;gap:6px}
+  .sec-head .t .spark svg{width:16px;height:16px;display:block}
+  .pill{font-size:9.5px;font-weight:700;color:#fff;background:var(--brand);padding:3px 8px;border-radius:20px;letter-spacing:.03em;text-transform:uppercase}
+  .rail{margin-top:10px;display:flex;gap:13px;overflow-x:auto;padding:0 20px 2px;scrollbar-width:none}
+  .rail::-webkit-scrollbar{display:none}
+  .tcard{flex:0 0 auto;width:104px}
+  .tart{width:104px;height:104px;border-radius:11px;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+  .tart svg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:26px;height:26px;color:rgba(255,255,255,.92)}
+  .tcard .ttl{margin-top:6px;font-size:12px;font-weight:600;color:var(--label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tcard .by{margin-top:1px;font-size:11px;color:var(--secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ===== FULL-WIDTH CARDS (Book + Live Music) — the matched pair ===== */
+  .fwsec{margin-top:20px}
+  .fwsec .head{padding:0 20px 9px;display:flex;align-items:center;justify-content:space-between}
+  .fwsec .head .h{font-size:15px;font-weight:600;color:var(--label)}
+  .fwrow{
+    margin:0 16px;background:var(--card);border-radius:14px;border:1px solid rgba(0,0,0,.05);
+    height:72px;display:flex;align-items:center;gap:12px;padding:0 13px;
+    box-shadow:0 1px 3px rgba(0,0,0,.04);
+  }
+  .cover{width:56px;height:56px;border-radius:10px;flex:0 0 auto;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+  /* faux book cover */
+  .cover.book::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:rgba(0,0,0,.28)}
+  .cover.book .bt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:5px 5px 5px 9px;
+    font-family:Georgia,"Times New Roman",serif;font-size:8px;line-height:1.15;font-weight:600;color:rgba(255,255,255,.96);text-align:center;letter-spacing:.01em}
+  .cover.live svg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:24px;height:24px;color:rgba(255,255,255,.92)}
+  .fwmeta{flex:1 1 auto;min-width:0}
+  .fwmeta .l1{font-size:14px;font-weight:560;color:var(--label);line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .fwmeta .l2{font-size:12px;color:var(--secondary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fwmeta .l3{font-size:11px;color:var(--tertiary);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+  .fwmeta .l3 svg{width:10px;height:10px;color:var(--brand-top);flex:0 0 auto}
+  .playbtn{width:34px;height:34px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:var(--ios-blue)}
+  .playbtn svg{width:30px;height:30px}
+
+  /* dock */
+  .dock{position:absolute;left:0;right:0;bottom:0;z-index:35}
+  .mini{margin:0 8px;background:rgba(248,248,250,.86);backdrop-filter:blur(18px) saturate(1.4);border:1px solid rgba(0,0,0,.06);border-radius:14px;height:56px;display:flex;align-items:center;gap:11px;padding:0 12px;box-shadow:0 8px 22px -12px rgba(0,0,0,.3)}
+  .mini .ma{width:40px;height:40px;border-radius:8px;flex:0 0 auto;position:relative;overflow:hidden}
+  .mini .meta{flex:1 1 auto;min-width:0}
+  .mini .mt{font-size:12.5px;font-weight:600;color:var(--label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini .mb{font-size:11px;color:var(--secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini .pp svg{width:19px;height:19px;color:var(--label)}
+  .tabbar{margin-top:7px;height:60px;background:rgba(248,248,250,.92);backdrop-filter:blur(18px);border-top:1px solid var(--separator);display:flex;align-items:flex-start;padding-top:9px}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--secondary)}
+  .tab.active{color:var(--tint)}
+  .tab svg{width:22px;height:22px}
+  .tab span{font-size:10px;font-weight:560}
+
+  /* right column: states + notes */
+  .rightcol{flex:1 1 380px;min-width:340px;max-width:520px;display:flex;flex-direction:column;gap:22px}
+  .panel{background:#fff;border-radius:18px;border:1px solid #E2E3EB;padding:20px 22px;box-shadow:0 14px 40px -22px rgba(30,32,60,.3)}
+  .panel h3{font-size:14px;font-weight:700;color:#1b1d27;letter-spacing:-.01em}
+  .panel h3 .tag{font-size:10px;font-weight:700;color:#fff;background:var(--brand);padding:2px 8px;border-radius:20px;vertical-align:2px;margin-left:8px}
+  .panel .lead{color:#5a5d6b;font-size:12.5px;line-height:1.5;margin-top:4px}
+
+  .states{display:flex;flex-direction:column;gap:11px;margin-top:14px}
+  .state{display:flex;align-items:center;gap:11px;background:#FAFAFC;border:1px solid #ECECF1;border-radius:13px;height:70px;padding:0 12px}
+  .state .badge{position:absolute}
+  .scover{width:52px;height:52px;border-radius:9px;flex:0 0 auto;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+  .scover::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:rgba(0,0,0,.28)}
+  .scover .bt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:4px 4px 4px 8px;font-family:Georgia,serif;font-size:7.5px;line-height:1.1;font-weight:600;color:#fff;text-align:center}
+  .smeta{flex:1 1 auto;min-width:0}
+  .smeta .sk{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--brand-top)}
+  .smeta .st{font-size:13px;font-weight:600;color:var(--label);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .smeta .ss{font-size:11.5px;color:var(--secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .arrow{display:flex;align-items:center;gap:7px;color:#9a9da9;font-size:11px;font-weight:600;margin:2px 0 0 64px}
+  .arrow svg{width:13px;height:13px}
+
+  ul.spec{list-style:none;font-size:12.5px;color:#3a3d4a;line-height:1.5;margin-top:6px}
+  ul.spec li{padding-left:18px;position:relative;margin-bottom:9px}
+  ul.spec li::before{content:"";position:absolute;left:0;top:6px;width:7px;height:7px;border-radius:2px;background:var(--brand)}
+  ul.spec b{color:#1b1d27;font-weight:650}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#6B33CC;background:#F4F1FB;padding:1px 5px;border-radius:5px}
+  .foot{margin-top:14px;padding-top:13px;border-top:1px solid #EFEFF3;font-size:11px;color:#9a9da9;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page">
+    <h1>Lorewave · <span class="accent">A Book Curated For You</span> — handoff mockup</h1>
+    <p>A single audiobook, chosen from the listener's own history, in a full-width card with the same form factor as "Live Music on This Day" and placed directly above it. A new book every day, never one already heard, never a repeat of a past pick.</p>
+  </header>
+
+  <div class="layout">
+
+    <!-- ============ PHONE: home in context ============ -->
+    <div style="display:flex;flex-direction:column;align-items:center">
+      <div class="iphone">
+        <div class="island"></div>
+        <div class="screen">
+          <div class="statusbar">
+            <span>9:41</span>
+            <span class="icons">
+              <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#1C1C1E"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="5" width="3" height="7" rx="1"/><rect x="9" y="2.5" width="3" height="9.5" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></g></svg>
+              <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 2.2c2 0 3.9.8 5.3 2.1l1.1-1.2A9 9 0 0 0 8.5.6 9 9 0 0 0 2.1 3.1l1.1 1.2A7.4 7.4 0 0 1 8.5 2.2Zm0 6.3 1.9 2-3.8.0 1.9-2Z" fill="#1C1C1E"/></svg>
+              <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3" fill="none" stroke="#1C1C1E" opacity=".4"/><rect x="2" y="2" width="17" height="8" rx="1.5" fill="#1C1C1E"/><rect x="22.5" y="4" width="1.8" height="4" rx="1" fill="#1C1C1E" opacity=".5"/></svg>
+            </span>
+          </div>
+
+          <div class="body">
+            <div class="nav-large"><h2>Listen</h2></div>
+
+            <!-- compact Made-for-You rail for context -->
+            <div class="sec">
+              <div class="sec-head"><div class="t"><span class="spark"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5l1.7 4.6 4.6 1.7-4.6 1.7L12 15.1l-1.7-4.6L5.7 8.8l4.6-1.7L12 2.5Z" fill="url(#g)"/><defs><linearGradient id="g" x1="0" y1="0" x2="24" y2="24"><stop stop-color="#6B33CC"/><stop offset="1" stop-color="#1A38A6"/></linearGradient></defs></svg></span>Made for You</div></div>
+              <div class="rail">
+                <div class="tcard"><div class="tart" style="background:linear-gradient(140deg,#5b3aa6,#2a2f7a)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V6l10-2v10"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="16.5" cy="14" r="2.6"/></svg></div><div class="ttl">Cello Suite No.1</div><div class="by">J. S. Bach</div></div>
+                <div class="tcard"><div class="tart" style="background:linear-gradient(140deg,#3f6f8a,#22405a)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V6l10-2v10"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="16.5" cy="14" r="2.6"/></svg></div><div class="ttl">After Midnight</div><div class="by">SFJAZZ</div></div>
+                <div class="tcard"><div class="tart" style="background:linear-gradient(140deg,#9a5a3a,#5a2f24)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V6l10-2v10"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="16.5" cy="14" r="2.6"/></svg></div><div class="ttl">Romanza</div><div class="by">Aadam Jacobs</div></div>
+                <div class="tcard"><div class="tart" style="background:linear-gradient(140deg,#2f8a5a,#1c5a3a)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V6l10-2v10"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="16.5" cy="14" r="2.6"/></svg></div><div class="ttl">Istanbul Nights</div><div class="by">Music of the World</div></div>
+              </div>
+            </div>
+
+            <!-- ★ A BOOK CURATED FOR YOU (the new card) -->
+            <div class="fwsec">
+              <div class="head">
+                <span class="h">A Book Curated For You</span>
+                <span class="pill">New today</span>
+              </div>
+              <div class="fwrow">
+                <div class="cover book" style="background:linear-gradient(150deg,#3f5aa0,#26346e)"><span class="bt">DRACULA</span></div>
+                <div class="fwmeta">
+                  <div class="l1">Dracula</div>
+                  <div class="l2">Bram Stoker · read by volunteers</div>
+                  <div class="l3"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l1.7 4.6 4.6 1.7-4.6 1.7L12 15.1l-1.7-4.6L5.7 8.8l4.6-1.7L12 2.5Z"/></svg>Because you enjoyed Mary Shelley</div>
+                </div>
+                <div class="playbtn"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="11"/><path d="M9.5 7.5v9l8-4.5z" fill="#fff"/></svg></div>
+              </div>
+            </div>
+
+            <!-- Live Music on This Day (same form factor, for parity) -->
+            <div class="fwsec">
+              <div class="head"><span class="h">Live Music on This Day</span></div>
+              <div class="fwrow">
+                <div class="cover live" style="background:linear-gradient(150deg,#7a4a2a,#3a2416)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 4c-1 3-3 4-5 5s-3 3-3 6a4 4 0 0 0 8 0c0-3 1-4 3-6s2-4 0-7"/></svg></div>
+                <div class="fwmeta">
+                  <div class="l1">Grateful Dead — Barton Hall</div>
+                  <div class="l2">Ithaca, NY</div>
+                  <div class="l3">May 8, 1977</div>
+                </div>
+                <div class="playbtn"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="11"/><path d="M9.5 7.5v9l8-4.5z" fill="#fff"/></svg></div>
+              </div>
+            </div>
+
+            <div style="height:130px"></div>
+          </div>
+
+          <div class="dock">
+            <div class="mini">
+              <div class="ma" style="background:linear-gradient(140deg,#5b3aa6,#2a2f7a)"></div>
+              <div class="meta"><div class="mt">Cello Suite No. 1</div><div class="mb">J. S. Bach · Made for You</div></div>
+              <div class="pp"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="5" width="3.4" height="14" rx="1"/><rect x="13.6" y="5" width="3.4" height="14" rx="1"/></svg></div>
+            </div>
+            <div class="tabbar">
+              <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg><span>Listen</span></div>
+              <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5h13v15H6a2 2 0 0 1-2-2V5Z"/><path d="M17 5l3 1v13"/></svg><span>Library</span></div>
+              <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="M16 16l4 4"/></svg><span>Search</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+      <div class="stage-cap">Home (Listen tab)<b>Book card sits directly above Live Music · matched form factor</b></div>
+    </div>
+
+    <!-- ============ RIGHT: behavior + notes ============ -->
+    <div class="rightcol">
+
+      <div class="panel">
+        <h3>The daily loop <span class="tag">why they come back</span></h3>
+        <p class="lead">The same card, three moments. A fresh, on-taste book each day — and once shown, it never returns.</p>
+        <div class="states">
+          <div class="state">
+            <div class="scover" style="background:linear-gradient(150deg,#3f5aa0,#26346e)"><span class="bt">DRACULA</span></div>
+            <div class="smeta"><div class="sk">Today · personalized</div><div class="st">Dracula — Bram Stoker</div><div class="ss">Because you enjoyed Mary Shelley</div></div>
+          </div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Next day → a different, never-seen book</div>
+          <div class="state">
+            <div class="scover" style="background:linear-gradient(150deg,#5a7a3a,#33491c)"><span class="bt">THE TIME MACHINE</span></div>
+            <div class="smeta"><div class="sk">Tomorrow · personalized</div><div class="st">The Time Machine — H. G. Wells</div><div class="ss">More science fiction, like your history</div></div>
+          </div>
+          <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M6 13l6 6 6-6"/></svg>No audiobook history yet?</div>
+          <div class="state">
+            <div class="scover" style="background:linear-gradient(150deg,#8a3a4a,#4a1c26)"><span class="bt">PRIDE &amp; PREJUDICE</span></div>
+            <div class="smeta"><div class="sk">Cold start · fallback</div><div class="st">Pride and Prejudice — Jane Austen</div><div class="ss">Popular on LibriVox</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Build notes</h3>
+        <ul class="spec">
+          <li><b>Form factor = Live Music card.</b> Same 72pt <code>Section</code> row, 56×56 cover (<code>cornerRadius 10</code>), title / author / reason, <code>play.circle.fill</code>. New <code>BookForYouSection</code> placed directly above <code>LiveMusicSection</code> in <code>ListenView</code>.</li>
+          <li><b>One book, daily.</b> <code>BookForYouStore</code> mirrors <code>LiveMusicOnThisDayStore</code>, cached by <code>YYYY-MM-DD</code> — stable all day, regenerates tomorrow.</li>
+          <li><b>Personalized.</b> Pool from the listener's audiobook authors &amp; genres → <code>collection:librivoxaudio AND creator:"…"</code> / <code>subject:"…"</code> (reuses the <code>spoken</code> taste profile).</li>
+          <li><b>Cold start.</b> No history → random from the top 100 <code>subject:"General Fiction"</code> LibriVox titles by downloads.</li>
+          <li><b>Never a book you've heard.</b> Durable <code>book_listen_history</code> (work-level, survives track eviction) is excluded.</li>
+          <li><b>Never repeats.</b> Every pick is written to <code>book_curated_history</code> permanently and excluded forever — the never-repeat ledger, not just last-pick like Live Music.</li>
+          <li><b>Never empty.</b> If exclusion drains the pool, widen: authors+genres → top-100 fiction → broader LibriVox → least-recently-shown.</li>
+          <li><b>Work-level identity.</b> Hearing one recording of a title blocks recommending another version of it.</li>
+        </ul>
+        <div class="foot">Covers from <code>archive.org/services/img/&lt;identifier&gt;</code> (same as Live Music). Titles shown are placeholders; cold-start author line reads "Popular on LibriVox." Full logic in BOOK-CURATED-FOR-YOU-DESIGN.md §5.</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>
