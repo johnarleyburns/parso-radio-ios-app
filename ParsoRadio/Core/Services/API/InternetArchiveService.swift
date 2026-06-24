@@ -241,19 +241,8 @@ struct InternetArchiveService {
         }
 
         let meta = try JSONDecoder().decode(IAMeta.self, from: data)
-        let preferredFormats = ["VBR MP3", "128Kbps MP3", "64Kbps MP3", "MP3", "Ogg Vorbis"]
-        for format in preferredFormats {
-            if let file = meta.files.first(where: { $0.format == format }) {
-                let enc = file.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? file.name
-                if let url = URL(string: "https://archive.org/download/\(encodedId)/\(enc)") { return url }
-            }
-        }
-        // Fallback: accept any audio file by extension for collections using non-standard format labels.
-        let audioExtensions: Set<String> = ["mp3", "ogg", "flac", "m4a", "aac", "opus", "wav"]
-        if let file = meta.files.first(where: {
-            let ext = ($0.name as NSString).pathExtension.lowercased()
-            return audioExtensions.contains(ext)
-        }) {
+        let selector = MP3AudioFormatSelector()
+        if let file = meta.files.first(where: { selector.isAcceptedFormat($0.format) || selector.isAcceptedFormatByExtension($0.name) }) {
             let enc = file.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? file.name
             if let url = URL(string: "https://archive.org/download/\(encodedId)/\(enc)") { return url }
         }
@@ -348,17 +337,10 @@ struct InternetArchiveService {
             let files: [F]
         }
         guard let meta = try? JSONDecoder().decode(Meta.self, from: data) else { return nil }
+        let selector = MP3AudioFormatSelector()
         let selectors: [(Meta.F) -> Bool] = [
-            { $0.format == "VBR MP3" }, { $0.format == "128Kbps MP3" },
-            { $0.format == "64Kbps MP3" }, { $0.format == "MP3" },
-            { $0.format == "Ogg Vorbis" },
-            { ($0.name as NSString).pathExtension.lowercased() == "mp3" },
-            { ($0.name as NSString).pathExtension.lowercased() == "m4a" },
-            { ($0.name as NSString).pathExtension.lowercased() == "aac" },
-            { ($0.name as NSString).pathExtension.lowercased() == "opus" },
-            { ($0.name as NSString).pathExtension.lowercased() == "ogg" },
-            { ($0.name as NSString).pathExtension.lowercased() == "flac" },
-            { ($0.name as NSString).pathExtension.lowercased() == "wav" },
+            { selector.isAcceptedFormat($0.format) },
+            { selector.isAcceptedFormatByExtension($0.name) },
         ]
         let chosen = selectors.lazy
             .map { sel in meta.files.filter(sel) }
@@ -409,20 +391,10 @@ struct InternetArchiveService {
         // chapters in MP3 + OGG + FLAC + WAV; mixing them yielded N×formats
         // bogus "parts" with scrambled order. The first selector (in quality
         // priority) that matches ≥1 file wins; only those files are used.
+        let selector = MP3AudioFormatSelector()
         let selectors: [(IAMetaFull.IAMetaFile) -> Bool] = [
-            { $0.format == "VBR MP3" },
-            { $0.format == "128Kbps MP3" },
-            { $0.format == "64Kbps MP3" },
-            { $0.format == "MP3" },
-            { $0.format == "Ogg Vorbis" },
-            { ($0.name as NSString).pathExtension.lowercased() == "mp3" },
-            { ($0.name as NSString).pathExtension.lowercased() == "m4a" },
-            { ($0.name as NSString).pathExtension.lowercased() == "aac" },
-            { ($0.name as NSString).pathExtension.lowercased() == "opus" },
-            { ($0.name as NSString).pathExtension.lowercased() == "ogg" },
-            { ($0.name as NSString).pathExtension.lowercased() == "flac" },
-            { ($0.name as NSString).pathExtension.lowercased() == "wav" },
-            { $0.format == "Flac" },
+            { selector.isAcceptedFormat($0.format) },
+            { selector.isAcceptedFormatByExtension($0.name) },
         ]
         let chosen = selectors.lazy
             .map { sel in meta.files.filter(sel) }

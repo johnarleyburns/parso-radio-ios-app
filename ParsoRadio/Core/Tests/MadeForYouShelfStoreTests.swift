@@ -11,9 +11,11 @@ final class MadeForYouShelfStoreTests: XCTestCase {
         try super.setUpWithError()
         db = try DatabaseService(path: ":memory:")
         tasteStore = TasteProfileStore(db: db)
+        UserDefaults.standard.removeObject(forKey: "tasteProfileBackfillVersion")
     }
 
     override func tearDown() {
+        UserDefaults.standard.removeObject(forKey: "tasteProfileBackfillVersion")
         db = nil
         tasteStore = nil
         super.tearDown()
@@ -36,13 +38,13 @@ final class MadeForYouShelfStoreTests: XCTestCase {
         XCTAssertFalse(playedTracks.isEmpty, "Should find recently played tracks")
 
         let hasProfileBefore = await tasteStore.hasAnyProfile()
+        XCTAssertFalse(hasProfileBefore, "Should have no profile before backfill")
+
         let shelfStore = MadeForYouShelfStore(db: db, tasteProfileStore: tasteStore)
         await shelfStore.ensureTasteBackfillIfNeeded()
         let hasProfileAfter = await tasteStore.hasAnyProfile()
 
-        if !hasProfileBefore && !playedTracks.isEmpty {
-            XCTAssertTrue(hasProfileAfter, "Backfill should have created profile terms")
-        }
+        XCTAssertTrue(hasProfileAfter, "Backfill should have created profile terms from play history")
     }
 
     func testDailyCacheStoresAndRetrievesOrderedTrackIds() async {

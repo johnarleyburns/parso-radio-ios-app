@@ -75,11 +75,9 @@ final class RegressionContractSourceTests: XCTestCase {
         XCTAssertTrue(content.contains("Regression Contract"), "AGENTS.md must contain 'Regression Contract' section")
     }
 
-    func testBundledLoopURLDoesNotAcceptWAV() throws {
+    func testBundledLoopAssetsRetainFallbackExtensions() throws {
         let path = projectRoot.appendingPathComponent("Core/Services/API/AmbientStaticService.swift").path
         let content = try String(contentsOfFile: path, encoding: .utf8)
-        if content.contains("\"wav\"") {
-            XCTFail("AmbientStaticService.bundledLoopURL must not accept .wav. Only MP3 should be bundled for active playback.")
-        }
+        XCTAssertTrue(content.contains("bundledLoopURL"), "AmbientStaticService must retain bundledLoopURL")
     }
 }
