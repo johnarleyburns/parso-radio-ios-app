@@ -64,6 +64,14 @@ Execution must move iteratively and safely:
   ```
 - Always reference spec IDs or feature descriptors in commit headers and append the `Co-Authored-By` trailer when appropriate.
 
+### 3. Close Out Completed Plans
+Once implementation of a planned phase is done, use the same closeout flow every time:
+- Re-read the original plan and compare it against the implementation, including touched files, data-model changes, UI behavior, tests, and open questions.
+- Fix any discrepancies between the plan and implementation before declaring the phase complete. If the implementation intentionally diverged, record the reason in the plan or status docs.
+- Update `current_state.md` with the actual current state, completed work, known gaps, verification results, and next phase pointers.
+- Update `README.md` when the completed work changes the project’s user-facing behavior, setup flow, architecture overview, or operational status.
+- After verification and documentation updates are complete, commit the finished phase, merge it to `main`, and push `main` so the remote pipeline reflects the current project state.
+
 ---
 
 ## Source Tree
@@ -172,3 +180,40 @@ ParsoRadio/
   ```
 - **Remote Origin**: `git@github.com:johnarleyburns/parso-radio-ios-app.git`
 - **Pipeline Health Check**: Query current execution state via: `gh run list --limit 1 --branch main`
+
+---
+
+## Regression Contract
+
+Before claiming any feature/fix is implemented, verify these invariants hold:
+
+### Made For You
+- Section always mounts (no `if showSection` gate in `MadeForYouSection`)
+- Section visible even in loading/empty/failed states
+- Existing-user play history backfills taste profile once (check `tasteProfileBackfillVersion`)
+- Cold-start fallback returns both music and audiobook picks, never hides section
+- Daily cache persists shelf content; stale cache rebuilds from network
+
+### Live Music on This Day
+- Candidates validated before display (MP3-only, date match, display name)
+- No `pool.first` fallback after validation failures
+- Empty/error state shown with retry affordance, section never hidden
+- Daily cache keys use full `yyyy-MM-dd`
+
+### Player Surface
+- `NowPlayingSheet` uses `playerVM.activeMediaKind`, never `currentChannel?.mediaKind ?? .music`
+- `PlaybackContext` set in every entry point (channel, playlist, direct, search, audition)
+- Book For You / audiobook paths set mediaKind explicitly
+- Every finite non-ambient surface renders scrub slider, elapsed time, remaining time
+- Audiobook/lecture surfaces render work-level time left
+
+### MP3-Only Audio Policy
+- All IA audio selection paths use `MP3AudioFormatSelector` (MP3 Layer 3 / VBR MP3 / `.mp3`)
+- No Ogg, FLAC, M4A, AAC, Opus, WAV, SHN in any playback selector
+- Bundled ambient WAV files exempt (local offline fallback)
+
+### Verification Gate
+- Before commit: `xcodegen generate` if files added/removed
+- Before push: full `ParsoMusicTests` gate must pass
+- Source guards in `RegressionContractSourceTests` must not fail on fixed patterns
+- UI changes require targeted UI test or simulator screenshot evidence
