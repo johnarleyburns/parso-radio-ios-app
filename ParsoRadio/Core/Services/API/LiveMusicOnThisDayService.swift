@@ -6,6 +6,7 @@ struct LiveMusicOnThisDayService {
     private let poolKey: String
     private let poolDateKey: String
     private let pickedKey: String
+    private let validator = LiveMusicCandidateValidator()
 
     private var lastPickedID: String? {
         get { UserDefaults.standard.string(forKey: pickedKey) }
@@ -20,8 +21,6 @@ struct LiveMusicOnThisDayService {
         self.poolDateKey = "liveMusicPoolDate_" + today
         self.pickedKey = "liveMusicLastPicked_" + today
     }
-
-    // MARK: - Public
 
     func fetchDailyEntry(forceFresh: Bool = false) async -> LiveMusicEntry? {
         let pool = await getOrRefreshPool()
@@ -42,25 +41,115 @@ struct LiveMusicOnThisDayService {
             triedIDs.insert(pick.id)
             lastPickedID = pick.id
 
-            let enriched = (try? await enrichWithMetadata(pick)) ?? pick
-
-            if let d = enriched.date, !d.contains(mmdd) {
-                cacheSingle(pick)
-                return pick
+            if let validated = await validateCandidate(pick, mmdd: mmdd) {
+                cacheSingle(validated)
+                return validated
             }
-
-            guard enriched.hasTitle else { continue }
-
-            cacheSingle(enriched)
-            return enriched
         }
 
-        if let first = pool.first {
-            lastPickedID = first.id
-            cacheSingle(first)
-            return first
-        }
         return nil
+    }
+
+    func fetchDailyEntryWithTracks(forceFresh: Bool = false) async -> (entry: LiveMusicEntry, tracks: [Track])? {
+        let pool = await getOrRefreshPool()
+        guard let pool, !pool.isEmpty else { return nil }
+
+        var triedIDs = Set<String>()
+        if forceFresh, let lastID = lastPickedID, pool.count > 1 {
+            triedIDs.insert(lastID)
+        }
+
+        let mmdd = Self.todayMMDD()
+
+        for _ in 0..<min(pool.count, 15) {
+            let candidates = pool.filter { !triedIDs.contains($0.id) }
+            guard !candidates.isEmpty else { break }
+
+            let pick = candidates.randomElement()!
+            triedIDs.insert(pick.id)
+            lastPickedID = pick.id
+
+            if let (entry, tracks) = await validateCandidateWithTracks(pick, mmdd: mmdd) {
+                cacheSingle(entry)
+                return (entry, tracks)
+            }
+        }
+
+        return nil
+    }
+
+    private func validateCandidate(_ entry: LiveMusicEntry, mmdd: String) async -> LiveMusicEntry? {
+        guard let encoded = entry.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let metaURL = URL(string: "https://archive.org/metadata/\(encoded)")
+        else { return nil }
+
+        guard let (data, _) = try? await session.data(from: metaURL),
+              let envelope = try? JSONDecoder().decode(IAMetaEnvelope.self, from: data)
+        else { return nil }
+
+        let meta = envelope.metadata
+        let allFiles = envelope.files ?? []
+        let candidateFiles = allFiles.map { LiveMusicCandidateFile(
+            name: $0.name, format: $0.format, length: $0.length, title: $0.title, creator: $0.creator
+        )}
+
+        let result = validator.validate(
+            identifier: entry.id,
+            expectedMMDD: mmdd,
+            title: meta.title,
+            creator: meta.creator ?? entry.creator,
+            date: meta.date ?? entry.date,
+            venue: meta.venue ?? entry.venue,
+            coverage: meta.coverage,
+            description: meta.description ?? entry.description,
+            year: entry.year,
+            downloads: entry.downloads,
+            files: candidateFiles
+        )
+
+        switch result {
+        case .accepted(let validatedEntry, _):
+            return validatedEntry
+        case .rejected:
+            return nil
+        }
+    }
+
+    private func validateCandidateWithTracks(_ entry: LiveMusicEntry, mmdd: String) async -> (LiveMusicEntry, [Track])? {
+        guard let encoded = entry.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let metaURL = URL(string: "https://archive.org/metadata/\(encoded)")
+        else { return nil }
+
+        guard let (data, _) = try? await session.data(from: metaURL),
+              let envelope = try? JSONDecoder().decode(IAMetaEnvelope.self, from: data)
+        else { return nil }
+
+        let meta = envelope.metadata
+        let allFiles = envelope.files ?? []
+        let candidateFiles = allFiles.map { LiveMusicCandidateFile(
+            name: $0.name, format: $0.format, length: $0.length, title: $0.title, creator: $0.creator
+        )}
+
+        let result = validator.validate(
+            identifier: entry.id,
+            expectedMMDD: mmdd,
+            title: meta.title,
+            creator: meta.creator ?? entry.creator,
+            date: meta.date ?? entry.date,
+            venue: meta.venue ?? entry.venue,
+            coverage: meta.coverage,
+            description: meta.description ?? entry.description,
+            year: entry.year,
+            downloads: entry.downloads,
+            files: candidateFiles
+        )
+
+        switch result {
+        case .accepted(let validatedEntry, let tracks):
+            return (validatedEntry, tracks)
+        case .rejected:
+            return nil
+        }
     }
 
     func clearCachedEntry() {
@@ -114,43 +203,6 @@ struct LiveMusicOnThisDayService {
     func fetchEntries(for mmdd: String) async throws -> [LiveMusicEntry] {
         let query = #"collection:(etree) AND "\#(mmdd)""#
         return try await searchEtree(query: query, mmdd: mmdd)
-    }
-
-    // MARK: - Metadata enrichment
-
-    private func enrichWithMetadata(_ entry: LiveMusicEntry) async throws -> LiveMusicEntry {
-        guard let encoded = entry.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let metaURL = URL(string: "https://archive.org/metadata/\(encoded)")
-        else { return entry }
-
-        let (data, _) = try await session.data(from: metaURL)
-        struct IAMetaEnvelope: Decodable {
-            struct Meta: Decodable {
-                let title: String?
-                let creator: String?
-                let venue: String?
-                let coverage: String?
-                let date: String?
-                let year: String?
-                let description: String?
-            }
-            let metadata: Meta
-        }
-        let envelope = try JSONDecoder().decode(IAMetaEnvelope.self, from: data)
-        let meta = envelope.metadata
-
-        return LiveMusicEntry(
-            id: entry.id,
-            creator: meta.creator ?? entry.creator,
-            title: meta.title,
-            venue: meta.venue ?? entry.venue,
-            coverage: meta.coverage,
-            date: meta.date ?? entry.date,
-            year: entry.year,
-            downloads: entry.downloads,
-            dateString: entry.dateString,
-            description: meta.description ?? entry.description
-        )
     }
 
     // MARK: - IA Query
@@ -237,4 +289,25 @@ private struct EtreeDoc: Decodable {
         guard parts.count >= 3 else { return nil }
         return parts[2].trimmingCharacters(in: .whitespaces)
     }
+}
+
+private struct IAMetaEnvelope: Decodable {
+    struct Meta: Decodable {
+        let title: String?
+        let creator: String?
+        let venue: String?
+        let coverage: String?
+        let date: String?
+        let year: String?
+        let description: String?
+    }
+    struct IAFile: Decodable {
+        let name: String
+        let format: String?
+        let length: String?
+        let title: String?
+        let creator: String?
+    }
+    let metadata: Meta
+    let files: [IAFile]?
 }
