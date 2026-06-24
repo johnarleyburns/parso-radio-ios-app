@@ -173,6 +173,14 @@ final class DatabaseService: @unchecked Sendable {
     private let colBCHReason     = Expression<String?>("reason")
     private let colBCHTS         = Expression<Double>("ts")
 
+    // MARK: - Made For You daily cache
+    private let madeForYouDailyCache = Table("made_for_you_daily_cache")
+    private let colMFYCDay      = Expression<String>("day")
+    private let colMFYCPosition = Expression<Int>("position")
+    private let colMFYCTrackId  = Expression<String>("track_id")
+    private let colMFYCSource   = Expression<String>("source")
+    private let colMFYCCreatedAt = Expression<Double>("created_at")
+
     init(path: String? = nil) throws {
         if let path {
             db = try Connection(path)
@@ -393,6 +401,16 @@ final class DatabaseService: @unchecked Sendable {
             t.column(colBCHTS)
         })
         try db.run("CREATE INDEX IF NOT EXISTS idx_book_curated_day ON book_curated_history(day)")
+
+        // Made For You daily shelf cache
+        try db.run(madeForYouDailyCache.create(ifNotExists: true) { t in
+            t.column(colMFYCDay)
+            t.column(colMFYCPosition)
+            t.column(colMFYCTrackId)
+            t.column(colMFYCSource)
+            t.column(colMFYCCreatedAt)
+            t.primaryKey(colMFYCDay, colMFYCPosition)
+        })
 
         // Enable FK enforcement
         _ = try? db.run("PRAGMA foreign_keys = ON")
@@ -1720,6 +1738,80 @@ final class DatabaseService: @unchecked Sendable {
             reason: row[colBCHReason] ?? "",
             workKey: row[colBCHWorkKey]
         )
+    }
+
+    // MARK: - Taste backfill from play history
+
+    func fetchRecentlyPlayedTracksForTasteBackfill(limit: Int = 200) async -> [Track] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let sql = """
+                    SELECT t.* FROM tracks t
+                    INNER JOIN (
+                        SELECT track_id, MAX(played_at) AS last_at
+                        FROM track_play_history
+                        GROUP BY track_id
+                    ) ph ON ph.track_id = t.id
+                    ORDER BY ph.last_at DESC
+                    LIMIT ?
+                """
+                var out: [Track] = []
+                if let rows = try? self.db.prepare(sql, limit) {
+                    for r in rows {
+                        if let id = r[0] as? String,
+                           let row = try? self.db.pluck(self.tracks.filter(self.colId == id)),
+                           let track = self.rowToTrack(row) {
+                            out.append(track)
+                        }
+                    }
+                }
+                continuation.resume(returning: out)
+            }
+        }
+    }
+
+    // MARK: - Made For You daily cache
+
+    func saveMadeForYouDailyCache(day: String, trackIds: [String], source: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                let now = Date().timeIntervalSince1970
+                for (idx, trackId) in trackIds.enumerated() {
+                    _ = try? self.db.run(self.madeForYouDailyCache.insert(or: .replace,
+                        self.colMFYCDay      <- day,
+                        self.colMFYCPosition <- idx,
+                        self.colMFYCTrackId  <- trackId,
+                        self.colMFYCSource   <- source,
+                        self.colMFYCCreatedAt <- now
+                    ))
+                }
+                continuation.resume(returning: ())
+            }
+        }
+    }
+
+    struct MFYCCacheEntry {
+        let trackId: String
+        let source: String
+        let position: Int
+    }
+
+    func fetchMadeForYouDailyCache(day: String) async -> [MFYCCacheEntry] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let query = self.madeForYouDailyCache
+                    .filter(self.colMFYCDay == day)
+                    .order(self.colMFYCPosition.asc)
+                let entries: [MFYCCacheEntry] = (try? self.db.prepare(query))?.compactMap { row in
+                    MFYCCacheEntry(
+                        trackId: row[self.colMFYCTrackId],
+                        source: row[self.colMFYCSource],
+                        position: row[self.colMFYCPosition]
+                    )
+                } ?? []
+                continuation.resume(returning: entries)
+            }
+        }
     }
 
     private func rowToFavorite(_ row: Row) -> Favorite? {
