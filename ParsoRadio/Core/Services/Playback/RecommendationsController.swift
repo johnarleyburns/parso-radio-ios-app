@@ -22,12 +22,14 @@ final class RecommendationsController {
             : await tasteStore.fetchProfile(bucket: "spoken")
         let allCollectionIDs = RecommendationQueryBuilder.extractCollections(
             from: IACollectionStore.shared.collections)
+        let musicScope = RecommendationScope.music(collectionIDs: allCollectionIDs)
+        let booksScope = RecommendationScope.books
 
         let dateSeed = dateSeedString()
         let musicQueries = booksOnly ? [] : RecommendationQueryBuilder.generateQueries(
-            profile: musicProfile, dateSeed: dateSeed, allCollectionIDs: allCollectionIDs)
+            profile: musicProfile, dateSeed: dateSeed, scope: musicScope)
         let spokenQueries = musicOnly ? [] : RecommendationQueryBuilder.generateQueries(
-            profile: spokenProfile, dateSeed: dateSeed, allCollectionIDs: allCollectionIDs)
+            profile: spokenProfile, dateSeed: dateSeed, scope: booksScope)
         let allQueries = musicQueries + spokenQueries
         guard !allQueries.isEmpty else { return nil }
 
@@ -60,7 +62,8 @@ final class RecommendationsController {
         if filtered.count < RecommendationConstants.minShelf {
             let fallbackQueries = buildFallbackQueries(musicProfile: musicProfile,
                                                         spokenProfile: spokenProfile,
-                                                        allCollectionIDs: allCollectionIDs)
+                                                        musicScope: musicScope,
+                                                        booksScope: booksScope)
             var extraCandidates: [Track] = []
             await withTaskGroup(of: [Track].self) { group in
                 for query in fallbackQueries {
@@ -195,17 +198,21 @@ final class RecommendationsController {
 
     private func buildFallbackQueries(musicProfile: ProfileBucket,
                                        spokenProfile: ProfileBucket,
-                                       allCollectionIDs: [String]) -> [String] {
+                                       musicScope: RecommendationScope,
+                                       booksScope: RecommendationScope) -> [String] {
         var queries: [String] = []
-        let musicCollections = allCollectionIDs.map { "collection:\($0)" }.joined(separator: " OR ")
 
-        for creator in (musicProfile.topCreators + spokenProfile.topCreators).prefix(5) {
-            let query = "creator:\"\(creator.replacingOccurrences(of: "\"", with: ""))\" AND (\(musicCollections))"
-            queries.append(query)
+        for creator in musicProfile.topCreators.prefix(5) {
+            queries.append("creator:\"\(creator.replacingOccurrences(of: "\"", with: ""))\"\(musicScope.scopeClause)")
         }
-        for subject in (musicProfile.topSubjects + spokenProfile.topSubjects).prefix(5) {
-            let query = "subject:\"\(subject.replacingOccurrences(of: "\"", with: ""))\" AND (\(musicCollections))"
-            queries.append(query)
+        for subject in musicProfile.topSubjects.prefix(5) {
+            queries.append("subject:\"\(subject.replacingOccurrences(of: "\"", with: ""))\"\(musicScope.scopeClause)")
+        }
+        for creator in spokenProfile.topCreators.prefix(5) {
+            queries.append("creator:\"\(creator.replacingOccurrences(of: "\"", with: ""))\"\(booksScope.scopeClause)")
+        }
+        for subject in spokenProfile.topSubjects.prefix(5) {
+            queries.append("subject:\"\(subject.replacingOccurrences(of: "\"", with: ""))\"\(booksScope.scopeClause)")
         }
         return Array(Set(queries)).shuffled()
     }

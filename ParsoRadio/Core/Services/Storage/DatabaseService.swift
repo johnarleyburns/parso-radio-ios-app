@@ -1089,6 +1089,19 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
+    /// Delete every row in the taste-profile terms table only. Used by the v2
+    /// taste-profile migration to rebuild buckets from authoritative play
+    /// history. Leaves tracks, play history, seen identifiers, and the surfaced
+    /// ring untouched.
+    func clearTasteProfileTerms() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            queue.async { [self] in
+                _ = try? self.db.run(self.tasteProfileTerms.delete())
+                continuation.resume()
+            }
+        }
+    }
+
     func fetchTasteProfileTerms(bucket: String?) async -> [(bucket: String, axis: String, term: String, weight: Double, lastTS: Double)] {
         await withCheckedContinuation { continuation in
             queue.async { [self] in

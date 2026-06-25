@@ -121,6 +121,60 @@ final class RecommendationQueryBuilderTests: XCTestCase {
         XCTAssertFalse(adjacent.contains("piano"), "adjacent set must not contain top-played")
     }
 
+    // MARK: - Shelf scoping
+
+    func testMusicSerendipityExcludesLibrivoxAndSpokenWord() {
+        let profile = makeProfile(bucket: "music",
+                                   creators: [("bach", 10.0)],
+                                   subjects: [("classical", 10.0), ("baroque", 6.0), ("piano", 4.0)])
+        let queries = RecommendationQueryBuilder.generateQueries(
+            profile: profile, dateSeed: "2025-01-15",
+            scope: .music(collectionIDs: testCollections))
+
+        let serendipity = queries.filter { $0.noveltyClass == .serendipity }
+        XCTAssertFalse(serendipity.isEmpty, "expected a serendipity query")
+        for q in serendipity {
+            XCTAssertTrue(q.iaQuery.contains("NOT collection:librivoxaudio"),
+                           "music serendipity must exclude librivoxaudio: \(q.iaQuery)")
+            XCTAssertTrue(q.iaQuery.contains("NOT subject:\"spoken word\""),
+                           "music serendipity must exclude spoken word: \(q.iaQuery)")
+        }
+    }
+
+    func testMusicQueriesNeverPositivelyTargetLibrivox() {
+        let profile = makeProfile(bucket: "music",
+                                   creators: [("bach", 10.0), ("mozart", 8.0)],
+                                   subjects: [("classical", 10.0), ("baroque", 5.0)])
+        let queries = RecommendationQueryBuilder.generateQueries(
+            profile: profile, dateSeed: "2025-01-15",
+            scope: .music(collectionIDs: testCollections))
+
+        XCTAssertFalse(queries.isEmpty)
+        for q in queries {
+            let stripped = q.iaQuery.replacingOccurrences(of: "NOT collection:librivoxaudio", with: "")
+            XCTAssertFalse(stripped.contains("collection:librivoxaudio"),
+                            "music query must only EXCLUDE librivoxaudio, never target it: \(q.iaQuery)")
+        }
+    }
+
+    func testBooksQueriesTargetLibrivoxOnly() {
+        let profile = makeProfile(bucket: "spoken",
+                                   creators: [("jane austen", 10.0), ("herman melville", 8.0)],
+                                   subjects: [("fiction", 10.0), ("romance", 6.0), ("adventure", 4.0)])
+        let queries = RecommendationQueryBuilder.generateQueries(
+            profile: profile, dateSeed: "2025-01-15", scope: .books)
+
+        XCTAssertFalse(queries.isEmpty)
+        for q in queries {
+            XCTAssertTrue(q.iaQuery.contains("collection:librivoxaudio"),
+                           "books query must target librivoxaudio: \(q.iaQuery)")
+            for col in testCollections {
+                XCTAssertFalse(q.iaQuery.contains("collection:\(col)"),
+                               "books query must not target music collection \(col): \(q.iaQuery)")
+            }
+        }
+    }
+
     func testExtractCollectionsReturnsIDs() {
         let collections: [IACollection] = [
             IACollection(id: "abc", title: "ABC", category: "x", curator: "", icon: ""),

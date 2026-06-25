@@ -251,6 +251,42 @@ final class MediaKindTests: XCTestCase {
         XCTAssertEqual(track.mediaKind(in: channel), .music)
     }
 
+    // MARK: - Track.inferredMediaKind (channel-free)
+
+    func testInferredMediaKindAudiobookFromLibrivoxStamp() {
+        let track = makeTestTrack(id: "lv-1", source: "internet_archive",
+                                  tags: [Channel.stampToken("lv-general-fiction")])
+        XCTAssertEqual(track.inferredMediaKind, .audiobook)
+    }
+
+    func testInferredMediaKindLectureFromOxfordStamp() {
+        let track = makeTestTrack(id: "ox-1", source: "internet_archive",
+                                  tags: [Channel.stampToken("oxford-philosophy")])
+        XCTAssertEqual(track.inferredMediaKind, .lecture)
+    }
+
+    func testInferredMediaKindPodcastFromSource() {
+        let track = makeTestTrack(id: "pod-1", source: "podcast")
+        XCTAssertEqual(track.inferredMediaKind, .podcast)
+    }
+
+    func testInferredMediaKindLectureFromSource() {
+        let track = makeTestTrack(id: "ox-2", source: "oxford_lectures")
+        XCTAssertEqual(track.inferredMediaKind, .lecture)
+    }
+
+    func testInferredMediaKindPlainInternetArchiveIsMusic() {
+        let track = makeTestTrack(id: "mus-1", source: "internet_archive",
+                                  tags: [Channel.stampToken("sfjazz"), "jazz"])
+        XCTAssertEqual(track.inferredMediaKind, .music)
+    }
+
+    func testInferredMediaKindForYouStampIsMusic() {
+        let track = makeTestTrack(id: "fy-1", source: "internet_archive",
+                                  tags: [Channel.stampToken("for-you")])
+        XCTAssertEqual(track.inferredMediaKind, .music)
+    }
+
     // MARK: - LibrarySection ordering
 
     func testLibrarySectionOrderLecturesBeforePodcasts() {
@@ -267,11 +303,12 @@ final class MediaKindTests: XCTestCase {
 
 private func makeTestTrack(id: String, source: String,
                            duration: Double = 100,
+                           tags: [String] = [],
                            parentId: String? = nil) -> Track {
     Track(id: id, source: source, title: "Title", artist: "Artist",
           duration: duration,
           streamURL: URL(string: "https://example.com/\(id)")!,
-          downloadURL: nil, license: .cc0, tags: [], qualityScore: 1,
+          downloadURL: nil, license: .cc0, tags: tags, qualityScore: 1,
           rawCreator: "", composer: nil, instruments: [],
           metadataConfidence: 1,
           parentIdentifier: parentId)

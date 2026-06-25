@@ -48,7 +48,7 @@ final class MadeForYouShelfStore: ObservableObject {
     private let shelf: Shelf
     private var archiveService: InternetArchiveService?
     private let backfillVersionKey = "tasteProfileBackfillVersion"
-    private let currentBackfillVersion = 1
+    private let currentBackfillVersion = 2
     private var storeTask: Task<Void, Never>?
 
     init(db: DatabaseService, tasteProfileStore: TasteProfileStore, shelf: Shelf = .music) {
@@ -120,14 +120,17 @@ final class MadeForYouShelfStore: ObservableObject {
         }
     }
 
-    /// Defensive source filter. Music drops spoken-word sources (podcast /
-    /// lecture); Books drops podcasts (LibriVox audiobooks are kept).
+    /// Defensive media-kind backstop (the primary guard is query-side scoping in
+    /// RecommendationQueryBuilder). Music keeps only tracks that classify as
+    /// music; Books drops podcast/lecture sources but keeps LibriVox items —
+    /// cold-start audiobook picks carry the generic `for-you` stamp and so
+    /// classify as `.music` under `inferredMediaKind`, hence the lenient rule.
     private func filtered(_ tracks: [Track]) -> [Track] {
         switch shelf {
         case .music:
-            return tracks.filter { $0.source != "podcast" && $0.source != "oxford_lectures" }
+            return tracks.filter { $0.inferredMediaKind == .music }
         case .books:
-            return tracks.filter { $0.source != "podcast" }
+            return tracks.filter { $0.source != "podcast" && $0.source != "oxford_lectures" }
         }
     }
 
@@ -153,23 +156,81 @@ final class MadeForYouShelfStore: ObservableObject {
         let version = UserDefaults.standard.integer(forKey: backfillVersionKey)
         guard version < currentBackfillVersion else { return }
 
+        if version >= 1 {
+            // Existing user whose v1 backfill seeded with `channel: nil` — every
+            // audiobook play was mis-bucketed into `music` and the `spoken`
+            // bucket is empty. Rebuild both buckets from authoritative history.
+            await migrateTasteProfileV2()
+            UserDefaults.standard.set(currentBackfillVersion, forKey: backfillVersionKey)
+            return
+        }
+
+        // version == 0: fresh install or pre-backfill upgrade. Only seed from
+        // history when no profile exists yet (onboarding seeds it otherwise).
         let hasProfile = await tasteProfileStore.hasAnyProfile()
         guard !hasProfile else {
             UserDefaults.standard.set(currentBackfillVersion, forKey: backfillVersionKey)
             return
         }
 
-        let playedTracks = await db.fetchRecentlyPlayedTracksForTasteBackfill(limit: 200)
-        guard !playedTracks.isEmpty else {
+        let played = await db.fetchRecentlyPlayedWithChannel(limit: 200)
+        guard !played.isEmpty else {
             UserDefaults.standard.set(currentBackfillVersion, forKey: backfillVersionKey)
             return
         }
 
-        for track in playedTracks {
-            await tasteProfileStore.seedFromTrack(track, channel: nil)
+        for (track, channelId) in played {
+            await tasteProfileStore.seedFromTrack(track, channel: Self.resolveChannel(channelId))
         }
 
         UserDefaults.standard.set(currentBackfillVersion, forKey: backfillVersionKey)
+    }
+
+    /// Clean rebuild of the taste profile from authoritative play history,
+    /// preserving onboarding/favorite emphasis. Steps:
+    ///   1. Snapshot the (polluted) music bucket.
+    ///   2. Clear all taste terms.
+    ///   3. Re-seed both buckets from `track_play_history` with channel-aware
+    ///      classification — audiobook plays now land in `spoken`.
+    ///   4. Restore the residual music weight (snapshot minus the rebuilt
+    ///      play-derived weight) for terms that are NOT audiobook-origin (i.e.
+    ///      absent from the rebuilt `spoken` bucket). That residual is the
+    ///      onboarding/favorite emphasis, which has no play-history rows.
+    func migrateTasteProfileV2() async {
+        let snapshot = await db.fetchTasteProfileTerms(bucket: "music")
+
+        await db.clearTasteProfileTerms()
+
+        let played = await db.fetchRecentlyPlayedWithChannel(limit: 200)
+        for (track, channelId) in played {
+            await tasteProfileStore.seedFromTrack(track, channel: Self.resolveChannel(channelId))
+        }
+
+        let rebuiltMusic = await db.fetchTasteProfileTerms(bucket: "music")
+        let rebuiltSpoken = await db.fetchTasteProfileTerms(bucket: "spoken")
+
+        var musicWeight: [String: Double] = [:]
+        for t in rebuiltMusic { musicWeight["\(t.axis)|\(t.term)", default: 0] += t.weight }
+        let spokenKeys = Set(rebuiltSpoken.map { "\($0.axis)|\($0.term)" })
+
+        for term in snapshot {
+            let key = "\(term.axis)|\(term.term)"
+            // Audiobook-origin terms now live in `spoken`; never restore them to music.
+            if spokenKeys.contains(key) { continue }
+            let residual = term.weight - (musicWeight[key] ?? 0)
+            if residual > 0.5 {
+                await tasteProfileStore.upsertTerm(bucket: "music", axis: term.axis,
+                                                    term: term.term, increment: residual)
+            }
+        }
+    }
+
+    /// Resolve the channel a track was played in from a stored play-history
+    /// `channelId`. Registry channels carry their content kind (Audiobooks /
+    /// Lectures / Podcasts); synthetic contexts (`direct`, playlist keys,
+    /// user collections) return `nil` so seeding falls back to track signals.
+    static func resolveChannel(_ channelId: String) -> Channel? {
+        Channel.defaults.first { $0.id == channelId }
     }
 
     func invalidateForHistoryChange(version: Int) {

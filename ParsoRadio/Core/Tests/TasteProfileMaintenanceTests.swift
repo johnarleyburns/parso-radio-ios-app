@@ -104,6 +104,40 @@ final class TasteProfileMaintenanceTests: XCTestCase {
         XCTAssertTrue(hasDebussy, "plays from search must count")
     }
 
+    // MARK: - Bucketing without a live channel (root cause: audiobook → music)
+
+    func testNilChannelLibrivoxTrackSeedsSpokenBucket() async {
+        let track = makeTrack(id: "lv-t1", title: "Pride and Prejudice",
+                               rawCreator: "Jane Austen",
+                               tags: [Channel.stampToken("lv-general-fiction")],
+                               composer: nil)
+
+        await store.seedFromTrack(track, channel: nil)
+
+        let spoken = await store.fetchProfile(bucket: "spoken")
+        XCTAssertTrue(spoken.creatorTerms.contains { $0.term == "jane austen" },
+                       "LibriVox-stamped track played without a channel must seed the spoken bucket")
+
+        let music = await store.fetchProfile(bucket: "music")
+        XCTAssertFalse(music.creatorTerms.contains { $0.term == "jane austen" },
+                        "audiobook author must not pollute the music bucket")
+    }
+
+    func testAudiobookChannelSeedsSpokenBucket() async {
+        let channel = Channel.defaults.first { $0.category == "Audiobooks" }!
+        let track = makeTrack(id: "ab-t1", title: "Moby Dick",
+                               rawCreator: "Herman Melville", tags: ["fiction"],
+                               composer: nil)
+
+        await store.seedFromTrack(track, channel: channel)
+
+        let spoken = await store.fetchProfile(bucket: "spoken")
+        XCTAssertTrue(spoken.creatorTerms.contains { $0.term == "herman melville" },
+                       "play from an Audiobooks channel must seed the spoken bucket")
+        let music = await store.fetchProfile(bucket: "music")
+        XCTAssertFalse(music.creatorTerms.contains { $0.term == "herman melville" })
+    }
+
     // MARK: - Repeated plays
 
     func testRepeatedPlayDoesNotExplodeWeight() async {

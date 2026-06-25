@@ -64,6 +64,50 @@ final class MadeForYouShelfStoreTests: XCTestCase {
         }
     }
 
+    func testMigrationV2MovesAudiobookTermsToSpokenAndPreservesOnboarding() async {
+        let audiobookChannel = Channel.defaults.first { $0.category == "Audiobooks" }!
+        let book = Track(
+            id: "book-1", source: "internet_archive", title: "Pride and Prejudice",
+            artist: "Jane Austen", duration: 0,
+            streamURL: URL(string: "https://example.com/book-1.mp3")!,
+            downloadURL: nil, localFilePath: nil, license: .publicDomain,
+            tags: ["fiction"], qualityScore: 3.0, rawCreator: "Jane Austen",
+            composer: nil, instruments: [], metadataConfidence: 1.0)
+        await db.saveTracks([book])
+        await db.recordPlayed(channelId: audiobookChannel.id, trackId: book.id)
+
+        // Simulate the v1 state: audiobook author polluted the MUSIC bucket,
+        // plus a genuine onboarding music term that has no play-history row.
+        await tasteStore.upsertTerm(bucket: "music", axis: "creator", term: "jane austen", increment: 1.0)
+        await tasteStore.upsertTerm(bucket: "music", axis: "creator", term: "bach", increment: 1.75)
+
+        let store = MadeForYouShelfStore(db: db, tasteProfileStore: tasteStore)
+        await store.migrateTasteProfileV2()
+
+        let music = await tasteStore.fetchProfile(bucket: "music")
+        let spoken = await tasteStore.fetchProfile(bucket: "spoken")
+
+        XCTAssertTrue(spoken.creatorTerms.contains { $0.term == "jane austen" },
+                       "audiobook author must move to the spoken bucket after v2 migration")
+        XCTAssertFalse(music.creatorTerms.contains { $0.term == "jane austen" },
+                        "audiobook author must be purged from the music bucket")
+        XCTAssertTrue(music.creatorTerms.contains { $0.term == "bach" },
+                       "onboarding music term must be preserved in the music bucket")
+    }
+
+    func testClearTasteProfileTermsEmptiesOnlyTasteTerms() async {
+        await tasteStore.upsertTerm(bucket: "music", axis: "creator", term: "bach", increment: 2.0)
+        await db.saveTracks([Track.makeStub(id: "t1", title: "T1")])
+        await db.recordPlayed(channelId: "c1", trackId: "t1")
+
+        await db.clearTasteProfileTerms()
+
+        let hasProfile = await tasteStore.hasAnyProfile()
+        XCTAssertFalse(hasProfile, "clearTasteProfileTerms must empty the taste terms table")
+        let recents = await db.fetchRecentlyPlayedWithChannel(limit: 10)
+        XCTAssertEqual(recents.count, 1, "play history must be left intact")
+    }
+
     func testDailyCacheHandlesNewDay() async {
         let shelfStore = MadeForYouShelfStore(db: db, tasteProfileStore: tasteStore)
         await shelfStore.saveDailyCache(trackIds: ["track_a"], source: "cold_start")

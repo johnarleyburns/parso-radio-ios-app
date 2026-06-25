@@ -29,4 +29,22 @@ extension Track {
         }
         return .music
     }
+
+    /// Channel-free media-kind classification used when no live channel context
+    /// is available (history backfill, direct/search plays, defensive shelf
+    /// filtering). Reads the persisted `source` plus the channel-isolation stamp
+    /// tags (`pmreg::<channelId>`) that registry fetches inject onto the track:
+    /// `lv-*` → audiobook, `oxford-*` → lecture, `podcast-*`/`news-*` → podcast.
+    /// Falls back to `.music`, which is correct for plain Internet Archive music.
+    var inferredMediaKind: MediaKind {
+        if source == "podcast" { return .podcast }
+        if source == "oxford_lectures" { return .lecture }
+        let stamps = tags.map { tag -> String in
+            tag.hasPrefix("pmreg::") ? String(tag.dropFirst("pmreg::".count)) : tag
+        }
+        if stamps.contains(where: { $0.hasPrefix("lv-") }) { return .audiobook }
+        if stamps.contains(where: { $0.hasPrefix("oxford-") }) { return .lecture }
+        if stamps.contains(where: { $0.hasPrefix("podcast-") || $0.hasPrefix("news-") }) { return .podcast }
+        return .music
+    }
 }

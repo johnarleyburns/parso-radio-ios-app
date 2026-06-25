@@ -49,7 +49,7 @@ final class TasteProfileStore {
     }
 
     func seedFromTrack(_ track: Track, channel: Channel?, boost: Double = 1.0) async {
-        let kind = track.mediaKind(in: channel)
+        let kind = resolvedKind(track: track, channel: channel)
         let bucket = bucketFor(kind)
         guard bucket != nil else { return }
         let b = bucket!
@@ -168,6 +168,19 @@ final class TasteProfileStore {
         case .audiobook, .lecture: return "spoken"
         case .podcast: return nil
         }
+    }
+
+    /// A non-music channel (Audiobooks / Lectures / Podcasts / Ambient) is
+    /// authoritative about content kind. A music channel, the generic `for-you`
+    /// channel, and the `direct`/playlist/search contexts (channel `nil`) all
+    /// default to `.music`, so we defer to the track's own persisted signals via
+    /// `inferredMediaKind` — keeping a LibriVox track classified `.audiobook`
+    /// even when it was played without a spoken channel.
+    func resolvedKind(track: Track, channel: Channel?) -> MediaKind {
+        if let channel, channel.mediaKind != .music {
+            return channel.mediaKind
+        }
+        return track.inferredMediaKind
     }
 
     func workKeyFor(_ track: Track) -> String {

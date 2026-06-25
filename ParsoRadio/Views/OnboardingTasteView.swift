@@ -49,6 +49,9 @@ struct OnboardingChip: Identifiable {
 struct OnboardingTasteView: View {
     @EnvironmentObject var deps: AppDependencies
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    // Persisted so a future taste-profile rebuild can replay onboarding intent
+    // exactly (the v2 migration cannot otherwise recover lost selections).
+    @AppStorage("onboardingChipIDs") private var onboardingChipIDs = ""
     let isEditing: Bool
 
     @State private var selectedIDs: Set<String> = []
@@ -205,6 +208,7 @@ struct OnboardingTasteView: View {
         defer { isSeeding = false }
 
         let chips = OnboardingChip.all.filter { selectedIDs.contains($0.id) }
+        onboardingChipIDs = chips.map(\.id).sorted().joined(separator: ",")
         let archiveService = deps.archiveService
         let tasteStore = TasteProfileStore(db: deps.db)
 

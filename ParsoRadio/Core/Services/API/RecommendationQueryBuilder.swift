@@ -13,12 +13,46 @@ struct CandidateQuery: Equatable {
     }
 }
 
+/// Where a recommendation shelf draws candidates from, and which content it must
+/// exclude. Music scopes to the user's music collections and bars LibriVox /
+/// spoken-word; Books targets the LibriVox audiobook collection.
+enum RecommendationScope: Equatable {
+    case music(collectionIDs: [String])
+    case books
+
+    /// A valid trailing Solr clause appended to every generated query. Always
+    /// begins with " AND " (or is a bare exclusion when music has no positive
+    /// collection scope) so concatenation never produces an empty `()` group.
+    var scopeClause: String {
+        switch self {
+        case .music(let ids):
+            let exclusion = " AND NOT collection:librivoxaudio AND NOT subject:\"spoken word\""
+            guard !ids.isEmpty else { return exclusion }
+            let cols = "(" + ids.map { "collection:\($0)" }.joined(separator: " OR ") + ")"
+            return " AND \(cols)\(exclusion)"
+        case .books:
+            return " AND collection:librivoxaudio"
+        }
+    }
+}
+
 enum RecommendationQueryBuilder {
 
+    /// Backward-compatible overload — treats `allCollectionIDs` as the music scope.
     static func generateQueries(
         profile: ProfileBucket,
         dateSeed: String,
         allCollectionIDs: [String],
+        kTarget: Int = RecommendationConstants.kTarget
+    ) -> [CandidateQuery] {
+        generateQueries(profile: profile, dateSeed: dateSeed,
+                        scope: .music(collectionIDs: allCollectionIDs), kTarget: kTarget)
+    }
+
+    static func generateQueries(
+        profile: ProfileBucket,
+        dateSeed: String,
+        scope: RecommendationScope,
         kTarget: Int = RecommendationConstants.kTarget
     ) -> [CandidateQuery] {
         guard !profile.isEmpty else { return [] }
@@ -30,7 +64,7 @@ enum RecommendationQueryBuilder {
 
         var queries: [CandidateQuery] = []
 
-        let musicCollections = allCollectionIDs.map { "collection:\($0)" }.joined(separator: " OR ")
+        let scopeClause = scope.scopeClause
 
         // EXPLOIT: same creator/composer you already love
         let exploitCreators = profile.topCreators + profile.topComposers
@@ -38,7 +72,7 @@ enum RecommendationQueryBuilder {
             let perCreator = max(1, exploitAlloc / exploitCreators.count)
             for creator in exploitCreators {
                 let escaped = escapeSolr(creator)
-                let query = "(creator:\"\(escaped)\") AND (\(musicCollections))"
+                let query = "(creator:\"\(escaped)\")\(scopeClause)"
                 queries.append(CandidateQuery(iaQuery: query, anchorTerm: creator,
                                                noveltyClass: .exploit, requestedCount: perCreator))
             }
@@ -58,7 +92,7 @@ enum RecommendationQueryBuilder {
             if explorePairs.isEmpty {
                 for loved in exploreSubjects.prefix(2) {
                     let escaped = escapeSolr(loved)
-                    let query = "subject:\"\(escaped)\" AND (\(musicCollections))"
+                    let query = "subject:\"\(escaped)\"\(scopeClause)"
                     queries.append(CandidateQuery(iaQuery: query, anchorTerm: loved,
                                                    noveltyClass: .explore, requestedCount: max(1, exploreAlloc / 2)))
                 }
@@ -67,7 +101,7 @@ enum RecommendationQueryBuilder {
                 for (loved, adjacent) in explorePairs {
                     let escapedLoved = escapeSolr(loved)
                     let escapedAdj = escapeSolr(adjacent)
-                    let query = "subject:\"\(escapedLoved)\" AND subject:\"\(escapedAdj)\" AND (\(musicCollections))"
+                    let query = "subject:\"\(escapedLoved)\" AND subject:\"\(escapedAdj)\"\(scopeClause)"
                     queries.append(CandidateQuery(iaQuery: query, anchorTerm: "\(loved)+\(adjacent)",
                                                    noveltyClass: .explore, requestedCount: perPair))
                 }
@@ -83,7 +117,7 @@ enum RecommendationQueryBuilder {
                 let sibling = siblingPool[idx]
                 let escapedTop = escapeSolr(topSubject)
                 let escapedSib = escapeSolr(sibling)
-                let query = "subject:\"\(escapedTop)\" AND subject:\"\(escapedSib)\" AND mediatype:audio AND downloads:[\(RecommendationConstants.downloadFloor) TO *]"
+                let query = "subject:\"\(escapedTop)\" AND subject:\"\(escapedSib)\" AND mediatype:audio AND downloads:[\(RecommendationConstants.downloadFloor) TO *]\(scopeClause)"
                 queries.append(CandidateQuery(iaQuery: query, anchorTerm: "\(topSubject)+\(sibling)",
                                                noveltyClass: .serendipity, requestedCount: serendipityAlloc))
             }
@@ -94,7 +128,7 @@ enum RecommendationQueryBuilder {
             let pc = max(1, exploitAlloc / min(3, exploitCreators.count))
             for creator in exploitCreators.prefix(3) {
                 let escaped = escapeSolr(creator)
-                let query = "creator:\"\(escaped)\" AND (\(musicCollections))"
+                let query = "creator:\"\(escaped)\"\(scopeClause)"
                 queries.append(CandidateQuery(iaQuery: query, anchorTerm: creator,
                                                noveltyClass: .exploit, requestedCount: pc))
             }
