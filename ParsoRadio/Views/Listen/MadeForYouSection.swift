@@ -55,7 +55,7 @@ struct MadeForYouSection: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Button("Retry") {
-                        Task { await shelfStore.loadIfNeeded() }
+                        Task { await shelfStore.loadIfNeeded(historyVersion: playerVM.playHistoryVersion) }
                     }
                     .font(.caption)
                 }
@@ -69,7 +69,7 @@ struct MadeForYouSection: View {
                         .foregroundStyle(.secondary)
                     if retryable {
                         Button("Retry") {
-                            Task { await shelfStore.loadIfNeeded() }
+                            Task { await shelfStore.loadIfNeeded(historyVersion: playerVM.playHistoryVersion) }
                         }
                         .font(.caption)
                     }
@@ -95,7 +95,7 @@ struct MadeForYouSection: View {
         }
         .task(id: playerVM.playHistoryVersion) {
             shelfStore.setArchiveService(deps.archiveService)
-            await shelfStore.loadIfNeeded()
+            await shelfStore.loadIfNeeded(historyVersion: playerVM.playHistoryVersion)
         }
     }
 }

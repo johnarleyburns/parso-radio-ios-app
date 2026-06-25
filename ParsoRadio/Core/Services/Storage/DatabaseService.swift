@@ -1656,6 +1656,19 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
+    /// Authoritative audiobook-listen records (author + comma-joined subjects).
+    /// Used to seed the spoken taste bucket independent of the play channel.
+    func fetchBookListenedEntries() async -> [(author: String?, subjects: String?)] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let rows = (try? db.prepare(bookListenHistory))?.map {
+                    (author: $0[colBLHAuthor], subjects: $0[colBLHSubjects])
+                } ?? []
+                continuation.resume(returning: rows)
+            }
+        }
+    }
+
     // MARK: - Taste backfill from play history
 
     func fetchRecentlyPlayedTracksForTasteBackfill(limit: Int = 200) async -> [Track] {

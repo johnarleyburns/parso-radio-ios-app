@@ -95,6 +95,21 @@ final class MadeForYouShelfStoreTests: XCTestCase {
                        "onboarding music term must be preserved in the music bucket")
     }
 
+    func testMigrationHarvestsBookListenHistoryIntoSpoken() async {
+        await db.recordBookListened(workKey: "twain-huck", identifier: "huck-finn",
+                                    title: "Huckleberry Finn", author: "Mark Twain",
+                                    subjects: "fiction,humor")
+
+        let store = MadeForYouShelfStore(db: db, tasteProfileStore: tasteStore)
+        await store.migrateTasteProfileV2()
+
+        let spoken = await tasteStore.fetchProfile(bucket: "spoken")
+        XCTAssertTrue(spoken.creatorTerms.contains { $0.term == "mark twain" },
+                       "book-listen author must seed the spoken bucket even with no channel play")
+        XCTAssertTrue(spoken.subjectTerms.contains { $0.term == "fiction" },
+                       "book-listen subjects must seed the spoken bucket")
+    }
+
     func testClearTasteProfileTermsEmptiesOnlyTasteTerms() async {
         await tasteStore.upsertTerm(bucket: "music", axis: "creator", term: "bach", increment: 2.0)
         await db.saveTracks([Track.makeStub(id: "t1", title: "T1")])

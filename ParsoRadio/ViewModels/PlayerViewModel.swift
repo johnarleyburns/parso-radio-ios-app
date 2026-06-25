@@ -1185,12 +1185,17 @@ final class PlayerViewModel: ObservableObject {
                 let trackId = track.id
                 let capturedChannel = currentChannel
                 let capturedTrack = track
+                // Authoritative content kind for THIS play (channel, album/book,
+                // search, etc.). Drives which taste bucket the play feeds, so an
+                // audiobook played from any surface trains the spoken profile.
+                let capturedKind = activeMediaKind
                 Task { [weak self] in
                     guard let self else { return }
                     await db.recordPlayed(channelId: ctx, trackId: trackId)
-                    await tasteStore.seedFromTrack(capturedTrack, channel: capturedChannel)
+                    await tasteStore.seedFromTrack(capturedTrack, mediaKind: capturedKind,
+                                                   channel: capturedChannel)
                     await tasteStore.addSeenIdentifiers(from: capturedTrack, reason: "played")
-                    await recordBookListenedIfAudiobook(track: capturedTrack, channel: capturedChannel)
+                    await recordBookListenedIfAudiobook(track: capturedTrack, kind: capturedKind)
                     playHistoryVersion &+= 1
                 }
                 ContributionCoordinator.recordTrackPlayed()
@@ -1369,8 +1374,11 @@ final class PlayerViewModel: ObservableObject {
         await wholeItem.playEntireCurrentItem()
     }
 
-    func playAlbumTracks(_ ordered: [Track], title: String) async {
-        await wholeItem.playAlbumTracks(ordered, title: title)
+    func playAlbumTracks(_ ordered: [Track], title: String,
+                         mediaKind: MediaKind? = nil,
+                         origin: PlaybackContext.Origin = .directItem) async {
+        await wholeItem.playAlbumTracks(ordered, title: title,
+                                        mediaKind: mediaKind, origin: origin)
     }
 
     func playSingleTrack(_ track: Track, seekTo: Double? = nil) async {
@@ -1739,8 +1747,7 @@ final class PlayerViewModel: ObservableObject {
         // spinner and no audio yet (item 9).
     }
 
-    private func recordBookListenedIfAudiobook(track: Track, channel: Channel?) async {
-        let kind = track.mediaKind(in: channel)
+    private func recordBookListenedIfAudiobook(track: Track, kind: MediaKind) async {
         guard kind == .audiobook else { return }
         let workKey = WorkKey.normalized(
             author: track.rawCreator, title: track.title)

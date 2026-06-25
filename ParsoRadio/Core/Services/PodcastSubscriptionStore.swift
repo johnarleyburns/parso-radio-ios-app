@@ -36,7 +36,11 @@ final class PodcastSubscriptionStore: ObservableObject {
 
     private func loadFromDB() async {
         guard let db else { return }
-        subscriptions = await db.fetchPodcastSubscriptions()
+        let loaded = await db.fetchPodcastSubscriptions()
+        // A reconfigure cancels this task; don't let a stale load clobber the
+        // current subscriptions (also prevents cross-test state contamination).
+        guard !Task.isCancelled else { return }
+        subscriptions = loaded
     }
 
     @discardableResult

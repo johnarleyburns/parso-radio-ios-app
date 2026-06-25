@@ -55,7 +55,7 @@ struct BooksForYouSection: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Button("Retry") {
-                        Task { await shelfStore.loadIfNeeded() }
+                        Task { await shelfStore.loadIfNeeded(historyVersion: playerVM.playHistoryVersion) }
                     }
                     .font(.caption)
                 }
@@ -69,7 +69,7 @@ struct BooksForYouSection: View {
                         .foregroundStyle(.secondary)
                     if retryable {
                         Button("Retry") {
-                            Task { await shelfStore.loadIfNeeded() }
+                            Task { await shelfStore.loadIfNeeded(historyVersion: playerVM.playHistoryVersion) }
                         }
                         .font(.caption)
                     }
@@ -95,7 +95,7 @@ struct BooksForYouSection: View {
         }
         .task(id: playerVM.playHistoryVersion) {
             shelfStore.setArchiveService(deps.archiveService)
-            await shelfStore.loadIfNeeded()
+            await shelfStore.loadIfNeeded(historyVersion: playerVM.playHistoryVersion)
         }
     }
 
@@ -107,7 +107,8 @@ struct BooksForYouSection: View {
                 playerVM.errorMessage = "This book doesn't have any playable audio files."
                 return
             }
-            await playerVM.playAlbumTracks(tracks, title: track.title)
+            await playerVM.playAlbumTracks(tracks, title: track.title,
+                                           mediaKind: .audiobook, origin: .bookForYou)
         } catch {
             playerVM.errorMessage = "Couldn't load this book. Try again later."
         }

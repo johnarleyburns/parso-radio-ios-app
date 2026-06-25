@@ -50,9 +50,16 @@ final class TasteProfileStore {
 
     func seedFromTrack(_ track: Track, channel: Channel?, boost: Double = 1.0) async {
         let kind = resolvedKind(track: track, channel: channel)
-        let bucket = bucketFor(kind)
-        guard bucket != nil else { return }
-        let b = bucket!
+        await seedFromTrack(track, mediaKind: kind, boost: boost, channel: channel)
+    }
+
+    /// Seed with an explicit, already-resolved media kind. Live playback passes
+    /// `PlayerViewModel.activeMediaKind` here so audiobook plays (including
+    /// whole-book album plays that carry no channel) reliably land in the
+    /// `spoken` bucket and music plays land in `music`.
+    func seedFromTrack(_ track: Track, mediaKind: MediaKind, boost: Double = 1.0,
+                       channel: Channel? = nil) async {
+        guard let b = bucketFor(mediaKind) else { return }
         let increment = 1.0 * boost
 
         let creator = track.rawCreator.trimmingCharacters(in: .whitespaces)

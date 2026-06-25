@@ -169,18 +169,21 @@ struct ItemDetailView: View {
 
         if !tracks.isEmpty, !hasStartedPlayback {
             hasStartedPlayback = true
-            await playerVM.playAlbumTracks(tracks, title: title)
+            await playerVM.playAlbumTracks(tracks, title: title,
+                                       mediaKind: kind == .book ? .audiobook : nil)
         }
     }
 
     private func playAll() async {
         guard !tracks.isEmpty else { return }
-        await playerVM.playAlbumTracks(tracks, title: title)
+        await playerVM.playAlbumTracks(tracks, title: title,
+                                       mediaKind: kind == .book ? .audiobook : nil)
     }
 
     private func playFrom(_ track: Track) async {
         guard let idx = tracks.firstIndex(where: { $0.id == track.id }) else { return }
         let reordered = Array(tracks[idx...]) + Array(tracks[..<idx])
-        await playerVM.playAlbumTracks(reordered, title: title)
+        await playerVM.playAlbumTracks(reordered, title: title,
+                                       mediaKind: kind == .book ? .audiobook : nil)
     }
 }

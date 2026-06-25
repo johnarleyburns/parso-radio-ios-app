@@ -123,6 +123,30 @@ final class TasteProfileMaintenanceTests: XCTestCase {
                         "audiobook author must not pollute the music bucket")
     }
 
+    func testSeedWithExplicitAudiobookKindSeedsSpoken() async {
+        let track = makeTrack(id: "x1", title: "Some Book", rawCreator: "Herman Melville",
+                               tags: ["fiction"], composer: nil)
+
+        await store.seedFromTrack(track, mediaKind: .audiobook)
+
+        let spoken = await store.fetchProfile(bucket: "spoken")
+        XCTAssertTrue(spoken.creatorTerms.contains { $0.term == "herman melville" },
+                       "explicit .audiobook kind must seed the spoken bucket")
+        let music = await store.fetchProfile(bucket: "music")
+        XCTAssertFalse(music.creatorTerms.contains { $0.term == "herman melville" })
+    }
+
+    func testSeedWithExplicitMusicKindSeedsMusic() async {
+        let track = makeTrack(id: "x2", title: "A Song", rawCreator: "Miles Davis",
+                               tags: ["jazz"], composer: nil)
+
+        await store.seedFromTrack(track, mediaKind: .music)
+
+        let music = await store.fetchProfile(bucket: "music")
+        XCTAssertTrue(music.creatorTerms.contains { $0.term == "miles davis" },
+                       "explicit .music kind must seed the music bucket")
+    }
+
     func testAudiobookChannelSeedsSpokenBucket() async {
         let channel = Channel.defaults.first { $0.category == "Audiobooks" }!
         let track = makeTrack(id: "ab-t1", title: "Moby Dick",

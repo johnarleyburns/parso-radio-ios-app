@@ -48,7 +48,7 @@ final class MadeForYouShelfStore: ObservableObject {
     private let shelf: Shelf
     private var archiveService: InternetArchiveService?
     private let backfillVersionKey = "tasteProfileBackfillVersion"
-    private let currentBackfillVersion = 2
+    private let currentBackfillVersion = 3
     private var storeTask: Task<Void, Never>?
 
     init(db: DatabaseService, tasteProfileStore: TasteProfileStore, shelf: Shelf = .music) {
@@ -68,13 +68,38 @@ final class MadeForYouShelfStore: ObservableObject {
         }
     }
 
-    func loadIfNeeded() async {
-        guard isLoadable else { return }
+    private var isLoaded: Bool {
+        if case .loaded = state { return true }
+        return false
+    }
 
-        state = .loading
+    /// The `playHistoryVersion` the current shelf content was built from. `-1`
+    /// means "never loaded this session".
+    private var lastLoadedHistoryVersion = -1
+
+    /// Builds (or rebuilds) the shelf. The shelf is a *discovery* surface, so it
+    /// excludes everything in your listening history (seen/surfaced) and rebuilds
+    /// after every play — passing the current `playHistoryVersion` so each new
+    /// track/audiobook reshapes the picks. Rapid plays coalesce because SwiftUI
+    /// cancels the prior `.task(id:)` before starting the next.
+    func loadIfNeeded(historyVersion: Int = 0) async {
+        let historyChanged = historyVersion != lastLoadedHistoryVersion
+        // Already showing content and nothing new was played → keep it.
+        if !historyChanged, !isLoadable { return }
+
+        let isFirstLoad = lastLoadedHistoryVersion == -1
+        lastLoadedHistoryVersion = historyVersion
+        // Only the genuine first load of the session may reuse the daily cache;
+        // any play invalidates it so the shelf reflects fresh taste.
+        await rebuild(useCache: isFirstLoad && historyVersion == 0)
+    }
+
+    private func rebuild(useCache: Bool) async {
+        // Keep existing picks visible while refreshing; only spin when empty.
+        if !isLoaded { state = .loading }
         await ensureTasteBackfillIfNeeded()
 
-        if let cached = await loadDailyCache(), !cached.isEmpty {
+        if useCache, let cached = await loadDailyCache(), !cached.isEmpty {
             var tracks: [Track] = []
             for id in cached {
                 if let track = await db.fetchTrack(id: id) {
@@ -145,11 +170,25 @@ final class MadeForYouShelfStore: ObservableObject {
         }
         var results: [Track] = []
         if let batch = try? await svc.fetchTracks(
-            iaQuery: query, matchTags: ["for-you"], limit: 15
+            iaQuery: query, matchTags: ["for-you"], limit: 25
         ), !batch.isEmpty {
             results.append(contentsOf: batch)
         }
-        return Array(filtered(results).shuffled().prefix(RecommendationConstants.kTarget))
+        // Discovery surface: never surface anything already in listening history.
+        let seen = await tasteProfileStore.fetchSeenIdentifiers()
+        let surfaced = await tasteProfileStore.fetchSurfacedIdentifiers()
+        let exclude = seen.union(surfaced)
+        let fresh = filtered(results).filter { !isExcluded($0, exclude: exclude) }
+        return Array(fresh.shuffled().prefix(RecommendationConstants.kTarget))
+    }
+
+    private func isExcluded(_ track: Track, exclude: Set<String>) -> Bool {
+        if exclude.contains(track.id) { return true }
+        let workKey = tasteProfileStore.workKeyFor(track)
+        if workKey != track.id, exclude.contains(workKey) { return true }
+        if let parent = track.parentIdentifier, !parent.isEmpty,
+           parent != workKey, exclude.contains(parent) { return true }
+        return false
     }
 
     func ensureTasteBackfillIfNeeded() async {
@@ -204,6 +243,24 @@ final class MadeForYouShelfStore: ObservableObject {
         let played = await db.fetchRecentlyPlayedWithChannel(limit: 200)
         for (track, channelId) in played {
             await tasteProfileStore.seedFromTrack(track, channel: Self.resolveChannel(channelId))
+        }
+
+        // Harvest authoritative audiobook-listen records into `spoken` — this
+        // catches books played from surfaces (shelf / search / direct) that
+        // recorded no spoken channel, so prior book listening still counts.
+        for entry in await db.fetchBookListenedEntries() {
+            let author = (entry.author ?? "").trimmingCharacters(in: .whitespaces)
+            if !author.isEmpty, author != "Unknown", author != "Various" {
+                await tasteProfileStore.upsertTerm(bucket: "spoken", axis: "creator",
+                                                   term: author.lowercased(), increment: 1.0)
+            }
+            for subject in (entry.subjects ?? "").split(separator: ",") {
+                let s = subject.lowercased().trimmingCharacters(in: .whitespaces)
+                if !s.isEmpty, !RecommendationConstants.subjectStopList.contains(s) {
+                    await tasteProfileStore.upsertTerm(bucket: "spoken", axis: "subject",
+                                                       term: s, increment: 1.0)
+                }
+            }
         }
 
         let rebuiltMusic = await db.fetchTasteProfileTerms(bucket: "music")
