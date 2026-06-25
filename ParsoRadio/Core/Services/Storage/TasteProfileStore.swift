@@ -85,6 +85,12 @@ final class TasteProfileStore {
         await seedFromTrack(track, channel: channel, boost: RecommendationConstants.favoriteBoost)
     }
 
+    /// Favorite boost using an explicit, already-resolved media kind — used by
+    /// the player surfaces where the play has no channel (album/book plays).
+    func seedFavoriteBoostFromTrack(_ track: Track, mediaKind: MediaKind) async {
+        await seedFromTrack(track, mediaKind: mediaKind, boost: RecommendationConstants.favoriteBoost)
+    }
+
     private func seedSubjectFromChannel(_ channel: Channel, bucket: String, increment: Double) async {
         for tag in channel.tags {
             let t = tag.lowercased().trimmingCharacters(in: .whitespaces)

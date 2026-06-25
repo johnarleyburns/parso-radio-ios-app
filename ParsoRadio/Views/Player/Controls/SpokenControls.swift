@@ -28,6 +28,7 @@ struct SpokenControls: View {
                 SpeedControl(showLabel: true).frame(maxWidth: .infinity)
                 ChapterButton(showLabel: true).frame(maxWidth: .infinity)
                 BookmarkButton(showLabel: true).frame(maxWidth: .infinity)
+                FavoriteButton(showLabel: true).frame(maxWidth: .infinity)
                 SleepTimerButton(showLabel: true).frame(maxWidth: .infinity)
             }
             .padding(10)

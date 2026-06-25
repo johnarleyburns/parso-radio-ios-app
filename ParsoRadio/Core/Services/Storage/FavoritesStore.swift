@@ -20,15 +20,15 @@ final class FavoritesStore: ObservableObject {
         await db.isFavorited(id: id)
     }
 
-    func isFavorited(track: Track, channel: Channel?) async -> Bool {
-        let kind = track.favoriteKind(channel: channel)
+    func isFavorited(track: Track, channel: Channel?, mediaKind: MediaKind? = nil) async -> Bool {
+        let kind = mediaKind.map(FavoriteKind.init(mediaKind:)) ?? track.favoriteKind(channel: channel)
         let fid = track.favoriteID(for: kind)
         return await db.isFavorited(id: fid)
     }
 
-    func toggle(track: Track, channel: Channel?, positionSeconds: Double? = nil,
-                chapterIndex: Int? = nil) async {
-        let kind = track.favoriteKind(channel: channel)
+    func toggle(track: Track, channel: Channel?, mediaKind: MediaKind? = nil,
+                positionSeconds: Double? = nil, chapterIndex: Int? = nil) async {
+        let kind = mediaKind.map(FavoriteKind.init(mediaKind:)) ?? track.favoriteKind(channel: channel)
         let fid = track.favoriteID(for: kind)
 
         if await db.isFavorited(id: fid) {
@@ -57,7 +57,11 @@ final class FavoritesStore: ObservableObject {
                 resumePoint: resumePoint
             )
             await db.saveFavorite(fav)
-            await tasteStore.seedFavoriteBoostFromTrack(track, channel: channel)
+            if let mk = mediaKind {
+                await tasteStore.seedFavoriteBoostFromTrack(track, mediaKind: mk)
+            } else {
+                await tasteStore.seedFavoriteBoostFromTrack(track, channel: channel)
+            }
             await tasteStore.addSeenIdentifiers(from: track, reason: "favorited")
         }
         await loadAll()

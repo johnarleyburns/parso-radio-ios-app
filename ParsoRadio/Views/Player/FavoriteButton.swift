@@ -7,7 +7,7 @@ struct FavoriteButton: View {
 
     private var isFav: Bool {
         guard let t = playerVM.currentTrack else { return false }
-        let fid = t.favoriteID(for: t.favoriteKind(channel: playerVM.currentChannel))
+        let fid = t.favoriteID(for: FavoriteKind(mediaKind: playerVM.activeMediaKind))
         return favorites.favorites.contains { $0.id == fid }
     }
 
@@ -16,6 +16,7 @@ struct FavoriteButton: View {
             guard let t = playerVM.currentTrack else { return }
             Task {
                 await favorites.toggle(track: t, channel: playerVM.currentChannel,
+                                       mediaKind: playerVM.activeMediaKind,
                                        positionSeconds: playerVM.currentPosition)
             }
         } label: {

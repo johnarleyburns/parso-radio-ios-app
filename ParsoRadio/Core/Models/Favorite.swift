@@ -5,6 +5,15 @@ enum FavoriteKind: String, Codable, CaseIterable {
     case book
     case episode
     case lecture
+
+    init(mediaKind: MediaKind) {
+        switch mediaKind {
+        case .music, .ambient: self = .track
+        case .audiobook: self = .book
+        case .podcast: self = .episode
+        case .lecture: self = .lecture
+        }
+    }
 }
 
 struct Favorite: Codable, Identifiable {
