@@ -62,20 +62,48 @@ struct WelcomeCard: View {
 // MARK: - Jump Back In Card
 
 struct JumpBackInCard: View {
-    let track: Track
+    let title: String
+    let subtitle: String
+    let artworkURL: URL?
+
+    init(track: Track) {
+        self.title = track.title
+        self.subtitle = track.artist
+        self.artworkURL = track.resolvedArtworkURL
+    }
+
+    init(work: RecentWork) {
+        self.title = work.displayTitle
+        self.subtitle = work.displaySubtitle
+        self.artworkURL = work.track.resolvedArtworkURL
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            AsyncImage(url: track.resolvedArtworkURL) { phase in
+            AsyncImage(url: artworkURL) { phase in
                 if let img = phase.image { img.resizable().scaledToFill() }
                 else { Color(.systemGray5).overlay(Image(systemName: "music.note")) }
             }
             .frame(width: 120, height: 120)
+            .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 12))
-            Text(track.title).font(.caption.weight(.medium)).lineLimit(1)
-            Text(track.artist).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            .accessibilityHidden(true)
+            Text(title).font(.caption.weight(.medium)).lineLimit(1)
+            Text(subtitle).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
         }
         .frame(width: 120)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(subtitle)")
+    }
+}
+
+extension RecentWork {
+    /// Stable XCUITest identifier distinguishing a whole-work card from a track.
+    var jumpBackInAccessibilityID: String {
+        playsWholeWork
+            ? "jumpbackin.card.book.\(track.parentIdentifier ?? id)"
+            : "jumpbackin.card.track.\(track.id)"
     }
 }
 
@@ -83,10 +111,10 @@ struct JumpBackInCard: View {
 
 struct HomeTopSection: View {
     let playerVM: PlayerViewModel
-    let onSelectTrack: (Track) -> Void
+    let onSelectWork: (RecentWork) -> Void
     let onPlayHero: () -> Void
 
-    @State private var items: [Track] = []
+    @State private var items: [RecentWork] = []
     @State private var loaded = false
 
     var body: some View {
@@ -101,9 +129,10 @@ struct HomeTopSection: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 14) {
-                        ForEach(items, id: \.id) { track in
-                            Button { onSelectTrack(track) } label: { JumpBackInCard(track: track) }
+                        ForEach(items) { work in
+                            Button { onSelectWork(work) } label: { JumpBackInCard(work: work) }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier(work.jumpBackInAccessibilityID)
                         }
                     }
                     .padding(.vertical, 4)
@@ -115,7 +144,7 @@ struct HomeTopSection: View {
             if loaded && !items.isEmpty { Text("Jump back in") }
         }
         .task(id: playerVM.playHistoryVersion) {
-            items = await playerVM.recentlyPlayedTracks(limit: 10)
+            items = await playerVM.recentlyPlayedWorks(limit: 10)
             loaded = true
         }
     }
@@ -159,14 +188,14 @@ struct FeaturedCard: View {
 // MARK: - Featured Today Section
 
 struct FeaturedTodaySection: View {
-    @Binding var nowPlayingChannel: Channel?
+    let onSelect: (Channel) -> Void
 
     var body: some View {
         Section {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
                     ForEach(FeaturedPicker.featured(on: Date(), from: Channel.defaults + IACollectionStore.shared.channels), id: \.id) { channel in
-                        FeaturedCard(channel: channel, titleOverride: nil) { nowPlayingChannel = channel }
+                        FeaturedCard(channel: channel, titleOverride: nil) { onSelect(channel) }
                     }
                 }
                 .padding(.vertical, 4)

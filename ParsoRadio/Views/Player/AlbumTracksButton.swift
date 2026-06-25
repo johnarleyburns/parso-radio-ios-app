@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AlbumTracksButton: View {
     @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var favorites: FavoritesStore
     var showLabel: Bool = true
 
     @State private var showAlbum = false
@@ -33,6 +34,7 @@ struct AlbumTracksButton: View {
                         kind: .album
                     )
                     .environmentObject(playerVM)
+                    .environmentObject(favorites)
                 }
             }
         }

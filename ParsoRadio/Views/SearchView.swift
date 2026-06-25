@@ -4,6 +4,7 @@ struct SearchView: View {
     var dismissAll: (() -> Void)? = nil
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var favorites: FavoritesStore
     @StateObject private var searchVM: SearchViewModel
     @State private var detailGroup: SearchViewModel.ResultGroup? = nil
     @State private var failedTrackIds: Set<String> = []
@@ -92,6 +93,7 @@ struct SearchView: View {
                     kind: searchVM.itemKinds[group.id] ?? .album
                 )
                 .environmentObject(playerVM)
+                .environmentObject(favorites)
             }
             .alert("Already Subscribed", isPresented: $showDuplicateAlert) {
                 Button("OK", role: .cancel) {}
@@ -271,6 +273,15 @@ struct SearchView: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityHint(accessibilityHint(for: itemKind))
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button {
+                        Task { await toggleSearchFavorite(group, kind: itemKind) }
+                    } label: {
+                        Label("Favorite", systemImage: "heart")
+                    }
+                    .tint(.pink)
+                    .accessibilityIdentifier("search.result.favorite.\(group.id)")
+                }
                 .task { searchVM.loadItemInfo(group) }
             }
 
@@ -297,12 +308,43 @@ struct SearchView: View {
                            kind: SearchViewModel.ItemKind?) {
         switch kind {
         case .track:
-            Task { await playerVM.playSearchResult(group); dismissAll?() }
+            let mediaKind = SearchViewModel.mediaKind(forCollection: group.collection)
+            Task { await playerVM.playSearchResult(group, mediaKind: mediaKind); dismissAll?() }
         case .album, .book:
             detailGroup = group
         case nil:
             break
         }
+    }
+
+    private func searchFavoriteMediaKind(_ group: SearchViewModel.ResultGroup,
+                                         kind: SearchViewModel.ItemKind?) -> MediaKind {
+        switch kind {
+        case .book: return .audiobook
+        case .album: return .music
+        case .track, nil:
+            return SearchViewModel.mediaKind(forCollection: group.collection)
+        }
+    }
+
+    private func toggleSearchFavorite(_ group: SearchViewModel.ResultGroup,
+                                      kind: SearchViewModel.ItemKind?) async {
+        let mediaKind = searchFavoriteMediaKind(group, kind: kind)
+        let isBook = mediaKind == .audiobook
+        let track = Track(
+            id: group.id, source: "internet_archive",
+            title: group.title, artist: group.creator,
+            duration: group.duration,
+            streamURL: URL(string: "https://archive.org/details/\(group.id)")
+                ?? URL(string: "https://archive.org")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: [],
+            qualityScore: 1.0, rawCreator: group.creator, composer: nil,
+            instruments: [], metadataConfidence: 0.0,
+            addedDate: group.addedDate,
+            parentIdentifier: isBook ? group.id : nil
+        )
+        await favorites.toggle(track: track, channel: nil, mediaKind: mediaKind)
     }
 
     private func accessibilityHint(for kind: SearchViewModel.ItemKind?) -> String {

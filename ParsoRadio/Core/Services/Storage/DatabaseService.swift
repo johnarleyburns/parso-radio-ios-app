@@ -46,6 +46,9 @@ final class DatabaseService: @unchecked Sendable {
     private let colArtworkURL = Column<String?>("artwork_url").expr
     // nil = not yet probed, false = single-file, true = multi-file (book/album)
     private let colIsMultiPart = Column<Bool?>("is_multi_part").expr
+    // Human-readable parent collection (book/series title) for a multi-part item,
+    // so a chapter knows its book name even after a DB round-trip.
+    private let colCollectionTitle = Column<String?>("collection_title").expr
 
     // MARK: - Playback positions table
     private let positions    = Table("playback_positions")
@@ -80,6 +83,10 @@ final class DatabaseService: @unchecked Sendable {
     private let colPHChannelId   = Column<String>("channel_id").expr
     private let colPHTrackId     = Column<String>("track_id").expr
     private let colPHPlayedAt    = Column<Double>("played_at").expr
+    // Authoritative media kind for THIS play (nullable: legacy rows are null and
+    // fall back to Track.inferredMediaKind). Lets Jump Back In collapse book/
+    // lecture/podcast chapters into one work card and pick the right surface.
+    private let colPHMediaKind   = Column<String?>("media_kind").expr
 
     // MARK: - Bookmarks table (within-track timestamps)
     private let bookmarks         = Table("bookmarks")
@@ -253,6 +260,7 @@ final class DatabaseService: @unchecked Sendable {
         })
         try db.run("CREATE INDEX IF NOT EXISTS idx_ph_channel ON track_play_history(channel_id, played_at DESC)")
         try db.run("CREATE INDEX IF NOT EXISTS idx_ph_played_at ON track_play_history(played_at DESC)")
+        addColumnIfNotExists(table: "track_play_history", column: "media_kind", definition: "TEXT")
 
         // Bookmarks: within-track timestamps, distinct from per-channel/playlist
         // positions. Many user bookmarks per track + one auto-save per track
@@ -283,6 +291,7 @@ final class DatabaseService: @unchecked Sendable {
         addColumnIfNotExists(table: "tracks", column: "parent_identifier", definition: "TEXT")
         addColumnIfNotExists(table: "tracks", column: "artwork_url", definition: "TEXT")
         addColumnIfNotExists(table: "tracks", column: "is_multi_part", definition: "INTEGER")
+        addColumnIfNotExists(table: "tracks", column: "collection_title", definition: "TEXT")
         _ = try? db.run("CREATE INDEX IF NOT EXISTS idx_added_date ON tracks(added_date DESC)")
         _ = try? db.run("CREATE INDEX IF NOT EXISTS idx_parent_id ON tracks(parent_identifier)")
 
@@ -425,7 +434,8 @@ final class DatabaseService: @unchecked Sendable {
                         self.colTotalParts  <- t.totalParts,
                         self.colParentId    <- t.parentIdentifier,
                         self.colArtworkURL  <- t.artworkURLString,
-                        self.colIsMultiPart <- t.isMultiPart
+                        self.colIsMultiPart <- t.isMultiPart,
+                        self.colCollectionTitle <- t.collectionTitle
                     )
                     _ = try? self.db.run(insert)
                 }
@@ -905,13 +915,14 @@ final class DatabaseService: @unchecked Sendable {
 
     // MARK: - Track play history
 
-    func recordPlayed(channelId: String, trackId: String) async {
+    func recordPlayed(channelId: String, trackId: String, mediaKind: String? = nil) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             queue.async { [self] in
                 _ = try? self.db.run(self.playHistory.insert(or: .replace,
                     self.colPHChannelId <- channelId,
                     self.colPHTrackId   <- trackId,
-                    self.colPHPlayedAt  <- Date().timeIntervalSince1970
+                    self.colPHPlayedAt  <- Date().timeIntervalSince1970,
+                    self.colPHMediaKind <- mediaKind
                 ))
                 continuation.resume()
             }
@@ -1027,6 +1038,43 @@ final class DatabaseService: @unchecked Sendable {
                     }
                 }
                 continuation.resume(returning: out)
+            }
+        }
+    }
+
+    /// Recently played, collapsed into one entry per WORK. Book/lecture/podcast
+    /// chapters that share a `parent_identifier` (and whose persisted media_kind
+    /// is spoken) fold into a single work entry; music stays one entry per track.
+    /// Drives the "Jump back in" shelf. Newest first, deduped by work key.
+    func fetchRecentlyPlayedWorks(limit: Int = 30) async -> [RecentWork] {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                let sql = """
+                    SELECT track_id, media_kind, MAX(played_at) AS last_at
+                    FROM track_play_history
+                    GROUP BY track_id
+                    ORDER BY last_at DESC
+                """
+                var works: [RecentWork] = []
+                var seen = Set<String>()
+                if let rows = try? self.db.prepare(sql) {
+                    for r in rows {
+                        guard works.count < limit else { break }
+                        guard let id = r[0] as? String,
+                              let row = try? self.db.pluck(self.tracks.filter(self.colId == id)),
+                              let track = self.rowToTrack(row) else { continue }
+                        let storedKind = (r[1] as? String).flatMap(MediaKind.init(rawValue:))
+                        let kind = storedKind ?? track.inferredMediaKind
+                        let collapses = (kind == .audiobook || kind == .lecture || kind == .podcast)
+                            && track.parentIdentifier != nil
+                        let workKey = collapses ? "work:\(track.parentIdentifier!)" : track.id
+                        guard !seen.contains(workKey) else { continue }
+                        seen.insert(workKey)
+                        works.append(RecentWork(id: workKey, track: track,
+                                                mediaKind: kind, playsWholeWork: collapses))
+                    }
+                }
+                continuation.resume(returning: works)
             }
         }
     }
@@ -1463,19 +1511,19 @@ final class DatabaseService: @unchecked Sendable {
             totalParts:         row[colTotalParts],
             parentIdentifier:   row[colParentId],
             artworkURLString:   row[colArtworkURL],
-            isMultiPart:        row[colIsMultiPart]
+            isMultiPart:        row[colIsMultiPart],
+            collectionTitle:    row[colCollectionTitle]
         )
     }
 
     /// Build a Track from a raw SQL result row (as [Binding?] from db.prepare).
-    /// The offset shifts past any leading column.
     /// Column order:
     /// id(0), source(1), title(2), artist(3), duration(4), stream_url(5),
     /// download_url(6), local_file_path(7), license_type(8), tags(9),
     /// quality_score(10), raw_creator(11), composer(12), instruments(13),
     /// metadata_confidence(14), fetched_at(15), added_date(16), is_local(17),
     /// part_number(18), total_parts(19), parent_identifier(20),
-    /// artwork_url(21), is_multi_part(22).
+    /// artwork_url(21), is_multi_part(22), collection_title(23).
     private func rowToTrack(from row: Statement.Element, offset: Int) -> Track? {
         let o = offset
         guard let streamStr = row[o + 5] as? String,
@@ -1503,7 +1551,8 @@ final class DatabaseService: @unchecked Sendable {
             totalParts:         row[o + 19] as? Int,
             parentIdentifier:   row[o + 20] as? String,
             artworkURLString:   row[o + 21] as? String,
-            isMultiPart:        (row[o + 22] as? Int64).map { $0 != 0 }
+            isMultiPart:        (row[o + 22] as? Int64).map { $0 != 0 },
+            collectionTitle:    row.count > o + 23 ? row[o + 23] as? String : nil
         )
     }
 

@@ -137,10 +137,22 @@ final class SearchViewModel: ObservableObject {
 
     static func classify(audioCount: Int, collection: String?) -> ItemKind {
         guard audioCount > 1 else { return .track }
+        return isBookish(collection) ? .book : .album
+    }
+
+    /// True when an IA collection string belongs to a spoken-word / audiobook
+    /// collection. Shared by `classify` and single-tap media-kind resolution so
+    /// a single-file spoken item never renders the music surface.
+    static func isBookish(_ collection: String?) -> Bool {
         let c = (collection ?? "").lowercased()
-        let bookish = ["librivox", "audio_bookspoetry", "audiobook",
-                       "audio_books"].contains { c.contains($0) }
-        return bookish ? .book : .album
+        return ["librivox", "audio_bookspoetry", "audiobook", "audio_books"]
+            .contains { c.contains($0) }
+    }
+
+    /// Authoritative media kind for a one-tap search play, derived from the
+    /// item's collection (single-file items lack a probed part count).
+    static func mediaKind(forCollection collection: String?) -> MediaKind {
+        isBookish(collection) ? .audiobook : .music
     }
 
     func searchChanged() {

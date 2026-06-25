@@ -89,6 +89,22 @@ final class RegressionContractSourceTests: XCTestCase {
             "Books for You must render directly below Music For You.")
     }
 
+    func testPlaySearchResultTakesMediaKind() throws {
+        let path = projectRoot.appendingPathComponent("ViewModels/PlayerViewModel.swift").path
+        let content = try String(contentsOfFile: path, encoding: .utf8)
+        XCTAssertFalse(content.contains("origin: .search, mediaKind: .music,"),
+            "playSearchResult must not hardcode mediaKind: .music — thread the resolved kind from the search result collection.")
+        XCTAssertTrue(content.contains("func playSearchResult(_ group: SearchViewModel.ResultGroup,"),
+            "playSearchResult must accept an authoritative media kind argument.")
+    }
+
+    func testRecentlyPlayedControllerDoesNotMisderiveKind() throws {
+        let path = projectRoot.appendingPathComponent("Core/Services/Playback/RecentlyPlayedController.swift").path
+        let content = try String(contentsOfFile: path, encoding: .utf8)
+        XCTAssertFalse(content.contains("mediaKind: track.mediaKind(in: nil)"),
+            "RecentlyPlayedController must not re-derive media kind via mediaKind(in: nil) (returns .music for book chapters). Use the persisted/inferred kind.")
+    }
+
     func testAGENTSContainsRegressionContract() throws {
         let agentsURL = projectRoot.deletingLastPathComponent().appendingPathComponent("AGENTS.md")
         let content = try String(contentsOfFile: agentsURL.path, encoding: .utf8)

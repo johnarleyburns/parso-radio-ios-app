@@ -1191,7 +1191,8 @@ final class PlayerViewModel: ObservableObject {
                 let capturedKind = activeMediaKind
                 Task { [weak self] in
                     guard let self else { return }
-                    await db.recordPlayed(channelId: ctx, trackId: trackId)
+                    await db.recordPlayed(channelId: ctx, trackId: trackId,
+                                          mediaKind: capturedKind.rawValue)
                     await tasteStore.seedFromTrack(capturedTrack, mediaKind: capturedKind,
                                                    channel: capturedChannel)
                     await tasteStore.addSeenIdentifiers(from: capturedTrack, reason: "played")
@@ -1350,6 +1351,14 @@ final class PlayerViewModel: ObservableObject {
     // is a stale mixed-format extraction and must be re-probed.
     static func partsAreClean(_ parts: [Track]) -> Bool {
         guard !parts.isEmpty else { return false }
+        // Reject sets where multiple parts collapse onto the same chapter (the
+        // legacy multi-bitrate triple bug): such rows are a stale extraction and
+        // must be re-probed so the de-duplicated fetch repairs them.
+        let selector = MP3AudioFormatSelector()
+        let chapterKeys = parts.map { t -> String in
+            selector.chapterKey(filename: (t.id as NSString).lastPathComponent, title: t.title)
+        }
+        if Set(chapterKeys).count != parts.count { return false }
         let exts = Set(parts.map {
             ($0.id as NSString).pathExtension.lowercased()
         })
@@ -1361,6 +1370,29 @@ final class PlayerViewModel: ObservableObject {
         guard exts.count == 1, exts.first?.isEmpty == false else { return false }
         let numbers = parts.compactMap(\.partNumber).sorted()
         return numbers.count == parts.count && numbers == Array(1...parts.count)
+    }
+
+    /// Collapse multiple bitrate variants of the same chapter (the legacy triple
+    /// bug) onto a single part, then renumber 1…n. Idempotent and offline:
+    /// repairs stale DB rows without a network round-trip. Keeps the lowest
+    /// existing part number per chapter (book order) when variants collide.
+    static func dedupeParts(_ parts: [Track]) -> [Track] {
+        guard !parts.isEmpty else { return [] }
+        let selector = MP3AudioFormatSelector()
+        var seen = Set<String>()
+        var kept: [Track] = []
+        for t in parts.sorted(by: { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }) {
+            let key = selector.chapterKey(filename: (t.id as NSString).lastPathComponent,
+                                          title: t.title)
+            if seen.insert(key).inserted { kept.append(t) }
+        }
+        guard kept.count != parts.count else { return parts }
+        return kept.enumerated().map { idx, t in
+            var c = t
+            c.partNumber = idx + 1
+            c.totalParts = kept.count
+            return c
+        }
     }
 
     // "Add Entire Book/Album to Playlist" — adds every part in book/album
@@ -1376,9 +1408,11 @@ final class PlayerViewModel: ObservableObject {
 
     func playAlbumTracks(_ ordered: [Track], title: String,
                          mediaKind: MediaKind? = nil,
-                         origin: PlaybackContext.Origin = .directItem) async {
+                         origin: PlaybackContext.Origin = .directItem,
+                         startSeek: Double? = nil) async {
         await wholeItem.playAlbumTracks(ordered, title: title,
-                                        mediaKind: mediaKind, origin: origin)
+                                        mediaKind: mediaKind, origin: origin,
+                                        startSeek: startSeek)
     }
 
     func playSingleTrack(_ track: Track, seekTo: Double? = nil) async {
@@ -1715,7 +1749,8 @@ final class PlayerViewModel: ObservableObject {
     }
 
     // Play a single Internet Archive search result immediately.
-    func playSearchResult(_ group: SearchViewModel.ResultGroup) async {
+    func playSearchResult(_ group: SearchViewModel.ResultGroup,
+                          mediaKind: MediaKind = .music) async {
         let pre = Track(
             id: group.id, source: "internet_archive",
             title: group.title, artist: group.creator,
@@ -1730,7 +1765,7 @@ final class PlayerViewModel: ObservableObject {
         )
         currentChannel = nil
         currentPlaybackContext = PlaybackContext(
-            origin: .search, mediaKind: .music,
+            origin: .search, mediaKind: mediaKind,
             title: group.title)
         currentPlaylist = nil
         playlistTracks = []
@@ -1846,8 +1881,24 @@ final class PlayerViewModel: ObservableObject {
         await recentlyPlayed.recentlyPlayedTracks(limit: limit)
     }
 
+    func recentlyPlayedWorks(limit: Int = 30) async -> [RecentWork] {
+        await recentlyPlayed.recentlyPlayedWorks(limit: limit)
+    }
+
     func playRecentTrack(_ track: Track) async {
         await recentlyPlayed.playRecentTrack(track)
+    }
+
+    /// Resume a whole work (book/lecture/podcast) from its most recent saved
+    /// position. Music works fall back to playing the single track.
+    func playRecentWork(_ work: RecentWork) async {
+        await recentlyPlayed.resumeWork(work)
+    }
+
+    /// Stable playback-position key for a whole work, matching the album
+    /// playlist id `playAlbumTracks` uses for a multi-part item.
+    static func bookPositionKey(parentIdentifier: String) -> String {
+        playlistKey("album:\(parentIdentifier)")
     }
 
     func removeFromRecentlyPlayed(_ track: Track) async {

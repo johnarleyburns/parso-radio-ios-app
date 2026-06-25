@@ -45,6 +45,7 @@ struct ChapterListView: View {
                                 chapterRow(chapter)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("chapterlist.row.\(chapter.id)")
                         }
                     } header: {
                         Text(summaryText)

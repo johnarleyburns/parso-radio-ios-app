@@ -215,8 +215,23 @@ Before claiming any feature/fix is implemented, verify these invariants hold:
 - No Ogg, FLAC, M4A, AAC, Opus, WAV, SHN in any playback selector
 - Bundled ambient WAV files exempt (local offline fallback)
 
+### Chapter De-duplication
+- `InternetArchiveService.fetchTracksForIdentifier` (and `itemInfo`) collapse multiple MP3 bitrate variants of the same chapter to ONE entry (highest bitrate: 320>256>192>VBR>128>64), so chapters are never listed 2×/3×
+- `PlayerViewModel.partsAreClean` rejects part-sets with duplicate chapter keys; `dedupeParts` repairs stale tripled DB rows offline (and self-heals the DB in `WholeItemController.resolveItemParts`)
+
+### Jump Back In Works
+- `track_play_history` persists the play's `media_kind` (additive column); legacy null rows fall back to `Track.inferredMediaKind`
+- `fetchRecentlyPlayedWorks` collapses audiobook/lecture/podcast chapters under their `parentIdentifier` into ONE work card; music stays one card per track
+- Tapping a book/lecture/podcast card resumes the WHOLE work from its saved position via a STABLE `album:<parentIdentifier>` playlist key (never a random UUID)
+- A chapter and a music track are never conflated: `RecentlyPlayedController` must not derive kind via `mediaKind(in: nil)`; resume context uses the persisted/work media kind so the audiobook surface (never music) renders
+
+### Search Favorites
+- The book/album detail sheet (`ItemDetailView`) exposes a working favorite toggle (`itemdetail.favorite`); search result rows expose a swipe-to-favorite action
+- `playSearchResult` takes an authoritative `mediaKind` (derived from the result collection) and never hardcodes `.music`
+
 ### Verification Gate
 - Before commit: `xcodegen generate` if files added/removed
 - Before push: full `ParsoMusicTests` gate must pass
 - Source guards in `RegressionContractSourceTests` must not fail on fixed patterns
 - UI changes require targeted UI test or simulator screenshot evidence
+- UI tests seed deterministic state via the `-uiTestSeed` launch argument (`UITestSupport`, DEBUG-only)

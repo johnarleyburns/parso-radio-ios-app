@@ -25,10 +25,17 @@ final class WholeItemController {
             return cached
         }
 
-        let dbParts = await db.fetchTracks(forParentIdentifier: identifier)
-        Log.playback.debug("[wholeItem] DB parts for \(identifier): \(dbParts.count)")
+        let dbPartsRaw = await db.fetchTracks(forParentIdentifier: identifier)
+        let dbParts = PlayerViewModel.dedupeParts(dbPartsRaw)
+        Log.playback.debug("[wholeItem] DB parts for \(identifier): \(dbPartsRaw.count) (deduped \(dbParts.count))")
         if dbParts.count >= 2, PlayerViewModel.partsAreClean(dbParts) {
             let ordered = dbParts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+            // Self-heal: rewrite stored rows when duplicate bitrate variants were
+            // collapsed so the triple bug never recurs for this item.
+            if dbParts.count != dbPartsRaw.count {
+                await db.deleteTracks(forParentIdentifier: identifier)
+                await db.saveTracks(ordered)
+            }
             vm.itemPartsCache[identifier] = ordered
             return ordered
         }
@@ -107,11 +114,19 @@ final class WholeItemController {
     }
 
     func playAlbumTracks(_ ordered: [Track], title: String,
-                         mediaKind: MediaKind? = nil, origin: PlaybackContext.Origin = .directItem) async {
+                         mediaKind: MediaKind? = nil, origin: PlaybackContext.Origin = .directItem,
+                         startSeek: Double? = nil) async {
         guard let vm = playerVM, !ordered.isEmpty else { return }
         vm.sessionRestore.saveAutosaveForCurrentTrack()
+        // Stable album id derived from the shared parent identifier so the
+        // playlist position key (`playlist:album:<parentIdentifier>`) survives
+        // across sessions and entry points (search, Books-for-You, Jump back in)
+        // and the whole work is resumable. Falls back to a random id only for
+        // ad-hoc track lists with no parent.
+        let albumId = ordered.first?.parentIdentifier.map { "album:\($0)" }
+            ?? "album:\(UUID().uuidString)"
         let albumPlaylist = Playlist(
-            id: "album:\(UUID().uuidString)",
+            id: albumId,
             name: title,
             createdAt: Date(),
             updatedAt: Date(),
@@ -131,7 +146,7 @@ final class WholeItemController {
         vm.channelDescription = title
         vm.shuffleMode = false
         vm.resetShuffledPlaylistState()
-        await vm.playTrack(ordered[0], seekTo: nil, recordHistory: false)
+        await vm.playTrack(ordered[0], seekTo: startSeek, recordHistory: false)
     }
 
     func skipToNextBook() async {

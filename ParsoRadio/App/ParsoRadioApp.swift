@@ -66,6 +66,7 @@ struct ParsoMusicApp: App {
     @AppStorage("tosAccepted") private var tosAccepted: Bool = false
     @AppStorage("appearance") private var appearance: String = "system"
     @State private var showSplash: Bool = {
+        if UITestSupport.isActive { return false }
         if UserDefaults.standard.string(forKey: "siri.pendingChannelId") != nil {
             return false
         }
@@ -74,6 +75,7 @@ struct ParsoMusicApp: App {
         }
         return true
     }()
+    @State private var uiTestReady: Bool = !UITestSupport.isActive
     @State private var showTerms: Bool = false
     @State private var showSupport: Bool = false
     @State private var showAgeGate: Bool = false
@@ -93,7 +95,7 @@ struct ParsoMusicApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                if tosAccepted && !showSplash {
+                if (tosAccepted || UITestSupport.isActive) && !showSplash && uiTestReady {
                     if kids.isEnabled {
                         KidsHomeView()
                             .environmentObject(playerVM)
@@ -140,6 +142,10 @@ struct ParsoMusicApp: App {
                 }
             }
             .task {
+                if UITestSupport.isActive {
+                    await UITestSupport.seed(db: Self.deps.db)
+                    uiTestReady = true
+                }
             }
             .fullScreenCover(isPresented: $showTerms) {
                 TermsView(isPresented: $showTerms)

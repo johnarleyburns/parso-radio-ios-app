@@ -7,15 +7,38 @@ struct ItemDetailView: View {
     let kind: SearchViewModel.ItemKind
 
     @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var favorites: FavoritesStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var tracks: [Track] = []
     @State private var isLoading = true
     @State private var hasStartedPlayback = false
+    @State private var isFav = false
 
     private var itemNoun: String { kind == .book ? "Book" : "Album" }
     private var trackNoun: String { kind == .book ? "Chapter" : "Track" }
     private var tracksNoun: String { kind == .book ? "Chapters" : "Tracks" }
+
+    private var favoriteMediaKind: MediaKind { kind == .book ? .audiobook : .music }
+
+    /// Synthesized representative track so a whole book/album can be favorited
+    /// without playing it. For a book, `parentIdentifier == identifier` makes
+    /// `favoriteID(for: .book)` resolve to the item identifier — the same id the
+    /// player uses, so the two surfaces toggle the SAME favorite.
+    private var representativeTrack: Track {
+        Track(
+            id: identifier, source: "internet_archive",
+            title: title, artist: creator,
+            duration: 0,
+            streamURL: URL(string: "https://archive.org/details/\(identifier)")
+                ?? URL(string: "https://archive.org")!,
+            downloadURL: nil, localFilePath: nil,
+            license: .publicDomain, tags: [],
+            qualityScore: 1.0, rawCreator: creator, composer: nil,
+            instruments: [], metadataConfidence: 0.0,
+            parentIdentifier: kind == .book ? identifier : nil
+        )
+    }
 
     private var artworkURL: URL? {
         URL(string: "https://archive.org/services/img/\(identifier)")
@@ -56,6 +79,18 @@ struct ItemDetailView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(tracks.isEmpty)
+
+                    Button {
+                        Task { await toggleFavorite() }
+                    } label: {
+                        Label(isFav ? "Favorited" : "Add to Favorites",
+                              systemImage: isFav ? "heart.fill" : "heart")
+                            .frame(maxWidth: .infinity)
+                            .foregroundStyle(isFav ? .red : Color.accentColor)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("itemdetail.favorite")
+                    .accessibilityLabel(isFav ? "Remove from favorites" : "Add to favorites")
                 }
 
                 Section {
@@ -111,6 +146,7 @@ struct ItemDetailView: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Play \(track.title)")
+                            .accessibilityIdentifier("itemdetail.chapter.\(track.id)")
                         }
                     }
                 }
@@ -123,7 +159,19 @@ struct ItemDetailView: View {
                 }
             }
             .task { await loadAndPlay() }
+            .task { await refreshFavorite() }
         }
+    }
+
+    private func refreshFavorite() async {
+        isFav = await favorites.isFavorited(track: representativeTrack,
+                                            channel: nil, mediaKind: favoriteMediaKind)
+    }
+
+    private func toggleFavorite() async {
+        await favorites.toggle(track: representativeTrack, channel: nil,
+                               mediaKind: favoriteMediaKind)
+        await refreshFavorite()
     }
 
     @ViewBuilder

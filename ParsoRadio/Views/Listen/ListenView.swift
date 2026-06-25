@@ -6,8 +6,7 @@ struct ListenView: View {
     @EnvironmentObject var favorites: FavoritesStore
     @EnvironmentObject var deps: AppDependencies
     @State private var showSettings = false
-    @State private var nowPlayingChannel: Channel?
-    @State private var selectedRecentTrack: Track?
+    @State private var presentation: ListenPresentation?
     @State private var showSupporterSheet = false
 
     @ObservedObject private var contributionStore = ParsoMusicApp.sharedContributionStore
@@ -17,7 +16,7 @@ struct ListenView: View {
         NavigationStack {
             List {
                 HomeTopSection(playerVM: playerVM,
-                               onSelectTrack: { selectedRecentTrack = $0 },
+                               onSelectWork: { presentation = .work($0) },
                                onPlayHero: { playHero() })
 
                 MadeForYouSection()
@@ -26,7 +25,7 @@ struct ListenView: View {
 
                 ExploreTypeRow()
 
-                FeaturedTodaySection(nowPlayingChannel: $nowPlayingChannel)
+                FeaturedTodaySection(onSelect: { presentation = .channel($0) })
 
                 Section {
                     NavigationLink {
@@ -81,27 +80,41 @@ struct ListenView: View {
                     ContributionSupportView(store: contributionStore, showsDoneButton: true)
                 }
             }
-            .fullScreenCover(item: $nowPlayingChannel) { channel in
-                NowPlayingSheet()
-                    .environmentObject(playerVM)
-                    .environmentObject(favorites)
-                    .environmentObject(playlistVM)
-                    .environmentObject(deps.offlineService)
-                    .task { await playerVM.load(channel: channel, autoPlay: true) }
-            }
-            .fullScreenCover(item: $selectedRecentTrack) { track in
-                NowPlayingSheet()
-                    .environmentObject(playerVM)
-                    .environmentObject(favorites)
-                    .environmentObject(playlistVM)
-                    .environmentObject(deps.offlineService)
-                    .task { await playerVM.playRecentTrack(track) }
-            }
+        }
+        .fullScreenCover(item: $presentation) { item in
+            NowPlayingSheet()
+                .environmentObject(playerVM)
+                .environmentObject(favorites)
+                .environmentObject(playlistVM)
+                .environmentObject(deps.offlineService)
+                .task {
+                    switch item {
+                    case .channel(let channel):
+                        await playerVM.load(channel: channel, autoPlay: true)
+                    case .work(let work):
+                        await playerVM.playRecentWork(work)
+                    }
+                }
         }
     }
 
     private func playHero() {
         let pool = Channel.defaults + IACollectionStore.shared.channels
-        if let c = FeaturedPicker.hero(on: Date(), from: pool) { nowPlayingChannel = c }
+        if let c = FeaturedPicker.hero(on: Date(), from: pool) { presentation = .channel(c) }
+    }
+}
+
+/// Drives the single now-playing `fullScreenCover` in ListenView. Using one
+/// presentation item (instead of multiple stacked `.fullScreenCover` modifiers)
+/// guarantees the sheet actually presents for every entry point.
+enum ListenPresentation: Identifiable {
+    case channel(Channel)
+    case work(RecentWork)
+
+    var id: String {
+        switch self {
+        case .channel(let c): return "channel:\(c.id)"
+        case .work(let w): return "work:\(w.id)"
+        }
     }
 }

@@ -346,8 +346,23 @@ struct InternetArchiveService {
             .map { sel in meta.files.filter(sel) }
             .first { !$0.isEmpty } ?? []
         guard !chosen.isEmpty else { return nil }
-        let total = chosen.reduce(0.0) { $0 + Self.parseRuntime($1.length) }
-        return (duration: total, audioCount: chosen.count)
+        // Collapse duplicate bitrate variants so the count/duration reflect
+        // unique chapters (matches fetchTracksForIdentifier).
+        var bestByChapter: [String: Meta.F] = [:]
+        for file in chosen {
+            let key = selector.chapterKey(filename: file.name, title: nil)
+            guard let existing = bestByChapter[key] else { bestByChapter[key] = file; continue }
+            let newRank = selector.bitrateRank(file.format)
+            let oldRank = selector.bitrateRank(existing.format)
+            if newRank > oldRank
+                || (newRank == oldRank
+                    && file.name.localizedStandardCompare(existing.name) == .orderedAscending) {
+                bestByChapter[key] = file
+            }
+        }
+        let deduped = Array(bestByChapter.values)
+        let total = deduped.reduce(0.0) { $0 + Self.parseRuntime($1.length) }
+        return (duration: total, audioCount: deduped.count)
     }
 
     func fetchTracksForIdentifier(_ identifier: String) async throws -> [Track] {
@@ -400,9 +415,33 @@ struct InternetArchiveService {
             .map { sel in meta.files.filter(sel) }
             .first { !$0.isEmpty } ?? []
 
+        // Collapse multiple MP3 bitrate variants of the SAME chapter onto one
+        // entry. IA frequently ships each chapter at 64k + 128k + VBR, which
+        // previously surfaced every chapter 3× in the chapter list. Group by
+        // chapter key and keep the single best (highest-bitrate) variant; tie-
+        // break on natural filename order for determinism.
+        var bestByChapter: [String: IAMetaFull.IAMetaFile] = [:]
+        for file in chosen {
+            let key = selector.chapterKey(filename: file.name, title: file.title)
+            guard let existing = bestByChapter[key] else {
+                bestByChapter[key] = file
+                continue
+            }
+            let newRank = selector.bitrateRank(file.format)
+            let oldRank = selector.bitrateRank(existing.format)
+            let isBetter: Bool
+            if newRank != oldRank {
+                isBetter = newRank > oldRank
+            } else {
+                isBetter = file.name.localizedStandardCompare(existing.name) == .orderedAscending
+            }
+            if isBetter { bestByChapter[key] = file }
+        }
+        let deduped = Array(bestByChapter.values)
+
         // Finder-style natural order so laws_01 < laws_02 < … < laws_10 < … <
         // laws_20 (and chapter 2 < chapter 10) — guarantees book/album order.
-        let audioFiles = chosen.sorted {
+        let audioFiles = deduped.sorted {
             $0.name.localizedStandardCompare($1.name) == .orderedAscending
         }
 
@@ -435,7 +474,8 @@ struct InternetArchiveService {
                 partNumber: isMulti ? index + 1 : nil,
                 totalParts: isMulti ? audioFiles.count : nil,
                 parentIdentifier: isMulti ? identifier : nil,
-                isMultiPart: isMulti ? true : false
+                isMultiPart: isMulti ? true : false,
+                collectionTitle: isMulti ? itemTitle : nil
             )
         }
     }
