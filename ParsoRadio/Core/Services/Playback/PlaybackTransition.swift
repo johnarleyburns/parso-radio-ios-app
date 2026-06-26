@@ -72,7 +72,8 @@ struct PlaybackTransitionPolicy {
                to incoming: MediaKind?,
                reason: PlaybackTransitionReason,
                sameWork: Bool = false,
-               looping: Bool = false) -> AudioTransitionStyle {
+               looping: Bool = false,
+               crossfadeMusic: Bool = false) -> AudioTransitionStyle {
         // Reliability and correctness beat smoothness on recovery / teardown /
         // non-audible paths.
         switch reason {
@@ -125,9 +126,11 @@ struct PlaybackTransitionPolicy {
         // Music → music.
         switch reason {
         case .naturalAdvance:
-            // Phase 1: a very short fade-in from silence. Phase 2 may upgrade
-            // this to musicCrossfade with a dual-player architecture.
-            return .fadeIn(duration: 0.2)
+            // Phase 2: true overlap crossfade when the user has it enabled (music
+            // radio channels). Otherwise the Phase 1 short fade-in from silence.
+            return crossfadeMusic
+                ? .musicCrossfade(duration: 2.0)
+                : .fadeIn(duration: 0.2)
         case .manualNext, .manualPrevious:
             return .fadeOutIn(out: 0.25, in: 0.25)
         case .channelChange, .playlistChange, .directItemChange, .searchAudition:

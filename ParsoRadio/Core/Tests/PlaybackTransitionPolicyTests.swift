@@ -35,13 +35,46 @@ final class PlaybackTransitionPolicyTests: XCTestCase {
     }
 
     func testMusicNeverGetsCrossfadeInPhase1() {
+        // With crossfade disabled (the default arg), music never overlaps.
         for reason: PlaybackTransitionReason in [.naturalAdvance, .manualNext, .manualPrevious,
                                                  .channelChange, .playlistChange,
                                                  .directItemChange, .searchAudition] {
             if case .musicCrossfade = policy.style(from: .music, to: .music, reason: reason) {
-                XCTFail("Phase 1 must not emit musicCrossfade for \(reason)")
+                XCTFail("crossfade-disabled music must not emit musicCrossfade for \(reason)")
             }
         }
+    }
+
+    // MARK: Phase 2 — true music crossfade (opt-in)
+
+    func testMusicNaturalAdvanceCrossfadesWhenEnabled() {
+        XCTAssertEqual(policy.style(from: .music, to: .music,
+                                    reason: .naturalAdvance, crossfadeMusic: true),
+                       .musicCrossfade(duration: 2.0))
+    }
+
+    func testMusicNaturalAdvanceFadesInWhenCrossfadeDisabled() {
+        XCTAssertEqual(policy.style(from: .music, to: .music,
+                                    reason: .naturalAdvance, crossfadeMusic: false),
+                       .fadeIn(duration: 0.2))
+    }
+
+    func testCrossfadeOnlyAppliesToMusicNaturalAdvance() {
+        // Manual navigation never overlaps, even with crossfade on.
+        XCTAssertEqual(policy.style(from: .music, to: .music,
+                                    reason: .manualNext, crossfadeMusic: true),
+                       .fadeOutIn(out: 0.25, in: 0.25))
+        // Spoken and mixed never overlap, even with crossfade on.
+        XCTAssertEqual(policy.style(from: .audiobook, to: .audiobook,
+                                    reason: .naturalAdvance, crossfadeMusic: true),
+                       .immediate)
+        XCTAssertEqual(policy.style(from: .music, to: .audiobook,
+                                    reason: .naturalAdvance, crossfadeMusic: true),
+                       .immediate)
+        // Ambient never overlaps, even with crossfade on.
+        XCTAssertEqual(policy.style(from: .music, to: .ambient,
+                                    reason: .channelChange, crossfadeMusic: true),
+                       .fadeIn(duration: 0.8))
     }
 
     // MARK: Spoken (audiobook / lecture / podcast)

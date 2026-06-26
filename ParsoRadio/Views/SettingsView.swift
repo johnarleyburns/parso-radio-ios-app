@@ -25,6 +25,8 @@ struct SettingsView: View {
     @State private var kidsPinEntry = ""
     @AppStorage("maxCacheMB") private var maxCacheMB = 250
     @AppStorage("wifiOnlyDownloads") private var wifiOnlyDownloads = true
+    // Phase 2: true overlap crossfade for music radio channels (default ON).
+    @AppStorage("musicCrossfadeEnabled") private var musicCrossfadeEnabled = true
     @ObservedObject private var networkMonitor = NetworkMonitor.shared
     @State private var confirmClearStreamingCache = false
     @State private var cacheSizeTrigger = 0
@@ -50,6 +52,17 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
                 .accessibilityLabel("Appearance theme")
                 .accessibilityHint("Switches between system, light, and dark mode")
+            }
+
+            Section {
+                Toggle(isOn: $musicCrossfadeEnabled) {
+                    Label("Crossfade Music", systemImage: "wand.and.rays")
+                }
+                .accessibilityHint("Overlaps the end of one song with the start of the next on music channels")
+            } header: {
+                Text("Playback")
+            } footer: {
+                Text("Smoothly blends one song into the next on music channels. Audiobooks, lectures, and podcasts are never crossfaded.")
             }
 
             Section {

@@ -42,6 +42,11 @@ protocol AudioEngine: AnyObject {
     /// `duration`, then pause (restoring full volume for the next resume). Does
     /// NOT tear down the item — the user can resume exactly where they faded out.
     func fadeOutThenPause(duration: TimeInterval)
+    /// Phase 2 music crossfade: for the CURRENT item, fire natural advance
+    /// `leadSeconds` before its real end (so the outgoing tail is still audible
+    /// when the incoming `.musicCrossfade` play overlaps it). `0` disarms (advance
+    /// at the real end, as normal). Reset on every teardown.
+    func armCrossfade(leadSeconds: TimeInterval)
     func setContentMode(_ mode: AudioPlayerService.ContentMode)
     func setPlaybackRate(_ rate: Float)
     func syncPlaybackState()

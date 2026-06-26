@@ -38,6 +38,13 @@ final class PlayerViewModel: ObservableObject {
     private let transitionPolicy = PlaybackTransitionPolicy()
     @Published var transitionVisualState: PlaybackTransitionVisualState? = nil
 
+    // Phase 2: user-controlled true crossfade for music radio channels (Settings
+    // toggle, default ON). Absent key ⇒ true to match the @AppStorage default.
+    private var musicCrossfadeEnabled: Bool {
+        UserDefaults.standard.object(forKey: "musicCrossfadeEnabled") as? Bool ?? true
+    }
+    private let musicCrossfadeDuration: TimeInterval = 2.0
+
     var timeLeftInBook: TimeInterval? {
         guard let track = currentTrack,
               currentItemPartIndex != nil else { return nil }
@@ -1015,10 +1022,14 @@ final class PlayerViewModel: ObservableObject {
         let incomingKind = track.mediaKind(in: currentChannel)
         let sameWork = track.parentIdentifier != nil
             && currentTrack?.parentIdentifier == track.parentIdentifier
+        // True crossfade only on music radio channels with the setting enabled;
+        // also drives whether we arm the engine's early-finish trigger below.
+        let crossfadeMusic = musicCrossfadeEnabled && currentChannel?.mediaKind == .music
         let transitionStyle: AudioTransitionStyle = autoPlay
             ? transitionPolicy.style(from: outgoingKind, to: incomingKind,
                                      reason: reason, sameWork: sameWork,
-                                     looping: currentChannel?.mediaKind == .ambient)
+                                     looping: currentChannel?.mediaKind == .ambient,
+                                     crossfadeMusic: crossfadeMusic)
             : .immediate
         transitionVisualState = PlaybackTransitionVisualState(
             fromKind: outgoingKind, toKind: incomingKind,
@@ -1173,6 +1184,12 @@ final class PlayerViewModel: ObservableObject {
                              startAt: resumeAt,
                              autoPlay: autoPlay,
                              transition: transitionStyle)
+            // Arm the engine so THIS music-channel track fires natural advance a
+            // crossfade-length early, keeping its tail audible to overlap the
+            // next track. Disarmed (lead 0) automatically for non-music/paused.
+            if autoPlay, crossfadeMusic {
+                audioPlayer.armCrossfade(leadSeconds: musicCrossfadeDuration)
+            }
             if let ch = currentChannel {
                 audioPlayer.updateNowPlayingChannel(ch.name)
             }

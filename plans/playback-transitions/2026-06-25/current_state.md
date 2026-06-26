@@ -28,3 +28,15 @@ Important repo state observed during planning:
 - `FakeAudioEngine` is the right place to capture transition styles for orchestration tests.
 
 Next step: Phase 2 (true overlap music-to-music crossfade) remains future work and requires a dual-player / prepared-next-item architecture. Phase 1 ships single-player fade-out/fade-in only. Manual QA on device for fade feel (music next/prev, spoken boundaries, ambient onset, sleep fade) is still recommended.
+
+2026-06-25 (Phase 2): True music crossfade implemented and verified (`ParsoMusicTests` green). Design: `03-phase2-music-crossfade.md`.
+
+Phase 2 delivered:
+
+- Settings toggle `musicCrossfadeEnabled` (default ON) — `SettingsView` "Playback" section. Fixed 2.0 s overlap, music radio channels only (`currentChannel?.mediaKind == .music`).
+- Policy gains `crossfadeMusic:`; music→music `.naturalAdvance` returns `.musicCrossfade(2.0)` when enabled, else the Phase 1 `.fadeIn(0.2)`. Manual/spoken/ambient/mixed never overlap.
+- `AudioEngine.armCrossfade(leadSeconds:)`. `AudioPlayerService` fires natural advance ~2 s early (periodic time observer, repeatMode .off only) so the outgoing tail is still audible, then `crossfadePlay` demotes the still-playing outgoing to a second player, ramps it down (`crossfadeOutTask`/`rampOutgoing`) while the new primary fades in, and tears the outgoing down. Isolated from the shipped `play(...)` path; degrades to a fade-in when no live outgoing is available (slow resolve). Crossfade is torn down on every teardown/pause/resume/route/interruption/seek.
+- `PlayerViewModel` reads the setting, threads `crossfadeMusic` into the policy, and arms the engine after starting a music-channel track.
+- Tests: policy matrix for the crossfade decision + `FakeAudioEngine` records `armCrossfade`; orchestration tests assert music channels arm (enabled) / don't (disabled) / playlists never arm. True audio overlap quality is manual QA (two mixed AVPlayers can't be validated headlessly).
+
+Remaining / future: optionally extend crossfade to pure-music playlists once channel crossfade proves out; consider an equal-power (cosine) ramp if linear sounds dippy. Device QA recommended for overlap feel and skip/pause/seek during the lead window.

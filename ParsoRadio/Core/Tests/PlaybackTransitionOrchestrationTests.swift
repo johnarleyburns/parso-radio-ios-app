@@ -14,7 +14,7 @@ final class PlaybackTransitionOrchestrationTests: XCTestCase {
         db = try DatabaseService(path: ":memory:")
         engine = FakeAudioEngine()
         for k in ["session.kind", "session.contextId", "session.trackId",
-                  "session.position", "lastChannelId"] {
+                  "session.position", "lastChannelId", "musicCrossfadeEnabled"] {
             UserDefaults.standard.removeObject(forKey: k)
         }
     }
@@ -95,5 +95,42 @@ final class PlaybackTransitionOrchestrationTests: XCTestCase {
         XCTAssertEqual(engine.fadeOutPauseCount, 1)
         XCTAssertEqual(engine.lastFadeOutPauseDuration, 8)
         XCTAssertFalse(engine.isPlaying)
+    }
+
+    // Phase 2: a music-channel track arms the engine to fire natural advance a
+    // crossfade-length early (so its tail can overlap the next track).
+    func test_musicChannel_armsCrossfadeWhenEnabled() async {
+        UserDefaults.standard.set(true, forKey: "musicCrossfadeEnabled")
+        let vm = makeVM()
+        vm.currentChannel = Channel.fmaJazzTestChannel
+        await db.saveTracks([makeFMATrack("c1")])
+        await vm.playTrack(makeFMATrack("c1"), seekTo: nil, reason: .channelChange)
+        await settle()
+        XCTAssertEqual(engine.crossfadeArmCount, 1, "music-channel play must arm the crossfade")
+        XCTAssertEqual(engine.lastCrossfadeLead, 2.0)
+        UserDefaults.standard.removeObject(forKey: "musicCrossfadeEnabled")
+    }
+
+    // With the setting off, music-channel plays never arm the crossfade.
+    func test_musicChannel_doesNotArmWhenDisabled() async {
+        UserDefaults.standard.set(false, forKey: "musicCrossfadeEnabled")
+        let vm = makeVM()
+        vm.currentChannel = Channel.fmaJazzTestChannel
+        await db.saveTracks([makeFMATrack("c2")])
+        await vm.playTrack(makeFMATrack("c2"), seekTo: nil, reason: .channelChange)
+        await settle()
+        XCTAssertEqual(engine.crossfadeArmCount, 0, "crossfade disabled must not arm")
+        UserDefaults.standard.removeObject(forKey: "musicCrossfadeEnabled")
+    }
+
+    // Playlists keep the Phase 1 fade-in (no overlap), so they never arm.
+    func test_playlistContext_doesNotArmCrossfade() async throws {
+        UserDefaults.standard.set(true, forKey: "musicCrossfadeEnabled")
+        let vm = makeVM()
+        let pl = try await seedPlaylist(["x1", "x2"])
+        await vm.loadPlaylist(pl)
+        await settle()
+        XCTAssertEqual(engine.crossfadeArmCount, 0, "playlist context must not arm music crossfade")
+        UserDefaults.standard.removeObject(forKey: "musicCrossfadeEnabled")
     }
 }
