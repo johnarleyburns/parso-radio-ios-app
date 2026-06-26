@@ -6,6 +6,7 @@ struct NowPlayingSheet: View {
     @EnvironmentObject var playlistVM: PlaylistViewModel
     @EnvironmentObject var offlineService: OfflineDownloadService
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showAddToPlaylist = false
 
@@ -13,6 +14,13 @@ struct NowPlayingSheet: View {
 
     private var channelCategory: String {
         playerVM.currentChannel?.category ?? ""
+    }
+
+    /// Identity for the artwork cross-dissolve: changes once per track/work so a
+    /// new item gently cross-fades in instead of hard-cutting. Async artwork
+    /// loads within the same track keep the same key (update in place, no flash).
+    private var artworkTransitionKey: String {
+        playerVM.currentTrack?.id ?? playerVM.currentChannel?.id ?? "none"
     }
 
     private var surfaceAccessibilityID: String {
@@ -139,6 +147,9 @@ struct NowPlayingSheet: View {
                     }
             }
         }
+        .id(artworkTransitionKey)
+        .transition(.opacity)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: artworkTransitionKey)
     }
 
     @ViewBuilder

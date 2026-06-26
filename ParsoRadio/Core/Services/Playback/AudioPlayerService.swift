@@ -66,6 +66,16 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     // show the progress bar / elapsed time even when starting paused.
     var onReady: ((Double) -> Void)?
 
+    // Phase 1 transitions: a single cancellable fade task drives volume ramps
+    // (fade-in on a new item, fade-out before teardown, sleep-timer fade). It is
+    // ALWAYS cancelled by the next play/skip/teardown/interruption so a stale
+    // ramp can never touch the live player (latest-wins, like playToken).
+    private var transitionTask: Task<Void, Never>?
+    // Fade-in duration to apply once the new item actually starts (covers both
+    // the immediate-start and deferred-resume-seek paths). 0 = start at full volume.
+    private var pendingFadeIn: TimeInterval = 0
+    private let fadeStepInterval: TimeInterval = 0.04
+
     var onNonAudio: (() -> Void)?
     var onPlaybackFailure: (() -> Void)?
     private var hasReceivedAudio = false
@@ -110,8 +120,13 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     // process makes the remote item slower to become ready, so the old
     // seek-immediately-after-play race was lost almost every time.
     func play(url: URL, track: Track, looping: Bool = false, startAt: Double = 0,
-              autoPlay: Bool = true) {
+              autoPlay: Bool = true, transition: AudioTransitionStyle = .immediate) {
+        cancelTransitionTask()
         tearDownPlayer()
+        // Fade-in only applies when we actually start audio now. A paused or
+        // deferred-resume-seek load applies it once it starts (handleItemReady);
+        // autoPlay == false never fades.
+        pendingFadeIn = autoPlay ? (transition.inDuration ?? 0) : 0
 
         // Enforce the streaming cache budget before starting a new track.
         // The streaming cache otherwise grows unbounded during playback.
@@ -225,8 +240,17 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         // in handleItemReady) so the seek is never dropped and the user never
         // hears the track restart at 0:00. Looping (ambient) always starts.
         if autoPlay, looping || pendingStartSeek <= 0 {
-            player?.play()
-            applyRate()
+            if pendingFadeIn > 0 {
+                player?.volume = 0
+                player?.play()
+                applyRate()
+                startFadeIn(duration: pendingFadeIn)
+                pendingFadeIn = 0
+            } else {
+                player?.volume = 1
+                player?.play()
+                applyRate()
+            }
         }
         currentTrack = track
         isPlaying = autoPlay
@@ -279,8 +303,16 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         func startIfNeeded(_ at: Double) {
             updateNowPlayingElapsed(at)
             guard pendingAutoPlay else { return }
-            player?.play()
-            applyRate()
+            if pendingFadeIn > 0 {
+                player?.volume = 0
+                player?.play()
+                applyRate()
+                startFadeIn(duration: pendingFadeIn)
+                pendingFadeIn = 0
+            } else {
+                player?.play()
+                applyRate()
+            }
             isPlaying = true
         }
 
@@ -338,6 +370,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     }
 
     func pause() {
+        cancelTransitionRestoringVolume()
         player?.pause()
         isPlaying = false
         MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 0.0
@@ -346,6 +379,9 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     func resume() {
         // Re-activate the audio session in case it was deactivated during an interruption.
         try? AVAudioSession.sharedInstance().setActive(true)
+        // Abandon any in-flight fade (e.g. a sleep-timer fade-out the user
+        // interrupted) and restore full volume before playing.
+        cancelTransitionRestoringVolume()
         // The user explicitly wants playback now: if the item is still waiting on
         // a deferred resume-seek (loaded paused), make sure it PLAYS once ready
         // instead of staying silent.
@@ -369,11 +405,112 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         seek(to: clamped)
     }
 
-    func skip() {
-        tearDownPlayer()
+    func skip(transition: AudioTransitionStyle) {
         currentTrack = nil
         isPlaying = false
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        if let out = transition.outDuration {
+            fadeOutCurrentPlayerThenTearDown(duration: out)
+        } else {
+            cancelTransitionTask()
+            tearDownPlayer()
+        }
+    }
+
+    /// Wall-clock sleep-timer fade: ramp the live player to silence over
+    /// `duration`, then pause and restore full volume (so a later resume plays at
+    /// normal level). Does NOT tear down the item — the user resumes exactly
+    /// where they faded out.
+    func fadeOutThenPause(duration: TimeInterval) {
+        cancelTransitionTask()
+        guard let p = player, duration > 0, isPlaying else {
+            pause()
+            player?.volume = 1
+            return
+        }
+        let token = playToken
+        transitionTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.ramp(player: p, from: p.volume, to: 0, duration: duration, token: token)
+            guard !Task.isCancelled, self.playToken == token, self.player === p else { return }
+            p.pause()
+            self.isPlaying = false
+            MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 0.0
+            p.volume = 1
+            self.transitionTask = nil
+        }
+    }
+
+    // MARK: - Transition fades (Phase 1)
+
+    private func cancelTransitionTask() {
+        transitionTask?.cancel()
+        transitionTask = nil
+    }
+
+    /// Cancel any in-flight fade and restore the live player to full volume so a
+    /// half-completed ramp can't leave future audio quiet. Used by pause / route
+    /// loss / interruption / resume.
+    private func cancelTransitionRestoringVolume() {
+        transitionTask?.cancel()
+        transitionTask = nil
+        player?.volume = 1
+    }
+
+    /// Ramp the new item up from silence over `duration`. Guarded by playToken so
+    /// a teardown (which bumps the token) abandons the ramp for a dead player.
+    private func startFadeIn(duration: TimeInterval) {
+        guard let p = player, duration > 0 else { player?.volume = 1; return }
+        cancelTransitionTask()
+        p.volume = 0
+        let token = playToken
+        transitionTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.ramp(player: p, from: 0, to: 1, duration: duration, token: token)
+            self.transitionTask = nil
+        }
+    }
+
+    /// Fade the outgoing player to silence, then tear it down. Detaches the
+    /// end/finish observer and invalidates ticks up front so nothing fires during
+    /// the fade; a subsequent play/skip cancels this and force-tears-down.
+    private func fadeOutCurrentPlayerThenTearDown(duration: TimeInterval) {
+        cancelTransitionTask()
+        guard let p = player, duration > 0, p.timeControlStatus != .paused else {
+            tearDownPlayer()
+            return
+        }
+        playToken &+= 1
+        if let obs = endObserver {
+            NotificationCenter.default.removeObserver(obs)
+            endObserver = nil
+        }
+        let token = playToken
+        transitionTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.ramp(player: p, from: p.volume, to: 0, duration: duration, token: token)
+            // A new play() that arrived mid-fade already tore p down.
+            guard self.player === p, self.playToken == token else { return }
+            self.tearDownPlayer()
+            self.transitionTask = nil
+        }
+    }
+
+    /// Linearly ramp `player.volume` from→to over `duration` in small main-actor
+    /// ticks. Aborts immediately if the playToken changed (player replaced) or
+    /// the task was cancelled.
+    private func ramp(player p: AVPlayer, from: Float, to: Float,
+                      duration: TimeInterval, token: Int) async {
+        let start = max(0, min(1, from))
+        let end = max(0, min(1, to))
+        let steps = max(1, Int((duration / fadeStepInterval).rounded()))
+        for i in 1...steps {
+            try? await Task.sleep(nanoseconds: UInt64(fadeStepInterval * 1_000_000_000))
+            if Task.isCancelled || playToken != token { return }
+            let t = Float(i) / Float(steps)
+            p.volume = max(0, min(1, start + (end - start) * t))
+        }
+        if !Task.isCancelled, playToken == token { p.volume = end }
     }
 
     /// Re-read the REAL player state. The system or another app can pause us
@@ -427,6 +564,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         switch type {
         case .began:
             // AVPlayer has already paused itself; sync our state.
+            cancelTransitionRestoringVolume()
             isPlaying = false
             MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 0.0
 
@@ -468,6 +606,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     }
 
     private func pauseForRouteFallback() {
+        cancelTransitionRestoringVolume()
         player?.pause()
         isPlaying = false
         MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] = 0.0
@@ -627,6 +766,11 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     private func tearDownPlayer() {
         // Invalidate any in-flight periodic-time ticks from the outgoing player.
         playToken &+= 1
+        // Abandon any fade in progress and clear its pending intent so a stale
+        // ramp can never touch the next player.
+        transitionTask?.cancel()
+        transitionTask = nil
+        pendingFadeIn = 0
         nonAudioTimer?.cancel()
         nonAudioTimer = nil
         hasReceivedAudio = false

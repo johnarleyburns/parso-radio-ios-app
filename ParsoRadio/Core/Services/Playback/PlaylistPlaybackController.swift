@@ -46,7 +46,8 @@ final class PlaylistPlaybackController {
         vm.playlistIndex = track
             .flatMap { t in tracks.firstIndex(where: { $0.id == t.id }) } ?? 0
         if shuffle { vm.buildShuffledPlaylistIndices() }
-        await vm.playTrack(startTrack, seekTo: seekTo, recordHistory: false, autoPlay: autoPlay)
+        await vm.playTrack(startTrack, seekTo: seekTo, recordHistory: false, autoPlay: autoPlay,
+                           reason: .playlistChange)
     }
 
     func savedPlaylistResume(_ playlist: Playlist) async -> (track: Track, seconds: Double)? {
@@ -71,13 +72,14 @@ final class PlaylistPlaybackController {
         }
     }
 
-    func advancePlaylist() async {
+    func advancePlaylist(reason: PlaybackTransitionReason = .naturalAdvance) async {
         guard let vm = playerVM, !vm.playlistTracks.isEmpty else { return }
         if vm.shuffleMode, vm.playlistTracks.count > 1 {
             vm.playlistIndex = vm.getNextShuffledPlaylistIndex()
         } else {
             vm.playlistIndex = (vm.playlistIndex + 1) % vm.playlistTracks.count
         }
-        await vm.playTrack(vm.playlistTracks[vm.playlistIndex], seekTo: nil, recordHistory: false)
+        await vm.playTrack(vm.playlistTracks[vm.playlistIndex], seekTo: nil, recordHistory: false,
+                           reason: reason)
     }
 }
