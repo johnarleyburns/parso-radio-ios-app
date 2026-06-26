@@ -1416,16 +1416,12 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func playSingleTrack(_ track: Track, seekTo: Double? = nil) async {
-        saveAutosaveForCurrentTrack()
-        currentChannel = nil
-        currentPlaybackContext = PlaybackContext(
-            origin: .directItem, mediaKind: track.mediaKind(in: nil),
-            title: track.title)
-        currentPlaylist = nil
-        playlistTracks = []
-        playlistIndex = 0
-        playbackContextToken &+= 1
-        playHistory = []
+        beginDirectPlaybackContext(
+            pre: track,
+            context: PlaybackContext(
+                origin: .directItem, mediaKind: track.mediaKind(in: nil),
+                title: track.title),
+            description: track.title)
         await playTrack(track, seekTo: seekTo, recordHistory: false)
     }
 
@@ -1718,6 +1714,8 @@ final class PlayerViewModel: ObservableObject {
     // If `pre` is known, pre-populate it so its metadata shows under the
     // spinner; playTrack then finalises + starts audio in one update.
     func beginTransition(pre: Track?) {
+        stallWatchdog?.cancel()
+        stallWatchdog = nil
         audioPlayer.skip()
         currentArtwork = nil
         artworkDominantColor = .accentColor
@@ -1730,20 +1728,30 @@ final class PlayerViewModel: ObservableObject {
         loadingMessage = "Loading…"
     }
 
-    /// Audition a candidate track: play this exact track once,
-    /// outside any channel / playlist context.
-    func auditionTrack(_ track: Track) async {
+    func beginDirectPlaybackContext(pre: Track?, context: PlaybackContext,
+                                    description: String = "") {
+        saveAutosaveForCurrentTrack()
         currentChannel = nil
-        currentPlaybackContext = PlaybackContext(
-            origin: .audition, mediaKind: track.mediaKind(in: nil),
-            title: track.title)
+        currentPlaybackContext = context
         currentPlaylist = nil
         playlistTracks = []
         playlistIndex = 0
         playbackContextToken &+= 1
         playHistory = []
-        channelDescription = ""
-        beginTransition(pre: track)
+        channelDescription = description
+        shuffleMode = false
+        resetShuffledPlaylistState()
+        beginTransition(pre: pre)
+    }
+
+    /// Audition a candidate track: play this exact track once,
+    /// outside any channel / playlist context.
+    func auditionTrack(_ track: Track) async {
+        beginDirectPlaybackContext(
+            pre: track,
+            context: PlaybackContext(
+                origin: .audition, mediaKind: track.mediaKind(in: nil),
+                title: track.title))
         await Task.yield()
         await playTrack(track, seekTo: nil, recordHistory: false)
     }
@@ -1763,17 +1771,11 @@ final class PlayerViewModel: ObservableObject {
             instruments: [], metadataConfidence: 0.0,
             addedDate: group.addedDate
         )
-        currentChannel = nil
-        currentPlaybackContext = PlaybackContext(
-            origin: .search, mediaKind: mediaKind,
-            title: group.title)
-        currentPlaylist = nil
-        playlistTracks = []
-        playlistIndex = 0
-        playbackContextToken &+= 1   // new context (see playbackContextToken)
-        playHistory = []
-        channelDescription = ""
-        beginTransition(pre: pre)
+        beginDirectPlaybackContext(
+            pre: pre,
+            context: PlaybackContext(
+                origin: .search, mediaKind: mediaKind,
+                title: group.title))
         await playTrack(pre, seekTo: nil, recordHistory: false)
         // NOTE: do NOT clear isLoading here — playTrack owns the spinner and
         // dismisses it on the first real time tick (or on failure). Clearing it

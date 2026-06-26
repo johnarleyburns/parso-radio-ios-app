@@ -20,11 +20,13 @@ final class RecentlyPlayedController {
 
     func playRecentTrack(_ track: Track) async {
         guard let vm = playerVM else { return }
-        vm.currentChannel = nil
-        vm.currentPlaybackContext = PlaybackContext(
-            origin: .recentlyPlayed, mediaKind: track.inferredMediaKind,
-            title: track.title)
-        await vm.playTrack(track, seekTo: nil)
+        vm.beginDirectPlaybackContext(
+            pre: track,
+            context: PlaybackContext(
+                origin: .recentlyPlayed, mediaKind: track.inferredMediaKind,
+                title: track.title),
+            description: track.title)
+        await vm.playTrack(track, seekTo: nil, recordHistory: false)
     }
 
     /// Resume a whole spoken work (book/lecture/podcast) from its most recent
@@ -34,18 +36,24 @@ final class RecentlyPlayedController {
     func resumeWork(_ work: RecentWork) async {
         guard let vm = playerVM else { return }
         guard work.playsWholeWork, let parentId = work.workIdentifier else {
-            vm.currentChannel = nil
-            vm.currentPlaybackContext = PlaybackContext(
-                origin: .recentlyPlayed, mediaKind: work.mediaKind, title: work.track.title)
-            await vm.playTrack(work.track, seekTo: nil)
+            vm.beginDirectPlaybackContext(
+                pre: work.track,
+                context: PlaybackContext(
+                    origin: .recentlyPlayed, mediaKind: work.mediaKind,
+                    title: work.track.title),
+                description: work.displayTitle)
+            await vm.playTrack(work.track, seekTo: nil, recordHistory: false)
             return
         }
 
         guard let parts = await vm.resolveItemParts(identifier: parentId), !parts.isEmpty else {
-            vm.currentChannel = nil
-            vm.currentPlaybackContext = PlaybackContext(
-                origin: .recentlyPlayed, mediaKind: work.mediaKind, title: work.displayTitle)
-            await vm.playTrack(work.track, seekTo: nil)
+            vm.beginDirectPlaybackContext(
+                pre: work.track,
+                context: PlaybackContext(
+                    origin: .recentlyPlayed, mediaKind: work.mediaKind,
+                    title: work.displayTitle),
+                description: work.displayTitle)
+            await vm.playTrack(work.track, seekTo: nil, recordHistory: false)
             return
         }
 

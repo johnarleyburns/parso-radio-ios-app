@@ -146,6 +146,7 @@ final class WholeItemController {
         vm.channelDescription = title
         vm.shuffleMode = false
         vm.resetShuffledPlaylistState()
+        vm.beginTransition(pre: ordered[0])
         await vm.playTrack(ordered[0], seekTo: startSeek, recordHistory: false)
     }
 
@@ -198,6 +199,7 @@ final class WholeItemController {
         vm.playHistory = []
         vm.shuffleMode = false
         vm.resetShuffledPlaylistState()
+        vm.beginTransition(pre: ordered[0])
         await vm.playTrack(ordered[0], seekTo: nil, recordHistory: false)
     }
 }

@@ -45,6 +45,27 @@ final class PlaybackReliabilityTests: XCTestCase {
               metadataConfidence: 2.0)
     }
 
+    private func makeMissingLocalTrack(_ id: String) -> Track {
+        let path = "/private/tmp/lorewave-missing-\(id)-\(UUID().uuidString).mp3"
+        return Track(id: id, source: "local", title: "Missing \(id)", artist: "A",
+                     duration: 300,
+                     streamURL: URL(fileURLWithPath: path),
+                     downloadURL: nil, localFilePath: path,
+                     license: .cc0, tags: [],
+                     qualityScore: 0.8, rawCreator: "", composer: nil,
+                     instruments: [], metadataConfidence: 2.0,
+                     isLocal: true)
+    }
+
+    private func makeBookChapter(_ parent: String, part: Int) -> Track {
+        var track = Track.makeStub(id: "\(parent)/chapter-\(part).mp3",
+                                   title: "Chapter \(part)",
+                                   parentIdentifier: parent)
+        track.partNumber = part
+        track.totalParts = 2
+        return track
+    }
+
     private func seedPlaylist(_ ids: [String]) async throws -> Playlist {
         let tracks = ids.map(makeFMATrack)
         await db.saveTracks(tracks)
@@ -195,5 +216,68 @@ final class PlaybackReliabilityTests: XCTestCase {
         XCTAssertEqual(vm.playlistIndex, 0)
         XCTAssertEqual(engine.playCount, 1)
         XCTAssertEqual(engine.skipCount, 0)
+    }
+
+    func test_musicForYouThenJumpBackInStopsOutgoingAudioWhenNewTrackCannotLoad() async throws {
+        let vm = makeVM()
+        let musicForYou = makeFMATrack("mfy-current")
+        await vm.playRecentTrack(musicForYou)
+        await settle()
+        XCTAssertEqual(engine.liveTrack?.id, musicForYou.id)
+        engine.completeReady(duration: 300)
+        engine.emitTick(12)
+        await settle()
+
+        let skipCountBeforeSwitch = engine.skipCount
+        let jumpBackIn = makeMissingLocalTrack("jbi-missing")
+        await vm.playRecentTrack(jumpBackIn)
+        await settle()
+
+        XCTAssertGreaterThan(engine.skipCount, skipCountBeforeSwitch,
+            "Jump Back In must tear down outgoing recommendation audio before resolving the tapped track.")
+        XCTAssertNil(engine.liveTrack,
+            "The old Music For You engine item must not keep playing if the Jump Back In track fails before play().")
+        XCTAssertFalse(engine.isPlaying)
+        XCTAssertFalse(vm.isPlaying)
+    }
+
+    func test_jumpBackInMusicClearsStalePlaylistContextBeforePlayingTrack() async throws {
+        let vm = makeVM()
+        let stalePlaylist = try await seedPlaylist(["stale-a", "stale-b"])
+        vm.currentPlaylist = stalePlaylist
+        vm.playlistTracks = await db.fetchTracks(forPlaylist: stalePlaylist.id)
+        vm.playlistIndex = 1
+
+        let jumpBackIn = makeFMATrack("jbi-track")
+        await vm.playRecentTrack(jumpBackIn)
+        await settle()
+
+        XCTAssertNil(vm.currentPlaylist,
+            "A single Jump Back In music track must not inherit an old playlist/album context.")
+        XCTAssertTrue(vm.playlistTracks.isEmpty)
+        XCTAssertEqual(vm.playlistIndex, 0)
+        XCTAssertEqual(vm.currentPlaybackContext?.origin, .recentlyPlayed)
+        XCTAssertEqual(engine.liveTrack?.id, jumpBackIn.id)
+    }
+
+    func test_booksForYouWholeWorkSwitchStopsOutgoingTrackBeforeAlbumPlayback() async throws {
+        let vm = makeVM()
+        let oldTrack = makeFMATrack("old-music")
+        await vm.playRecentTrack(oldTrack)
+        await settle()
+        XCTAssertEqual(engine.liveTrack?.id, oldTrack.id)
+        let skipCountBeforeSwitch = engine.skipCount
+
+        let chapters = [makeBookChapter("book-a", part: 1),
+                        makeBookChapter("book-a", part: 2)]
+        await vm.playAlbumTracks(chapters, title: "Book A",
+                                 mediaKind: .audiobook, origin: .bookForYou)
+        await settle()
+
+        XCTAssertGreaterThan(engine.skipCount, skipCountBeforeSwitch,
+            "Books For You / whole-work playback must stop outgoing audio before starting the album context.")
+        XCTAssertEqual(engine.liveTrack?.id, chapters[0].id)
+        XCTAssertEqual(vm.currentPlaylist?.id, "album:book-a")
+        XCTAssertEqual(vm.activeMediaKind, .audiobook)
     }
 }

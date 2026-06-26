@@ -101,6 +101,12 @@ struct BooksForYouSection: View {
 
     private func playBook(_ track: Track) async {
         let identifier = track.parentIdentifier ?? track.id
+        playerVM.beginDirectPlaybackContext(
+            pre: track,
+            context: PlaybackContext(
+                origin: .bookForYou, mediaKind: .audiobook,
+                title: track.title),
+            description: track.title)
         do {
             let tracks = try await deps.archiveService.fetchTracksForIdentifier(identifier)
             guard !tracks.isEmpty else {
