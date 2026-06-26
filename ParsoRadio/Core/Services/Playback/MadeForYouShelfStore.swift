@@ -82,39 +82,35 @@ final class MadeForYouShelfStore: ObservableObject {
     /// after every play — passing the current `playHistoryVersion` so each new
     /// track/audiobook reshapes the picks. Rapid plays coalesce because SwiftUI
     /// cancels the prior `.task(id:)` before starting the next.
+    ///
+    /// The shelf NEVER blocks behind a "Finding…" spinner once it has anything to
+    /// show: the previous picks (this session's, or the last session's persisted
+    /// snapshot) stay on screen while a fresh set is fetched in the background and
+    /// swapped in. The spinner only appears on the genuine first-ever load when no
+    /// prior picks exist.
     func loadIfNeeded(historyVersion: Int = 0) async {
         let historyChanged = historyVersion != lastLoadedHistoryVersion
         // Already showing content and nothing new was played → keep it.
         if !historyChanged, !isLoadable { return }
-
-        let isFirstLoad = lastLoadedHistoryVersion == -1
         lastLoadedHistoryVersion = historyVersion
-        // Only the genuine first load of the session may reuse the daily cache;
-        // any play invalidates it so the shelf reflects fresh taste.
-        await rebuild(useCache: isFirstLoad && historyVersion == 0)
+        await rebuild()
     }
 
-    private func rebuild(useCache: Bool) async {
-        // Keep existing picks visible while refreshing; only spin when empty.
-        if !isLoaded { state = .loading }
-        await ensureTasteBackfillIfNeeded()
-
-        if useCache, let cached = await loadDailyCache(), !cached.isEmpty {
-            var tracks: [Track] = []
-            for id in cached {
-                if let track = await db.fetchTrack(id: id) {
-                    tracks.append(track)
-                }
-            }
-            tracks = filtered(tracks)
-            if !tracks.isEmpty {
-                state = .loaded(.personalized, tracks)
-                return
+    private func rebuild() async {
+        // Show the previous picks immediately (no spinner) whenever we have
+        // anything to show — this session's loaded content stays put, and a
+        // fresh launch hydrates last session's persisted snapshot. Only a true
+        // first-ever load with nothing persisted shows the "Finding…" spinner.
+        if !isLoaded {
+            if let snapshot = await loadSnapshotTracks() {
+                state = .loaded(snapshot.kind, snapshot.tracks)
+            } else {
+                state = .loading
             }
         }
+        await ensureTasteBackfillIfNeeded()
 
         let hasProfile = await tasteProfileStore.hasAnyProfile()
-        var personalizedSuccess = false
 
         if hasProfile, let svc = archiveService {
             let controller = RecommendationsController(
@@ -123,25 +119,30 @@ final class MadeForYouShelfStore: ObservableObject {
                 musicOnly: shelf == .music, booksOnly: shelf == .books) {
                 let picks = filtered(recs)
                 if picks.count >= RecommendationConstants.minShelf {
-                    let trackIds = picks.map(\.id)
-                    await saveDailyCache(trackIds: trackIds, source: "personalized")
+                    await saveDailyCache(trackIds: picks.map(\.id), source: "personalized")
+                    saveShelfSnapshot(trackIds: picks.map(\.id), kind: .personalized)
                     state = .loaded(.personalized, picks)
-                    personalizedSuccess = true
+                    return
                 }
             }
         }
 
-        if !personalizedSuccess {
-            let coldTracks = await fetchColdStartPicks()
-            if !coldTracks.isEmpty {
-                let trackIds = coldTracks.map(\.id)
-                await saveDailyCache(trackIds: trackIds, source: "cold_start")
-                state = .loaded(.coldStart, coldTracks)
-            } else {
-                state = .empty(message: shelf == .books
-                    ? "Couldn't load books right now."
-                    : "Couldn't load music right now.")
-            }
+        let coldTracks = await fetchColdStartPicks()
+        if !coldTracks.isEmpty {
+            await saveDailyCache(trackIds: coldTracks.map(\.id), source: "cold_start")
+            saveShelfSnapshot(trackIds: coldTracks.map(\.id), kind: .coldStart)
+            state = .loaded(.coldStart, coldTracks)
+            return
+        }
+
+        // The background refresh produced nothing. If we are already showing
+        // previous picks (this session's content or a hydrated snapshot), KEEP
+        // them — never clobber good content with an empty/finding state. Only a
+        // true cold first load with no prior picks surfaces the empty message.
+        if !isLoaded {
+            state = .empty(message: shelf == .books
+                ? "Couldn't load books right now."
+                : "Couldn't load music right now.")
         }
     }
 
@@ -292,6 +293,39 @@ final class MadeForYouShelfStore: ObservableObject {
 
     func invalidateForHistoryChange(version: Int) {
         state = .idle
+    }
+
+    // MARK: - Last-shown snapshot (persists previous picks across launches)
+
+    /// The most recently shown picks, persisted independently of the day-keyed
+    /// daily cache so a fresh launch (even on a new day) can show last session's
+    /// shelf immediately instead of a "Finding…" spinner while it refreshes.
+    private var snapshotKey: String {
+        switch shelf {
+        case .music: return "madeForYou.snapshot.music"
+        case .books: return "madeForYou.snapshot.books"
+        }
+    }
+    private var snapshotKindKey: String { snapshotKey + ".kind" }
+
+    func saveShelfSnapshot(trackIds: [String], kind: MadeForYouShelfState.Kind) {
+        UserDefaults.standard.set(trackIds, forKey: snapshotKey)
+        UserDefaults.standard.set(kind == .personalized ? "personalized" : "coldStart",
+                                  forKey: snapshotKindKey)
+    }
+
+    private func loadSnapshotTracks() async -> (kind: MadeForYouShelfState.Kind, tracks: [Track])? {
+        guard let ids = UserDefaults.standard.array(forKey: snapshotKey) as? [String],
+              !ids.isEmpty else { return nil }
+        var tracks: [Track] = []
+        for id in ids {
+            if let track = await db.fetchTrack(id: id) { tracks.append(track) }
+        }
+        let picks = filtered(tracks)
+        guard !picks.isEmpty else { return nil }
+        let kind: MadeForYouShelfState.Kind =
+            UserDefaults.standard.string(forKey: snapshotKindKey) == "coldStart" ? .coldStart : .personalized
+        return (kind, picks)
     }
 
     func saveDailyCache(trackIds: [String], source: String) async {

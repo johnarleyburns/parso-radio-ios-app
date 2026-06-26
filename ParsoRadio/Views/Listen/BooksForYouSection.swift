@@ -83,11 +83,11 @@ struct BooksForYouSection: View {
             if case .loaded(let kind, let tracks) = shelfStore.state, !tracks.isEmpty {
                 switch kind {
                 case .personalized:
-                    Text("Audiobooks from your taste \u{00B7} refreshes daily")
+                    Text("Audiobooks from your taste \u{00B7} refreshes as you listen")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 case .coldStart:
-                    Text("Starter audiobooks while Lorewave learns \u{00B7} refreshes daily")
+                    Text("Starter audiobooks while Lorewave learns \u{00B7} refreshes as you listen")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

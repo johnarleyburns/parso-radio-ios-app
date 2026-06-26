@@ -190,18 +190,18 @@ Before claiming any feature/fix is implemented, verify these invariants hold:
 ### Music For You
 - Section always mounts (no `if showSection` gate in `MadeForYouSection`)
 - Header always renders as a plain `Text("Music For You")` (no icon, default section-header font), matching peer Home sections
-- Section visible even in loading/empty/failed states; shows a spinner while fetching
+- Section visible in all states; shows the previous picks while a refresh runs in the background — the "Finding…" spinner appears only on the genuine first-ever load with no prior picks
 - "Books for You" renders directly below "Music For You"
 - Returns MUSIC ONLY — never LibriVox audiobooks, podcasts, or lectures (enforced query-side: music-only recs + no `librivoxaudio` cold-start query)
 - Existing-user play history backfills taste profile once (check `tasteProfileBackfillVersion`)
 - Cold-start fallback returns music picks, never hides section
-- Daily cache persists shelf content; stale cache rebuilds from network
+- Refreshes on every play (`playHistoryVersion` change); a persisted per-shelf snapshot (`madeForYou.snapshot.music`) survives relaunch so previous picks render immediately, then a background refresh swaps in fresh picks and never clobbers good picks with an empty/spinner state. Day-keyed daily cache is still written.
 
 ### Books for You
-- Same store/format as Music For You (`MadeForYouShelfStore(shelf: .books)`, horizontal card shelf, plain header, always mounts with spinner)
+- Same store/format as Music For You (`MadeForYouShelfStore(shelf: .books)`, horizontal card shelf, plain header, always mounts; shows previous picks while refreshing)
 - Returns AUDIOBOOKS ONLY (spoken-only recs + `librivoxaudio` cold-start query)
 - Tapping a card plays the whole book (`fetchTracksForIdentifier` → `playAlbumTracks`)
-- Daily cache namespaced separately from Music For You (`books:<day>` key) so the two shelves never collide
+- Daily cache namespaced separately from Music For You (`books:<day>` key); the last-shown snapshot is namespaced too (`madeForYou.snapshot.books`) so the two shelves never collide
 
 ### Player Surface
 - `NowPlayingSheet` uses `playerVM.activeMediaKind`, never `currentChannel?.mediaKind ?? .music`

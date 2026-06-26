@@ -83,11 +83,11 @@ struct MadeForYouSection: View {
             if case .loaded(let kind, let tracks) = shelfStore.state, !tracks.isEmpty {
                 switch kind {
                 case .personalized:
-                    Text("Fresh music from your taste \u{00B7} refreshes daily")
+                    Text("Fresh music from your taste \u{00B7} refreshes as you listen")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 case .coldStart:
-                    Text("Starter music while Lorewave learns \u{00B7} refreshes daily")
+                    Text("Starter music while Lorewave learns \u{00B7} refreshes as you listen")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
