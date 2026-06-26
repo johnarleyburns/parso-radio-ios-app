@@ -153,7 +153,7 @@ final class WholeItemController {
         guard let vm = playerVM, let channel = vm.currentChannel,
               let current = vm.currentTrack else { return }
         if let first = await queueManager.firstPartOfNextBook(after: current, channel: channel) {
-            await vm.playTrack(first, seekTo: 0, recordHistory: true, reason: .manualNext)
+            await vm.playTrack(first, seekTo: 0, recordHistory: true)
         }
     }
 
@@ -161,7 +161,7 @@ final class WholeItemController {
         guard let vm = playerVM, let channel = vm.currentChannel,
               let current = vm.currentTrack else { return }
         if let first = await queueManager.firstPartOfPreviousBook(before: current, channel: channel) {
-            await vm.playTrack(first, seekTo: 0, recordHistory: true, reason: .manualPrevious)
+            await vm.playTrack(first, seekTo: 0, recordHistory: true)
         }
     }
 

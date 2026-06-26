@@ -30,23 +30,9 @@ final class FakeAudioEngine: AudioEngine {
     private(set) var playCount = 0
     private(set) var skipCount = 0
     private(set) var lastSeek: Double?
-    // Transition styles captured per call so orchestration tests can assert the
-    // policy reached the engine (e.g. music manual next is a fade, not immediate).
-    private(set) var playTransitions: [AudioTransitionStyle] = []
-    private(set) var skipTransitions: [AudioTransitionStyle] = []
-    var lastPlayTransition: AudioTransitionStyle? { playTransitions.last }
-    var lastSkipTransition: AudioTransitionStyle? { skipTransitions.last }
-    // Sleep-timer fade-out-then-pause observation.
-    private(set) var fadeOutPauseCount = 0
-    private(set) var lastFadeOutPauseDuration: TimeInterval?
-    // Music-crossfade arming observation (Phase 2).
-    private(set) var lastCrossfadeLead: TimeInterval = 0
-    private(set) var crossfadeArmCount = 0
 
-    func play(url: URL, track: Track, looping: Bool, startAt: Double, autoPlay: Bool,
-              transition: AudioTransitionStyle) {
+    func play(url: URL, track: Track, looping: Bool, startAt: Double, autoPlay: Bool) {
         playCount += 1
-        playTransitions.append(transition)
         liveTrack = track
         lastStartAt = startAt
         lastAutoPlay = autoPlay
@@ -57,21 +43,7 @@ final class FakeAudioEngine: AudioEngine {
     func pause() { isPlaying = false }
     func resume() { isPlaying = true }
     func seek(to seconds: Double) { lastSeek = seconds }
-    func skip(transition: AudioTransitionStyle) {
-        skipCount += 1
-        skipTransitions.append(transition)
-        liveTrack = nil
-        isPlaying = false
-    }
-    func fadeOutThenPause(duration: TimeInterval) {
-        fadeOutPauseCount += 1
-        lastFadeOutPauseDuration = duration
-        isPlaying = false
-    }
-    func armCrossfade(leadSeconds: TimeInterval) {
-        crossfadeArmCount += 1
-        lastCrossfadeLead = leadSeconds
-    }
+    func skip() { skipCount += 1; liveTrack = nil; isPlaying = false }
     func setContentMode(_ mode: AudioPlayerService.ContentMode) {}
     func setPlaybackRate(_ rate: Float) { playbackRate = rate }
     func syncPlaybackState() {}

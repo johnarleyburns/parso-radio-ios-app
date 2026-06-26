@@ -31,20 +31,6 @@ final class PlayerViewModel: ObservableObject {
     var currentItemTotalDuration: Double = 0
     @Published var currentItemPartIndex: Int? = nil
 
-    // Phase 1 playback transitions: a pure policy maps (outgoing kind, incoming
-    // kind, reason) → an audio fade style; the view model owns the reason, the
-    // audio service executes the fade. `transitionVisualState` drives the subtle
-    // artwork/tint cross-dissolve in NowPlayingSheet.
-    private let transitionPolicy = PlaybackTransitionPolicy()
-    @Published var transitionVisualState: PlaybackTransitionVisualState? = nil
-
-    // Phase 2: user-controlled true crossfade for music radio channels (Settings
-    // toggle, default ON). Absent key ⇒ true to match the @AppStorage default.
-    private var musicCrossfadeEnabled: Bool {
-        UserDefaults.standard.object(forKey: "musicCrossfadeEnabled") as? Bool ?? true
-    }
-    private let musicCrossfadeDuration: TimeInterval = 2.0
-
     var timeLeftInBook: TimeInterval? {
         guard let track = currentTrack,
               currentItemPartIndex != nil else { return nil }
@@ -324,7 +310,7 @@ final class PlayerViewModel: ObservableObject {
                 }
                 // Advance to next if in a channel/playlist
                 if self.currentChannel != nil || self.currentPlaylist != nil {
-                    await self.advanceToNext(autoPlay: true, reason: .nonAudioSkip)
+                    await self.advanceToNext(autoPlay: true)
                 }
             }
         }
@@ -340,8 +326,7 @@ final class PlayerViewModel: ObservableObject {
                 // and resets hasReceivedAudio — so if the retry also fails the
                 // .failed observer will route through onNonAudio (normal skip).
                 await self.playTrack(track, seekTo: savedPosition > 1 ? savedPosition : nil,
-                                   recordHistory: false, autoPlay: true,
-                                   reason: .retryAfterFailure)
+                                   recordHistory: false, autoPlay: true)
             }
         }
 
@@ -467,12 +452,8 @@ final class PlayerViewModel: ObservableObject {
         // Safety-net autosave for the outgoing track (channel switch is one
         // of the "lose your spot" scenarios).
         saveAutosaveForCurrentTrack()
-        // UC5: fade/stop the currently playing audio so the old track doesn't
-        // bleed into the new channel. Fade-out duration follows the media-kind
-        // transition policy (the incoming fade-in is resolved later in playTrack).
-        let outgoingChannelKind = currentTrack?.mediaKind(in: currentChannel) ?? activeMediaKind
-        audioPlayer.skip(transition: transitionPolicy.style(
-            from: outgoingChannelKind, to: channel.mediaKind, reason: .channelChange))
+        // UC5: stop any currently playing audio immediately so old track doesn't bleed into new channel.
+        audioPlayer.skip()
         currentTrack = nil
         isPlaying = false
         playHistory = []
@@ -549,8 +530,7 @@ final class PlayerViewModel: ObservableObject {
                     // Play the cached track and launch a background refresh
                     await playTrack(track,
                                     seekTo: saved.seconds > 1 ? saved.seconds : nil,
-                                    autoPlay: autoPlay,
-                                    reason: .channelChange)
+                                    autoPlay: autoPlay)
                     // Background: fetch fresh tracks to update the pool while
                     // the user is already listening. This uses a separate context
                     // token so it doesn't interfere with the playing track.
@@ -677,7 +657,7 @@ final class PlayerViewModel: ObservableObject {
         // could point at a previously-played non-ambient track.
         if channel.mediaKind == .ambient {
             if let amb = fetched.first {
-                await playTrack(amb, seekTo: nil, autoPlay: autoPlay, reason: .channelChange)
+                await playTrack(amb, seekTo: nil, autoPlay: autoPlay)
             }
             isLoading = false
             loadingMessage = nil
@@ -703,7 +683,7 @@ final class PlayerViewModel: ObservableObject {
                 await db.clearPosition(channelId: channel.id)
                 await db.recordPlayed(channelId: channel.id, trackId: newest.id)
                 loadingMessage = "Loading the latest…"
-                await playTrack(newest, seekTo: nil, autoPlay: autoPlay, reason: .channelChange)
+                await playTrack(newest, seekTo: nil, autoPlay: autoPlay)
                 isLoading = false
                 loadingMessage = nil
                 return
@@ -719,7 +699,7 @@ final class PlayerViewModel: ObservableObject {
            await resumeTrackBelongs(track, toChannel: channel) {
             loadingMessage = "Resuming \"\(track.title)\"…"
             await playTrack(track, seekTo: saved.seconds > 1 ? saved.seconds : nil,
-                            autoPlay: autoPlay, reason: .channelChange)
+                            autoPlay: autoPlay)
         } else {
             // No usable resume, OR the saved position points at a FOREIGN track
             // (e.g. a playlist book chapter an earlier bug wrote under this
@@ -728,7 +708,7 @@ final class PlayerViewModel: ObservableObject {
             // start the channel fresh.
             if saved != nil { await db.clearPosition(channelId: channel.id) }
             loadingMessage = "Starting playback…"
-            await advanceToNext(autoPlay: autoPlay, reason: .channelChange)
+            await advanceToNext(autoPlay: autoPlay)
         }
 
         // Don't clear isLoading here — playTrack/advanceToNext own the spinner
@@ -764,11 +744,7 @@ final class PlayerViewModel: ObservableObject {
         // finish naturally, so their spot might still matter.
         saveAutosaveForCurrentTrack()
         isSkipping = true
-        // Fade the outgoing track out promptly (explicit user switch) per the
-        // media-kind policy; the incoming track's fade-in is resolved in playTrack.
-        let outKind = currentTrack?.mediaKind(in: currentChannel) ?? activeMediaKind
-        audioPlayer.skip(transition: transitionPolicy.style(
-            from: outKind, to: outKind, reason: .manualNext))
+        audioPlayer.skip()
         isPlaying = false
         currentPosition = 0
         // Show the spinner immediately (trackMetadataStack renders a
@@ -780,12 +756,12 @@ final class PlayerViewModel: ObservableObject {
         if let channel = currentChannel, channel.behavior.persistsResumePosition {
             Task {
                 await db.clearPosition(channelId: channel.id)
-                await advanceToNext(reason: .manualNext)
+                await advanceToNext()
                 isSkipping = false
             }
         } else {
             Task {
-                await advanceToNext(reason: .manualNext)
+                await advanceToNext()
                 isSkipping = false
             }
         }
@@ -848,13 +824,12 @@ final class PlayerViewModel: ObservableObject {
         return true
     }
 
-    private func advanceToNext(autoPlay: Bool = true,
-                               reason: PlaybackTransitionReason = .naturalAdvance) async {
+    private func advanceToNext(autoPlay: Bool = true) async {
         // Playlist mode: advance within the playlist's ordered tracks.
         // (currentChannel is nil in playlist mode, so the channel queue path
         // below would otherwise do nothing — which is why <next> was dead.)
         if currentPlaylist != nil {
-            await playlistPlayback.advancePlaylist(reason: reason)
+            await playlistPlayback.advancePlaylist()
             return
         }
         guard let channel = currentChannel else { return }
@@ -892,8 +867,7 @@ final class PlayerViewModel: ObservableObject {
         if channel.behavior.showsScrubbableProgress,
            let current = currentTrack, current.parentIdentifier != nil {
             if let nextPart = await queueManager.nextPart(after: current, channel: channel) {
-                await playTrack(nextPart, seekTo: nil, recordHistory: false, autoPlay: autoPlay,
-                                reason: reason)
+                await playTrack(nextPart, seekTo: nil, recordHistory: false, autoPlay: autoPlay)
                 return
             }
         }
@@ -936,8 +910,7 @@ final class PlayerViewModel: ObservableObject {
         if channel.mediaKind == .music {
             track = await randomAlbumTrack(for: track) ?? track
         }
-        await playTrack(track, seekTo: nil, recordHistory: false, autoPlay: autoPlay,
-                        reason: reason)
+        await playTrack(track, seekTo: nil, recordHistory: false, autoPlay: autoPlay)
     }
 
     /// If `track` is a known multi-file IA album item, return a RANDOM one of
@@ -994,8 +967,7 @@ final class PlayerViewModel: ObservableObject {
                 return
             }
             playlistIndex -= 1
-            await playTrack(playlistTracks[playlistIndex], seekTo: nil, recordHistory: false,
-                            reason: .manualPrevious)
+            await playTrack(playlistTracks[playlistIndex], seekTo: nil, recordHistory: false)
             return
         }
         guard !playHistory.isEmpty else {
@@ -1005,35 +977,15 @@ final class PlayerViewModel: ObservableObject {
             return
         }
         let previous = playHistory.removeLast()
-        await playTrack(previous, seekTo: nil, recordHistory: false, reason: .manualPrevious)
+        await playTrack(previous, seekTo: nil, recordHistory: false)
     }
 
     func playTrack(_ track: Track, seekTo: Double?, recordHistory: Bool = true,
-                           autoPlay: Bool = true,
-                           reason: PlaybackTransitionReason = .directItemChange) async {
+                           autoPlay: Bool = true) async {
         // Snapshot the context this play was initiated under. If it changes
         // during the (awaited) URL resolution, we abandon before committing
         // audio so a stale track never plays under a context we've left.
         let entryToken = playbackContextToken
-        // Resolve the media-kind-aware transition BEFORE currentTrack is replaced
-        // so the policy sees the real outgoing kind. A paused load (autoPlay ==
-        // false) never performs an audible fade.
-        let outgoingKind = currentTrack?.mediaKind(in: currentChannel)
-        let incomingKind = track.mediaKind(in: currentChannel)
-        let sameWork = track.parentIdentifier != nil
-            && currentTrack?.parentIdentifier == track.parentIdentifier
-        // True crossfade only on music radio channels with the setting enabled;
-        // also drives whether we arm the engine's early-finish trigger below.
-        let crossfadeMusic = musicCrossfadeEnabled && currentChannel?.mediaKind == .music
-        let transitionStyle: AudioTransitionStyle = autoPlay
-            ? transitionPolicy.style(from: outgoingKind, to: incomingKind,
-                                     reason: reason, sameWork: sameWork,
-                                     looping: currentChannel?.mediaKind == .ambient,
-                                     crossfadeMusic: crossfadeMusic)
-            : .immediate
-        transitionVisualState = PlaybackTransitionVisualState(
-            fromKind: outgoingKind, toKind: incomingKind,
-            reason: reason, startedAt: Date())
         // Hide the book/album buttons immediately; the probe re-enables them
         // once it confirms this track belongs to a multi-file item.
         currentTrackIsMultiPart = false
@@ -1182,14 +1134,7 @@ final class PlayerViewModel: ObservableObject {
             audioPlayer.play(url: url, track: track,
                              looping: currentChannel?.mediaKind == .ambient,
                              startAt: resumeAt,
-                             autoPlay: autoPlay,
-                             transition: transitionStyle)
-            // Arm the engine so THIS music-channel track fires natural advance a
-            // crossfade-length early, keeping its tail audible to overlap the
-            // next track. Disarmed (lead 0) automatically for non-music/paused.
-            if autoPlay, crossfadeMusic {
-                audioPlayer.armCrossfade(leadSeconds: musicCrossfadeDuration)
-            }
+                             autoPlay: autoPlay)
             if let ch = currentChannel {
                 audioPlayer.updateNowPlayingChannel(ch.name)
             }
@@ -1329,7 +1274,7 @@ final class PlayerViewModel: ObservableObject {
             isSkipping = true
             isLoading = true
             loadingMessage = "Skipping unavailable track…"
-            await advanceToNext(autoPlay: autoPlay, reason: .stallSkip)
+            await advanceToNext(autoPlay: autoPlay)
             isSkipping = false
         }
     }
@@ -1616,8 +1561,7 @@ final class PlayerViewModel: ObservableObject {
             // If the user changed channel/track during the backoff, a new load
             // bumped the generation — abort this stale retry.
             guard gen == stallModel.loadGeneration, !Task.isCancelled else { return }
-            await playTrack(track, seekTo: nil, recordHistory: false, autoPlay: autoPlay,
-                            reason: .retryAfterFailure)
+            await playTrack(track, seekTo: nil, recordHistory: false, autoPlay: autoPlay)
             return
         }
         // Permanent, or out of retries for this item → give up on it.
@@ -1677,7 +1621,7 @@ final class PlayerViewModel: ObservableObject {
         isPlaying = false
         isLoading = true
         loadingMessage = "Skipping unavailable track…"
-        await advanceToNext(autoPlay: autoPlay, reason: .retryAfterFailure)
+        await advanceToNext(autoPlay: autoPlay)
     }
 
     /// Background refresh: fetch updated tracks for a curated/audiobook/lecture
@@ -1773,12 +1717,8 @@ final class PlayerViewModel: ObservableObject {
     // entering the main screen never shows stale elapsed time / artwork.
     // If `pre` is known, pre-populate it so its metadata shows under the
     // spinner; playTrack then finalises + starts audio in one update.
-    func beginTransition(pre: Track?, reason: PlaybackTransitionReason = .directItemChange) {
-        // Fade the outgoing audio out per the media-kind policy before tearing it
-        // down; the incoming fade-in is resolved when playTrack commits audio.
-        let outgoingKind = currentTrack?.mediaKind(in: currentChannel) ?? activeMediaKind
-        audioPlayer.skip(transition: transitionPolicy.style(
-            from: outgoingKind, to: pre?.mediaKind(in: currentChannel), reason: reason))
+    func beginTransition(pre: Track?) {
+        audioPlayer.skip()
         currentArtwork = nil
         artworkDominantColor = .accentColor
         currentPosition = 0
@@ -1803,9 +1743,9 @@ final class PlayerViewModel: ObservableObject {
         playbackContextToken &+= 1
         playHistory = []
         channelDescription = ""
-        beginTransition(pre: track, reason: .searchAudition)
+        beginTransition(pre: track)
         await Task.yield()
-        await playTrack(track, seekTo: nil, recordHistory: false, reason: .searchAudition)
+        await playTrack(track, seekTo: nil, recordHistory: false)
     }
 
     // Play a single Internet Archive search result immediately.
@@ -1833,8 +1773,8 @@ final class PlayerViewModel: ObservableObject {
         playbackContextToken &+= 1   // new context (see playbackContextToken)
         playHistory = []
         channelDescription = ""
-        beginTransition(pre: pre, reason: .searchAudition)
-        await playTrack(pre, seekTo: nil, recordHistory: false, reason: .searchAudition)
+        beginTransition(pre: pre)
+        await playTrack(pre, seekTo: nil, recordHistory: false)
         // NOTE: do NOT clear isLoading here — playTrack owns the spinner and
         // dismisses it on the first real time tick (or on failure). Clearing it
         // the instant playTrack returns dropped the spinner during AVPlayer's
