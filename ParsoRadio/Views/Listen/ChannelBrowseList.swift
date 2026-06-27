@@ -70,8 +70,11 @@ struct ChannelBrowseList: View {
         else {
             Section {
                 ForEach(channels, id: \.id) { channel in
-                    HStack {
-                        Label(channel.name, systemImage: channel.icon)
+                    HStack(spacing: 10) {
+                        channelArtworkThumbnail(channel)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(channel.name).font(.body)
+                        }
                         Spacer(minLength: 0)
                     }
                     .contentShape(Rectangle())
@@ -142,5 +145,29 @@ struct ChannelBrowseList: View {
     private func hideChannel(_ id: String) {
         hiddenChannelIds.insert(id)
         UserDefaults.standard.set(Array(hiddenChannelIds), forKey: "hiddenChannelIds")
+    }
+
+    @ViewBuilder
+    private func channelArtworkThumbnail(_ channel: Channel) -> some View {
+        Group {
+            if let urlString = channel.imageURL, let url = URL(string: urlString) {
+                AsyncImage(url: url) { phase in
+                    if let img = phase.image {
+                        img.resizable().scaledToFill()
+                    } else {
+                        Color(.systemGray5).overlay(
+                            Image(systemName: channel.icon).foregroundStyle(.secondary)
+                        )
+                    }
+                }
+            } else {
+                Color(.systemGray5).overlay(
+                    Image(systemName: channel.icon).foregroundStyle(.secondary)
+                )
+            }
+        }
+        .frame(width: 36, height: 36)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .accessibilityHidden(true)
     }
 }

@@ -4,9 +4,9 @@ import XCTest
 final class ChannelTests: XCTestCase {
 
     func testDefaultChannelCount() {
-        // 3 For You + 18 Lectures + 5 Podcasts + 4 Ambient
-        // + 21 Audiobooks (LibriVox) = 51.
-        XCTAssertEqual(Channel.defaults.count, 51)
+        // 3 For You + 18 Lectures + 32 Podcasts + 4 Ambient
+        // + 21 Audiobooks (LibriVox) = 78.
+        XCTAssertEqual(Channel.defaults.count, 78)
     }
 
     func testEveryIAChannelIsPureLuceneRegistryBacked() {
@@ -87,7 +87,7 @@ final class ChannelTests: XCTestCase {
 
     func testPodcastsCategoryHasExpectedChannels() {
         let newsChannels = Channel.defaults.filter { $0.category == "Podcasts" }
-        XCTAssertEqual(newsChannels.count, 5, "Expected 5 Podcasts channels")
+        XCTAssertEqual(newsChannels.count, 32, "Expected 32 Podcasts channels")
     }
 
     func testPodcastsChannelsHaveFeedURL() {

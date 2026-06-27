@@ -264,19 +264,20 @@ extension Channel {
             preferredSource: "oxford_lectures"
         ),
 
-        // MARK: Podcasts — Ad-free, CC-licensed or donation-funded podcasts
-        // Every podcast here is verified ad-free in its RSS feed.
-        // feedURL drives PodcastRSSService; contentType = spokenWord for track-level
-        // navigation. tags: [id] must match what PodcastRSSService stores in
-        // Track.tags so channel.matches() correctly isolates each channel's episodes;
-        // preferredSource: "podcast" skips IA/FMA DB rows.
-        // Episodes play from 0:00 to comply with podcast RSS terms of service.
+        // MARK: Podcasts — freely-distributable spoken-word channels
+        // feedURL drives PodcastRSSService; contentType = .spokenWord for track-level nav;
+        // tags:[id] is the isolation stamp; preferredSource "podcast" skips IA/FMA DB rows;
+        // imageURL is channel artwork for the browse grid. Episodes play 0:00→end (RSS ToS).
+        // Curation bar: CC / public-domain / value-for-value / ad-free-or-host-read indie+nonprofit+
+        // educational via open RSS. Host-read sponsors + publisher tracking prefixes tolerated (the
+        // app adds no tracking of its own); big-commercial "personal-use-only" networks excluded.
         Channel(
             id: "news-democracy-now", name: "Democracy Now!",
             category: "Podcasts", icon: "megaphone.fill",
             tags: ["news-democracy-now"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://www.democracynow.org/podcast.xml"
+            feedURL: "https://www.democracynow.org/podcast.xml",
+            imageURL: "https://assets.democracynow.org/assets/DN-Podcast-AUDIO-1d5df65d8936dcfd1387274443b3e0713c5f15dd3fa400331229f4ab39b5c19e.jpg"
         ),
         Channel(
             id: "podcast-no-agenda", name: "No Agenda",
@@ -285,14 +286,16 @@ extension Channel {
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feed.nashownotes.com/rss.xml",
             summary: "A twice-weekly news deconstruction by Adam Curry and John C. Dvorak. No ads, no sponsors — listener-supported since 2007."
+            // imageURL intentionally omitted — rotating per-episode art
         ),
         Channel(
             id: "podcast-citations-needed", name: "Citations Needed",
             category: "Podcasts", icon: "text.book.closed.fill",
             tags: ["podcast-citations-needed"],
             contentType: .spokenWord, preferredSource: "podcast",
-            feedURL: "https://feeds.libsyn.com/169725/rss",
-            summary: "A weekly podcast about media, power, and the history of bullshit. Ad-free, funded by listener donations."
+            feedURL: "https://citationsneeded.libsyn.com/rss",
+            summary: "Nima Shirazi & Adam Johnson on media, PR, and power. Listener-funded via Patreon, no traditional ads.",
+            imageURL: "https://static.libsyn.com/p/assets/6/6/8/9/6689195c7e4129ce/CN-3k.png"
         ),
         Channel(
             id: "podcast-security-now", name: "Security Now",
@@ -300,7 +303,8 @@ extension Channel {
             tags: ["podcast-security-now"],
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feeds.twit.tv/sn.xml",
-            summary: "Steve Gibson and Leo Laporte break down the week's security news. CC BY-NC-SA, ad-free audio feed."
+            summary: "Steve Gibson and Leo Laporte break down the week's security news. CC BY-NC-ND, host-read sponsors.",
+            imageURL: "https://elroy.twit.tv/sites/default/files/styles/twit_album_art_2048x2048/public/images/shows/security_now/album_art/audio/sn2022_albumart_standard_2400.jpg"
         ),
         Channel(
             id: "podcast-floss-weekly", name: "FLOSS Weekly",
@@ -308,7 +312,263 @@ extension Channel {
             tags: ["podcast-floss-weekly"],
             contentType: .spokenWord, preferredSource: "podcast",
             feedURL: "https://feeds.twit.tv/floss.xml",
-            summary: "Interviews with notable figures in the free and open-source software community. CC BY, ad-free."
+            summary: "Interviews with notable figures in the free and open-source software community. CC BY-NC-ND, ad-free.",
+            imageURL: "https://elroy.twit.tv/sites/default/files/styles/twit_album_art_2048x2048/public/images/shows/floss_weekly/album_art/audio/floss2022_albumart_standard_2400.jpg"
+        ),
+
+        // ── Value-for-Value ─────────────────────────────────────────────
+        Channel(
+            id: "podcast-podcasting-2-0", name: "Podcasting 2.0",
+            category: "Podcasts", icon: "dot.radiowaves.left.and.right",
+            tags: ["podcast-podcasting-2-0"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://mp3s.nashownotes.com/pc20rss.xml",
+            summary: "Adam Curry & Dave Jones on the open podcasting movement. Value-for-value, no ads, OP3 (open) analytics."
+            // imageURL intentionally omitted — feed host blocks non-residential IPs
+        ),
+
+        // ── FOSS / open-source / privacy tech ───────────────────────────
+        Channel(
+            id: "podcast-changelog", name: "The Changelog",
+            category: "Podcasts", icon: "chevron.left.forwardslash.chevron.right",
+            tags: ["podcast-changelog"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://changelog.com/podcast/feed",
+            summary: "Conversations with the people building open source. Open-licensed feed, OP3 analytics, host-read sponsors.",
+            imageURL: "https://cdn.changelog.com/static/images/podcasts/podcast-original-f16d0363067166f241d080ee2e2d4a28.png"
+        ),
+        Channel(
+            id: "podcast-go-time", name: "Go Time",
+            category: "Podcasts", icon: "g.circle.fill",
+            tags: ["podcast-go-time"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://changelog.com/gotime/feed",
+            summary: "Panel discussion on the Go programming language. OP3 (open) analytics, host-read sponsors.",
+            imageURL: "https://cdn.changelog.com/uploads/covers/go-time-original.png?v=63725770357"
+        ),
+        Channel(
+            id: "podcast-js-party", name: "JS Party",
+            category: "Podcasts", icon: "curlybraces",
+            tags: ["podcast-js-party"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://changelog.com/jsparty/feed",
+            summary: "Web development, JavaScript, and the front end. OP3 (open) analytics, host-read sponsors.",
+            imageURL: "https://cdn.changelog.com/uploads/covers/js-party-original.png?v=63725770332"
+        ),
+        Channel(
+            id: "podcast-practical-ai", name: "Practical AI",
+            category: "Podcasts", icon: "cpu.fill",
+            tags: ["podcast-practical-ai"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://changelog.com/practicalai/feed",
+            summary: "Making AI practical, productive, and accessible. Open-licensed feed, host-read sponsors.",
+            imageURL: "https://img.transistorcdn.com/WMlp2ug34XB6LDJ3-vnzti_-_y144LUlFW0Xzzn3fss/rs:fill:0:0:1/w:1400/h:1400/q:60/mb:500000/aHR0cHM6Ly9pbWct/dXBsb2FkLXByb2R1/Y3Rpb24udHJhbnNp/c3Rvci5mbS8wMTZi/ZWJmNWIwNDdmYTcw/NGJjMTExZjNjZmYy/M2ZjNS5wbmc.jpg"
+        ),
+        Channel(
+            id: "podcast-talk-python", name: "Talk Python To Me",
+            category: "Podcasts", icon: "terminal.fill",
+            tags: ["podcast-talk-python"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://talkpython.fm/episodes/rss",
+            summary: "Interviews on Python and its ecosystem. Freely distributed via open RSS, host-read sponsors.",
+            imageURL: "https://cdn-podcast.talkpython.fm/static/img/talk-python-3000.jpg"
+        ),
+        Channel(
+            id: "podcast-linux-unplugged", name: "LINUX Unplugged",
+            category: "Podcasts", icon: "powerplug.fill",
+            tags: ["podcast-linux-unplugged"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.fireside.fm/linuxunplugged/rss",
+            summary: "A lively weekly Linux talk show. Public-domain-declared + value-for-value, host-read sponsors.",
+            imageURL: "https://assets.fireside.fm/file/fireside-images/podcasts/images/f/f31a453c-fa15-491f-8618-3f71f1d565e5/cover.jpg"
+        ),
+        Channel(
+            id: "podcast-self-hosted", name: "Self-Hosted",
+            category: "Podcasts", icon: "server.rack",
+            tags: ["podcast-self-hosted"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.fireside.fm/selfhosted/rss",
+            summary: "A show about owning your data and running your own services. Host-read sponsors, Fireside CDN.",
+            imageURL: "https://media24.fireside.fm/file/fireside-images-2024/podcasts/images/7/7296e34a-2697-479a-adfb-ad32329dd0b0/cover.jpg?v=2"
+        ),
+        Channel(
+            id: "podcast-coder-radio", name: "Coder Radio",
+            category: "Podcasts", icon: "keyboard.fill",
+            tags: ["podcast-coder-radio"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.fireside.fm/coder/rss",
+            summary: "A weekly talk show on the business and practice of software development. Host-read sponsors.",
+            imageURL: "https://media24.fireside.fm/file/fireside-images-2024/podcasts/images/b/b44de5fa-47c1-4e94-bf9e-c72f8d1c8f5d/cover.jpg?v=8"
+        ),
+
+        // ── Apple / iOS / indie dev ─────────────────────────────────────
+        Channel(
+            id: "podcast-atp", name: "Accidental Tech Podcast",
+            category: "Podcasts", icon: "laptopcomputer",
+            tags: ["podcast-atp"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://atp.fm/rss",
+            summary: "Tech, Apple, and programming with Marco Arment, Casey Liss, John Siracusa. Served direct from atp.fm, member-supported, host-read sponsors.",
+            imageURL: "https://cdn.atp.fm/artwork"
+        ),
+        Channel(
+            id: "podcast-under-the-radar", name: "Under the Radar",
+            category: "Podcasts", icon: "hammer.fill",
+            tags: ["podcast-under-the-radar"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://www.relay.fm/radar/feed",
+            summary: "Marco Arment & David Smith on independent iOS app development. Host-read sponsors.",
+            imageURL: "https://relayfm.s3.amazonaws.com/uploads/broadcast/image/23/radar_artwork_06e0e2c2-772f-48d8-b56e-77b1227bb76c.png"
+        ),
+        Channel(
+            id: "podcast-connected", name: "Connected",
+            category: "Podcasts", icon: "link.circle.fill",
+            tags: ["podcast-connected"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://www.relay.fm/connected/feed",
+            summary: "Apple news and analysis with Federico Viticci, Myke Hurley, Stephen Hackett. Host-read sponsors.",
+            imageURL: "https://files.relay.fm/uploads/broadcast/image/5/connected_artwork_82973540-95cb-4452-a433-70fe9032cf60.png"
+        ),
+
+        // ── Tech news / commentary (CC BY-NC-ND, TWiT) ──────────────────
+        Channel(
+            id: "podcast-twit", name: "This Week in Tech",
+            category: "Podcasts", icon: "newspaper.fill",
+            tags: ["podcast-twit"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.twit.tv/twit.xml",
+            summary: "The week's tech news in a roundtable. CC BY-NC-ND, host-read sponsors.",
+            imageURL: "https://elroy.twit.tv/sites/default/files/styles/twit_album_art_2048x2048/public/images/shows/this_week_in_tech/album_art/audio/twit_2022albumart_standard_2048.jpg"
+        ),
+        Channel(
+            id: "podcast-intelligent-machines", name: "Intelligent Machines",
+            category: "Podcasts", icon: "gearshape.2.fill",
+            tags: ["podcast-intelligent-machines"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.twit.tv/twig.xml",
+            summary: "AI and the future of technology (formerly This Week in Google). CC BY-NC-ND, host-read sponsors.",
+            imageURL: "https://elroy.twit.tv/sites/default/files/styles/twit_album_art_2048x2048/public/images/shows/Intelligent%20Machines/album_art/audio/IM_albumart_standard_0.jpg"
+        ),
+        Channel(
+            id: "podcast-tech-news-weekly", name: "Tech News Weekly",
+            category: "Podcasts", icon: "newspaper.circle.fill",
+            tags: ["podcast-tech-news-weekly"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.twit.tv/tnw.xml",
+            summary: "Interviews with the journalists who write the tech news. CC BY-NC-ND, host-read sponsors.",
+            imageURL: "https://elroy.twit.tv/sites/default/files/styles/twit_album_art_2048x2048/public/images/shows/tech_news_weekly/album_art/audio/tnw2022_albumart_standard_2400.jpg"
+        ),
+        Channel(
+            id: "podcast-macbreak-weekly", name: "MacBreak Weekly",
+            category: "Podcasts", icon: "desktopcomputer",
+            tags: ["podcast-macbreak-weekly"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.twit.tv/mbw.xml",
+            summary: "Apple news and opinion roundtable. CC BY-NC-ND, host-read sponsors.",
+            imageURL: "https://elroy.twit.tv/sites/default/files/styles/twit_album_art_2048x2048/public/images/shows/macbreak_weekly/album_art/audio/mbw2022_albumart_standard_2400.jpg"
+        ),
+        Channel(
+            id: "podcast-windows-weekly", name: "Windows Weekly",
+            category: "Podcasts", icon: "macwindow",
+            tags: ["podcast-windows-weekly"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.twit.tv/ww.xml",
+            summary: "Microsoft news with Paul Thurrott & Richard Campbell. CC BY-NC-ND, host-read sponsors.",
+            imageURL: "https://elroy.twit.tv/sites/default/files/styles/twit_album_art_2048x2048/public/images/shows/windows_weekly/album_art/audio/ww2022_albumart_standard_2400.jpg"
+        ),
+        Channel(
+            id: "podcast-untitled-linux-show", name: "Untitled Linux Show",
+            category: "Podcasts", icon: "command.square.fill",
+            tags: ["podcast-untitled-linux-show"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.twit.tv/uls.xml",
+            summary: "Weekly Linux news and tips. CC BY-NC-ND, host-read sponsors.",
+            imageURL: "https://elroy.twit.tv/sites/default/files/styles/twit_album_art_2048x2048/public/images/shows/Untitled%20Linux%20Show/album_art/audio/uls_albumart_2400_0.jpg"
+        ),
+        Channel(
+            id: "podcast-hands-on-mac", name: "Hands-On Mac",
+            category: "Podcasts", icon: "macbook",
+            tags: ["podcast-hands-on-mac"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.twit.tv/hom.xml",
+            summary: "Tips and tutorials for Apple devices. CC BY-NC-ND, host-read sponsors.",
+            imageURL: "https://elroy.twit.tv/sites/default/files/styles/twit_album_art_2048x2048/public/images/shows/Hands-On%20Apple/album_art/audio/HOA_3000_audio_0.jpg"
+        ),
+
+        // ── Ideas / philosophy / economics / history ────────────────────
+        Channel(
+            id: "podcast-econtalk", name: "EconTalk",
+            category: "Podcasts", icon: "chart.line.uptrend.xyaxis",
+            tags: ["podcast-econtalk"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://feeds.simplecast.com/wgl4xEgL",
+            summary: "Russ Roberts in long-form conversation on economics, ideas, and life. Ad-free, funded by Liberty Fund.",
+            imageURL: "https://image.simplecastcdn.com/images/4ca709a1-1918-43a4-9035-1176b5aa9f2b/b8c673f8-58e7-4d4a-ab02-f83c2fd463c4/3000x3000/econtalknewbluecover1400.jpg?aid=rss_feed"
+        ),
+        Channel(
+            id: "podcast-conversations-tyler", name: "Conversations with Tyler",
+            category: "Podcasts", icon: "bubble.left.and.bubble.right.fill",
+            tags: ["podcast-conversations-tyler"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://cowenconvos.libsyn.com/rss",
+            summary: "Tyler Cowen interviews leading thinkers. Ad-free, produced by the Mercatus Center.",
+            imageURL: "https://static.libsyn.com/p/assets/7/1/7/b/717bd07f94e956cea04421dee9605cbd/CWT_-_Podcast_Art_-_3000x3000.jpg"
+        ),
+        Channel(
+            id: "podcast-in-our-time", name: "In Our Time",
+            category: "Podcasts", icon: "building.columns.fill",
+            tags: ["podcast-in-our-time"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://podcasts.files.bbci.co.uk/b006qykl.rss",
+            summary: "Melvyn Bragg & guests on the history of ideas. Ad-free, served from BBC's own CDN.",
+            imageURL: "https://ichef.bbci.co.uk/images/ic/3000x3000/p0m1q0p7.jpg"
+        ),
+        Channel(
+            id: "podcast-philosophy-bites", name: "Philosophy Bites",
+            category: "Podcasts", icon: "quote.bubble.fill",
+            tags: ["podcast-philosophy-bites"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://philosophybites.libsyn.com/rss",
+            summary: "Short interviews with top philosophers by Nigel Warburton & David Edmonds. Ad-free, donation-supported.",
+            imageURL: "https://static.libsyn.com/p/assets/6/6/2/9/6629afb289ae5c80/philo_bites.jpg"
+        ),
+        Channel(
+            id: "podcast-philosophize-this", name: "Philosophize This!",
+            category: "Podcasts", icon: "brain.head.profile",
+            tags: ["podcast-philosophize-this"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://philosophizethis.libsyn.com/rss",
+            summary: "Stephen West's chronological tour through the history of philosophy. Ad-free, listener-supported.",
+            imageURL: "https://static.libsyn.com/p/assets/1/d/9/4/1d946f34af4d1ee6/logo1.jpg"
+        ),
+        Channel(
+            id: "podcast-revolutions", name: "Revolutions",
+            category: "Podcasts", icon: "flag.fill",
+            tags: ["podcast-revolutions"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://revolutionspodcast.libsyn.com/rss",
+            summary: "Mike Duncan's narrative history of political revolutions — a complete 10-series archive. Ad-light.",
+            imageURL: "https://static.libsyn.com/p/assets/3/4/5/f/345fbd6a253649c0/RevolutionsLogo_V2.jpg"
+        ),
+
+        // ── Public domain / government / science ────────────────────────
+        Channel(
+            id: "podcast-nasa-curious-universe", name: "NASA's Curious Universe",
+            category: "Podcasts", icon: "moon.stars.fill",
+            tags: ["podcast-nasa-curious-universe"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://nasa.gov/rss/universe_podcast.rss",
+            summary: "NASA scientists and astronauts on space and science. Public domain (US gov work); audio via chrt.fm.",
+            imageURL: "https://megaphone.imgix.net/podcasts/3c25fbae-6a1b-11ef-b25e-33943a7bea28/image/aa7a5b25380eed0aace9ed40435dbe04.png?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress"
+        ),
+        Channel(
+            id: "podcast-nasa-houston", name: "Houston We Have a Podcast",
+            category: "Podcasts", icon: "globe.americas.fill",
+            tags: ["podcast-nasa-houston"],
+            contentType: .spokenWord, preferredSource: "podcast",
+            feedURL: "https://www.nasa.gov/rss/dyn/Houston-We-Have-a-Podcast.rss",
+            summary: "NASA's official human-spaceflight podcast from Johnson Space Center. Public domain (US gov work); audio via Megaphone.",
+            imageURL: "https://megaphone.imgix.net/podcasts/65e4d56e-6a1b-11ef-b576-83eaa7bf6c9e/image/908e541f8bbe46d55e84129c5fb3d3c0.png?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress"
         ),
 
         // MARK: Audiobooks — LibriVox via pure-Lucene IA registry

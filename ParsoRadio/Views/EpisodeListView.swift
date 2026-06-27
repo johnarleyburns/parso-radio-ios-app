@@ -57,7 +57,29 @@ struct EpisodeListView: View {
     @ViewBuilder
     private func episodeRow(_ episode: Track) -> some View {
         let isCurrent = playerVM.currentTrack?.id == episode.id
+        let artworkURL: URL? = episode.artworkURLString.flatMap(URL.init)
+            ?? playerVM.currentChannel?.imageURL.flatMap(URL.init)
         HStack(spacing: 10) {
+            Group {
+                if let url = artworkURL {
+                    AsyncImage(url: url) { phase in
+                        if let img = phase.image {
+                            img.resizable().scaledToFill()
+                        } else {
+                            Color(.systemGray5).overlay(
+                                Image(systemName: "newspaper").foregroundStyle(.secondary)
+                            )
+                        }
+                    }
+                } else {
+                    Color(.systemGray5).overlay(
+                        Image(systemName: "newspaper").foregroundStyle(.secondary)
+                    )
+                }
+            }
+            .frame(width: 48, height: 48)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(episode.title)
                     .font(.body)

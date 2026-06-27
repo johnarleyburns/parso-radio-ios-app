@@ -47,7 +47,22 @@ struct PodcastAddView: View {
 
                     if !subscribeName.isEmpty {
                     Section {
-                        HStack {
+                        HStack(spacing: 12) {
+                            if let artwork = discoveredArtworkURL, let url = URL(string: artwork) {
+                                AsyncImage(url: url) { phase in
+                                    if let img = phase.image {
+                                        img.resizable().scaledToFill()
+                                    } else {
+                                        Color(.systemGray5).overlay(
+                                            Image(systemName: "antenna.radiowaves.left.and.right")
+                                                .foregroundStyle(.secondary)
+                                        )
+                                    }
+                                }
+                                .frame(width: 60, height: 60)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .accessibilityHidden(true)
+                            }
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(subscribeName).font(.headline)
                                 Text(feedURL).font(.caption).foregroundStyle(.secondary)
