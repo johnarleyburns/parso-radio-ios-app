@@ -48,7 +48,7 @@ final class MadeForYouShelfStore: ObservableObject {
     private let shelf: Shelf
     private var archiveService: InternetArchiveService?
     private let backfillVersionKey = "tasteProfileBackfillVersion"
-    private let currentBackfillVersion = 3
+    private let currentBackfillVersion = 4
     private var storeTask: Task<Void, Never>?
 
     init(db: DatabaseService, tasteProfileStore: TasteProfileStore, shelf: Shelf = .music) {
@@ -196,6 +196,18 @@ final class MadeForYouShelfStore: ObservableObject {
         let version = UserDefaults.standard.integer(forKey: backfillVersionKey)
         guard version < currentBackfillVersion else { return }
 
+        // Version 3 → 4: Safe-repair. The v2 migration (v1→v3) was vulnerable to
+        // SQLite step crashes that could clear the profile without rebuilding it.
+        // Detect the empty-profile state and re-seed from play history.
+        if version == 3 {
+            let hasProfile = await tasteProfileStore.hasAnyProfile()
+            if !hasProfile {
+                await seedProfileFromHistory()
+            }
+            UserDefaults.standard.set(currentBackfillVersion, forKey: backfillVersionKey)
+            return
+        }
+
         if version >= 1 {
             // Existing user whose v1 backfill seeded with `channel: nil` — every
             // audiobook play was mis-bucketed into `music` and the `spoken`
@@ -213,16 +225,7 @@ final class MadeForYouShelfStore: ObservableObject {
             return
         }
 
-        let played = await db.fetchRecentlyPlayedWithChannel(limit: 200)
-        guard !played.isEmpty else {
-            UserDefaults.standard.set(currentBackfillVersion, forKey: backfillVersionKey)
-            return
-        }
-
-        for (track, channelId) in played {
-            await tasteProfileStore.seedFromTrack(track, channel: Self.resolveChannel(channelId))
-        }
-
+        await seedProfileFromHistory()
         UserDefaults.standard.set(currentBackfillVersion, forKey: backfillVersionKey)
     }
 
@@ -279,6 +282,32 @@ final class MadeForYouShelfStore: ObservableObject {
             if residual > 0.5 {
                 await tasteProfileStore.upsertTerm(bucket: "music", axis: term.axis,
                                                     term: term.term, increment: residual)
+            }
+        }
+    }
+
+    /// Seed both taste-profile buckets directly from play history — used for
+    /// the v0→v4 first-time backfill and the v3→v4 empty-profile repair. Does
+    /// NOT snapshot or clear existing terms; callers decide that.
+    private func seedProfileFromHistory() async {
+        let played = await db.fetchRecentlyPlayedWithChannel(limit: 200)
+        for (track, channelId) in played {
+            await tasteProfileStore.seedFromTrack(track, channel: Self.resolveChannel(channelId))
+        }
+        // Harvest authoritative audiobook-listen records into `spoken` — this
+        // catches books played from surfaces that recorded no spoken channel.
+        for entry in await db.fetchBookListenedEntries() {
+            let author = (entry.author ?? "").trimmingCharacters(in: .whitespaces)
+            if !author.isEmpty, author != "Unknown", author != "Various" {
+                await tasteProfileStore.upsertTerm(bucket: "spoken", axis: "creator",
+                                                    term: author.lowercased(), increment: 1.0)
+            }
+            for subject in (entry.subjects ?? "").split(separator: ",") {
+                let s = subject.lowercased().trimmingCharacters(in: .whitespaces)
+                if !s.isEmpty, !RecommendationConstants.subjectStopList.contains(s) {
+                    await tasteProfileStore.upsertTerm(bucket: "spoken", axis: "subject",
+                                                        term: s, increment: 1.0)
+                }
             }
         }
     }

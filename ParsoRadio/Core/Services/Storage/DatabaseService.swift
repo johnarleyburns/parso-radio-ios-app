@@ -191,8 +191,11 @@ final class DatabaseService: @unchecked Sendable {
     }
 
     private func columnExists(table: String, column: String) -> Bool {
-        guard let rows = try? db.prepare("PRAGMA table_info(\(table))") else { return false }
-        return rows.contains(where: { $0[1] as? String == column })
+        guard var stmt = try? db.prepare("PRAGMA table_info(\(table))") else { return false }
+        while let row = try? stmt.failableNext() {
+            if row[1] as? String == column { return true }
+        }
+        return false
     }
 
     private func addColumnIfNotExists(table: String, column: String, definition: String) {
@@ -600,8 +603,8 @@ final class DatabaseService: @unchecked Sendable {
                     .filter(self.colIsLocal == false)
                     .filter(self.colLocalPath == nil)
                 // Collect evicted track IDs for downstream cleanup.
-                let evictedIds = (try? db.prepare(safeToDelete.select(colId)))?
-                    .map { $0[colId] } ?? []
+                let evictedIds: [String] = (try? db.prepareRowIterator(
+                    safeToDelete.select(colId)).map { $0[colId] }) ?? []
                 _ = try? self.db.run(safeToDelete.delete())
                 // Cascade-delete orphaned play_history rows for evicted tracks
                 // so the INNER JOIN in fetchRecentlyPlayedTracks never returns empty.
@@ -933,11 +936,12 @@ final class DatabaseService: @unchecked Sendable {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
                 let cutoff = Date().timeIntervalSince1970 - Double(days) * 86400
-                let ids = Set((try? self.db.prepare(
-                    self.playHistory
-                        .filter(self.colPHChannelId == channelId && self.colPHPlayedAt > cutoff)
-                        .select(self.colPHTrackId)
-                ))?.map { $0[self.colPHTrackId] } ?? [])
+                let ids: Set<String> = Set(
+                    (try? self.db.prepareRowIterator(
+                        self.playHistory
+                            .filter(self.colPHChannelId == channelId && self.colPHPlayedAt > cutoff)
+                            .select(self.colPHTrackId)
+                    ).map { $0[self.colPHTrackId] }) ?? [])
                 continuation.resume(returning: ids)
             }
         }
@@ -1026,10 +1030,8 @@ final class DatabaseService: @unchecked Sendable {
                     LIMIT ?
                 """
                 var out: [Track] = []
-                if let rows = try? self.db.prepare(sql, limit) {
-                    for r in rows {
-                        // SQLite.swift Statement rows are arrays of bindings —
-                        // round-trip through tracks.filter for type-safe decode.
+                if var stmt = try? self.db.prepare(sql, limit) {
+                    while let r = try? stmt.failableNext() {
                         if let id = r[0] as? String,
                            let row = try? self.db.pluck(self.tracks.filter(self.colId == id)),
                            let track = self.rowToTrack(row) {
@@ -1058,8 +1060,8 @@ final class DatabaseService: @unchecked Sendable {
                 """
                 var works: [RecentWork] = []
                 var seen = Set<String>()
-                if let rows = try? self.db.prepare(sql) {
-                    for r in rows {
+                if var stmt = try? self.db.prepare(sql) {
+                    while let r = try? stmt.failableNext() {
                         guard works.count < limit else { break }
                         guard let id = r[0] as? String,
                               let row = try? self.db.pluck(self.tracks.filter(self.colId == id)),
@@ -1093,8 +1095,8 @@ final class DatabaseService: @unchecked Sendable {
                     LIMIT ?
                 """
                 var out: [(track: Track, channelId: String)] = []
-                if let rows = try? self.db.prepare(sql, limit) {
-                    for r in rows {
+                if var stmt = try? self.db.prepare(sql, limit) {
+                    while let r = try? stmt.failableNext() {
                         guard let tid = r[0] as? String, let cid = r[1] as? String,
                               let row = try? self.db.pluck(self.tracks.filter(self.colId == tid)),
                               let track = self.rowToTrack(row) else { continue }
@@ -1155,8 +1157,9 @@ final class DatabaseService: @unchecked Sendable {
             queue.async { [self] in
                 var query = tasteProfileTerms
                 if let b = bucket { query = query.filter(colTPTBucket == b) }
-                let result = (try? db.prepare(query))?
-                    .map { ($0[colTPTBucket], $0[colTPTAxis], $0[colTPTTerm], $0[colTPTWeight], $0[colTPTLastTS]) } ?? []
+                let result = (try? db.prepareRowIterator(query).map {
+                    ($0[colTPTBucket], $0[colTPTAxis], $0[colTPTTerm], $0[colTPTWeight], $0[colTPTLastTS])
+                }) ?? []
                 continuation.resume(returning: result)
             }
         }
@@ -1180,8 +1183,11 @@ final class DatabaseService: @unchecked Sendable {
     func fetchTasteSeenIdentifiers() async -> Set<String> {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
-                let ids = Set((try? db.prepare(tasteSeen.select(colSeenIdentifier)))?
-                    .map { $0[colSeenIdentifier] } ?? [])
+                let ids = Set(
+                    (try? db.prepareRowIterator(
+                        tasteSeen.select(colSeenIdentifier)).map {
+                        $0[colSeenIdentifier]
+                    }) ?? [])
                 continuation.resume(returning: ids)
             }
         }
@@ -1215,8 +1221,11 @@ final class DatabaseService: @unchecked Sendable {
     func fetchRecoSurfacedIdentifiers() async -> Set<String> {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
-                let ids = Set((try? db.prepare(recoSurfaced.select(colRecoIdentifier)))?
-                    .map { $0[colRecoIdentifier] } ?? [])
+                let ids = Set(
+                    (try? db.prepareRowIterator(
+                        recoSurfaced.select(colRecoIdentifier)).map {
+                        $0[colRecoIdentifier]
+                    }) ?? [])
                 continuation.resume(returning: ids)
             }
         }
@@ -1248,10 +1257,8 @@ final class DatabaseService: @unchecked Sendable {
                 let query = self.bookmarks
                     .filter(self.colBMTrackId == trackId && self.colBMIsAutosave == false)
                     .order(self.colBMPositionSecs.asc)
-                if let rows = try? self.db.prepare(query) {
-                    for row in rows {
-                        out.append(self.rowToBookmark(row))
-                    }
+                if let iter = try? self.db.prepareRowIterator(query) {
+                    out = (try? iter.map { self.rowToBookmark($0) }) ?? []
                 }
                 continuation.resume(returning: out)
             }
@@ -1365,19 +1372,18 @@ final class DatabaseService: @unchecked Sendable {
     func fetchPodcastSubscriptions() async -> [PodcastSubscription] {
         await withCheckedContinuation { (cont: CheckedContinuation<[PodcastSubscription], Never>) in
             queue.async { [self] in
-                let rows = (try? db.prepare(podcastSubs.order(colPSCreatedAt.desc)))
+                let query = podcastSubs.order(colPSCreatedAt.desc)
                 var subs: [PodcastSubscription] = []
-                if let rows {
-                    for row in rows {
-                        let s = PodcastSubscription(
+                if let iter = try? db.prepareRowIterator(query) {
+                    subs = (try? iter.map { row in
+                        PodcastSubscription(
                             id: row[colPSId],
                             name: row[colPSName],
                             feedURL: row[colPSFeedURL],
                             artworkURL: row[colPSArtworkURL],
                             createdAt: Date(timeIntervalSince1970: row[colPSCreatedAt])
                         )
-                        subs.append(s)
-                    }
+                    }) ?? []
                 }
                 cont.resume(returning: subs)
             }
@@ -1698,8 +1704,11 @@ final class DatabaseService: @unchecked Sendable {
     func fetchBookListenedWorkKeys() async -> Set<String> {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
-                let keys = Set((try? db.prepare(bookListenHistory.select(colBLHWorkKey)))?
-                    .map { $0[colBLHWorkKey] } ?? [])
+                let keys = Set(
+                    (try? db.prepareRowIterator(
+                        bookListenHistory.select(colBLHWorkKey)).map {
+                        $0[colBLHWorkKey]
+                    }) ?? [])
                 continuation.resume(returning: keys)
             }
         }
@@ -1710,9 +1719,9 @@ final class DatabaseService: @unchecked Sendable {
     func fetchBookListenedEntries() async -> [(author: String?, subjects: String?)] {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
-                let rows = (try? db.prepare(bookListenHistory))?.map {
+                let rows = (try? db.prepareRowIterator(bookListenHistory).map {
                     (author: $0[colBLHAuthor], subjects: $0[colBLHSubjects])
-                } ?? []
+                }) ?? []
                 continuation.resume(returning: rows)
             }
         }
@@ -1734,8 +1743,8 @@ final class DatabaseService: @unchecked Sendable {
                     LIMIT ?
                 """
                 var out: [Track] = []
-                if let rows = try? self.db.prepare(sql, limit) {
-                    for r in rows {
+                if var stmt = try? self.db.prepare(sql, limit) {
+                    while let r = try? stmt.failableNext() {
                         if let id = r[0] as? String,
                            let row = try? self.db.pluck(self.tracks.filter(self.colId == id)),
                            let track = self.rowToTrack(row) {
