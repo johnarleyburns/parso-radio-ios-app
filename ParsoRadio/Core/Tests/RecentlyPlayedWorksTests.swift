@@ -1,9 +1,10 @@
 import XCTest
 @testable import ParsoMusic
 
-/// Issue #3 / foundation: `fetchRecentlyPlayedWorks` collapses spoken-work
-/// chapters under their parent identifier (one card per book/lecture/podcast)
-/// while keeping music as one card per track, using the persisted media kind.
+/// Issue #3 / foundation: `fetchRecentlyPlayedWorks` collapses every multi-part
+/// work — book/lecture/podcast chapters AND music album tracks — under their
+/// shared parent identifier (one card per work), while a standalone track with
+/// no parent stays its own card. Uses the persisted media kind.
 final class RecentlyPlayedWorksTests: XCTestCase {
     private var db: DatabaseService!
 
@@ -53,9 +54,10 @@ final class RecentlyPlayedWorksTests: XCTestCase {
         XCTAssertTrue(works.first?.playsWholeWork ?? false)
     }
 
-    func testLegacyNullMediaKindDoesNotCollapseAsMusic() async throws {
-        // A pre-migration row (no media_kind) with a parent but no spoken stamp
-        // is treated as music and stays per-track — never mislabeled spoken.
+    func testMusicAlbumTracksCollapseIntoOneWork() async throws {
+        // Album tracks sharing a parent identifier collapse into a single music
+        // work card, held at the most-recently-played track's position, even
+        // when the (legacy) media_kind is null and falls back to .music.
         let a = Track.makeStub(id: "alb/t1.mp3", title: "Song A", parentIdentifier: "alb")
         let b = Track.makeStub(id: "alb/t2.mp3", title: "Song B", parentIdentifier: "alb")
         await db.saveTracks([a, b])
@@ -63,7 +65,24 @@ final class RecentlyPlayedWorksTests: XCTestCase {
         await db.recordPlayed(channelId: "c", trackId: b.id)
 
         let works = await db.fetchRecentlyPlayedWorks(limit: 10)
-        XCTAssertEqual(works.count, 2, "music album tracks stay individual without a spoken kind")
-        XCTAssertTrue(works.allSatisfy { !$0.playsWholeWork })
+        XCTAssertEqual(works.count, 1, "music album tracks collapse into one work")
+        let album = works.first
+        XCTAssertEqual(album?.mediaKind, .music)
+        XCTAssertTrue(album?.playsWholeWork ?? false)
+        XCTAssertEqual(album?.workIdentifier, "alb")
+        XCTAssertEqual(album?.track.id, b.id, "the most-recently-played track represents the album")
+    }
+
+    func testStandaloneTrackStaysPerCard() async throws {
+        // A track with no parent identifier cannot collapse — it stays its own
+        // card regardless of media kind.
+        let single = Track.makeStub(id: "single-1", title: "Lonely Single")
+        await db.saveTracks([single])
+        await db.recordPlayed(channelId: "c", trackId: single.id, mediaKind: "music")
+
+        let works = await db.fetchRecentlyPlayedWorks(limit: 10)
+        XCTAssertEqual(works.count, 1)
+        XCTAssertFalse(works.first?.playsWholeWork ?? true)
+        XCTAssertEqual(works.first?.track.id, "single-1")
     }
 }

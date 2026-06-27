@@ -1,12 +1,12 @@
 import Foundation
 
 /// One entry in the "Jump back in" shelf. A `RecentWork` is either a single
-/// music track (`playsWholeWork == false`) or a whole spoken work — audiobook,
-/// lecture series, or podcast show — whose chapters were collapsed under their
-/// shared `parentIdentifier` (`playsWholeWork == true`).
+/// standalone track (`playsWholeWork == false`) or a whole work — an audiobook,
+/// lecture series, podcast show, or music album — whose tracks were collapsed
+/// under their shared `parentIdentifier` (`playsWholeWork == true`).
 struct RecentWork: Identifiable {
     /// Stable work key: `work:<parentIdentifier>` for collapsed works, or the
-    /// track id for standalone music.
+    /// track id for a standalone track.
     let id: String
     /// The most-recently-played representative track for this work.
     let track: Track

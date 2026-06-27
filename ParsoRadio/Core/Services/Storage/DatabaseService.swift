@@ -1042,10 +1042,11 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
-    /// Recently played, collapsed into one entry per WORK. Book/lecture/podcast
-    /// chapters that share a `parent_identifier` (and whose persisted media_kind
-    /// is spoken) fold into a single work entry; music stays one entry per track.
-    /// Drives the "Jump back in" shelf. Newest first, deduped by work key.
+    /// Recently played, collapsed into one entry per WORK. Any track that shares
+    /// a `parent_identifier` — book/lecture/podcast chapters AND music album
+    /// tracks — folds into a single work entry held at its most-recently-played
+    /// track's position; only standalone tracks (no parent) and ambient stay
+    /// per-track. Drives the "Jump back in" shelf. Newest first, deduped by work key.
     func fetchRecentlyPlayedWorks(limit: Int = 30) async -> [RecentWork] {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
@@ -1065,8 +1066,7 @@ final class DatabaseService: @unchecked Sendable {
                               let track = self.rowToTrack(row) else { continue }
                         let storedKind = (r[1] as? String).flatMap(MediaKind.init(rawValue:))
                         let kind = storedKind ?? track.inferredMediaKind
-                        let collapses = (kind == .audiobook || kind == .lecture || kind == .podcast)
-                            && track.parentIdentifier != nil
+                        let collapses = track.parentIdentifier != nil && kind != .ambient
                         let workKey = collapses ? "work:\(track.parentIdentifier!)" : track.id
                         guard !seen.contains(workKey) else { continue }
                         seen.insert(workKey)

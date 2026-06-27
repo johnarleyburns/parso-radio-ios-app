@@ -6,6 +6,9 @@ import SwiftUI
 struct ChapterListView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     var onDismiss: (() -> Void)? = nil
+    /// When true, tapping a chapter closes this list and re-opens the full
+    /// player for the new chapter (now-playing surface flow).
+    var presentedFromSurface: Bool = false
 
     @State private var chapters: [Track] = []
     @State private var isLoading = true
@@ -40,7 +43,11 @@ struct ChapterListView: View {
                         ForEach(chapters) { chapter in
                             Button {
                                 Task { await playerVM.playRecentTrack(chapter) }
-                                onDismiss?()
+                                if presentedFromSurface {
+                                    playerVM.didSelectFromSurfaceList()
+                                } else {
+                                    onDismiss?()
+                                }
                             } label: {
                                 chapterRow(chapter)
                             }

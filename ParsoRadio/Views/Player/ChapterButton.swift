@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ChapterButton: View {
     @EnvironmentObject var playerVM: PlayerViewModel
-    @State private var showChapters = false
     var showLabel: Bool = true
 
     private var isLecture: Bool {
@@ -13,7 +12,7 @@ struct ChapterButton: View {
 
     var body: some View {
         Button {
-            showChapters = true
+            playerVM.surfaceListRequest = .chapters
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: "list.bullet.rectangle").font(.title3)
@@ -23,9 +22,5 @@ struct ChapterButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
-        .sheet(isPresented: $showChapters) {
-            ChapterListView()
-                .environmentObject(playerVM)
-        }
     }
 }

@@ -2,6 +2,9 @@ import SwiftUI
 
 struct EpisodeListView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
+    /// When true, tapping an episode closes this list and re-opens the full
+    /// player for the new episode (now-playing surface flow).
+    var presentedFromSurface: Bool = false
 
     @State private var episodes: [Track] = []
     @State private var isLoading = true
@@ -27,6 +30,9 @@ struct EpisodeListView: View {
                         ForEach(episodes) { episode in
                             Button {
                                 Task { await playerVM.playRecentTrack(episode) }
+                                if presentedFromSurface {
+                                    playerVM.didSelectFromSurfaceList()
+                                }
                             } label: {
                                 episodeRow(episode)
                             }

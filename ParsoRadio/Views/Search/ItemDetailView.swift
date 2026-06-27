@@ -5,6 +5,13 @@ struct ItemDetailView: View {
     let title: String
     let creator: String
     let kind: SearchViewModel.ItemKind
+    /// When false, the view loads and shows the track list WITHOUT auto-playing
+    /// the whole item (used when opened from the now-playing surface so current
+    /// playback is never interrupted just by browsing the list).
+    var autoPlayOnLoad: Bool = true
+    /// When true, picking a row closes this list and re-opens the full player
+    /// for the new selection instead of merely dismissing the sheet.
+    var presentedFromSurface: Bool = false
 
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var favorites: FavoritesStore
@@ -71,7 +78,11 @@ struct ItemDetailView: View {
                     Button {
                         Task {
                             await playAll()
-                            dismiss()
+                            if presentedFromSurface {
+                                playerVM.didSelectFromSurfaceList()
+                            } else {
+                                dismiss()
+                            }
                         }
                     } label: {
                         Label("Play Entire \(itemNoun)", systemImage: "play.fill")
@@ -215,7 +226,7 @@ struct ItemDetailView: View {
         tracks = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
         isLoading = false
 
-        if !tracks.isEmpty, !hasStartedPlayback {
+        if autoPlayOnLoad, !tracks.isEmpty, !hasStartedPlayback {
             hasStartedPlayback = true
             await playerVM.playAlbumTracks(tracks, title: title,
                                        mediaKind: kind == .book ? .audiobook : nil)
@@ -233,5 +244,8 @@ struct ItemDetailView: View {
         let reordered = Array(tracks[idx...]) + Array(tracks[..<idx])
         await playerVM.playAlbumTracks(reordered, title: title,
                                        mediaKind: kind == .book ? .audiobook : nil)
+        if presentedFromSurface {
+            playerVM.didSelectFromSurfaceList()
+        }
     }
 }

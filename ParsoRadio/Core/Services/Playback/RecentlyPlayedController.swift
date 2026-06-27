@@ -29,10 +29,13 @@ final class RecentlyPlayedController {
         await vm.playTrack(track, seekTo: nil, recordHistory: false)
     }
 
-    /// Resume a whole spoken work (book/lecture/podcast) from its most recent
-    /// saved position. The work's persisted media kind drives the now-playing
-    /// surface so a chapter never renders as a music track. Music entries fall
-    /// back to playing the single representative track.
+    /// Resume a whole work from "Jump back in". A spoken work (book/lecture/
+    /// podcast) resumes the saved chapter from its saved offset. A music album
+    /// resumes the EXACT track the user last played from that album (the
+    /// representative track), at its saved position — or that track's start if
+    /// it was already finished or has no saved position — then continues through
+    /// the rest of the album. The persisted media kind drives the now-playing
+    /// surface so a chapter never renders as a music track.
     func resumeWork(_ work: RecentWork) async {
         guard let vm = playerVM else { return }
         guard work.playsWholeWork, let parentId = work.workIdentifier else {
@@ -58,6 +61,12 @@ final class RecentlyPlayedController {
         }
 
         let ordered = parts.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+
+        if work.mediaKind == .music {
+            await resumeMusicAlbum(work, parentId: parentId, ordered: ordered)
+            return
+        }
+
         let saved = await db.loadPosition(
             channelId: PlayerViewModel.bookPositionKey(parentIdentifier: parentId))
 
@@ -70,6 +79,43 @@ final class RecentlyPlayedController {
 
         await vm.playAlbumTracks(startList, title: work.displayTitle,
                                  mediaKind: work.mediaKind, origin: .recentlyPlayed,
+                                 startSeek: seek)
+    }
+
+    /// Music albums resume the exact track the user was on (the most-recently-
+    /// played representative track), restarting it from the top if it was
+    /// already finished or has no saved position, then continue the album.
+    private func resumeMusicAlbum(_ work: RecentWork, parentId: String,
+                                  ordered: [Track]) async {
+        guard let vm = playerVM else { return }
+        let repId = work.track.id
+
+        var startList = ordered
+        if let idx = ordered.firstIndex(where: { $0.id == repId }) {
+            startList = Array(ordered[idx...]) + Array(ordered[..<idx])
+        }
+
+        // The track position we were at: prefer the album-context position,
+        // then the per-track autosave for single-track plays.
+        var savedSeconds: Double? = nil
+        let saved = await db.loadPosition(
+            channelId: PlayerViewModel.bookPositionKey(parentIdentifier: parentId))
+        if let saved, saved.trackId == repId {
+            savedSeconds = saved.seconds
+        } else if let auto = await vm.autosavePosition(forTrack: repId) {
+            savedSeconds = auto
+        }
+
+        // Start of the track if it was already finished (near the end) or we
+        // have no usable position; otherwise resume at the saved offset.
+        var seek: Double? = nil
+        if let s = savedSeconds, s > 0 {
+            let dur = startList.first?.duration ?? 0
+            seek = (dur > 0 && s >= dur - 5) ? nil : s
+        }
+
+        await vm.playAlbumTracks(startList, title: work.displayTitle,
+                                 mediaKind: .music, origin: .recentlyPlayed,
                                  startSeek: seek)
     }
 

@@ -99,11 +99,15 @@ struct JumpBackInCard: View {
 }
 
 extension RecentWork {
-    /// Stable XCUITest identifier distinguishing a whole-work card from a track.
+    /// Stable XCUITest identifier distinguishing a whole-work card (book vs
+    /// music album) from a standalone track.
     var jumpBackInAccessibilityID: String {
-        playsWholeWork
-            ? "jumpbackin.card.book.\(track.parentIdentifier ?? id)"
-            : "jumpbackin.card.track.\(track.id)"
+        guard playsWholeWork, let parent = track.parentIdentifier else {
+            return "jumpbackin.card.track.\(track.id)"
+        }
+        return mediaKind == .music
+            ? "jumpbackin.card.album.\(parent)"
+            : "jumpbackin.card.book.\(parent)"
     }
 }
 

@@ -2,15 +2,15 @@ import SwiftUI
 
 struct AlbumTracksButton: View {
     @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var favorites: FavoritesStore
     var showLabel: Bool = true
-
-    @State private var showAlbum = false
 
     var body: some View {
         Button {
-            guard playerVM.currentTrackIsMultiPart else { return }
-            showAlbum = true
+            guard playerVM.currentTrackIsMultiPart, let t = playerVM.currentTrack else { return }
+            playerVM.surfaceListRequest = .album(
+                identifier: t.parentIdentifier ?? t.id,
+                title: t.collectionTitle ?? t.title,
+                creator: t.artist)
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: "opticaldisc").font(.title3)
@@ -23,20 +23,5 @@ struct AlbumTracksButton: View {
         .buttonStyle(.plain)
         .disabled(!playerVM.currentTrackIsMultiPart)
         .accessibilityLabel(playerVM.currentTrackIsMultiPart ? "Album tracks" : "Album tracks unavailable")
-        .sheet(isPresented: $showAlbum) {
-            if let t = playerVM.currentTrack {
-                let identifier = t.parentIdentifier ?? t.id
-                NavigationStack {
-                    ItemDetailView(
-                        identifier: identifier,
-                        title: t.collectionTitle ?? t.title,
-                        creator: t.artist,
-                        kind: .album
-                    )
-                    .environmentObject(playerVM)
-                    .environmentObject(favorites)
-                }
-            }
-        }
     }
 }

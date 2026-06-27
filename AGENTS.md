@@ -209,6 +209,7 @@ Before claiming any feature/fix is implemented, verify these invariants hold:
 - Books for You / audiobook paths set mediaKind explicitly
 - Every finite non-ambient surface renders scrub slider, elapsed time, remaining time
 - Audiobook/lecture surfaces render work-level time left
+- The Album / Chapters / Episodes buttons NEVER stop or change playback: they set `playerVM.surfaceListRequest`, which dismisses the full player (the mini player stays, audio keeps playing) and presents the list at the root (`RootTabView`). ONLY tapping a row changes playback; `didSelectFromSurfaceList()` then re-opens the full player (`shouldPresentNowPlaying`). `ItemDetailView(autoPlayOnLoad: false)` must NOT auto-play when opened from the surface.
 
 ### MP3-Only Audio Policy
 - All IA audio selection paths use `MP3AudioFormatSelector` (MP3 Layer 3 / VBR MP3 / `.mp3`)
@@ -221,9 +222,10 @@ Before claiming any feature/fix is implemented, verify these invariants hold:
 
 ### Jump Back In Works
 - `track_play_history` persists the play's `media_kind` (additive column); legacy null rows fall back to `Track.inferredMediaKind`
-- `fetchRecentlyPlayedWorks` collapses audiobook/lecture/podcast chapters under their `parentIdentifier` into ONE work card; music stays one card per track
+- `fetchRecentlyPlayedWorks` collapses EVERY multi-part work — audiobook/lecture/podcast chapters AND music album tracks — under their shared `parentIdentifier` into ONE work card held at the most-recently-played track's position; only standalone tracks (no `parentIdentifier`) and ambient stay per-card
 - Tapping a book/lecture/podcast card resumes the WHOLE work from its saved position via a STABLE `album:<parentIdentifier>` playlist key (never a random UUID)
-- A chapter and a music track are never conflated: `RecentlyPlayedController` must not derive kind via `mediaKind(in: nil)`; resume context uses the persisted/work media kind so the audiobook surface (never music) renders
+- Tapping a music album card resumes the EXACT track you last played from that album (the representative track) at its saved position — or that track's start if it was finished / has no saved position — then continues the album (`RecentlyPlayedController.resumeMusicAlbum`)
+- A chapter and a music track are never conflated: `RecentlyPlayedController` must not derive kind via `mediaKind(in: nil)`; resume context uses the persisted/work media kind so the right surface (audiobook vs music) renders
 
 ### Search Favorites
 - The book/album detail sheet (`ItemDetailView`) exposes a working favorite toggle (`itemdetail.favorite`); search result rows expose a swipe-to-favorite action

@@ -40,6 +40,14 @@ final class SurfaceKindResumeTests: XCTestCase {
         return t
     }
 
+    private func albumTrack(_ n: Int) -> Track {
+        var t = Track.makeStub(id: "alb/t_\(n).mp3", title: "Song \(n)",
+                               parentIdentifier: "alb")
+        t.partNumber = n
+        t.collectionTitle = "Test Album"
+        return t
+    }
+
     private func settle(_ ms: UInt64 = 60) async {
         for _ in 0..<6 { await Task.yield() }
         try? await Task.sleep(nanoseconds: ms * 1_000_000)
@@ -66,6 +74,50 @@ final class SurfaceKindResumeTests: XCTestCase {
         XCTAssertEqual(engine.lastStartAt, 50, accuracy: 1.0,
                        "resume seeks to the saved position")
         XCTAssertEqual(vm.playlistTracks.count, 3, "the whole book is queued")
+    }
+
+    func testResumeMusicAlbumPlaysSavedTrackFromSavedPosition() async throws {
+        let vm = makeVM()
+        let tracks = [albumTrack(1), albumTrack(2), albumTrack(3)]
+        await db.saveTracks(tracks)
+        await db.savePosition(
+            channelId: PlayerViewModel.bookPositionKey(parentIdentifier: "alb"),
+            trackId: tracks[1].id, seconds: 40)
+
+        let work = RecentWork(id: "work:alb", track: tracks[1],
+                              mediaKind: .music, playsWholeWork: true)
+        await vm.playRecentWork(work)
+        await settle()
+
+        XCTAssertEqual(vm.activeMediaKind, .music,
+                       "a resumed music album renders the music surface")
+        XCTAssertEqual(vm.currentTrack?.id, tracks[1].id,
+                       "resume starts on the exact track we were on")
+        XCTAssertEqual(engine.lastStartAt, 40, accuracy: 1.0,
+                       "resume seeks to the saved track position")
+        XCTAssertEqual(vm.playlistTracks.count, 3, "the whole album is queued")
+        XCTAssertEqual(vm.playlistTracks.first?.id, tracks[1].id,
+                       "the album is reordered so our track plays first")
+    }
+
+    func testResumeMusicAlbumRestartsFinishedTrackFromStart() async throws {
+        let vm = makeVM()
+        let tracks = [albumTrack(1), albumTrack(2), albumTrack(3)]
+        await db.saveTracks(tracks)
+        // Saved at the very end of the 180s stub track => treated as finished.
+        await db.savePosition(
+            channelId: PlayerViewModel.bookPositionKey(parentIdentifier: "alb"),
+            trackId: tracks[1].id, seconds: 179)
+
+        let work = RecentWork(id: "work:alb", track: tracks[1],
+                              mediaKind: .music, playsWholeWork: true)
+        await vm.playRecentWork(work)
+        await settle()
+
+        XCTAssertEqual(vm.currentTrack?.id, tracks[1].id,
+                       "resume still starts on the track we were on")
+        XCTAssertEqual(engine.lastStartAt, 0, accuracy: 1.0,
+                       "a finished track restarts from the beginning")
     }
 
     func testSearchResultMediaKindDrivesSurface() async throws {

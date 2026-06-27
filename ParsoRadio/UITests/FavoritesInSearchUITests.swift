@@ -15,10 +15,10 @@ final class FavoritesInSearchUITests: XCTestCase {
     }
 
     func testItemDetailSheetHasWorkingFavoriteButton() {
-        let musicCard = app.buttons["jumpbackin.card.track.album_ia/track_01.mp3"]
-        XCTAssertTrue(musicCard.waitForExistence(timeout: 40))
-        XCTAssertTrue(musicCard.tapUntil(app.buttons["player.dismiss"]),
-            "tapping the track must open the now-playing sheet")
+        let albumCard = app.buttons["jumpbackin.card.album.album_ia"]
+        XCTAssertTrue(albumCard.waitForExistence(timeout: 40))
+        XCTAssertTrue(albumCard.tapUntil(app.buttons["player.dismiss"]),
+            "tapping the album must open the now-playing sheet")
 
         let albumButton = app.buttons["Album tracks"]
         XCTAssertTrue(albumButton.waitForExistence(timeout: 25),

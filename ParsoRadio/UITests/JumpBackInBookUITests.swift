@@ -14,7 +14,7 @@ final class JumpBackInBookUITests: XCTestCase {
     }
 
     private var bookCard: XCUIElement { app.buttons["jumpbackin.card.book.gallipoli_ia"] }
-    private var musicCard: XCUIElement { app.buttons["jumpbackin.card.track.album_ia/track_01.mp3"] }
+    private var albumCard: XCUIElement { app.buttons["jumpbackin.card.album.album_ia"] }
 
     func testJumpBackInShowsCollapsedBookWorkCard() {
         XCTAssertTrue(bookCard.waitForExistence(timeout: 40),
@@ -25,9 +25,13 @@ final class JumpBackInBookUITests: XCTestCase {
             "the book must not surface its individual chapters as cards")
     }
 
-    func testMusicStaysOnePerTrack() {
-        XCTAssertTrue(musicCard.waitForExistence(timeout: 40),
-            "a music track must remain a per-track card, not collapse")
+    func testMusicAlbumCollapsesToOneCard() {
+        XCTAssertTrue(albumCard.waitForExistence(timeout: 40),
+            "music album tracks collapse into ONE album card")
+        XCTAssertTrue(app.staticTexts["Test Album"].exists,
+            "the card shows the album title")
+        XCTAssertFalse(app.staticTexts["Song 1"].exists,
+            "the album must not surface its individual tracks as cards")
     }
 
     func testTappingBookResumesOnAudiobookSurface() {
@@ -44,12 +48,12 @@ final class JumpBackInBookUITests: XCTestCase {
     }
 
     func testTappingMusicOpensMusicSurface() {
-        XCTAssertTrue(musicCard.waitForExistence(timeout: 40))
-        XCTAssertTrue(musicCard.tapUntil(app.buttons["player.dismiss"]),
-            "tapping a track must open the now-playing sheet")
+        XCTAssertTrue(albumCard.waitForExistence(timeout: 40))
+        XCTAssertTrue(albumCard.tapUntil(app.buttons["player.dismiss"]),
+            "tapping the album must open the now-playing sheet")
         // The music surface never shows the spoken Chapters control.
         XCTAssertFalse(app.buttons["Chapters"].waitForExistence(timeout: 5),
-            "a music track must not render the audiobook surface")
+            "a music album must not render the audiobook surface")
     }
 }
 

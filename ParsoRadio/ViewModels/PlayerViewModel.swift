@@ -81,6 +81,36 @@ final class PlayerViewModel: ObservableObject {
     @Published var currentChannel: Channel?
     @Published var currentPlaybackContext: PlaybackContext?
 
+    /// Album/chapter/episode list requested from the now-playing surface.
+    /// Setting it dismisses the full player (the mini player stays) and presents
+    /// the list at the root while playback continues untouched. Only tapping a
+    /// row inside the list changes what is playing.
+    enum SurfaceListRequest: Identifiable, Equatable {
+        case album(identifier: String, title: String, creator: String)
+        case chapters
+        case episodes
+        var id: String {
+            switch self {
+            case .album(let identifier, _, _): return "album:\(identifier)"
+            case .chapters: return "chapters"
+            case .episodes: return "episodes"
+            }
+        }
+    }
+    @Published var surfaceListRequest: SurfaceListRequest?
+    @Published var shouldPresentNowPlaying = false
+
+    /// Invoked when the user taps an individual row in a surface-list sheet:
+    /// closes the list and re-opens the full now-playing screen for the new
+    /// selection. The re-open is deferred a runloop so the list sheet finishes
+    /// dismissing before the cover presents.
+    func didSelectFromSurfaceList() {
+        surfaceListRequest = nil
+        DispatchQueue.main.async { [weak self] in
+            self?.shouldPresentNowPlaying = true
+        }
+    }
+
     var activeMediaKind: MediaKind {
         if let ctx = currentPlaybackContext { return ctx.mediaKind }
         if let ch = currentChannel { return ch.mediaKind }

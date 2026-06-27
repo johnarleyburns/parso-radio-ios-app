@@ -79,6 +79,9 @@ struct NowPlayingSheet: View {
                     }
                 }
                 .accessibilityIdentifier(surfaceAccessibilityID)
+                .onChange(of: playerVM.surfaceListRequest) { _, request in
+                    if request != nil { dismiss() }
+                }
             }
         }
     }

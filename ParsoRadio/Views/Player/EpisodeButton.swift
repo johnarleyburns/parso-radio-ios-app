@@ -2,12 +2,11 @@ import SwiftUI
 
 struct EpisodeButton: View {
     @EnvironmentObject var playerVM: PlayerViewModel
-    @State private var showEpisodes = false
     var showLabel: Bool = true
 
     var body: some View {
         Button {
-            showEpisodes = true
+            playerVM.surfaceListRequest = .episodes
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: "list.bullet.rectangle").font(.title3)
@@ -17,11 +16,5 @@ struct EpisodeButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Episodes")
-        .sheet(isPresented: $showEpisodes) {
-            NavigationStack {
-                EpisodeListView()
-                    .environmentObject(playerVM)
-            }
-        }
     }
 }
