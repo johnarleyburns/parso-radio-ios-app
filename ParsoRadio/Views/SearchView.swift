@@ -292,13 +292,22 @@ struct SearchView: View {
                     HStack(spacing: 8) {
                         if searchVM.isSearching {
                             ProgressView()
+                        } else if searchVM.loadMoreFailed {
+                            Image(systemName: "arrow.clockwise")
                         }
-                        Text("Load More Results")
+                        Text(searchVM.loadMoreFailed
+                             ? "Load more failed \u{2014} Retry"
+                             : "Load More Results")
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
+                    .foregroundStyle(searchVM.loadMoreFailed ? Color.orange : Color.accentColor)
                 }
                 .disabled(searchVM.isSearching)
+                .accessibilityIdentifier("search.loadmore")
+                .accessibilityLabel(searchVM.loadMoreFailed
+                    ? "Load more failed, tap to retry"
+                    : "Load more results")
             }
         }
         .listStyle(.plain)

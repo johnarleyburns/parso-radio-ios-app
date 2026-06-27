@@ -34,6 +34,7 @@ final class SearchViewModelTests: XCTestCase {
         vm.results = [SearchViewModel.ResultGroup(
             id: "x", title: "T", creator: "C", addedDate: nil, duration: 0
         )]
+        vm.displayedResults = vm.results
         XCTAssertFalse(vm.showNoResults, "with results: no message")
     }
 
@@ -195,5 +196,159 @@ final class SearchViewModelTests: XCTestCase {
         for i in 1...20 { vm.recordHistory("query\(i)") }
         XCTAssertEqual(vm.recentSearches.count, 12, "history is capped at 12")
         XCTAssertEqual(vm.recentSearches.first, "query20", "newest first")
+    }
+
+    // MARK: - Stale / cancelled requests
+    // Regression: on slow networks a "Search failed — check your connection"
+    // banner appeared ABOVE visible results, because a cancelled or stale
+    // request flipped on the error after a newer request had already populated
+    // results. These lock the generation/cancellation guards in performSearch.
+
+    private func group(_ id: String) -> SearchViewModel.ResultGroup {
+        .init(id: id, title: id, creator: "c", addedDate: nil, duration: 0)
+    }
+
+    // A request cancelled by a fresh keystroke / scope change throws, but that
+    // is NOT a connection failure and must never raise the error banner.
+    func testCancelledSearchDoesNotSetError() async {
+        let provider = FakeSearchProvider()
+        provider.onSearch = { _ in throw CancellationError() }
+        let vm = SearchViewModel(archiveService: provider)
+        vm.query = "beethoven"
+        await vm.performSearch(page: 0)
+        XCTAssertNil(vm.errorMessage, "a cancelled search is not a failure")
+        XCTAssertFalse(vm.isSearching)
+    }
+
+    func testURLCancelledSearchDoesNotSetError() async {
+        let provider = FakeSearchProvider()
+        provider.onSearch = { _ in throw URLError(.cancelled) }
+        let vm = SearchViewModel(archiveService: provider)
+        vm.query = "beethoven"
+        await vm.performSearch(page: 0)
+        XCTAssertNil(vm.errorMessage, "URLError.cancelled is not a failure")
+    }
+
+    // A genuine page-0 network failure DOES raise the banner, with no rows.
+    func testPageZeroFailureShowsErrorWithNoResults() async {
+        let provider = FakeSearchProvider()
+        provider.onSearch = { _ in throw URLError(.timedOut) }
+        let vm = SearchViewModel(archiveService: provider)
+        vm.query = "beethoven"
+        await vm.performSearch(page: 0)
+        XCTAssertEqual(vm.errorMessage, "Search failed \u{2014} check your connection")
+        XCTAssertTrue(vm.displayedResults.isEmpty)
+        XCTAssertFalse(vm.loadMoreFailed, "page-0 failure uses the banner, not the inline flag")
+    }
+
+    // A failed NEXT page keeps the existing results and shows only the inline
+    // retry flag — never the full-screen banner.
+    func testNextPageFailureKeepsResultsAndSetsInlineFlag() async {
+        let provider = FakeSearchProvider()
+        provider.onSearch = { _ in throw URLError(.timedOut) }
+        let vm = SearchViewModel(archiveService: provider)
+        vm.query = "beethoven"
+        vm.results = [group("a"), group("b")]
+        vm.displayedResults = vm.results
+        vm.hasMorePages = true
+        await vm.performSearch(page: 1)
+        XCTAssertEqual(vm.displayedResults.map(\.id), ["a", "b"],
+            "a failed next page must not drop the results already on screen")
+        XCTAssertTrue(vm.loadMoreFailed, "inline retry flag is set")
+        XCTAssertNil(vm.errorMessage, "a failed next page must not raise the banner")
+    }
+
+    // THE bug: a slow request that FAILS after a newer one already SUCCEEDED
+    // must not clobber the fresh results or raise the error banner over them.
+    func testStaleFailingSearchDoesNotClobberFreshResults() async {
+        let provider = FakeSearchProvider()
+        let vm = SearchViewModel(archiveService: provider)
+        vm.query = "beethoven"
+
+        provider.onSearch = { call in
+            if call == 1 {
+                provider.signalCall1Started()
+                await provider.waitForRelease()
+                throw URLError(.timedOut)        // the slow, stale failure
+            }
+            return [SearchViewModel.ResultGroup(    // the fresh, winning result
+                id: "B", title: "B", creator: "c", addedDate: nil, duration: 0
+            )]
+        }
+
+        let taskA = Task { await vm.performSearch(page: 0) }
+        await provider.waitUntilCall1Started()   // A is in-flight (generation 1)
+        let taskB = Task { await vm.performSearch(page: 0) }
+        await taskB.value                        // B wins (generation 2)
+
+        XCTAssertEqual(vm.displayedResults.map(\.id), ["B"])
+        XCTAssertNil(vm.errorMessage)
+
+        provider.release()                       // now let the stale A fail
+        await taskA.value
+
+        XCTAssertEqual(vm.displayedResults.map(\.id), ["B"],
+            "the stale failure must not clear the fresh results")
+        XCTAssertNil(vm.errorMessage,
+            "the stale failure must not raise an error over the fresh results")
+    }
+}
+
+/// Test double for the IA search surface. Lets a test return canned results,
+/// throw, or block a call on a gate so stale-completion ordering is deterministic.
+private final class FakeSearchProvider: SearchProvider, @unchecked Sendable {
+    var onSearch: (@Sendable (Int) async throws -> [SearchViewModel.ResultGroup])!
+
+    private let lock = NSLock()
+    private var _callCount = 0
+    private var call1Started = false
+    private var call1StartedContinuation: CheckedContinuation<Void, Never>?
+    private var released = false
+    private var releaseContinuation: CheckedContinuation<Void, Never>?
+
+    func search(query: String, page: Int,
+                scope: SearchViewModel.SearchScope) async throws -> [SearchViewModel.ResultGroup] {
+        lock.lock(); _callCount += 1; let n = _callCount; lock.unlock()
+        return try await onSearch(n)
+    }
+
+    func itemInfo(forIdentifier identifier: String) async -> (duration: Double, audioCount: Int)? {
+        nil
+    }
+
+    func signalCall1Started() {
+        lock.lock()
+        call1Started = true
+        let c = call1StartedContinuation
+        call1StartedContinuation = nil
+        lock.unlock()
+        c?.resume()
+    }
+
+    func waitUntilCall1Started() async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            lock.lock()
+            if call1Started { lock.unlock(); cont.resume(); return }
+            call1StartedContinuation = cont
+            lock.unlock()
+        }
+    }
+
+    func release() {
+        lock.lock()
+        released = true
+        let c = releaseContinuation
+        releaseContinuation = nil
+        lock.unlock()
+        c?.resume()
+    }
+
+    func waitForRelease() async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            lock.lock()
+            if released { lock.unlock(); cont.resume(); return }
+            releaseContinuation = cont
+            lock.unlock()
+        }
     }
 }

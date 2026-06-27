@@ -52,6 +52,10 @@ final class SearchViewModel: ObservableObject {
     @Published var podcastResults: [PodcastSearchResult] = []
     @Published var isSearching: Bool = false
     @Published var errorMessage: String? = nil
+    // Set when loading a NEXT page (page > 0) fails. Surfaced inline on the
+    // "Load More" row so the already-showing results stay put — a failed
+    // pagination never raises the full-screen "Search failed" banner.
+    @Published var loadMoreFailed: Bool = false
     @Published var hasMorePages: Bool = false
     // True only once a search has actually completed for the current query.
     // Gates the "No results" message so it never flashes while typing or
@@ -73,12 +77,17 @@ final class SearchViewModel: ObservableObject {
     private let historyKey = "searchHistory"
     private let historyLimit = 12
 
-    private let archiveService: InternetArchiveService
+    private let archiveService: SearchProvider
     private let podcastSearchService: PodcastSearchService
     private var searchTask: Task<Void, Never>? = nil
     private var currentPage = 0
+    // Monotonic id stamped on each search. Any completion whose stamp is stale
+    // (a newer search has since started) must not mutate published state, so a
+    // slow request that lands after a newer one can never clobber fresh results
+    // or flip on a "Search failed" banner over results that are already showing.
+    private var searchGeneration = 0
 
-    init(archiveService: InternetArchiveService = InternetArchiveService(),
+    init(archiveService: SearchProvider = InternetArchiveService(),
          podcastSearchService: PodcastSearchService = PodcastSearchService.shared) {
         self.archiveService = archiveService
         self.podcastSearchService = podcastSearchService
@@ -115,7 +124,7 @@ final class SearchViewModel: ObservableObject {
     // returns nothing, never before the response arrives.
     var showNoResults: Bool {
         hasSearched && !isSearching && errorMessage == nil
-            && query.count >= 2 && results.isEmpty && podcastResults.isEmpty
+            && query.count >= 2 && displayedResults.isEmpty && podcastResults.isEmpty
     }
 
     // Lazily fetch duration + kind for one result (one IA metadata request).
@@ -158,6 +167,8 @@ final class SearchViewModel: ObservableObject {
     func searchChanged() {
         searchTask?.cancel()
         hasSearched = false
+        errorMessage = nil
+        loadMoreFailed = false
         podcastResults = []
         guard query.count >= 2 else { results = []; displayedResults = []; return }
         searchTask = Task {
@@ -170,6 +181,8 @@ final class SearchViewModel: ObservableObject {
     func submitSearch() {
         searchTask?.cancel()
         hasSearched = false
+        errorMessage = nil
+        loadMoreFailed = false
         podcastResults = []
         guard query.count >= 2 else { results = []; displayedResults = []; return }
         searchTask = Task {
@@ -181,6 +194,8 @@ final class SearchViewModel: ObservableObject {
     func scopeChanged() {
         searchTask?.cancel()
         hasSearched = false
+        errorMessage = nil
+        loadMoreFailed = false
         guard query.count >= 2 else { results = []; displayedResults = []; return }
         searchTask = Task {
             guard !Task.isCancelled else { return }
@@ -193,25 +208,55 @@ final class SearchViewModel: ObservableObject {
         await performSearch(page: currentPage + 1)
     }
 
-    private func performSearch(page: Int) async {
+    // Internal (not private) so unit tests can drive the generation/cancellation
+    // logic deterministically without the debounce/Task wrapper.
+    func performSearch(page: Int) async {
+        searchGeneration += 1
+        let generation = searchGeneration
+
         isSearching = true
-        errorMessage = nil
-        results = []
-        podcastResults = []
+        if page == 0 {
+            errorMessage = nil
+            loadMoreFailed = false
+            results = []
+            displayedResults = []
+            podcastResults = []
+        } else {
+            loadMoreFailed = false
+        }
+
         do {
             if scope == .podcasts {
                 let podcastHits = try await podcastSearchService.search(term: query)
+                guard generation == searchGeneration else { return }
                 podcastResults = podcastHits
             } else {
                 let groups = try await archiveService.search(query: query, page: page, scope: scope)
+                guard generation == searchGeneration else { return }
                 if page == 0 { results = groups } else { results.append(contentsOf: groups) }
                 displayedResults = results
                 currentPage = page
                 hasMorePages = groups.count == 20
             }
         } catch {
-            errorMessage = "Search failed \u{2014} check your connection"
+            // A newer search already superseded this one — let it own the state.
+            guard generation == searchGeneration else { return }
+            isSearching = false
+            // Our own cancellation (a fresh keystroke or scope change cancelled the
+            // in-flight request) is not a failure — never surface a connection error.
+            if error is CancellationError || (error as? URLError)?.code == .cancelled {
+                return
+            }
+            if page == 0 {
+                errorMessage = "Search failed \u{2014} check your connection"
+            } else {
+                loadMoreFailed = true
+            }
+            hasSearched = true
+            return
         }
+
+        guard generation == searchGeneration else { return }
         isSearching = false
         hasSearched = true
         if page == 0, errorMessage == nil { recordHistory(query) }
