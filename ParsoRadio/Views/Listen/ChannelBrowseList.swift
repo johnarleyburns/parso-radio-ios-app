@@ -26,6 +26,11 @@ struct ChannelBrowseList: View {
         ScrollViewReader { proxy in
             List {
                 channelsSection
+
+                Color.clear
+                    .frame(height: 60)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
             .listStyle(.insetGrouped)
             .onChange(of: iaCollectionStore.newlyAddedChannelId) { _, newId in

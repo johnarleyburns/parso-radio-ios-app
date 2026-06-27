@@ -125,7 +125,7 @@ struct HomeTopSection: View {
         Section {
             if !loaded {
                 Color.clear
-                    .frame(height: 0)
+                    .frame(height: 120)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else if items.isEmpty {
@@ -145,7 +145,7 @@ struct HomeTopSection: View {
                 .listRowBackground(Color.clear)
             }
         } header: {
-            if loaded && !items.isEmpty { Text("Jump back in") }
+            Text("Jump back in")
         }
         .task(id: playerVM.playHistoryVersion) {
             items = await playerVM.recentlyPlayedWorks(limit: 10)
@@ -154,60 +154,4 @@ struct HomeTopSection: View {
     }
 }
 
-// MARK: - Featured Card
 
-struct FeaturedCard: View {
-    let channel: Channel
-    let titleOverride: String?
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 6) {
-                ZStack {
-                    Color(.secondarySystemGroupedBackground)
-                    if let s = channel.imageURL, let url = URL(string: s) {
-                        AsyncImage(url: url) { phase in
-                            if let img = phase.image { img.resizable().scaledToFill() }
-                            else { Image(systemName: channel.icon).font(.title).foregroundStyle(.secondary) }
-                        }
-                    } else {
-                        Image(systemName: channel.icon).font(.title).foregroundStyle(.secondary)
-                    }
-                }
-                .frame(width: 120, height: 120)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                Text(titleOverride ?? channel.name).font(.caption.weight(.medium)).lineLimit(1)
-                Text(LibrarySection.section(for: channel.mediaKind).short)
-                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-            }
-            .frame(width: 120)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Play \(titleOverride ?? channel.name)")
-    }
-}
-
-// MARK: - Featured Today Section
-
-struct FeaturedTodaySection: View {
-    let onSelect: (Channel) -> Void
-
-    var body: some View {
-        Section {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
-                    ForEach(FeaturedPicker.featured(on: Date(), from: Channel.defaults + IACollectionStore.shared.channels), id: \.id) { channel in
-                        FeaturedCard(channel: channel, titleOverride: nil) { onSelect(channel) }
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 0))
-            .listRowBackground(Color.clear)
-        } header: {
-            Text("Featured today")
-        }
-    }
-}

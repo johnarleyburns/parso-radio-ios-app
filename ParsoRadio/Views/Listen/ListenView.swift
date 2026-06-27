@@ -25,20 +25,6 @@ struct ListenView: View {
 
                 ExploreTypeRow()
 
-                FeaturedTodaySection(onSelect: { presentation = .channel($0) })
-
-                Section {
-                    NavigationLink {
-                        List { ForEach(LibrarySection.ordered) { s in
-                            NavigationLink { ChannelBrowseList(kind: s.id) } label: { Label(s.label, systemImage: s.icon) }
-                        } }
-                        .listStyle(.insetGrouped)
-                        .navigationTitle("Browse")
-                    } label: {
-                        Label("Browse all collections", systemImage: "square.grid.2x2")
-                    }
-                }
-
                 Color.clear
                     .frame(height: 60)
                     .listRowBackground(Color.clear)
