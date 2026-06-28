@@ -5,7 +5,11 @@ import Foundation
 /// database writes are compiled out of release builds.
 enum UITestSupport {
     static var isActive: Bool {
+        #if DEBUG
         ProcessInfo.processInfo.arguments.contains("-uiTestSeed")
+        #else
+        false
+        #endif
     }
 
     static let bookIdentifier = "gallipoli_ia"

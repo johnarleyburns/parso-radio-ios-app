@@ -9,13 +9,11 @@ final class DatabaseService: @unchecked Sendable {
     private let db: Connection
     private let queue = DispatchQueue(label: "guru.parso.db", qos: .utility)
 
-    /// Shared instance using the default Documents/parso_radio.sqlite path.
-    /// Fatal error if the database cannot be opened (required for app operation).
     static let shared: DatabaseService = {
-        guard let service = try? DatabaseService() else {
-            fatalError("Cannot open database at default path")
+        if let service = try? DatabaseService() {
+            return service
         }
-        return service
+        return try! DatabaseService(path: ":memory:")
     }()
 
     // MARK: - Tracks table

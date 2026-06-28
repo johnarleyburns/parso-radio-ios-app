@@ -1,6 +1,5 @@
 import SwiftUI
 import UniformTypeIdentifiers
-import PhotosUI
 
 struct ChannelInfoView: View {
     let channel: Channel
