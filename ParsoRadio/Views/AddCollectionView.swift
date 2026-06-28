@@ -5,6 +5,7 @@ struct AddCollectionView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var collectionId = ""
     @State private var collectionTitle = ""
+    @State private var listURL = ""
     @State private var searchQuery = ""
     @State private var searchResults: [IASearchResult] = []
     @State private var isSearching = false
@@ -12,10 +13,12 @@ struct AddCollectionView: View {
     @State private var pendingResult: IASearchResult?
     @State private var showConfirmAdd = false
     @State private var showAlreadyAdded = false
+    @State private var showInvalidURL = false
 
     enum Mode: String, CaseIterable {
         case search = "Search"
         case manual = "Collection ID"
+        case listURL = "List URL"
     }
 
     var body: some View {
@@ -29,10 +32,10 @@ struct AddCollectionView: View {
                 .pickerStyle(.segmented)
                 .listRowBackground(Color.clear)
 
-                if mode == .search {
-                    searchSection
-                } else {
-                    manualSection
+                switch mode {
+                case .search: searchSection
+                case .manual: manualSection
+                case .listURL: listURLSection
                 }
             }
             .navigationTitle("Add Collection")
@@ -54,7 +57,7 @@ struct AddCollectionView: View {
                         let c = IACollection(
                             id: result.id, title: result.title,
                             category: "user", curator: result.creator ?? "",
-                            icon: "music.note", isDefault: false
+                            icon: "music.note"
                         )
                         store.addCollection(c)
                         pendingResult = nil
@@ -65,6 +68,11 @@ struct AddCollectionView: View {
                 if let result = pendingResult {
                     Text("\"\(result.title)\"")
                 }
+            }
+            .alert("Invalid URL", isPresented: $showInvalidURL) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Enter a valid Internet Archive playlist URL (e.g. https://archive.org/details/@username/lists/N/name).")
             }
         }
     }
@@ -134,6 +142,51 @@ struct AddCollectionView: View {
                 dismiss()
             }
             .disabled(collectionId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+    }
+
+    @ViewBuilder
+    private var listURLSection: some View {
+        Section {
+            TextField("Playlist URL", text: $listURL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+        } footer: {
+            Text("Paste a public Internet Archive playlist URL, e.g. https://archive.org/details/@username/lists/N/playlist-name")
+        }
+
+        if let info = InternetArchiveService.parseListURL(listURL) {
+            Section {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(info.displayName)
+                            .font(.subheadline.weight(.medium))
+                        Text("By @\(info.username)").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+            }
+        }
+
+        Section {
+            Button("Add Playlist") {
+                guard let info = InternetArchiveService.parseListURL(listURL) else {
+                    showInvalidURL = true
+                    return
+                }
+                let displayName = listURL.isEmpty ? info.displayName : info.displayName
+                let lid = InternetArchiveService.listId(from: listURL) ?? "ia-list-\(info.username)-\(info.listId)"
+                let query = InternetArchiveService.listQuery(from: info)
+
+                guard !store.collections.contains(where: { $0.id == lid }) else {
+                    showAlreadyAdded = true
+                    return
+                }
+                store.addCollection(id: lid, title: displayName, listURL: info.url, query: query)
+                dismiss()
+            }
+            .disabled(listURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
 

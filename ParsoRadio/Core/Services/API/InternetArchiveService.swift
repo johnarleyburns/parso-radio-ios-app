@@ -1,5 +1,13 @@
 import Foundation
 
+struct IAListInfo: Codable {
+    let username: String
+    let listId: String
+    let listName: String
+    let displayName: String
+    let url: String
+}
+
 struct InternetArchiveService {
     private let session: URLSession
     private let normalizer = MetadataNormalizer()
@@ -9,6 +17,47 @@ struct InternetArchiveService {
 
     init(session: URLSession = .app) {
         self.session = session
+    }
+
+    // MARK: - IA List URL parsing
+
+    static func parseListURL(_ urlString: String) -> IAListInfo? {
+        guard let url = URL(string: urlString.trimmingCharacters(in: .whitespacesAndNewlines)),
+              let host = url.host, host.contains("archive.org"),
+              url.pathComponents.count >= 6
+        else { return nil }
+
+        let comps = url.pathComponents
+        guard comps[1] == "details",
+              comps[2].hasPrefix("@"),
+              comps[3] == "lists"
+        else { return nil }
+
+        let username = String(comps[2].dropFirst())
+        let listId = comps[4]
+        let slug = comps[5]
+        let displayName = slug
+            .replacingOccurrences(of: "-", with: " ")
+            .split(separator: " ")
+            .map { $0.prefix(1).uppercased() + $0.dropFirst().lowercased() }
+            .joined(separator: " ")
+
+        return IAListInfo(
+            username: username,
+            listId: listId,
+            listName: slug,
+            displayName: displayName,
+            url: urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+    }
+
+    static func listQuery(from listInfo: IAListInfo) -> String {
+        "mediatype:audio AND subject:\"\(listInfo.listName.replacingOccurrences(of: "-", with: " "))\" AND -subject:\"spoken word\""
+    }
+
+    static func listId(from urlString: String) -> String? {
+        guard let info = parseListURL(urlString) else { return nil }
+        return "ia-list-\(info.username)-\(info.listId)"
     }
 
     // MARK: - Date parsing

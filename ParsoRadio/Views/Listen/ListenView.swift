@@ -25,6 +25,8 @@ struct ListenView: View {
 
                 ExploreTypeRow()
 
+                FeaturedTodaySection(onSelect: { presentation = .channel($0) })
+
                 Color.clear
                     .frame(height: 60)
                     .listRowBackground(Color.clear)

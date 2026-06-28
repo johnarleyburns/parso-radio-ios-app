@@ -117,7 +117,7 @@
     "query": "collection:vinyl_robert-haber-records AND -subject:\"spoken word\"",
     "tier": "curated_focused"
   },
-  {
+    {
     "id": "sfjazz",
     "title": "SFJAZZ Collection",
     "category": "jazz",
@@ -125,5 +125,55 @@
     "icon": "music.mic",
     "query": "collection:sfjazz AND -subject:\"spoken word\"",
     "tier": "curated_focused"
+  },
+  {
+    "id": "johnarleyburns-spanish-guitar",
+    "title": "Spanish Guitar",
+    "category": "world",
+    "curator": "John Arley Burns",
+    "icon": "guitars",
+    "query": "mediatype:audio AND subject:\"spanish guitar\" AND -subject:\"spoken word\"",
+    "tier": "user_list",
+    "listURL": "https://archive.org/details/@johnarleyburns/lists/2/spanish-guitar"
+  },
+  {
+    "id": "johnarleyburns-tribal-music",
+    "title": "Tribal Music",
+    "category": "world",
+    "curator": "John Arley Burns",
+    "icon": "globe",
+    "query": "mediatype:audio AND (subject:\"tribal music\" OR subject:\"world music\" OR subject:\"tribal\") AND -subject:\"spoken word\"",
+    "tier": "user_list",
+    "listURL": "https://archive.org/details/@johnarleyburns/lists/3/tribal-music"
+  },
+  {
+    "id": "johnarleyburns-gregorian-chant",
+    "title": "Gregorian Chant",
+    "category": "classical",
+    "curator": "John Arley Burns",
+    "icon": "music.quarternote.3",
+    "query": "mediatype:audio AND subject:\"gregorian chant\" AND -subject:\"spoken word\"",
+    "tier": "user_list",
+    "listURL": "https://archive.org/details/@johnarleyburns/lists/4/gregorian-chant"
+  },
+  {
+    "id": "johnarleyburns-gamelan",
+    "title": "Instrumental Gamelan Music",
+    "category": "world",
+    "curator": "John Arley Burns",
+    "icon": "music.note.house",
+    "query": "mediatype:audio AND subject:\"gamelan\" AND -subject:\"spoken word\"",
+    "tier": "user_list",
+    "listURL": "https://archive.org/details/@johnarleyburns/lists/5/instrumental-gamelan-music"
+  },
+  {
+    "id": "johnarleyburns-cool-jazz",
+    "title": "Cool Jazz",
+    "category": "jazz",
+    "curator": "John Arley Burns",
+    "icon": "music.mic",
+    "query": "mediatype:audio AND (subject:\"cool jazz\" OR subject:\"jazz\") AND -subject:\"spoken word\"",
+    "tier": "user_list",
+    "listURL": "https://archive.org/details/@johnarleyburns/lists/6/cool-jazz"
   }
 ]

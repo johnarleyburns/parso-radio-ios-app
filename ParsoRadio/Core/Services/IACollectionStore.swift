@@ -11,9 +11,10 @@ struct IACollection: Codable, Identifiable, Hashable {
     var tier: String?
     var itemCount: Int?
     var isDefault: Bool = false
+    var listURL: String?
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, category, curator, icon, query, tier, itemCount
+        case id, title, category, curator, icon, query, tier, itemCount, listURL
     }
 
     var channelId: String { "ia-collection-\(id)" }
@@ -24,6 +25,7 @@ struct IACollection: Codable, Identifiable, Hashable {
     var isGenreCurator: Bool { tier == "genre_curators" }
     var isLPCurator: Bool { tier == "lp_curators" }
     var isFavList: Bool { tier == "fav_lists" }
+    var isUserList: Bool { tier == "user_list" }
 
     func asChannel() -> Channel {
         Channel(
@@ -57,7 +59,7 @@ final class IACollectionStore: ObservableObject {
     }
 
     var featuredCollections: [IACollection] {
-        collections.filter { $0.isCuratedFocused || $0.isGenreCurator }
+        collections.filter { $0.isCuratedFocused || $0.isGenreCurator || $0.isUserList }
     }
 
     var lpCollections: [IACollection] {
@@ -86,10 +88,11 @@ final class IACollectionStore: ObservableObject {
         newlyAddedChannelId = c.channelId
     }
 
-    func addCollection(id: String, title: String) {
+    func addCollection(id: String, title: String, listURL: String? = nil, query: String? = nil) {
         let c = IACollection(
             id: id, title: title, category: "user",
-            curator: "", icon: "music.note", isDefault: false
+            curator: "", icon: "music.note", query: query,
+            isDefault: false, listURL: listURL
         )
         addCollection(c)
     }
