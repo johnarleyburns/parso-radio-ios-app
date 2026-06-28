@@ -61,20 +61,9 @@ targets:
         UIBackgroundModes:
           - audio
         ITSAppUsesNonExemptEncryption: false
-        UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: false
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInMedia: true
-          NSExceptionDomains:
-            bbc.co.uk:
-              NSIncludesSubdomains: true
-              NSExceptionAllowsInsecureHTTPLoads: true
-            bbci.co.uk:
-              NSIncludesSubdomains: true
-              NSExceptionAllowsInsecureHTTPLoads: true
-            tritondigital.com:
-              NSIncludesSubdomains: true
-              NSExceptionAllowsInsecureHTTPLoads: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: guru.parso.ios-radio-app
@@ -88,6 +77,7 @@ targets:
         Debug:
           CODE_SIGN_STYLE: Automatic
           DEVELOPMENT_TEAM: "3264Y8YUGV"
+          INFOPLIST_KEY_UIFileSharingEnabled: YES
         Release:
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: "$(CI_CERT)"

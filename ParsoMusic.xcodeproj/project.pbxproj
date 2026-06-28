@@ -1490,6 +1490,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_TESTABILITY = YES;
 				INFOPLIST_FILE = ParsoRadio/Info.plist;
+				INFOPLIST_KEY_UIFileSharingEnabled = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
