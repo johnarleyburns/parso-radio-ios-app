@@ -1152,6 +1152,36 @@ final class AudioPlayerServiceTests: XCTestCase {
         XCTAssertEqual(category, .playback, "AVAudioSession category must be .playback for background audio")
     }
 
+    func testBackgroundRouteChurnDoesNotPausePlayback() {
+        XCTAssertFalse(AudioPlayerService.shouldPauseForRouteFallback(
+            reason: .routeConfigurationChange,
+            isPlaying: true,
+            appIsActive: false,
+            currentOutputIsBuiltInSpeaker: true,
+            previousRouteHadExternalOutput: true
+        ), "Background route churn must not silence active background playback")
+    }
+
+    func testForegroundExternalRouteFallbackStillPausesPlayback() {
+        XCTAssertTrue(AudioPlayerService.shouldPauseForRouteFallback(
+            reason: .routeConfigurationChange,
+            isPlaying: true,
+            appIsActive: true,
+            currentOutputIsBuiltInSpeaker: true,
+            previousRouteHadExternalOutput: true
+        ), "Foreground fallback from external audio to speaker should still pause")
+    }
+
+    func testOldDeviceUnavailablePausesPlayback() {
+        XCTAssertTrue(AudioPlayerService.shouldPauseForRouteFallback(
+            reason: .oldDeviceUnavailable,
+            isPlaying: true,
+            appIsActive: false,
+            currentOutputIsBuiltInSpeaker: false,
+            previousRouteHadExternalOutput: false
+        ), "A real route loss should still pause playback")
+    }
+
     // Regression: ambient-loop channels (Ocean Waves / Rainy Day / Flowing
     // Water) crashed on play with the AVAudioEngine crossfade backend. The
     // AVPlayerLooper path must set up and tear down without crashing.

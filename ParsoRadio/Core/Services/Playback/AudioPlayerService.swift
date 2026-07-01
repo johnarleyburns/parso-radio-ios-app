@@ -46,6 +46,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     private var timeObserver: Any?
     private var interruptionObserver: (any NSObjectProtocol)?
     private var routeChangeObserver: (any NSObjectProtocol)?
+    private var backgroundObserver: (any NSObjectProtocol)?
     private var statusObserver: NSKeyValueObservation?
     // Strong ref to the caching resource-loader so AVFoundation (which holds the
     // delegate weakly) doesn't drop it mid-playback. This is the ONE streaming
@@ -75,12 +76,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     private var nonAudioTimer: Task<Void, Never>?
 
     init() {
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            Log.playback.error("AVAudioSession setup failed: \(error)")
-        }
+        activatePlaybackSession()
         setupRemoteCommandCenter()
         setupAudioSessionObservers()
     }
@@ -100,6 +96,9 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         if let obs = routeChangeObserver {
             NotificationCenter.default.removeObserver(obs)
         }
+        if let obs = backgroundObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
     }
 
     // `startAt` is the resume offset. A seek issued before the AVPlayerItem
@@ -111,6 +110,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     // seek-immediately-after-play race was lost almost every time.
     func play(url: URL, track: Track, looping: Bool = false, startAt: Double = 0,
               autoPlay: Bool = true) {
+        activatePlaybackSession()
         tearDownPlayer()
 
         // Enforce the streaming cache budget before starting a new track.
@@ -225,6 +225,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         // in handleItemReady) so the seek is never dropped and the user never
         // hears the track restart at 0:00. Looping (ambient) always starts.
         if autoPlay, looping || pendingStartSeek <= 0 {
+            activatePlaybackSession()
             player?.play()
             applyRate()
         }
@@ -279,6 +280,7 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
         func startIfNeeded(_ at: Double) {
             updateNowPlayingElapsed(at)
             guard pendingAutoPlay else { return }
+            activatePlaybackSession()
             player?.play()
             applyRate()
             isPlaying = true
@@ -344,8 +346,9 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
     }
 
     func resume() {
-        // Re-activate the audio session in case it was deactivated during an interruption.
-        try? AVAudioSession.sharedInstance().setActive(true)
+        // Re-activate the audio session in case it was deactivated during an
+        // interruption, route churn, or an app background transition.
+        activatePlaybackSession()
         // The user explicitly wants playback now: if the item is still waiting on
         // a deferred resume-seek (loaded paused), make sure it PLAYS once ready
         // instead of staying silent.
@@ -415,6 +418,42 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
                 self?.handleRouteChange(notification)
             }
         }
+
+        // Background audio should continue without requiring a UI action. Reassert
+        // the playback session at the exact transition point because other AV
+        // players in the app, interruptions, and route churn can leave the shared
+        // session inactive even though the Info.plist background mode is correct.
+        backgroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.keepPlaybackAliveAfterBackgrounding()
+            }
+        }
+    }
+
+    @discardableResult
+    private func activatePlaybackSession() -> Bool {
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default)
+            try session.setActive(true)
+            return true
+        } catch {
+            Log.playback.error("AVAudioSession setup failed: \(error)")
+            return false
+        }
+    }
+
+    private func keepPlaybackAliveAfterBackgrounding() {
+        guard isPlaying else { return }
+        activatePlaybackSession()
+        player?.play()
+        applyRate()
+        MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] =
+            NSNumber(value: Self.clampRate(playbackRate))
     }
 
     private func handleInterruption(_ notification: Notification) {
@@ -449,22 +488,38 @@ final class AudioPlayerService: ObservableObject, AudioEngine {
             let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue)
         else { return }
 
-        // The previous output device became unavailable (headphones unplugged,
-        // Bluetooth/AirPods lost). iOS pauses automatically; mirror that.
-        if reason == .oldDeviceUnavailable {
+        if Self.shouldPauseForRouteFallback(
+            reason: reason,
+            isPlaying: isPlaying,
+            appIsActive: UIApplication.shared.applicationState == .active,
+            currentOutputIsBuiltInSpeaker: currentOutputIsBuiltInSpeaker(),
+            previousRouteHadExternalOutput: previousRouteHadExternalOutput(info)
+        ) {
             pauseForRouteFallback()
-            return
+        }
+    }
+
+    static func shouldPauseForRouteFallback(
+        reason: AVAudioSession.RouteChangeReason,
+        isPlaying: Bool,
+        appIsActive: Bool,
+        currentOutputIsBuiltInSpeaker: Bool,
+        previousRouteHadExternalOutput: Bool
+    ) -> Bool {
+        guard isPlaying else { return false }
+
+        if reason == .oldDeviceUnavailable {
+            return true
         }
 
-        // Defensive catch-all: AirPods can briefly drop and the audio route
-        // silently FALLS BACK to the built-in speaker while the system still
-        // shows them "connected" — the user then hears the phone speaker. If a
-        // route change leaves us on the built-in speaker while we were playing
-        // through something else, pause instead of blasting the speaker.
-        if isPlaying, currentOutputIsBuiltInSpeaker(),
-           previousRouteHadExternalOutput(info) {
-            pauseForRouteFallback()
-        }
+        // AirPods/Bluetooth can briefly report a built-in-speaker fallback
+        // without using .oldDeviceUnavailable. Only mirror that pause while
+        // foregrounded; generic route churn during backgrounding must never
+        // silence an actively playing background-audio session.
+        return reason == .routeConfigurationChange
+            && appIsActive
+            && currentOutputIsBuiltInSpeaker
+            && previousRouteHadExternalOutput
     }
 
     private func pauseForRouteFallback() {
